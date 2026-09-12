@@ -100,9 +100,9 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
         return {
           id: `scanned-${Date.now()}-${index}`,
-          name: item.name || "Ingrediente",
+          name: item.name || (language === "es" ? "Ingrediente" : language === "bg" ? "Продукт" : "Ingredient"),
           quantity: item.quantity || 1,
-          unit: item.unit || "uds",
+          unit: item.unit || (language === "es" ? "uds" : language === "bg" ? "бр." : "pcs"),
           category: cat,
           estimatedDaysUntilExpiry: item.estimatedDaysUntilExpiry || 7,
           approximateCostEUR: item.approximateCostEUR || 1.5,
@@ -115,6 +115,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         setErrorMsg(
           language === "es"
             ? "No se han detectado alimentos con claridad. Intenta con una foto más iluminada o introduce los datos manualmente."
+            : language === "bg"
+            ? "Не бяха разпознати ясно хранителни продукти. Моля, опитайте с по-добро осветление или въведете данните ръчно."
             : "Could not clearly identify food items. Please try with better lighting or enter them manually."
         );
       } else {
@@ -125,6 +127,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       setErrorMsg(
         language === "es"
           ? "Error de conexión con el escáner de IA. Inténtalo de nuevo."
+          : language === "bg"
+          ? "Грешка при връзка с AI скенера. Моля, опитайте отново."
           : "Error connecting to AI vision scanner. Please try again."
       );
     } finally {
@@ -150,7 +154,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
       const newItem: ScannedItem = {
         id: `barcode-${Date.now()}`,
-        name: data.name || `Producto ${barcodeInput}`,
+        name: data.name || (language === "es" ? `Producto ${barcodeInput}` : language === "bg" ? `Продукт ${barcodeInput}` : `Product ${barcodeInput}`),
         quantity: data.quantity || 1,
         unit: data.unit || "pcs",
         category: cat,
@@ -163,7 +167,13 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       setScannedItems((prev) => [newItem, ...prev]);
       setBarcodeInput("");
     } catch (err) {
-      setErrorMsg("Error buscando el código de barras.");
+      setErrorMsg(
+        language === "es"
+          ? "Error buscando el código de barras."
+          : language === "bg"
+          ? "Грешка при търсене на баркода."
+          : "Error looking up barcode."
+      );
     } finally {
       setIsScanning(false);
     }
@@ -220,13 +230,13 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             </div>
             <div>
               <h2 className="text-base font-bold text-white font-['Outfit'] flex items-center gap-2">
-                {currentText.scanCameraModalTitle || "Escáner Visual con IA"}
+                {currentText.scanCameraModalTitle || (language === "es" ? "Escáner Visual con IA" : language === "bg" ? "AI Визуален скенер" : "AI Visual Scanner")}
                 <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-wider">
                   AI Vision
                 </span>
               </h2>
               <p className="text-xs text-stone-400 line-clamp-1">
-                {currentText.scanCameraModalSubtitle || "Detecta ingredientes desde tu cámara o ticket"}
+                {currentText.scanCameraModalSubtitle || (language === "es" ? "Detecta ingredientes desde tu cámara o ticket" : language === "bg" ? "Разпознайте продукти с камерата или от касова бележка" : "Detect ingredients from camera or receipt")}
               </p>
             </div>
           </div>
@@ -256,7 +266,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             }`}
           >
             <Camera className="w-3.5 h-3.5" />
-            <span>{currentText.scanModeFridge || "Nevera / Despensa"}</span>
+            <span>{currentText.scanModeFridge || (language === "es" ? "Nevera / Despensa" : language === "bg" ? "Хладилник / Килер" : "Fridge / Pantry")}</span>
           </button>
 
           <button
@@ -272,7 +282,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             }`}
           >
             <Receipt className="w-3.5 h-3.5" />
-            <span>{currentText.scanModeReceipt || "Ticket de Súper"}</span>
+            <span>{currentText.scanModeReceipt || (language === "es" ? "Ticket de Súper" : language === "bg" ? "Касова бележка" : "Supermarket Receipt")}</span>
           </button>
 
           <button
@@ -288,7 +298,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             }`}
           >
             <Barcode className="w-3.5 h-3.5" />
-            <span>{currentText.scanModeBarcode || "Código de Barras"}</span>
+            <span>{currentText.scanModeBarcode || (language === "es" ? "Código de Barras" : language === "bg" ? "Баркод" : "Barcode")}</span>
           </button>
         </div>
 
@@ -311,7 +321,13 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                     type="text"
                     value={barcodeInput}
                     onChange={(e) => setBarcodeInput(e.target.value)}
-                    placeholder="Introduce código EAN (ej: 8480000100412)..."
+                    placeholder={
+                      language === "es"
+                        ? "Introduce código EAN (ej: 8480000100412)..."
+                        : language === "bg"
+                        ? "Въведете EAN баркод (напр. 8480000100412)..."
+                        : "Enter EAN barcode (e.g. 8480000100412)..."
+                    }
                     className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-stone-400 focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -321,17 +337,28 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                   className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
                 >
                   {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Barcode className="w-4 h-4" />}
-                  <span>Buscar</span>
+                  <span>{language === "es" ? "Buscar" : language === "bg" ? "Търси" : "Search"}</span>
                 </button>
               </form>
 
               {/* Quick Barcode Examples */}
               <div className="flex flex-wrap gap-1.5 items-center">
-                <span className="text-[11px] text-stone-400">Probar rápido:</span>
+                <span className="text-[11px] text-stone-400">
+                  {language === "es" ? "Probar rápido:" : language === "bg" ? "Бърз тест:" : "Quick try:"}
+                </span>
                 {[
-                  { label: "Leche Entera", code: "8480000100412" },
-                  { label: "Yogur Búlgaro", code: "3800000100123" },
-                  { label: "Huevos L", code: "8410000000123" },
+                  {
+                    label: language === "es" ? "Leche Entera" : language === "bg" ? "Прясно мляко" : "Whole Milk",
+                    code: "8480000100412",
+                  },
+                  {
+                    label: language === "es" ? "Yogur Búlgaro" : language === "bg" ? "Кисело мляко" : "Bulgarian Yogurt",
+                    code: "3800000100123",
+                  },
+                  {
+                    label: language === "es" ? "Huevos L" : language === "bg" ? "Яйца L" : "Eggs L",
+                    code: "8410000000123",
+                  },
                 ].map((sample) => (
                   <button
                     key={sample.code}
@@ -359,15 +386,35 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                   </div>
                   <div>
                     <p className="text-sm font-bold text-white">
-                      {scanMode === "fridge" ? "Hacer foto de la nevera o despensa" : "Fotografiar ticket de supermercado"}
+                      {scanMode === "fridge"
+                        ? language === "es"
+                          ? "Hacer foto de la nevera o despensa"
+                          : language === "bg"
+                          ? "Снимка на хладилника или килера"
+                          : "Take photo of fridge or pantry"
+                        : language === "es"
+                        ? "Fotografiar ticket de supermercado"
+                        : language === "bg"
+                        ? "Снимка на касова бележка"
+                        : "Take photo of supermarket receipt"}
                     </p>
                     <p className="text-xs text-stone-400 mt-1">
-                      Haz clic para abrir tu cámara o subir una imagen
+                      {language === "es"
+                        ? "Haz clic para abrir tu cámara o subir una imagen"
+                        : language === "bg"
+                        ? "Натиснете, за да отворите камерата или качите снимка"
+                        : "Click to open camera or upload an image"}
                     </p>
                   </div>
                   <div className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-semibold px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                     <Upload className="w-3.5 h-3.5" />
-                    <span>Seleccionar archivo o disparar cámara</span>
+                    <span>
+                      {language === "es"
+                        ? "Seleccionar archivo o disparar cámara"
+                        : language === "bg"
+                        ? "Изберете файл или снимайте"
+                        : "Select file or snap photo"}
+                    </span>
                   </div>
                 </div>
               ) : (
@@ -381,7 +428,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                     <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center gap-2">
                       <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
                       <span className="text-xs font-bold text-white font-['Outfit'] animate-pulse">
-                        {currentText.scanAnalyzing || "Analizando alimentos con IA..."}
+                        {currentText.scanAnalyzing || (language === "es" ? "Analizando alimentos con IA..." : language === "bg" ? "Анализиране на храни с AI..." : "Analyzing items with AI...")}
                       </span>
                     </div>
                   )}
@@ -393,7 +440,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                     }}
                     className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-white text-[11px] font-semibold backdrop-blur-sm transition-colors cursor-pointer"
                   >
-                    Cambiar foto
+                    {language === "es" ? "Cambiar foto" : language === "bg" ? "Смени снимката" : "Change photo"}
                   </button>
                 </div>
               )}
@@ -415,10 +462,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
               <div className="flex items-center justify-between">
                 <span className="text-xs font-bold text-white font-['Outfit'] flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  {currentText.scanFoundItems || "Alimentos detectados"} ({scannedItems.length})
+                  {currentText.scanFoundItems || (language === "es" ? "Alimentos detectados" : language === "bg" ? "Разпознати продукти" : "Detected items")} ({scannedItems.length})
                 </span>
                 <span className="text-[11px] text-stone-400">
-                  {selectedCount} seleccionados
+                  {selectedCount} {language === "es" ? "seleccionados" : language === "bg" ? "избрани" : "selected"}
                 </span>
               </div>
 
@@ -488,7 +535,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             }}
             className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold transition-colors cursor-pointer"
           >
-            Cancelar
+            {currentText.cancel || "Cancel"}
           </button>
 
           <button
@@ -499,7 +546,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
           >
             <Plus className="w-3.5 h-3.5" />
             <span>
-              {currentText.addScannedToPantry || "Añadir a mi despensa"} ({selectedCount})
+              {currentText.addScannedToPantry || (language === "es" ? "Añadir a mi despensa" : language === "bg" ? "Добави към килера" : "Add to pantry")} ({selectedCount})
             </span>
           </button>
         </div>

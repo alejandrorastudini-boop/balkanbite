@@ -105,6 +105,7 @@ const FALLBACK_RECIPES = [
     fiberG: 2,
     healthScore: 94,
     tags: ["Saludable", "Probiótico", "Económico < 2 €", "Sin Fuego", "10-min"],
+    imageUrl: "/images/tarator_cold_soup_1789201044887.jpg",
     ingredients: [
       { name: "Yogur natural (Кисело мляко)", amount: 400, unit: "g", inPantry: true },
       { name: "Pepinos", amount: 2, unit: "uds", inPantry: true },
@@ -167,6 +168,7 @@ const FALLBACK_RECIPES = [
     fiberG: 3.5,
     healthScore: 91,
     tags: ["Alto en Proteína", "Vegetariano", "Rápido 15 min", "Económico"],
+    imageUrl: "/images/mishmash_egg_skillet_1789201058875.jpg",
     ingredients: [
       { name: "Pimientos rojos (asados o frescos)", amount: 3, unit: "uds", inPantry: true },
       { name: "Queso blanco en salmuera / Feta", amount: 150, unit: "g", inPantry: true },
@@ -231,6 +233,7 @@ const FALLBACK_RECIPES = [
     fiberG: 14,
     healthScore: 96,
     tags: ["Alto en Fibra", "Vegano", "Económico < 1 €", "Cardiosaludable"],
+    imageUrl: "/images/bean_stew_chorba_1789201071875.jpg",
     ingredients: [
       { name: "Alubias blancas cocidas", amount: 500, unit: "g", inPantry: true },
       { name: "Zanahoria", amount: 1, unit: "ud", inPantry: true },
@@ -270,6 +273,73 @@ const FALLBACK_RECIPES = [
     },
   },
 ];
+
+function resolveRecipeImageUrl(recipe: any): string {
+  if (recipe && recipe.imageUrl && typeof recipe.imageUrl === "string" && recipe.imageUrl.trim().length > 0) {
+    if (recipe.imageUrl.startsWith("/src/assets/images/")) {
+      return recipe.imageUrl.replace("/src/assets/images/", "/images/");
+    }
+    return recipe.imageUrl;
+  }
+
+  const enTitle = (recipe?.title?.en || "").toLowerCase();
+  const bgTitle = (recipe?.title?.bg || "").toLowerCase();
+  const esTitle = (recipe?.title?.es || "").toLowerCase();
+  const tags = (recipe?.tags || []).join(" ").toLowerCase();
+  const ingredientNames = (recipe?.ingredients || []).map((i: any) => (i.name || "").toLowerCase()).join(" ");
+  const text = `${enTitle} ${bgTitle} ${esTitle} ${tags} ${ingredientNames}`;
+
+  if (text.includes("tarator") || text.includes("таратор") || (text.includes("yogur") && text.includes("pepino"))) {
+    return "/images/tarator_cold_soup_1789201044887.jpg";
+  }
+  if (text.includes("mish-mash") || text.includes("mishmash") || text.includes("миш-маш") || (text.includes("revuelto") && text.includes("pimiento"))) {
+    return "/images/mishmash_egg_skillet_1789201058875.jpg";
+  }
+  if (text.includes("bob") || text.includes("боб") || text.includes("bean") || text.includes("alubia") || text.includes("fabada")) {
+    return "/images/bean_stew_chorba_1789201071875.jpg";
+  }
+  if (text.includes("lentil") || text.includes("леща") || text.includes("lenteja")) {
+    return "/images/lentil_soup_balkan_style_1789192381584.jpg";
+  }
+  if (text.includes("shopska") || text.includes("шопска") || text.includes("salad") || text.includes("салата") || text.includes("ensalada")) {
+    return "/images/shopska_salad_balkan_style_1789192343976.jpg";
+  }
+  if (text.includes("musaka") || text.includes("мусака") || text.includes("moussaka")) {
+    return "/images/musaka_balkan_style_1789192368570.jpg";
+  }
+  if (text.includes("banitsa") || text.includes("баница") || text.includes("pie") || text.includes("hojaldre")) {
+    return "/images/banitsa_pastry_balkan_style_1789192356824.jpg";
+  }
+  if (text.includes("pasta") || text.includes("macarron") || text.includes("макарони") || text.includes("spaghetti") || text.includes("noodle")) {
+    return "https://images.unsplash.com/photo-1621996346565-e3d5d6281699?auto=format&fit=crop&w=800&q=80";
+  }
+  if (text.includes("rice") || text.includes("ориз") || text.includes("arroz") || text.includes("risotto")) {
+    return "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=800&q=80";
+  }
+  if (text.includes("egg") || text.includes("яйц") || text.includes("huevo") || text.includes("omelet") || text.includes("tortilla")) {
+    return "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=800&q=80";
+  }
+  if (text.includes("chicken") || text.includes("пиле") || text.includes("pollo") || text.includes("turkey") || text.includes("pavo")) {
+    return "https://images.unsplash.com/photo-1598515214211-89d3c73ae83b?auto=format&fit=crop&w=800&q=80";
+  }
+  if (text.includes("fish") || text.includes("риба") || text.includes("pescado") || text.includes("salmon") || text.includes("tuna") || text.includes("atún")) {
+    return "https://images.unsplash.com/photo-1519708227418-c8fd9a32b7a2?auto=format&fit=crop&w=800&q=80";
+  }
+  if (text.includes("meatball") || text.includes("кюфте") || text.includes("albondiga") || text.includes("beef") || text.includes("pork") || text.includes("cerdo")) {
+    return "https://images.unsplash.com/photo-1529042410759-befb1204b468?auto=format&fit=crop&w=800&q=80";
+  }
+  if (text.includes("soup") || text.includes("супа") || text.includes("sopa") || text.includes("crema") || text.includes("caldo")) {
+    return "https://images.unsplash.com/photo-1547592166-23ac45744acd?auto=format&fit=crop&w=800&q=80";
+  }
+  if (text.includes("sandwich") || text.includes("сандвич") || text.includes("bocadillo") || text.includes("tostada") || text.includes("wrap")) {
+    return "https://images.unsplash.com/photo-1528735602780-2552fd46c7af?auto=format&fit=crop&w=800&q=80";
+  }
+  if (text.includes("zucchini") || text.includes("calabacín") || text.includes("vegetable") || text.includes("зеленчу") || text.includes("verdura")) {
+    return "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80";
+  }
+
+  return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80";
+}
 
 function fallbackParseIntent(transcript: string, language: string, currentPantry: any[] = [], mealLogs: any[] = []) {
   const lower = transcript.toLowerCase();
@@ -488,8 +558,12 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
 
     if (!ai) {
       // Return rich seed recipes if no API key
+      const fallbackWithImages = FALLBACK_RECIPES.map((rec) => ({
+        ...rec,
+        imageUrl: resolveRecipeImageUrl(rec),
+      }));
       return res.json({
-        recipes: FALLBACK_RECIPES,
+        recipes: fallbackWithImages,
         source: "curated_fallback",
         note: "Add Gemini API Key in Settings > Secrets for endless dynamic recipes from your specific pantry!",
       });
@@ -565,14 +639,25 @@ Return strictly a JSON array of 3 recipe objects conforming to this schema:
     });
 
     const parsed = JSON.parse(response.text || "[]");
+    const rawList: any[] = Array.isArray(parsed) ? parsed : (parsed.recipes || FALLBACK_RECIPES);
+    const enrichedRecipes = rawList.map((rec: any, idx: number) => ({
+      ...rec,
+      id: rec.id || `ai-rec-${Date.now()}-${idx}`,
+      imageUrl: resolveRecipeImageUrl(rec),
+    }));
+
     return res.json({
-      recipes: Array.isArray(parsed) ? parsed : (parsed.recipes || FALLBACK_RECIPES),
+      recipes: enrichedRecipes,
       source: "gemini",
     });
   } catch (err: any) {
     console.error("Error generating recipes:", err);
+    const fallbackWithImages = FALLBACK_RECIPES.map((rec) => ({
+      ...rec,
+      imageUrl: resolveRecipeImageUrl(rec),
+    }));
     return res.json({
-      recipes: FALLBACK_RECIPES,
+      recipes: fallbackWithImages,
       source: "fallback_error",
       error: err.message,
     });
@@ -809,6 +894,23 @@ app.get("/api/barcode/:code", async (req, res) => {
     console.error("Barcode lookup error:", err);
     return res.status(500).json({ error: "Failed to lookup barcode" });
   }
+});
+
+// Serve legal pages directly
+app.get(["/privacy", "/privacy.html"], (_req, res) => {
+  const privacyPath = path.join(process.cwd(), "public", "privacy.html");
+  if (fs.existsSync(privacyPath)) {
+    return res.sendFile(privacyPath);
+  }
+  return res.redirect("/");
+});
+
+app.get(["/terms", "/terms.html"], (_req, res) => {
+  const termsPath = path.join(process.cwd(), "public", "terms.html");
+  if (fs.existsSync(termsPath)) {
+    return res.sendFile(termsPath);
+  }
+  return res.redirect("/");
 });
 
 // Vite middleware / production serving

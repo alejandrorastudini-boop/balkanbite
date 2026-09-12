@@ -73,7 +73,7 @@ export const SAMPLE_RECIPES: Recipe[] = [
       bg: "Богата на растителен протеин и пребиотични фибри за перфектно храносмилане.",
       es: "Rica en proteína vegetal y fibra prebiótica para una digestión óptima y saciedad duradera.",
     },
-    imageUrl: "/src/assets/images/lentil_soup_balkan_style_1789192381584.jpg",
+    imageUrl: "/images/lentil_soup_balkan_style_1789192381584.jpg",
   },
   {
     id: "rec-bacon-rice",
@@ -130,7 +130,7 @@ export const SAMPLE_RECIPES: Recipe[] = [
       bg: "Високо съдържание на пълноценен протеин и витамини от група B.",
       es: "Aporte elevado de proteína de alto valor biológico y saciedad duradera.",
     },
-    imageUrl: "/src/assets/images/musaka_balkan_style_1789192368570.jpg",
+    imageUrl: "https://images.unsplash.com/photo-1512058564366-18510be2db19?auto=format&fit=crop&w=800&q=80",
   },
   {
     id: "rec-creamy-macaroni",
@@ -187,7 +187,7 @@ export const SAMPLE_RECIPES: Recipe[] = [
       bg: "Баланс от енергийни въглехидрати, калций и хидратиращи електролити от краставицата.",
       es: "Aporte energético limpio, calcio lácteo y frescura hidratante gracias al pepino.",
     },
-    imageUrl: "/src/assets/images/shopska_salad_balkan_style_1789192343976.jpg",
+    imageUrl: "https://images.unsplash.com/photo-1621996346565-e3d5d6281699?auto=format&fit=crop&w=800&q=80",
   },
 ];
 

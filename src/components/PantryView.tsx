@@ -107,46 +107,50 @@ export const PantryView: React.FC<PantryViewProps> = ({
   return (
     <div id="pantry-view" className="space-y-4 pb-20">
       {/* Top Banner Stats */}
-      <div className="grid grid-cols-3 gap-2.5">
-        <div className="bg-stone-800/80 border border-stone-700/60 rounded-xl p-3 flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
+      <div className="grid grid-cols-3 gap-3">
+        <div className="bg-[#131A1F]/60 backdrop-blur-md border border-white/[0.06] rounded-2xl p-3.5 flex flex-col justify-between shadow-[0_4px_20px_rgba(0,0,0,0.2)]">
+          <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest">
             {currentText.pantryStatsItems}
           </span>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-xl font-bold text-white font-['Outfit']">
+          <div className="flex items-baseline gap-1 mt-2">
+            <span className="text-2xl font-extrabold text-white font-['Outfit'] tracking-tight">
               {pantry.length}
             </span>
-            <span className="text-xs text-stone-400">
+            <span className="text-[11px] font-medium text-stone-500">
               {currentText.pantryStatsStock}
             </span>
           </div>
         </div>
 
-        <div className="bg-stone-800/80 border border-stone-700/60 rounded-xl p-3 flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider flex items-center gap-1">
-            <AlertTriangle className="w-3 h-3 text-amber-400" />
+        <div className="bg-[#131A1F]/60 backdrop-blur-md border border-white/[0.06] rounded-2xl p-3.5 flex flex-col justify-between shadow-[0_4px_20px_rgba(0,0,0,0.2)] relative overflow-hidden">
+          {expiringCount > 0 && (
+             <div className="absolute top-0 right-0 w-16 h-16 bg-amber-500/10 blur-xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          )}
+          <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-1.5 relative z-10">
+            <AlertTriangle className="w-3 h-3 text-amber-500" />
             {currentText.pantryStatsExpiring}
           </span>
-          <div className="flex items-baseline gap-1 mt-1">
+          <div className="flex items-baseline gap-1 mt-2 relative z-10">
             <span
-              className={`text-xl font-bold font-['Outfit'] ${
+              className={`text-2xl font-extrabold font-['Outfit'] tracking-tight ${
                 expiringCount > 0 ? "text-amber-400" : "text-emerald-400"
               }`}
             >
               {expiringCount}
             </span>
-            <span className="text-xs text-stone-400">
+            <span className="text-[11px] font-medium text-stone-500">
               {currentText.pantryStatsSoon}
             </span>
           </div>
         </div>
 
-        <div className="bg-stone-800/80 border border-stone-700/60 rounded-xl p-3 flex flex-col justify-between">
-          <span className="text-[11px] font-semibold text-stone-400 uppercase tracking-wider">
+        <div className="bg-[#131A1F]/60 backdrop-blur-md border border-white/[0.06] rounded-2xl p-3.5 flex flex-col justify-between shadow-[0_4px_20px_rgba(0,0,0,0.2)] relative overflow-hidden">
+          <div className="absolute top-0 right-0 w-16 h-16 bg-emerald-500/10 blur-xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+          <span className="text-[10px] font-bold text-stone-400 uppercase tracking-widest relative z-10">
             {currentText.pantryStatsValue}
           </span>
-          <div className="flex items-baseline gap-1 mt-1">
-            <span className="text-xl font-bold text-emerald-400 font-['Outfit']">
+          <div className="flex items-baseline gap-1 mt-2 relative z-10">
+            <span className="text-xl font-extrabold text-emerald-400 font-['Outfit'] tracking-tight">
               {currency === "EUR"
                 ? `€${totalValueEUR.toFixed(1)}`
                 : `$${(totalValueEUR * 1.1).toFixed(1)}`}
@@ -156,77 +160,80 @@ export const PantryView: React.FC<PantryViewProps> = ({
       </div>
 
       {/* Anti-Waste Financial Savings Ticker */}
-      <div className="bg-gradient-to-r from-emerald-950/40 via-stone-850 to-stone-900 border border-emerald-500/30 rounded-xl px-3.5 py-2.5 flex items-center justify-between text-xs shadow-xs">
-        <div className="flex items-center gap-2.5">
-          <div className="w-7 h-7 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0">
+      <div className="bg-[#131A1F]/80 backdrop-blur-md border border-emerald-500/20 rounded-2xl px-4 py-3 flex items-center justify-between text-xs shadow-[0_4px_20px_rgba(16,185,129,0.05)] relative overflow-hidden">
+        <div className="absolute top-0 left-0 w-32 h-32 bg-emerald-500/5 blur-2xl rounded-full -translate-y-1/2 -translate-x-1/2 pointer-events-none" />
+        <div className="flex items-center gap-3 relative z-10">
+          <div className="w-8 h-8 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center font-bold shrink-0">
             🌱
           </div>
           <div>
-            <span className="text-stone-200 font-bold block">{currentText.savingsRadarTitle || "Radar de Ahorro Anti-Desperdicio"}</span>
-            <p className="text-[11px] text-stone-400">Ingredientes aprovechados a tiempo</p>
+            <span className="text-stone-200 font-bold block tracking-wide">{currentText.savingsRadarTitle || "Radar de Ahorro Anti-Desperdicio"}</span>
+            <p className="text-[11px] text-stone-400 mt-0.5">
+              {language === "es"
+                ? "Ingredientes aprovechados a tiempo"
+                : language === "bg"
+                ? "Спестени продукти навреме"
+                : "Ingredients rescued in time"}
+            </p>
           </div>
         </div>
-        <div className="text-right shrink-0">
-          <span className="text-emerald-400 font-extrabold font-['Outfit'] text-sm">
+        <div className="text-right shrink-0 relative z-10">
+          <span className="text-emerald-400 font-extrabold font-['Outfit'] text-base tracking-tight">
             +{currency === "EUR" ? "€42.50" : "$46.80"}
           </span>
-          <span className="block text-[10px] text-stone-400 font-medium">{currentText.savingsRadarEstimated || "Ahorrado este mes"}</span>
+          <span className="block text-[10px] text-stone-500 font-bold uppercase tracking-wider mt-0.5">{currentText.savingsRadarEstimated || "Ahorrado este mes"}</span>
         </div>
       </div>
 
       {/* Voice Assistant Shortcut Bar */}
-      <div className="bg-gradient-to-r from-emerald-900/40 via-teal-900/30 to-stone-900 border border-emerald-500/30 rounded-xl p-3 flex items-center justify-between gap-3 shadow-inner">
-        <div className="flex items-center gap-2.5">
-          <div className="w-8 h-8 rounded-lg bg-emerald-500/20 text-emerald-400 flex items-center justify-center">
-            <Mic className="w-4 h-4" />
+      <div className="bg-gradient-to-r from-[#131A1F] via-[#1A242B] to-[#131A1F] border border-amber-500/20 rounded-2xl p-3.5 flex items-center justify-between gap-3 shadow-[0_4px_20px_rgba(245,158,11,0.05)] relative overflow-hidden group cursor-pointer hover:border-amber-500/40 transition-colors" onClick={onOpenVoiceTab}>
+        <div className="absolute right-0 top-0 bottom-0 w-1/2 bg-gradient-to-l from-amber-500/5 to-transparent pointer-events-none" />
+        <div className="flex items-center gap-3 relative z-10">
+          <div className="w-10 h-10 rounded-xl bg-amber-500/10 border border-amber-500/20 text-amber-400 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
+            <Mic className="w-5 h-5" />
           </div>
           <div>
-            <p className="text-xs font-semibold text-white">
+            <p className="text-sm font-bold text-white tracking-wide">
               {currentText.pantryVoiceTitle}
             </p>
-            <p className="text-[11px] text-stone-400">
+            <p className="text-xs text-stone-400 mt-0.5">
               {currentText.pantryVoiceSay}
             </p>
           </div>
         </div>
-        <button
-          id="pantry-voice-shortcut-btn"
-          onClick={onOpenVoiceTab}
-          className="px-3 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center gap-1.5 transition-all shadow-md shadow-emerald-950/50"
-        >
-          <Sparkles className="w-3.5 h-3.5" />
-          <span>{currentText.pantryDictate}</span>
-        </button>
+        <div className="w-8 h-8 rounded-full bg-white/[0.04] flex items-center justify-center text-amber-400 relative z-10 shrink-0">
+          <Sparkles className="w-4 h-4 group-hover:rotate-12 transition-transform" />
+        </div>
       </div>
 
       {/* Search and Add manual item */}
       <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="w-4 h-4 absolute left-3 top-1/2 -translate-y-1/2 text-stone-400" />
+          <Search className="w-4 h-4 absolute left-3.5 top-1/2 -translate-y-1/2 text-stone-400" />
           <input
             id="pantry-search-input"
             type="text"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
             placeholder={currentText.searchPantry}
-            className="w-full pl-9 pr-3 py-2 bg-stone-800/90 border border-stone-700 rounded-xl text-xs text-white placeholder-stone-400 focus:outline-none focus:border-emerald-500 transition-colors"
+            className="w-full pl-10 pr-4 py-2.5 bg-[#131A1F]/80 backdrop-blur-md border border-white/[0.08] rounded-xl text-sm text-white placeholder-stone-500 focus:outline-none focus:border-emerald-500/50 focus:ring-1 focus:ring-emerald-500/50 transition-all shadow-inner"
           />
         </div>
         <button
           id="pantry-scan-camera-btn"
           type="button"
           onClick={() => setShowScanModal(true)}
-          className="px-3 py-2 bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white text-xs font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-md shadow-teal-950/40 cursor-pointer shrink-0"
+          className="px-4 py-2.5 bg-stone-800/80 hover:bg-stone-700/80 backdrop-blur-md border border-white/[0.08] text-white text-sm font-bold rounded-xl flex items-center gap-2 transition-all shadow-sm cursor-pointer shrink-0"
           title={currentText.scanCameraBtn || "Escanear Nevera / Ticket"}
         >
-          <Camera className="w-4 h-4" />
+          <Camera className="w-4 h-4 text-stone-300" />
           <span className="hidden sm:inline">{currentText.scanCameraBtn || "Escanear"}</span>
         </button>
 
         <button
           id="pantry-add-item-btn"
           onClick={() => setShowAddModal(true)}
-          className="px-3 py-2 bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold rounded-xl flex items-center gap-1.5 transition-colors shadow-sm cursor-pointer shrink-0"
+          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-sm font-bold rounded-xl flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] cursor-pointer shrink-0"
         >
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">{currentText.addItem}</span>
@@ -237,7 +244,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
             id="pantry-clear-all-btn"
             type="button"
             onClick={handleClearWithConfirm}
-            className="p-2 bg-stone-800 hover:bg-rose-950/40 text-stone-400 hover:text-rose-400 border border-stone-700 hover:border-rose-800/60 rounded-xl transition-colors cursor-pointer shrink-0"
+            className="p-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 hover:border-rose-500/40 rounded-xl transition-all cursor-pointer shrink-0"
             title={currentText.pantryClearAll}
           >
             <Trash2 className="w-4 h-4" />
@@ -246,16 +253,16 @@ export const PantryView: React.FC<PantryViewProps> = ({
       </div>
 
       {/* Category filter pills */}
-      <div className="flex items-center gap-1.5 overflow-x-auto pb-1 no-scrollbar">
+      <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
         {categories.map((cat) => (
           <button
             key={cat.id}
             id={`pantry-cat-${cat.id}`}
             onClick={() => setActiveCategory(cat.id)}
-            className={`text-xs px-3 py-1.5 rounded-lg font-medium whitespace-nowrap transition-colors ${
+            className={`text-[11px] px-4 py-2 rounded-full font-bold uppercase tracking-wider whitespace-nowrap transition-all duration-300 ${
               activeCategory === cat.id
-                ? "bg-stone-200 text-stone-900 font-semibold shadow-sm"
-                : "bg-stone-800/80 text-stone-400 hover:text-stone-200 border border-stone-700/60"
+                ? "bg-white text-stone-950 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
+                : "bg-white/[0.04] text-stone-400 hover:text-white hover:bg-white/[0.08] border border-white/[0.04]"
             }`}
           >
             {cat.label}
@@ -265,25 +272,28 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
       {/* Item List */}
       {filteredItems.length === 0 ? (
-        <div className="bg-stone-800/50 border border-dashed border-stone-700 rounded-2xl p-8 text-center space-y-3">
-          <div className="w-12 h-12 mx-auto rounded-full bg-stone-800 flex items-center justify-center text-stone-500">
-            <Layers className="w-6 h-6" />
+        <div className="bg-[#131A1F]/60 backdrop-blur-md border border-white/[0.04] rounded-3xl p-10 text-center space-y-4 shadow-[0_8px_30px_rgba(0,0,0,0.4)]">
+          <div className="w-16 h-16 mx-auto rounded-full bg-gradient-to-tr from-stone-900 to-stone-800 flex items-center justify-center text-stone-500 shadow-inner border border-stone-800/50">
+            <Layers className="w-7 h-7" />
           </div>
-          <p className="text-xs text-stone-400 max-w-xs mx-auto">
+          <p className="text-sm text-stone-400 max-w-xs mx-auto font-medium">
             {currentText.emptyPantry}
           </p>
           <button
             onClick={() => setShowAddModal(true)}
-            className="text-xs text-emerald-400 hover:text-emerald-300 font-semibold"
+            className="text-sm text-emerald-400 hover:text-emerald-300 font-bold tracking-wide transition-colors"
           >
             + {currentText.addItem}
           </button>
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {filteredItems.map((item) => {
             const isExpiring =
               item.expiryDaysLeft !== undefined && item.expiryDaysLeft <= 3;
+            const isCritical =
+              item.expiryDaysLeft !== undefined && item.expiryDaysLeft <= 1;
+              
             const displayName =
               language === "bg" && item.nameBg ? item.nameBg : item.name;
 
@@ -291,21 +301,33 @@ export const PantryView: React.FC<PantryViewProps> = ({
               <div
                 key={item.id}
                 id={`pantry-item-${item.id}`}
-                className="bg-stone-800/80 hover:bg-stone-800 border border-stone-700/70 rounded-xl p-3 flex flex-col justify-between gap-2.5 transition-all shadow-sm group"
+                className="bg-[#131A1F]/60 hover:bg-[#131A1F]/80 backdrop-blur-md border border-white/[0.06] rounded-2xl p-3.5 flex flex-col justify-between gap-3 transition-all duration-300 shadow-[0_4px_20px_rgba(0,0,0,0.2)] hover:shadow-[0_8px_30px_rgba(16,185,129,0.06)] hover:-translate-y-0.5 group relative overflow-hidden"
               >
-                <div className="flex items-start justify-between gap-2">
+                {/* Decorative subtle gradient blob inside card */}
+                {isCritical && (
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-rose-500/10 blur-2xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                )}
+                {isExpiring && !isCritical && (
+                  <div className="absolute top-0 right-0 w-24 h-24 bg-amber-500/10 blur-2xl rounded-full -translate-y-1/2 translate-x-1/2 pointer-events-none" />
+                )}
+                
+                <div className="flex items-start justify-between gap-2 relative z-10">
                   <div>
-                    <h2 className="text-sm font-semibold text-white leading-tight">
+                    <h2 className="text-base font-bold text-white leading-tight font-['Outfit'] tracking-wide">
                       {displayName}
                     </h2>
-                    <div className="flex items-center gap-2 mt-1">
-                      <span className="text-[11px] px-1.5 py-0.5 rounded bg-stone-700 text-stone-300 font-medium">
+                    <div className="flex items-center gap-2 mt-1.5">
+                      <span className="text-[10px] px-2 py-0.5 rounded-full bg-white/[0.04] border border-white/[0.08] text-stone-300 font-semibold tracking-wider uppercase">
                         {item.category}
                       </span>
                       {item.expiryDaysLeft !== undefined && (
                         <span
-                          className={`text-[11px] flex items-center gap-1 font-medium ${
-                            isExpiring ? "text-amber-400 font-bold" : "text-stone-400"
+                          className={`text-[10px] flex items-center gap-1 font-bold px-2 py-0.5 rounded-full border ${
+                            isCritical 
+                              ? "text-rose-400 bg-rose-500/10 border-rose-500/20 animate-pulse" 
+                              : isExpiring 
+                                ? "text-amber-400 bg-amber-500/10 border-amber-500/20" 
+                                : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                           }`}
                         >
                           <Calendar className="w-3 h-3" />
@@ -317,16 +339,16 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
                   <button
                     onClick={() => onDeleteItem(item.id)}
-                    className="text-stone-500 hover:text-red-400 p-1 rounded-md transition-colors opacity-80 group-hover:opacity-100"
+                    className="text-stone-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all opacity-60 group-hover:opacity-100"
                     title={currentText.delete}
                   >
-                    <Trash2 className="w-3.5 h-3.5" />
+                    <Trash2 className="w-4 h-4" />
                   </button>
                 </div>
 
                 {/* Quantity Controls & Estimated Cost */}
-                <div className="flex items-center justify-between border-t border-stone-700/50 pt-2 text-xs">
-                  <div className="flex items-center gap-1.5 bg-stone-900/60 rounded-lg p-1 border border-stone-700/60">
+                <div className="flex items-center justify-between border-t border-white/[0.04] pt-2.5 mt-1 text-xs relative z-10">
+                  <div className="flex items-center gap-1 bg-black/40 rounded-xl p-1 border border-white/[0.04] shadow-inner">
                     <button
                       onClick={() =>
                         onUpdateQuantity(
@@ -334,13 +356,13 @@ export const PantryView: React.FC<PantryViewProps> = ({
                           Math.max(0, item.quantity - (item.unit === "g" ? 50 : 1))
                         )
                       }
-                      className="w-6 h-6 rounded flex items-center justify-center bg-stone-800 text-stone-300 hover:bg-stone-700 hover:text-white"
-                      title="Decrease quantity"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer"
+                      title={language === "es" ? "Reducir cantidad" : language === "bg" ? "Намали количеството" : "Decrease quantity"}
                     >
-                      <Minus className="w-3 h-3" />
+                      <Minus className="w-3.5 h-3.5" />
                     </button>
-                    <span className="text-xs font-bold text-white px-1.5 min-w-[50px] text-center">
-                      {item.quantity} {item.unit}
+                    <span className="text-sm font-bold text-white px-2 min-w-[50px] text-center font-['Outfit']">
+                      {item.quantity} <span className="text-stone-400 text-xs">{item.unit}</span>
                     </span>
                     <button
                       onClick={() =>
@@ -349,15 +371,15 @@ export const PantryView: React.FC<PantryViewProps> = ({
                           item.quantity + (item.unit === "g" ? 50 : 1)
                         )
                       }
-                      className="w-6 h-6 rounded flex items-center justify-center bg-stone-800 text-stone-300 hover:bg-stone-700 hover:text-white"
-                      title="Increase quantity"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer"
+                      title={language === "es" ? "Aumentar cantidad" : language === "bg" ? "Увеличи количеството" : "Increase quantity"}
                     >
-                      <Plus className="w-3 h-3" />
+                      <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
                   {item.estimatedCostEUR && (
-                    <span className="text-xs font-medium text-emerald-400">
+                    <span className="text-sm font-bold text-emerald-400 font-['Outfit'] pr-1">
                       {currency === "EUR"
                         ? `~€${item.estimatedCostEUR.toFixed(2)}`
                         : `~$${(item.estimatedCostEUR * 1.1).toFixed(2)}`}
@@ -446,12 +468,12 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     }
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                   >
-                    <option value="Produce">Produce</option>
-                    <option value="Dairy">Dairy</option>
-                    <option value="Meat/Fish">Meat/Fish</option>
-                    <option value="Pantry/Grains">Pantry/Grains</option>
-                    <option value="Spices">Spices</option>
-                    <option value="Other">Other</option>
+                    <option value="Produce">{currentText.categoryProduce || "Produce"}</option>
+                    <option value="Dairy">{currentText.categoryDairy || "Dairy"}</option>
+                    <option value="Meat/Fish">{currentText.categoryMeat || "Meat/Fish"}</option>
+                    <option value="Pantry/Grains">{currentText.categoryPantry || "Pantry/Grains"}</option>
+                    <option value="Spices">{currentText.categorySpices || "Spices"}</option>
+                    <option value="Other">{currentText.categoryOther || "Other"}</option>
                   </select>
                 </div>
                 <div>
@@ -484,13 +506,13 @@ export const PantryView: React.FC<PantryViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
-                  className="px-3 py-1.5 rounded-lg bg-stone-700 text-stone-300 hover:bg-stone-600 text-xs font-semibold"
+                  className="px-3 py-1.5 rounded-lg bg-stone-700 text-stone-300 hover:bg-stone-600 text-xs font-semibold cursor-pointer"
                 >
                   {currentText.cancel}
                 </button>
                 <button
                   type="submit"
-                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md"
+                  className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md cursor-pointer"
                 >
                   {currentText.save}
                 </button>
@@ -508,8 +530,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
           onClearAll();
           setShowClearConfirm(false);
         }}
-        title={currentText.pantryClearAll || "Vaciar Despensa"}
-        description={currentText.pantryClearConfirm || "¿Estás seguro de que deseas vaciar toda la despensa?"}
+        title={currentText.pantryClearAll}
+        description={currentText.pantryClearConfirm}
         confirmText={currentText.clear}
         cancelText={currentText.cancel}
         danger={true}

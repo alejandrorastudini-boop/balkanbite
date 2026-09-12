@@ -53,19 +53,25 @@ export const PrintMenuModal: React.FC<PrintMenuModalProps> = ({
       pdf.save(`BalkanBite_Menu_${new Date().toISOString().split("T")[0]}.pdf`);
     } catch (error) {
       console.error("PDF generation failed", error);
-      alert("Error al generar el PDF");
+      alert(
+        language === "es"
+          ? "Error al generar el PDF"
+          : language === "bg"
+          ? "Грешка при генериране на PDF"
+          : "Error generating PDF"
+      );
     } finally {
       setIsGenerating(false);
     }
   };
 
   const handleShareWhatsApp = () => {
-    const text = `🛒 Mi Plan Semanal BalkanBite:\n\n` + 
+    const text = (language === "es" ? `🛒 Mi Plan Semanal BalkanBite:\n\n` : language === "bg" ? `🛒 Моето седмично меню от BalkanBite:\n\n` : `🛒 My BalkanBite Weekly Plan:\n\n`) + 
       mealPlan.slice(0, 7).map((day, i) => {
-        const date = new Date(day.date + "T00:00:00").toLocaleDateString(language === "es" ? "es-ES" : "en-US", { weekday: 'short' });
-        return `📅 ${date}: ${day.lunch?.title[language] || day.lunch?.title.es || '-'}`;
+        const date = new Date(day.date + "T00:00:00").toLocaleDateString(language === "es" ? "es-ES" : language === "bg" ? "bg-BG" : "en-US", { weekday: 'short' });
+        return `📅 ${date}: ${day.lunch?.title[language] || day.lunch?.title.es || day.lunch?.title.en || '-'}`;
       }).join("\n") +
-      `\n\n💰 Ahorro garantizado con IA.`;
+      (language === "es" ? `\n\n💰 Ahorro garantizado con IA.` : language === "bg" ? `\n\n💰 Гарантирани спестявания с AI.` : `\n\n💰 Smart savings with AI.`);
     
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
@@ -143,14 +149,14 @@ export const PrintMenuModal: React.FC<PrintMenuModalProps> = ({
               className="px-4 py-2 rounded-xl bg-white/5 hover:bg-white/10 border border-white/10 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer no-print disabled:opacity-50"
             >
               <Download className={`w-3.5 h-3.5 ${isGenerating ? "animate-bounce" : ""}`} />
-              <span>{isGenerating ? "Generando..." : "Descargar PDF"}</span>
+              <span>{isGenerating ? currentText.generatingPdf : currentText.downloadPdf}</span>
             </button>
             <button
               onClick={handlePrint}
               className="px-4 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-bold flex items-center gap-1.5 transition-all shadow-md cursor-pointer no-print"
             >
               <Printer className="w-3.5 h-3.5" />
-              <span>Imprimir / Guardar PDF</span>
+              <span>{currentText.printOrSavePdf}</span>
             </button>
             <button
               onClick={onClose}
@@ -176,19 +182,19 @@ export const PrintMenuModal: React.FC<PrintMenuModalProps> = ({
                     BalkanBite
                   </h1>
                   <span className="text-xs font-bold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 uppercase tracking-wider">
-                    Menú Semanal
+                    {currentText.weeklyMenuBadge}
                   </span>
                 </div>
                 <p className="text-xs text-stone-500 mt-0.5">
-                  Plan saludable & ahorro económico • Hogar: {userName}
+                  {currentText.healthyPlanNotice} • {currentText.householdPrefix}: {userName}
                 </p>
               </div>
 
               <div className="text-right text-xs text-stone-500">
                 <span className="font-semibold text-stone-800 block">
-                  {mealPlan.length > 0 ? `${getDayName(mealPlan[0].date)}` : "Semana activa"}
+                  {mealPlan.length > 0 ? `${getDayName(mealPlan[0].date)}` : currentText.activeWeek}
                 </span>
-                <span>Objetivo: Cocina equilibrada</span>
+                <span>{currentText.goalBalancedKitchen}</span>
               </div>
             </div>
 
@@ -196,7 +202,7 @@ export const PrintMenuModal: React.FC<PrintMenuModalProps> = ({
             <div className="space-y-3">
               <h2 className="text-xs font-extrabold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
                 <Calendar className="w-3.5 h-3.5" />
-                <span>Menú de la Semana</span>
+                <span>{currentText.weekMenuTitle}</span>
               </h2>
 
               <div className="grid grid-cols-1 divide-y divide-stone-200 border border-stone-200 rounded-lg overflow-hidden text-xs">
@@ -215,28 +221,28 @@ export const PrintMenuModal: React.FC<PrintMenuModalProps> = ({
                     <div className="flex-1 grid grid-cols-1 sm:grid-cols-3 gap-2 w-full">
                       <div className="p-1.5 rounded bg-stone-50 border border-stone-100">
                         <span className="text-[10px] font-bold text-stone-400 block uppercase">
-                          Desayuno
+                          {currentText.breakfast}
                         </span>
                         <span className="font-medium text-stone-800 truncate block">
-                          {day.breakfast ? (day.breakfast.title[language] || day.breakfast.title.es) : "—"}
+                          {day.breakfast ? (day.breakfast.title[language] || day.breakfast.title.es || day.breakfast.title.en) : "—"}
                         </span>
                       </div>
 
                       <div className="p-1.5 rounded bg-stone-50 border border-stone-100">
                         <span className="text-[10px] font-bold text-stone-400 block uppercase">
-                          Comida
+                          {currentText.lunch}
                         </span>
                         <span className="font-medium text-stone-800 truncate block">
-                          {day.lunch ? (day.lunch.title[language] || day.lunch.title.es) : "—"}
+                          {day.lunch ? (day.lunch.title[language] || day.lunch.title.es || day.lunch.title.en) : "—"}
                         </span>
                       </div>
 
                       <div className="p-1.5 rounded bg-stone-50 border border-stone-100">
                         <span className="text-[10px] font-bold text-stone-400 block uppercase">
-                          Cena
+                          {currentText.dinner}
                         </span>
                         <span className="font-medium text-stone-800 truncate block">
-                          {day.dinner ? (day.dinner.title[language] || day.dinner.title.es) : "—"}
+                          {day.dinner ? (day.dinner.title[language] || day.dinner.title.es || day.dinner.title.en) : "—"}
                         </span>
                       </div>
                     </div>
@@ -250,7 +256,7 @@ export const PrintMenuModal: React.FC<PrintMenuModalProps> = ({
               <div className="space-y-2 pt-2 border-t border-stone-200">
                 <h2 className="text-xs font-extrabold uppercase tracking-wider text-emerald-800 flex items-center gap-1">
                   <CheckSquare className="w-3.5 h-3.5" />
-                  <span>Lista Rápida de la Compra (Marcar al comprar)</span>
+                  <span>{currentText.quickShoppingListTitle}</span>
                 </h2>
 
                 <div className="grid grid-cols-2 sm:grid-cols-3 gap-2 text-xs">
@@ -272,9 +278,9 @@ export const PrintMenuModal: React.FC<PrintMenuModalProps> = ({
             {/* Footer / Fridge Magnet Note */}
             <div className="border-t border-stone-200 pt-3 flex items-center justify-between text-[11px] text-stone-400">
               <span className="flex items-center gap-1">
-                🧲 Colgar en la nevera • BalkanBite AI Kitchen
+                🧲 {currentText.hangOnFridgeNote}
               </span>
-              <span>¡Buen provecho y ahorro garantizado!</span>
+              <span>{currentText.bonAppetitSavings}</span>
             </div>
           </div>
         </div>

@@ -14,6 +14,7 @@ import {
   VolumeX,
   Trash2,
   UtensilsCrossed,
+  X
 } from "lucide-react";
 import { ChatMessage, Language, PantryItem, MealLog } from "../types";
 import { t } from "../utils/translations";
@@ -266,9 +267,9 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   };
 
   const samplePrompts = [
-    language === "es" ? "He desayunado 2 huevos y he comido ensalada. ¿Qué cena me recomiendas según mi despensa?" : currentText.voicePrompt1,
-    language === "es" ? "Compré huevos, queso Filadelfia y tomates" : currentText.voicePrompt2,
-    language === "es" ? "¿Qué puedo cocinar hoy con mis ingredientes?" : currentText.voicePrompt3,
+    currentText.voicePrompt1,
+    currentText.voicePrompt2,
+    currentText.voicePrompt3,
   ];
 
   return (
@@ -291,7 +292,19 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
                 ? "bg-emerald-950/40 border-emerald-800/50 text-emerald-400"
                 : "bg-stone-900 border-stone-800 text-stone-600"
             }`}
-            title={speechSynthesisEnabled ? "Voz activada" : "Voz desactivada"}
+            title={
+              speechSynthesisEnabled
+                ? language === "es"
+                  ? "Voz activada"
+                  : language === "bg"
+                  ? "Гласът е включен"
+                  : "Voice enabled"
+                : language === "es"
+                ? "Voz desactivada"
+                : language === "bg"
+                ? "Гласът е изключен"
+                : "Voice muted"
+            }
           >
             {speechSynthesisEnabled ? (
               <Volume2 className="w-3.5 h-3.5" />
@@ -303,7 +316,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
           <button
             onClick={onClearChat}
             className="p-1.5 rounded-lg bg-stone-900 border border-stone-800 text-stone-400 hover:text-rose-400 hover:border-rose-900/50 transition-colors"
-            title={language === "es" ? "Borrar conversación" : "Clear conversation"}
+            title={language === "es" ? "Borrar conversación" : language === "bg" ? "Изчисти разговора" : "Clear conversation"}
           >
             <Trash2 className="w-3.5 h-3.5" />
           </button>
@@ -340,25 +353,33 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
                   <div
                     className={`rounded-2xl px-3.5 py-2.5 text-[13px] leading-relaxed shadow-sm ${
                       isAi
-                        ? "bg-stone-800/90 border border-stone-700/50 text-stone-100 rounded-tl-none"
-                        : "bg-emerald-600 text-white font-medium rounded-tr-none"
+                        ? "bg-white/[0.04] border border-white/[0.08] text-white rounded-tl-none shadow-[0_4px_20px_rgba(0,0,0,0.5)]"
+                        : "bg-emerald-500 text-stone-950 font-bold rounded-tr-none shadow-[0_4px_20px_rgba(16,185,129,0.3)]"
                     }`}
                   >
                     <p className="whitespace-pre-wrap">{msg.text}</p>
 
                     {/* Action metadata if exists */}
                     {msg.itemsAffected && msg.itemsAffected.length > 0 && (
-                      <div className={`mt-2 pt-2 border-t space-y-1 ${isAi ? "border-stone-700" : "border-emerald-500"}`}>
-                        <span className={`text-[9px] font-bold uppercase tracking-wider block ${isAi ? "text-emerald-400" : "text-emerald-100"}`}>
+                      <div className={`mt-2 pt-2 border-t space-y-1 ${isAi ? "border-white/[0.1]" : "border-stone-950/20"}`}>
+                        <span className={`text-[9px] font-bold uppercase tracking-wider block ${isAi ? "text-emerald-400" : "text-stone-950/80"}`}>
                           {msg.actionType === "ADD_ITEMS"
-                            ? language === "es" ? "✓ Añadido a despensa:" : "✓ Added:"
-                            : language === "es" ? "✓ Descontado:" : "✓ Deducted:"}
+                            ? language === "es"
+                              ? "✓ Añadido a despensa:"
+                              : language === "bg"
+                              ? "✓ Добавено в килера:"
+                              : "✓ Added to pantry:"
+                            : language === "es"
+                            ? "✓ Descontado:"
+                            : language === "bg"
+                            ? "✓ Извадено:"
+                            : "✓ Deducted:"}
                         </span>
                         <div className="flex flex-wrap gap-1.5">
                           {msg.itemsAffected.map((item, idx) => (
                             <span
                               key={idx}
-                              className="text-[10px] px-2 py-0.5 rounded-md bg-black/20 text-white border border-white/10"
+                              className={`text-[10px] px-2 py-0.5 rounded-md border ${isAi ? "bg-white/[0.04] text-white border-white/[0.1]" : "bg-stone-950/10 text-stone-950 border-stone-950/20"}`}
                             >
                               {item.quantity} {item.unit} {item.name}
                             </span>
@@ -371,15 +392,19 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
                     {msg.actionType === "RECIPE_RECOMMENDATION" && (
                       <button
                         onClick={() => onNavigateToRecipes(msg.text)}
-                        className="mt-2.5 w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-950/80 border border-emerald-800/60 text-emerald-300 hover:bg-emerald-900/60 text-xs font-medium transition-colors"
+                        className="mt-2.5 w-full flex items-center justify-center gap-2 px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20 text-xs font-bold transition-colors cursor-pointer"
                       >
                         <UtensilsCrossed className="w-3.5 h-3.5" />
-                        {language === "es" ? "Ver recetas completas paso a paso" : "View step-by-step recipes"}
+                        {language === "es"
+                          ? "Ver recetas completas paso a paso"
+                          : language === "bg"
+                          ? "Виж пълните рецепти стъпка по стъпка"
+                          : "View step-by-step recipes"}
                       </button>
                     )}
                   </div>
                   
-                  <span className={`text-[9px] block ${isAi ? "text-stone-500 text-left" : "text-stone-600 text-right"}`}>
+                  <span className={`text-[9px] block ${isAi ? "text-stone-500 text-left" : "text-stone-500 text-right"}`}>
                     {msg.timestamp}
                   </span>
                 </div>
@@ -391,16 +416,16 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
         {isProcessing && (
           <div className="flex justify-start">
             <div className="flex gap-2.5 items-center">
-              <div className="w-7 h-7 rounded-lg bg-stone-800 text-emerald-400 border border-stone-700 flex items-center justify-center animate-pulse">
+              <div className="w-7 h-7 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/30 flex items-center justify-center animate-pulse shadow-[0_0_15px_rgba(16,185,129,0.2)]">
                 <Bot className="w-4 h-4" />
               </div>
-              <div className="bg-stone-800/40 border border-stone-700/30 rounded-full px-4 py-1.5 text-[11px] text-stone-500 flex items-center gap-2">
+              <div className="bg-white/[0.02] border border-white/[0.04] rounded-full px-4 py-1.5 text-[11px] text-stone-400 flex items-center gap-2 shadow-inner">
                 <div className="flex gap-0.5">
-                  <div className="w-1 h-1 rounded-full bg-emerald-500/50 animate-bounce" style={{ animationDelay: '0ms' }} />
-                  <div className="w-1 h-1 rounded-full bg-emerald-500/50 animate-bounce" style={{ animationDelay: '150ms' }} />
-                  <div className="w-1 h-1 rounded-full bg-emerald-500/50 animate-bounce" style={{ animationDelay: '300ms' }} />
+                  <div className="w-1 h-1 rounded-full bg-emerald-500/80 animate-bounce" style={{ animationDelay: '0ms' }} />
+                  <div className="w-1 h-1 rounded-full bg-emerald-500/80 animate-bounce" style={{ animationDelay: '150ms' }} />
+                  <div className="w-1 h-1 rounded-full bg-emerald-500/80 animate-bounce" style={{ animationDelay: '300ms' }} />
                 </div>
-                <span>{currentText.aiThinking}</span>
+                <span className="font-medium tracking-wide">{currentText.aiThinking}</span>
               </div>
             </div>
           </div>
@@ -410,13 +435,13 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       </div>
 
       {/* Suggested Quick Prompt Chips */}
-      <div className="space-y-2 shrink-0 px-1 py-2 border-t border-stone-800/50">
+      <div className="space-y-2 shrink-0 px-1 py-2 border-t border-white/[0.04]">
         <div className="flex items-center justify-between">
           <span className="text-[10px] font-bold text-stone-500 uppercase tracking-tight">
             {currentText.voiceTryThese}
           </span>
           <span className="text-[9px] text-stone-600 italic">
-            {language === "es" ? "Toca para editar" : "Tap to edit"}
+            {language === "es" ? "Toca para editar" : language === "bg" ? "Докоснете за редакция" : "Tap to edit"}
           </span>
         </div>
         <div className="flex items-center gap-2 overflow-x-auto pb-1 no-scrollbar">
@@ -427,7 +452,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
                 setInputText(prompt);
                 document.getElementById("voice-text-input")?.focus();
               }}
-              className="text-[11px] px-3 py-1.5 rounded-xl bg-stone-800/80 hover:bg-emerald-900/30 hover:text-emerald-300 text-stone-300 border border-stone-700/50 whitespace-nowrap transition-all"
+              className="text-[11px] font-medium px-3 py-1.5 rounded-xl bg-white/[0.02] hover:bg-emerald-500/10 hover:text-emerald-400 text-stone-400 border border-white/[0.04] hover:border-emerald-500/30 whitespace-nowrap transition-all"
             >
               {prompt}
             </button>
@@ -436,30 +461,32 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       </div>
 
       {/* Voice and Text Input Control Bar */}
-      <div className="shrink-0 bg-stone-900/90 backdrop-blur-xl border border-stone-800 p-2.5 rounded-2xl flex items-center gap-2.5 shadow-2xl mb-2">
+      <div className="shrink-0 bg-[#0B0F12]/80 backdrop-blur-xl border border-white/[0.04] p-3 rounded-3xl flex items-center gap-2.5 shadow-[0_4px_30px_rgba(0,0,0,0.5)] mb-2">
         <button
           id="voice-mic-main-btn"
           onClick={toggleListening}
           className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shrink-0 ${
             isListening
-              ? "bg-red-500 text-white animate-pulse shadow-lg shadow-red-500/40"
-              : "bg-emerald-600 hover:bg-emerald-500 text-white shadow-lg shadow-emerald-950/40"
+              ? "bg-red-500 text-white animate-pulse shadow-[0_0_20px_rgba(239,68,68,0.5)]"
+              : "bg-emerald-500 hover:bg-emerald-400 text-stone-950 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
           }`}
         >
           {isListening ? <MicOff className="w-5 h-5" /> : <Mic className="w-5 h-5" />}
         </button>
 
-        <div className={`flex-1 flex items-center gap-1 px-3 py-2.5 rounded-xl border transition-all relative ${
+        <div className={`flex-1 flex items-center gap-2 px-4 py-3 rounded-2xl border transition-all relative ${
           isListening 
-            ? "bg-emerald-950/20 border-emerald-500 shadow-[0_0_15px_-3px_rgba(16,185,129,0.2)]" 
+            ? "bg-emerald-500/10 border-emerald-500/50 shadow-[0_0_20px_-5px_rgba(16,185,129,0.2)]" 
             : inputText.trim() 
-              ? "bg-stone-950 border-emerald-500/40" 
-              : "bg-stone-800/50 border-stone-700/50"
+              ? "bg-white/[0.04] border-emerald-500/30 text-white" 
+              : "bg-white/[0.02] border-white/[0.04] text-stone-400"
         }`}>
           {isListening && (
-            <div className="absolute -top-6 left-2 flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-1">
+            <div className="absolute -top-7 left-2 flex items-center gap-1.5 animate-in fade-in slide-in-from-bottom-1">
               <div className="w-2 h-2 rounded-full bg-red-500 animate-pulse" />
-              <span className="text-[10px] font-bold text-red-400 uppercase tracking-tighter">Recording...</span>
+              <span className="text-[10px] font-extrabold text-red-400 uppercase tracking-widest">
+                {language === "es" ? "Grabando..." : language === "bg" ? "Записване..." : "Recording..."}
+              </span>
             </div>
           )}
           <input
@@ -471,11 +498,11 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
               if (e.key === "Enter") handleSend();
             }}
             placeholder={isListening ? currentText.voiceListening : currentText.voicePlaceholder}
-            className="w-full bg-transparent text-[13px] text-white placeholder-stone-600 focus:outline-none"
+            className="w-full bg-transparent text-[13px] text-white placeholder-stone-500 focus:outline-none"
           />
           {inputText && (
-            <button onClick={() => setInputText("")} className="p-1 text-stone-600 hover:text-stone-400">
-              <Minus className="w-3.5 h-3.5 rotate-45" />
+            <button onClick={() => setInputText("")} className="p-1.5 text-stone-500 hover:text-stone-300 rounded-lg hover:bg-white/[0.04] transition-colors">
+              <X className="w-3.5 h-3.5" />
             </button>
           )}
         </div>
@@ -484,10 +511,10 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
           id="voice-send-btn"
           disabled={!inputText.trim() || isProcessing}
           onClick={() => handleSend()}
-          className={`w-11 h-11 rounded-2xl flex items-center justify-center transition-all shrink-0 ${
+          className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shrink-0 ${
             inputText.trim() && !isProcessing
-              ? "bg-emerald-600 text-white"
-              : "bg-stone-800 text-stone-600"
+              ? "bg-emerald-500 text-stone-950 shadow-[0_0_15px_rgba(16,185,129,0.3)]"
+              : "bg-white/[0.04] text-stone-600 border border-white/[0.02]"
           }`}
         >
           {isProcessing ? <Sparkles className="w-5 h-5 animate-spin" /> : <Send className="w-5 h-5" />}

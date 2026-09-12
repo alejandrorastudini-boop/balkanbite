@@ -32,27 +32,27 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 bg-black/85 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-stone-900 border border-emerald-500/40 rounded-3xl max-w-sm w-full p-6 space-y-5 shadow-2xl">
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
+      <div className="bg-[#0B0F12] border border-white/[0.08] rounded-3xl max-w-sm w-full p-6 space-y-5 shadow-[0_20px_60px_rgba(0,0,0,0.8)]">
         <div className="text-center space-y-1">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-gradient-to-tr from-emerald-500 to-amber-500 flex items-center justify-center text-white font-black text-xl shadow-lg mb-2">
+          <div className="w-12 h-12 mx-auto rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white font-black text-xl shadow-inner mb-2 tracking-tighter">
             BB
           </div>
-          <h2 className="text-lg font-extrabold text-white font-['Outfit']">
+          <h2 className="text-lg font-bold text-white font-['Outfit'] tracking-wide">
             {currentText.welcomeTitle}
           </h2>
-          <p className="text-xs text-stone-300">
+          <p className="text-xs text-stone-400 font-medium">
             {currentText.welcomeSubtitle}
           </p>
         </div>
 
         {/* Step 1: Speed */}
         {step === 1 && (
-          <div className="space-y-3">
-            <span className="text-xs font-bold text-emerald-400 uppercase tracking-wider block">
+          <div className="space-y-4">
+            <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-widest block text-center">
               1/3 • {currentText.cookingSpeed}
             </span>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {[
                 { id: "fast", label: currentText.speedFast },
                 { id: "moderate", label: currentText.speedModerate },
@@ -61,10 +61,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <button
                   key={opt.id}
                   onClick={() => setSpeed(opt.id as any)}
-                  className={`w-full p-3 rounded-xl border text-xs text-left font-medium transition-all ${
+                  className={`w-full p-3.5 rounded-xl border text-xs text-left font-bold transition-all ${
                     speed === opt.id
-                      ? "bg-emerald-950/50 border-emerald-500 text-white"
-                      : "bg-stone-800 border-stone-700 text-stone-300"
+                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-inner"
+                      : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:text-stone-300 hover:bg-white/[0.04]"
                   }`}
                 >
                   {opt.label}
@@ -73,9 +73,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </div>
             <button
               onClick={() => setStep(2)}
-              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1 mt-2"
+              className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-1.5 mt-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
             >
-              <span>{language === "bg" ? "Напред" : "Next"}</span>
+              <span>{language === "bg" ? "Напред" : language === "es" ? "Siguiente" : "Next"}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -83,11 +83,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
         {/* Step 2: Goal */}
         {step === 2 && (
-          <div className="space-y-3">
-            <span className="text-xs font-bold text-amber-400 uppercase tracking-wider block">
+          <div className="space-y-4">
+            <span className="text-[10px] font-extrabold text-amber-400 uppercase tracking-widest block text-center">
               2/3 • {currentText.healthGoals}
             </span>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {[
                 { id: "balanced", label: currentText.goalBalanced },
                 { id: "muscle", label: currentText.goalMuscle },
@@ -97,10 +97,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <button
                   key={opt.id}
                   onClick={() => setGoal(opt.id as any)}
-                  className={`w-full p-3 rounded-xl border text-xs text-left font-medium transition-all ${
+                  className={`w-full p-3.5 rounded-xl border text-xs text-left font-bold transition-all ${
                     goal === opt.id
-                      ? "bg-amber-950/40 border-amber-500 text-white"
-                      : "bg-stone-800 border-stone-700 text-stone-300"
+                      ? "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-inner"
+                      : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:text-stone-300 hover:bg-white/[0.04]"
                   }`}
                 >
                   {opt.label}
@@ -109,9 +109,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </div>
             <button
               onClick={() => setStep(3)}
-              className="w-full py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs flex items-center justify-center gap-1 mt-2"
+              className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-1.5 mt-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
             >
-              <span>{language === "bg" ? "Напред" : "Next"}</span>
+              <span>{language === "bg" ? "Напред" : language === "es" ? "Siguiente" : "Next"}</span>
               <ArrowRight className="w-3.5 h-3.5" />
             </button>
           </div>
@@ -119,11 +119,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
         {/* Step 3: Diet */}
         {step === 3 && (
-          <div className="space-y-3">
-            <span className="text-xs font-bold text-teal-400 uppercase tracking-wider block">
+          <div className="space-y-4">
+            <span className="text-[10px] font-extrabold text-teal-400 uppercase tracking-widest block text-center">
               3/3 • {currentText.dietType}
             </span>
-            <div className="space-y-2">
+            <div className="space-y-2.5">
               {[
                 { id: "all", label: currentText.dietAll },
                 { id: "mediterranean", label: currentText.dietMed },
@@ -133,10 +133,10 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <button
                   key={opt.id}
                   onClick={() => setDiet(opt.id as any)}
-                  className={`w-full p-3 rounded-xl border text-xs text-left font-medium transition-all ${
+                  className={`w-full p-3.5 rounded-xl border text-xs text-left font-bold transition-all ${
                     diet === opt.id
-                      ? "bg-teal-950/40 border-teal-500 text-white"
-                      : "bg-stone-800 border-stone-700 text-stone-300"
+                      ? "bg-teal-500/10 border-teal-500/30 text-teal-400 shadow-inner"
+                      : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:text-stone-300 hover:bg-white/[0.04]"
                   }`}
                 >
                   {opt.label}
@@ -145,9 +145,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </div>
             <button
               onClick={finish}
-              className="w-full py-2.5 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 text-white font-bold text-xs flex items-center justify-center gap-1 mt-2 shadow-lg"
+              className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 mt-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all cursor-pointer"
             >
-              <Sparkles className="w-3.5 h-3.5" />
+              <Sparkles className="w-4 h-4" />
               <span>{currentText.quickStart}</span>
             </button>
           </div>

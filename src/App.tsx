@@ -12,6 +12,7 @@ import { OnboardingModal } from "./components/OnboardingModal";
 import { ChefIaFloatingButton } from "./components/ChefIaFloatingButton";
 import { ChefIaModal } from "./components/ChefIaModal";
 import { LandingPage } from "./components/LandingPage";
+import { AuthModal } from "./components/AuthModal";
 import { useFirebaseSync } from "./hooks/useFirebaseSync";
 import { signInWithGoogle, logout } from "./lib/firebase";
 import {
@@ -33,6 +34,7 @@ import {
   DEFAULT_PROFILE,
   DEFAULT_MEAL_PLAN,
 } from "./data/initialData";
+import { getRecipeImageUrl } from "./utils/recipeImages";
 
 export default function App() {
   // Local persistence states
@@ -48,9 +50,16 @@ export default function App() {
   const [recipes, setRecipes] = useState<Recipe[]>(() => {
     try {
       const saved = localStorage.getItem("balkanbite_recipes");
-      return saved ? JSON.parse(saved) : INITIAL_RECIPES;
+      const list: Recipe[] = saved ? JSON.parse(saved) : INITIAL_RECIPES;
+      return list.map((r: Recipe) => ({
+        ...r,
+        imageUrl: getRecipeImageUrl(r),
+      }));
     } catch {
-      return INITIAL_RECIPES;
+      return INITIAL_RECIPES.map((r: Recipe) => ({
+        ...r,
+        imageUrl: getRecipeImageUrl(r),
+      }));
     }
   });
 
@@ -113,7 +122,6 @@ export default function App() {
   );
 
   const [activeTab, setActiveTab] = useState<TabType>("recipes");
-  const [isMobileFrame, setIsMobileFrame] = useState<boolean>(true);
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
   const [voiceSearchQuery, setVoiceSearchQuery] = useState<string>("");
@@ -127,6 +135,7 @@ export default function App() {
     }
   });
   const [showChefIaModal, setShowChefIaModal] = useState<boolean>(false);
+  const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
   const [showLanding, setShowLanding] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem("balkanbite_show_landing");
@@ -380,13 +389,20 @@ export default function App() {
       category: "Produce",
       estimatedPriceEUR: 2.2,
       checked: false,
-      reason: `Needed for ${profile.language === "bg" ? recipe.title.bg : recipe.title.en}`,
+      reason:
+        profile.language === "bg"
+          ? `Необходимо за ${recipe.title.bg}`
+          : profile.language === "es"
+          ? `Necesario para ${recipe.title.es || recipe.title.en}`
+          : `Needed for ${recipe.title.en}`,
     }));
 
     setShoppingList((prev) => [...prev, ...newShoppingItems]);
     alert(
       profile.language === "bg"
         ? `Добавихте ${newShoppingItems.length} липсващи съставки към списъка за пазаруване!`
+        : profile.language === "es"
+        ? `¡Añadiste ${newShoppingItems.length} ingredientes necesarios a tu lista de compra!`
         : `Added ${newShoppingItems.length} missing ingredients to your shopping list!`
     );
   };
@@ -408,7 +424,11 @@ export default function App() {
 
       const data = await res.json();
       if (Array.isArray(data.recipes) && data.recipes.length > 0) {
-        setRecipes(data.recipes);
+        const enriched = data.recipes.map((r: Recipe) => ({
+          ...r,
+          imageUrl: getRecipeImageUrl(r),
+        }));
+        setRecipes(enriched);
       }
     } catch (err) {
       console.error("Failed to generate recipes:", err);
@@ -577,31 +597,23 @@ export default function App() {
   return (
     <div
       className={`min-h-screen flex flex-col items-center justify-start antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200 ${
-        theme === "dark" ? "bg-stone-950 text-stone-100" : "bg-stone-100 text-stone-900"
+        theme === "dark" ? "bg-[#0B0F12] text-stone-100" : "bg-stone-100 text-stone-900"
       }`}
     >
-      {/* Outer Shell container (supports mobile frame simulation requested by user for App Store / Google Play feel) */}
-      <div
-        className={`w-full transition-all ${
-          isMobileFrame
-            ? theme === "dark"
-              ? "max-w-md my-0 sm:my-6 bg-stone-900 sm:rounded-[36px] sm:border sm:border-stone-800 sm:shadow-2xl sm:shadow-black/80 overflow-hidden min-h-screen sm:min-h-[850px] relative pb-16"
-              : "max-w-md my-0 sm:my-6 bg-white sm:rounded-[36px] sm:border sm:border-stone-200/90 sm:shadow-2xl sm:shadow-stone-300/60 overflow-hidden min-h-screen sm:min-h-[850px] relative pb-16"
-            : "max-w-3xl min-h-screen relative pb-16"
-        }`}
-      >
+      {/* Outer Shell container - fully fluid & responsive across Mobile, Tablet and Desktop */}
+      <div className="w-full max-w-6xl mx-auto min-h-screen relative pb-28 px-3 sm:px-6 lg:px-8">
         {/* Top Header */}
         <Header
           language={profile.language}
           onLanguageChange={(lang: Language) => setProfile((p) => ({ ...p, language: lang }))}
           currency={profile.currency}
           onCurrencyChange={(curr: Currency) => setProfile((p) => ({ ...p, currency: curr }))}
-          isMobileFrame={isMobileFrame}
-          onToggleFrame={() => setIsMobileFrame(!isMobileFrame)}
           onOpenProModal={() => setShowProModal(true)}
           theme={theme}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
           onGoToLanding={() => setShowLanding(true)}
+          currentUser={currentUser}
+          onOpenAuthModal={() => setShowAuthModal(true)}
         />
 
         {/* Main Content Area */}
@@ -691,6 +703,7 @@ export default function App() {
               onOpenProModal={() => setShowProModal(true)}
               onResetApp={handleResetApp}
               onGoToLanding={() => setShowLanding(true)}
+              onOpenAuthModal={() => setShowAuthModal(true)}
               language={profile.language}
               currency={profile.currency}
             />
@@ -712,6 +725,7 @@ export default function App() {
           pantryCount={pantry.length}
           shoppingCount={checkedShoppingCount}
           theme={theme}
+          onOpenChefIaModal={() => setShowChefIaModal(true)}
         />
 
         {/* Chef IA Floating Modal Drawer */}
@@ -736,7 +750,13 @@ export default function App() {
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-3">
               <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
-              <p className="text-stone-400 font-bold text-sm">Sincronizando con la nube...</p>
+              <p className="text-stone-400 font-bold text-sm">
+                {profile.language === "es"
+                  ? "Sincronizando con la nube..."
+                  : profile.language === "bg"
+                  ? "Синхронизиране с облака..."
+                  : "Syncing with cloud..."}
+              </p>
             </div>
           </div>
         )}
@@ -758,6 +778,13 @@ export default function App() {
         <OnboardingModal
           isOpen={!profile.onboardingCompleted}
           onComplete={(upd) => setProfile((prev) => ({ ...prev, ...upd }))}
+          language={profile.language}
+        />
+
+        <AuthModal
+          isOpen={showAuthModal}
+          onClose={() => setShowAuthModal(false)}
+          currentUser={currentUser}
           language={profile.language}
         />
       </div>
