@@ -126,7 +126,7 @@ export default function App() {
     setShoppingList
   );
 
-  const [activeTab, setActiveTab] = useState<TabType>("recipes");
+  const [activeTab, setActiveTab] = useState<TabType>("pantry");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
   const [voiceSearchQuery, setVoiceSearchQuery] = useState<string>("");
@@ -827,6 +827,45 @@ export default function App() {
             />
           )}
 
+          {activeTab === "mealPlan" && (
+            <MealPlanView
+              mealPlan={mealPlan}
+              mealLogs={mealLogs}
+              recipes={recipes}
+              pantry={pantry}
+              language={profile.language}
+              currency={profile.currency}
+              shoppingList={shoppingList}
+              userName={profile.name}
+              onClearMealPlan={handleClearMealPlan}
+              onNavigateToVoice={() => setShowChefIaModal(true)}
+              isPro={profile.isProSubscriber}
+              onOpenProModal={() => setShowProModal(true)}
+              onGenerateAiWeekPlan={handleGenerateAiWeekPlan}
+              onAdaptToPantry={handleAdaptMenuToPantry}
+              isGeneratingPlan={isGeneratingPlan}
+            />
+          )}
+
+          {activeTab === "shopping" && (
+            <ShoppingView
+              shoppingList={shoppingList}
+              onToggleItem={handleToggleShoppingItem}
+              onDeleteItem={handleDeleteShoppingItem}
+              onAddItem={handleAddShoppingItem}
+              onTransferToPantry={handleTransferToPantry}
+              onGenerateAiShopping={handleGenerateAiShopping}
+              onClearList={() => setShoppingList([])}
+              onReconcileShopping={handleReconcileShopping}
+              isLoadingAi={isLoadingAi}
+              language={profile.language}
+              currency={profile.currency}
+              isPro={profile.isProSubscriber}
+              onOpenProModal={() => setShowProModal(true)}
+              onOpenShoppingAdvisor={() => setShowShoppingAdvisorModal(true)}
+            />
+          )}
+
           {activeTab === "recipes" && (
             <RecipeView
               recipes={recipes}
@@ -854,45 +893,6 @@ export default function App() {
               onNavigateToRecipes={handleVoiceNavigateToRecipes}
               onLogMeal={handleLogMeal}
               language={profile.language}
-            />
-          )}
-
-          {activeTab === "shopping" && (
-            <ShoppingView
-              shoppingList={shoppingList}
-              onToggleItem={handleToggleShoppingItem}
-              onDeleteItem={handleDeleteShoppingItem}
-              onAddItem={handleAddShoppingItem}
-              onTransferToPantry={handleTransferToPantry}
-              onGenerateAiShopping={handleGenerateAiShopping}
-              onClearList={() => setShoppingList([])}
-              onReconcileShopping={handleReconcileShopping}
-              isLoadingAi={isLoadingAi}
-              language={profile.language}
-              currency={profile.currency}
-              isPro={profile.isProSubscriber}
-              onOpenProModal={() => setShowProModal(true)}
-              onOpenShoppingAdvisor={() => setShowShoppingAdvisorModal(true)}
-            />
-          )}
-
-          {activeTab === "mealPlan" && (
-            <MealPlanView
-              mealPlan={mealPlan}
-              mealLogs={mealLogs}
-              recipes={recipes}
-              pantry={pantry}
-              language={profile.language}
-              currency={profile.currency}
-              shoppingList={shoppingList}
-              userName={profile.name}
-              onClearMealPlan={handleClearMealPlan}
-              onNavigateToVoice={() => setShowChefIaModal(true)}
-              isPro={profile.isProSubscriber}
-              onOpenProModal={() => setShowProModal(true)}
-              onGenerateAiWeekPlan={handleGenerateAiWeekPlan}
-              onAdaptToPantry={handleAdaptMenuToPantry}
-              isGeneratingPlan={isGeneratingPlan}
             />
           )}
 

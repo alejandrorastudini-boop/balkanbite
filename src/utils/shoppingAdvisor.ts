@@ -45,9 +45,10 @@ export function evaluateShoppingNeeds(
   shoppingList: ShoppingItem[],
   language: Language = "es"
 ): ShoppingAlertDiagnostic {
-  const depletedPantryItems = pantry.filter((p) => p.quantity <= 1);
+  // Only items with quantity <= 0 are depleted
+  const depletedPantryItems = pantry.filter((p) => p.quantity <= 0);
   const expiringPantryItems = pantry.filter(
-    (p) => p.expiryDaysLeft !== undefined && p.expiryDaysLeft <= 3 && p.quantity > 0
+    (p) => p.expiryDaysLeft !== undefined && p.expiryDaysLeft <= 2 && p.quantity > 0
   );
   const pendingShoppingItems = shoppingList.filter((s) => !s.checked);
 
@@ -129,50 +130,63 @@ export function evaluateShoppingNeeds(
   });
 
   // Calculate Urgency Score
-  // 0 - 100 based on critical triggers
   let score = 0;
   const reasonsEs: string[] = [];
   const reasonsEn: string[] = [];
   const reasonsBg: string[] = [];
 
-  // Missing meal ingredients for today/tomorrow is a high trigger
-  const todayMissing = missingMealIngredients.filter((m) => m.dayLabel.includes("Hoy") || m.dayLabel.includes("Today") || m.dayLabel.includes("Днес"));
+  // Missing meal ingredients for today
+  const todayMissing = missingMealIngredients.filter(
+    (m) =>
+      m.dayLabel.includes("Hoy") ||
+      m.dayLabel.includes("Today") ||
+      m.dayLabel.includes("Днес")
+  );
+
   if (todayMissing.length > 0) {
-    score += 45;
+    score += Math.min(50, 30 + todayMissing.length * 10);
     reasonsEs.push(`Faltan ${todayMissing.length} ingredientes para las comidas de HOY.`);
     reasonsEn.push(`Missing ${todayMissing.length} ingredients for TODAY'S planned meals.`);
     reasonsBg.push(`Липсват ${todayMissing.length} съставки за днешните ястия.`);
   } else if (missingMealIngredients.length > 0) {
-    score += 25;
-    reasonsEs.push(`Faltan ${missingMealIngredients.length} ingredientes para el menú de los próximos días.`);
-    reasonsEn.push(`Missing ${missingMealIngredients.length} ingredients for upcoming planned meals.`);
-    reasonsBg.push(`Липсват ${missingMealIngredients.length} съставки за менюто за следващите дни.`);
+    score += Math.min(35, 15 + missingMealIngredients.length * 5);
+    reasonsEs.push(
+      `Faltan ${missingMealIngredients.length} ingredientes para las comidas de los próximos días.`
+    );
+    reasonsEn.push(
+      `Missing ${missingMealIngredients.length} ingredients for upcoming planned meals.`
+    );
+    reasonsBg.push(
+      `Липсват ${missingMealIngredients.length} съставки за менюто за следващите дни.`
+    );
   }
 
   // Pending items on shopping list
-  if (pendingShoppingItems.length >= 4) {
+  if (pendingShoppingItems.length >= 6) {
     score += 35;
     reasonsEs.push(`Tienes ${pendingShoppingItems.length} artículos acumulados en tu lista de la compra.`);
     reasonsEn.push(`You have ${pendingShoppingItems.length} items accumulated on your shopping list.`);
     reasonsBg.push(`Имате ${pendingShoppingItems.length} продукта в списъка за пазаруване.`);
   } else if (pendingShoppingItems.length > 0) {
-    score += 15;
+    score += Math.min(25, pendingShoppingItems.length * 5);
     reasonsEs.push(`Tienes ${pendingShoppingItems.length} artículos pendientes en la lista de la compra.`);
     reasonsEn.push(`You have ${pendingShoppingItems.length} pending items on your shopping list.`);
     reasonsBg.push(`Имате ${pendingShoppingItems.length} чакащи продукта за пазаруване.`);
   }
 
-  // Depleted Pantry Essentials
-  if (depletedPantryItems.length >= 3) {
-    score += 25;
-    reasonsEs.push(`${depletedPantryItems.length} productos básicos en despensa están agotados o casi vacíos.`);
-    reasonsEn.push(`${depletedPantryItems.length} pantry essentials are depleted or low in stock.`);
-    reasonsBg.push(`${depletedPantryItems.length} основни продукта в килера са на привършване или изчерпани.`);
-  } else if (depletedPantryItems.length > 0) {
-    score += 10;
-    reasonsEs.push(`${depletedPantryItems.length} alimento de tu despensa tiene stock bajo.`);
-    reasonsEn.push(`${depletedPantryItems.length} pantry item is low in stock.`);
-    reasonsBg.push(`${depletedPantryItems.length} продукт в килера е с ниско количество.`);
+  // Truly depleted pantry items (quantity 0)
+  if (depletedPantryItems.length > 0) {
+    score += Math.min(30, depletedPantryItems.length * 10);
+    reasonsEs.push(`${depletedPantryItems.length} producto(s) en despensa están completamente agotados (0 uds).`);
+    reasonsEn.push(`${depletedPantryItems.length} item(s) in pantry are completely depleted (0 in stock).`);
+    reasonsBg.push(`${depletedPantryItems.length} продукт(а) в килера са напълно изчерпани.`);
+  }
+
+  // Expiring items
+  if (expiringPantryItems.length > 0) {
+    reasonsEs.push(`Tienes ${expiringPantryItems.length} producto(s) próximos a caducar (≤ 2 días).`);
+    reasonsEn.push(`You have ${expiringPantryItems.length} item(s) expiring soon (≤ 2 days).`);
+    reasonsBg.push(`Имате ${expiringPantryItems.length} продукт(а) с изтичащ срок (≤ 2 дни).`);
   }
 
   // Bound score
@@ -184,13 +198,47 @@ export function evaluateShoppingNeeds(
   if (score >= 60 || todayMissing.length > 0) {
     urgencyLevel = "urgent";
     daysUntilNextTrip = 0; // Today
-  } else if (score >= 30 || pendingShoppingItems.length >= 2 || missingMealIngredients.length > 0) {
+  } else if (score >= 25 || pendingShoppingItems.length >= 2 || missingMealIngredients.length > 0) {
     urgencyLevel = "recommended";
     daysUntilNextTrip = 1; // Tomorrow
   } else {
     urgencyLevel = "optimal";
     daysUntilNextTrip = 4;
   }
+
+  // Accurate headlines
+  const headlineEs =
+    todayMissing.length > 0
+      ? `Faltan ${todayMissing.length} ingredientes para las comidas de hoy.`
+      : missingMealIngredients.length > 0
+      ? `Faltan ${missingMealIngredients.length} ingredientes para tus recetas planificadas.`
+      : depletedPantryItems.length > 0
+      ? `Tienes ${depletedPantryItems.length} productos agotados en despensa.`
+      : pendingShoppingItems.length > 0
+      ? `Tienes ${pendingShoppingItems.length} artículos en tu lista de la compra.`
+      : "Tu despensa cubre los menús y no tienes compras pendientes.";
+
+  const headlineEn =
+    todayMissing.length > 0
+      ? `Missing ${todayMissing.length} ingredients for today's meals.`
+      : missingMealIngredients.length > 0
+      ? `Missing ${missingMealIngredients.length} ingredients for planned recipes.`
+      : depletedPantryItems.length > 0
+      ? `You have ${depletedPantryItems.length} depleted pantry items.`
+      : pendingShoppingItems.length > 0
+      ? `You have ${pendingShoppingItems.length} items on your shopping list.`
+      : "Your pantry covers scheduled meals and no shopping is pending.";
+
+  const headlineBg =
+    todayMissing.length > 0
+      ? `Липсват ${todayMissing.length} съставки за днешните ястия.`
+      : missingMealIngredients.length > 0
+      ? `Липсват ${missingMealIngredients.length} съставки за планираните рецепти.`
+      : depletedPantryItems.length > 0
+      ? `Имате ${depletedPantryItems.length} изчерпани продукта в килера.`
+      : pendingShoppingItems.length > 0
+      ? `Имате ${pendingShoppingItems.length} продукта в списъка за пазаруване.`
+      : "Килерът ви покрива менютата и нямате чакащи покупки.";
 
   // Calculate estimated trip total
   const listCost = pendingShoppingItems.reduce((acc, curr) => acc + (curr.estimatedPriceEUR || 0), 0);
@@ -221,29 +269,23 @@ export function evaluateShoppingNeeds(
           : "Килерът е зареден",
     },
     headline: {
-      es:
-        urgencyLevel === "urgent"
-          ? "Se requieren ingredientes para tus próximas comidas"
-          : urgencyLevel === "recommended"
-          ? "Tienes productos pendientes y stock bajo en despensa"
-          : "Tu despensa cubre los menús previstos",
-      en:
-        urgencyLevel === "urgent"
-          ? "Ingredients needed for upcoming planned meals"
-          : urgencyLevel === "recommended"
-          ? "Pending items and low stock detected in your pantry"
-          : "Your pantry is sufficient for scheduled meals",
-      bg:
-        urgencyLevel === "urgent"
-          ? "Нужни са съставки за предстоящите ястия"
-          : urgencyLevel === "recommended"
-          ? "Имате чакащи продукти и нисък запас в килера"
-          : "Килерът е достатъчен за планираните ястия",
+      es: headlineEs,
+      en: headlineEn,
+      bg: headlineBg,
     },
     reasons: {
-      es: reasonsEs.length > 0 ? reasonsEs : ["Todo tu menú de los próximos 3 días tiene ingredientes en despensa."],
-      en: reasonsEn.length > 0 ? reasonsEn : ["All meals for the next 3 days have ingredients in pantry."],
-      bg: reasonsBg.length > 0 ? reasonsBg : ["Всички ястия за следващите 3 дни имат налични съставки."],
+      es:
+        reasonsEs.length > 0
+          ? reasonsEs
+          : ["Todo tu menú de los próximos días tiene ingredientes suficientes en despensa."],
+      en:
+        reasonsEn.length > 0
+          ? reasonsEn
+          : ["All meals for the next days have sufficient ingredients in pantry."],
+      bg:
+        reasonsBg.length > 0
+          ? reasonsBg
+          : ["Всички ястия за следващите дни имат достатъчно налични съставки."],
     },
     missingMealIngredients,
     depletedPantryItems,

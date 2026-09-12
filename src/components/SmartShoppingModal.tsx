@@ -269,10 +269,10 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
             <h4 className="text-xs font-bold uppercase tracking-wider text-stone-400 flex items-center gap-1.5">
               <PackageX className="w-3.5 h-3.5 text-red-400" />
               {language === "es"
-                ? "Básicos de despensa agotados o bajo mínimos:"
+                ? "Alimentos agotados en despensa (0 uds):"
                 : language === "bg"
-                ? "Изчерпани продукти в килера:"
-                : "Pantry items depleted or critical:"}
+                ? "Изчерпани продукти в килера (0 бр):"
+                : "Depleted pantry items (0 in stock):"}
             </h4>
             <div className="flex flex-wrap gap-1.5">
               {depletedPantryItems.map((item) => (
@@ -280,7 +280,7 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
                   key={item.id}
                   className="text-[11px] font-semibold bg-red-500/10 border border-red-500/20 text-red-300 px-2 py-0.5 rounded-lg"
                 >
-                  {item.name} ({item.quantity} {item.unit})
+                  {item.name} ({language === "es" ? "Agotado" : "Depleted"})
                 </span>
               ))}
             </div>

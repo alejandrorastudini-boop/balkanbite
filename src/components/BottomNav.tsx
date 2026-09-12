@@ -34,11 +34,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       badgeColor: "bg-emerald-600 text-white",
     },
     {
-      id: "recipes" as TabType,
-      label: currentText.navRecipes,
-      icon: ChefHat,
-    },
-    {
       id: "mealPlan" as TabType,
       label: currentText.navMealPlan,
       icon: Calendar,
@@ -49,6 +44,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       icon: ShoppingCart,
       count: shoppingCount,
       badgeColor: "bg-amber-500 text-stone-950 font-bold",
+    },
+    {
+      id: "recipes" as TabType,
+      label: currentText.navRecipes,
+      icon: ChefHat,
     },
     {
       id: "profile" as TabType,
