@@ -1,0 +1,6 @@
+{
+  "name": "BalkanBite",
+  "description": "Smart AI pantry tracker, healthy balanced recipes, and intelligent grocery planner tailored to your budget and tastes.",
+  "requestFramePermissions": ["microphone", "camera"],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

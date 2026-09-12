@@ -1,0 +1,69 @@
+{
+  "collections": {
+    "users": {
+      "description": "User profiles and preferences",
+      "schema": {
+        "userId": "string",
+        "language": "string",
+        "currency": "string",
+        "isPro": "boolean",
+        "createdAt": "timestamp",
+        "updatedAt": "timestamp"
+      }
+    },
+    "inventory": {
+      "description": "Items in the user's pantry/fridge",
+      "schema": {
+        "userId": "string",
+        "id": "string",
+        "name": "string",
+        "category": "string",
+        "amount": "string",
+        "expiryDate": "string",
+        "daysLeft": "number",
+        "status": "string",
+        "createdAt": "timestamp"
+      }
+    },
+    "recipes": {
+      "description": "Saved or generated recipes",
+      "schema": {
+        "userId": "string",
+        "id": "string",
+        "title": "string",
+        "description": "string",
+        "ingredients": "array",
+        "instructions": "array",
+        "macros": "object",
+        "costPerServing": "number",
+        "time": "string",
+        "isFavorite": "boolean",
+        "imageUrl": "string",
+        "createdAt": "timestamp"
+      }
+    },
+    "mealPlans": {
+      "description": "Weekly meal plans",
+      "schema": {
+        "userId": "string",
+        "id": "string",
+        "day": "string",
+        "mealType": "string",
+        "recipeId": "string",
+        "recipeTitle": "string",
+        "date": "timestamp"
+      }
+    },
+    "shoppingList": {
+      "description": "User shopping items",
+      "schema": {
+        "userId": "string",
+        "id": "string",
+        "name": "string",
+        "amount": "string",
+        "checked": "boolean",
+        "createdAt": "timestamp"
+      }
+    }
+  }
+}

@@ -1,0 +1,21 @@
+{
+  "id": "/",
+  "name": "BalkanBite - AI Smart Pantry & Recipes",
+  "short_name": "BalkanBite",
+  "description": "Smart AI pantry tracker, healthy balanced recipes, and intelligent grocery planner tailored to your budget.",
+  "start_url": "/",
+  "scope": "/",
+  "display": "standalone",
+  "orientation": "portrait",
+  "background_color": "#1c1917",
+  "theme_color": "#10b981",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "192x192 512x512 any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ],
+  "categories": ["food", "lifestyle", "productivity", "health"]
+}

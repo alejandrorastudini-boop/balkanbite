@@ -1,0 +1,22 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 100 100" width="100" height="100">
+  <defs>
+    <linearGradient id="bb-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981"/>
+      <stop offset="50%" stop-color="#059669"/>
+      <stop offset="100%" stop-color="#f59e0b"/>
+    </linearGradient>
+    <linearGradient id="bowl-grad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#ffffff"/>
+      <stop offset="100%" stop-color="#d1fae5"/>
+    </linearGradient>
+  </defs>
+  <rect width="100" height="100" rx="26" fill="url(#bb-grad)"/>
+  <!-- Bowl Base -->
+  <path d="M 22 52 C 22 74 36 82 50 82 C 64 82 78 74 78 52 Z" fill="url(#bowl-grad)"/>
+  <!-- Steam / Leaves -->
+  <path d="M 50 20 C 44 26 44 34 50 42 C 56 34 56 26 50 20 Z" fill="#ffffff" opacity="0.95"/>
+  <path d="M 37 28 C 33 33 35 40 40 45 C 44 38 43 32 37 28 Z" fill="#ffffff" opacity="0.8"/>
+  <path d="M 63 28 C 67 33 65 40 60 45 C 56 38 57 32 63 28 Z" fill="#ffffff" opacity="0.8"/>
+  <!-- Rim Accent -->
+  <ellipse cx="50" cy="52" rx="28" ry="5" fill="#a7f3d0"/>
+</svg>
