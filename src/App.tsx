@@ -775,12 +775,12 @@ export default function App() {
 
   return (
     <div
-      className={`min-h-screen flex flex-col items-center justify-start antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200 ${
+      className={`min-h-screen w-full overflow-x-hidden flex flex-col items-center justify-start antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200 ${
         theme === "dark" ? "bg-[#0B0F12] text-stone-100" : "bg-stone-100 text-stone-900"
       }`}
     >
       {/* Outer Shell container - fully fluid & responsive across Mobile, Tablet and Desktop */}
-      <div className="w-full max-w-6xl mx-auto min-h-screen relative pb-28 px-3 sm:px-6 lg:px-8">
+      <div className="w-full max-w-6xl mx-auto min-h-screen relative pb-28 px-2.5 sm:px-6 lg:px-8">
         {/* Top Header */}
         <Header
           language={profile.language}

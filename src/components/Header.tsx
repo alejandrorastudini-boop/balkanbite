@@ -43,27 +43,27 @@ export const Header: React.FC<HeaderProps> = ({
   return (
     <header
       id="app-header"
-      className={`sticky top-0 z-30 px-3 sm:px-4 py-2.5 sm:py-3 transition-colors duration-200 ${
+      className={`sticky top-0 z-30 px-2.5 sm:px-4 py-2 sm:py-3 transition-colors duration-200 ${
         isDark
           ? "bg-[#0B0F12]/90 backdrop-blur-md border-b border-white/[0.06] text-white shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
           : "bg-white/90 backdrop-blur-xl border-b border-stone-200/80 text-stone-900 shadow-xs"
       }`}
     >
-      <div className="max-w-6xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4">
+      <div className="max-w-6xl mx-auto flex items-center justify-between gap-1 sm:gap-4">
         {/* Brand identity */}
         <div
-          className={`flex items-center gap-2 sm:gap-3 shrink-0 ${onGoToLanding ? "cursor-pointer group" : ""}`}
+          className={`flex items-center gap-1.5 sm:gap-3 shrink-0 ${onGoToLanding ? "cursor-pointer group" : ""}`}
           onClick={onGoToLanding}
           title={onGoToLanding ? currentText.viewLandingPage : undefined}
         >
           <img
             src="/images/logo.jpg"
             alt="BalkanBite Logo"
-            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover border-2 border-emerald-500/40 shadow-[0_2px_10px_rgba(16,185,129,0.25)] shrink-0 group-hover:scale-105 group-hover:border-emerald-400 transition-all"
+            className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl object-cover border-2 border-emerald-500/40 shadow-[0_2px_10px_rgba(16,185,129,0.25)] shrink-0 group-hover:scale-105 group-hover:border-emerald-400 transition-all"
           />
           <div className="shrink-0">
             <div className="flex items-center gap-1 sm:gap-2">
-              <h1 className="text-base sm:text-lg font-extrabold tracking-tight font-['Outfit'] group-hover:text-emerald-400 transition-colors whitespace-nowrap">
+              <h1 className="text-sm sm:text-lg font-extrabold tracking-tight font-['Outfit'] group-hover:text-emerald-400 transition-colors whitespace-nowrap">
                 {currentText.appName}
               </h1>
               <button
@@ -80,21 +80,21 @@ export const Header: React.FC<HeaderProps> = ({
                 PRO
               </button>
             </div>
-            <p className="text-[10px] sm:text-xs text-stone-400 hidden sm:block truncate font-medium">
+            <p className="text-[10px] sm:text-xs text-stone-400 hidden md:block truncate font-medium">
               {currentText.tagline}
             </p>
           </div>
         </div>
 
         {/* Action controls - guaranteed no overflow on mobile */}
-        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+        <div className="flex items-center gap-1 sm:gap-2 shrink-0">
           {/* Shopping Alert & Urgency Bell */}
           {onOpenShoppingAdvisor && (
             <button
               id="header-shopping-alert-btn"
               type="button"
               onClick={onOpenShoppingAdvisor}
-              className={`relative w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer shrink-0 ${
+              className={`relative w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg sm:rounded-xl border transition-all cursor-pointer shrink-0 ${
                 isUrgent
                   ? "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.3)] animate-pulse"
                   : isRecommended
@@ -114,15 +114,15 @@ export const Header: React.FC<HeaderProps> = ({
               }
             >
               {isUrgent ? (
-                <BellRing className="w-4 h-4 text-red-400" />
+                <BellRing className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
               ) : isRecommended ? (
-                <Bell className="w-4 h-4 text-amber-400" />
+                <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
               ) : (
-                <Bell className="w-4 h-4" />
+                <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
               )}
               {shoppingBadgeCount > 0 && (
                 <span
-                  className={`absolute -top-1 -right-1 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-xs ${
+                  className={`absolute -top-1 -right-1 text-[8px] sm:text-[9px] font-black w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center shadow-xs ${
                     isUrgent
                       ? "bg-red-500 text-stone-950"
                       : isRecommended
@@ -142,7 +142,7 @@ export const Header: React.FC<HeaderProps> = ({
               id="theme-toggle-btn"
               type="button"
               onClick={onToggleTheme}
-              className={`w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer shrink-0 ${
+              className={`w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg sm:rounded-xl border transition-all cursor-pointer shrink-0 ${
                 isDark
                   ? "bg-white/[0.04] border-white/[0.08] text-amber-400 hover:bg-white/[0.08] hover:text-amber-300"
                   : "bg-stone-100 border-stone-200 text-amber-600 hover:bg-stone-200"
@@ -179,7 +179,7 @@ export const Header: React.FC<HeaderProps> = ({
                 };
                 onLanguageChange(nextLang[language]);
               }}
-              className={`sm:hidden text-xs font-extrabold px-2 py-1 rounded-xl border transition-all cursor-pointer ${
+              className={`sm:hidden text-[11px] font-extrabold px-1.5 py-1 rounded-lg border transition-all cursor-pointer ${
                 isDark
                   ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 active:bg-emerald-500/20"
                   : "bg-emerald-50 border-emerald-300 text-emerald-800 active:bg-emerald-100"
@@ -256,7 +256,7 @@ export const Header: React.FC<HeaderProps> = ({
               id="curr-btn-mobile"
               type="button"
               onClick={() => onCurrencyChange(currency === "EUR" ? "USD" : "EUR")}
-              className={`sm:hidden text-xs font-extrabold px-2.5 py-1.5 rounded-xl border transition-all cursor-pointer ${
+              className={`sm:hidden text-[11px] font-extrabold px-1.5 py-1 rounded-lg border transition-all cursor-pointer ${
                 isDark
                   ? "bg-white/[0.02] border-white/[0.08] text-emerald-400 active:bg-white/[0.04]"
                   : "bg-stone-100 border-stone-200 text-emerald-700 active:bg-stone-200"
@@ -311,13 +311,13 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Go to Landing button */}
+          {/* Go to Landing button (Desktop & tablet only, mobile uses logo or profile) */}
           {onGoToLanding && (
             <button
               id="header-goto-landing-btn"
               type="button"
               onClick={onGoToLanding}
-              className={`flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-colors cursor-pointer shrink-0 text-xs font-bold ${
+              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-colors cursor-pointer shrink-0 text-xs font-bold ${
                 isDark
                   ? "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:text-emerald-400 hover:border-emerald-500/50 hover:bg-white/[0.04]"
                   : "bg-stone-100 border-stone-200 text-stone-700 hover:text-emerald-600 hover:bg-stone-200"
@@ -325,17 +325,17 @@ export const Header: React.FC<HeaderProps> = ({
               title={currentText.viewLandingPage}
             >
               <Globe className="w-4 h-4 text-emerald-400" />
-              <span className="hidden sm:inline">Landing</span>
+              <span>Landing</span>
             </button>
           )}
 
-          {/* Cloud Auth / Account button */}
+          {/* Cloud Auth / Account button - compact avatar/icon on mobile, full on desktop */}
           {onOpenAuthModal && (
             <button
               id="header-auth-btn"
               type="button"
               onClick={onOpenAuthModal}
-              className={`flex items-center gap-2 px-2.5 py-1.5 rounded-xl border transition-colors cursor-pointer shrink-0 text-xs font-bold ${
+              className={`w-7 h-7 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border transition-colors cursor-pointer shrink-0 text-xs font-bold flex items-center justify-center sm:gap-2 ${
                 currentUser
                   ? isDark
                     ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
@@ -355,14 +355,14 @@ export const Header: React.FC<HeaderProps> = ({
               }
             >
               {currentUser?.photoURL ? (
-               <img
+                <img
                   src={currentUser.photoURL}
                   alt="Usuario"
-                  className="w-5 h-5 rounded-full object-cover shrink-0 border border-emerald-500/50"
+                  className="w-4 h-4 sm:w-5 sm:h-5 rounded-full object-cover shrink-0 border border-emerald-500/50"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <UserIcon className="w-4 h-4 text-emerald-400 shrink-0" />
+                <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" />
               )}
               <span className="hidden sm:inline truncate max-w-[70px]">
                 {currentUser ? (currentUser.displayName?.split(" ")[0] || "Perfil") : "Google"}
