@@ -79,10 +79,12 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               onClick={() => onChangeTab(item.id)}
               className={`flex-1 flex flex-col items-center justify-center py-2 px-1 sm:px-2 rounded-2xl transition-all duration-300 cursor-pointer relative group ${
                 isActive
-                  ? "text-emerald-400 font-bold"
+                  ? isDark
+                    ? "text-emerald-400 font-bold"
+                    : "text-emerald-700 font-extrabold"
                   : isDark
                   ? "text-stone-500 hover:text-stone-300 hover:bg-white/[0.04]"
-                  : "text-stone-500 hover:text-stone-800 hover:bg-stone-100"
+                  : "text-stone-500 hover:text-stone-900 hover:bg-slate-100"
               }`}
             >
               {/* Active pill indicator at the bottom */}
@@ -93,7 +95,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
               <div className="relative">
                 <Icon
                   className={`w-5 h-5 transition-transform duration-300 ${
-                    isActive ? "scale-110 text-emerald-400" : "group-hover:-translate-y-0.5"
+                    isActive
+                      ? isDark
+                        ? "scale-110 text-emerald-400"
+                        : "scale-110 text-emerald-700"
+                      : "group-hover:-translate-y-0.5"
                   }`}
                 />
                 {item.count !== undefined && item.count > 0 && (

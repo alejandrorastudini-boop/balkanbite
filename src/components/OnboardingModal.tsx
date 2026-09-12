@@ -1,5 +1,19 @@
 import React, { useState } from "react";
-import { Sparkles, Check, ArrowRight, ShieldCheck } from "lucide-react";
+import {
+  Sparkles,
+  ArrowRight,
+  ArrowLeft,
+  Users,
+  UtensilsCrossed,
+  Target,
+  Wallet,
+  Flame,
+  CheckCircle2,
+  ChefHat,
+  ShieldAlert,
+  Microwave,
+  Check,
+} from "lucide-react";
 import { Language, UserProfile } from "../types";
 import { t } from "../utils/translations";
 
@@ -16,64 +30,140 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 }) => {
   if (!isOpen) return null;
 
-  const currentText = t[language];
+  const currentText = t[language] || t["es"];
   const [step, setStep] = useState(1);
-  const [speed, setSpeed] = useState<"fast" | "moderate" | "elaborate">("fast");
-  const [goal, setGoal] = useState<"balanced" | "muscle" | "fat_loss" | "heart">("balanced");
-  const [diet, setDiet] = useState<"all" | "mediterranean" | "vegetarian" | "vegan">("mediterranean");
+
+  // Form State
+  const [name, setName] = useState("");
+  const [householdSize, setHouseholdSize] = useState<number>(2);
+  const [cookingSpeed, setCookingSpeed] = useState<"fast" | "moderate" | "elaborate">("fast");
+  const [healthGoal, setHealthGoal] = useState<"balanced" | "muscle" | "fat_loss" | "heart">("balanced");
+  const [dietStyle, setDietStyle] = useState<"all" | "mediterranean" | "vegetarian" | "vegan" | "keto" | "gluten_free">("mediterranean");
+  const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
+  const [selectedAppliances, setSelectedAppliances] = useState<string[]>(["Airfryer", "Horno", "Vitro"]);
+  const [monthlyBudgetEUR, setMonthlyBudgetEUR] = useState<number>(350);
+
+  const toggleAllergy = (allergy: string) => {
+    setSelectedAllergies((prev) =>
+      prev.includes(allergy) ? prev.filter((a) => a !== allergy) : [...prev, allergy]
+    );
+  };
+
+  const toggleAppliance = (appliance: string) => {
+    setSelectedAppliances((prev) =>
+      prev.includes(appliance) ? prev.filter((a) => a !== appliance) : [...prev, appliance]
+    );
+  };
 
   const finish = () => {
     onComplete({
-      cookingSpeed: speed,
-      healthGoal: goal,
-      dietStyle: diet,
+      name: name.trim() || undefined,
+      householdSize,
+      cookingSpeed,
+      healthGoal,
+      dietStyle,
+      allergies: selectedAllergies,
+      appliances: selectedAppliances,
+      monthlyBudgetEUR,
       onboardingCompleted: true,
     });
   };
 
+  const totalSteps = 4;
+
   return (
-    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-4">
-      <div className="bg-[#0B0F12] border border-white/[0.08] rounded-3xl max-w-sm w-full p-6 space-y-5 shadow-[0_20px_60px_rgba(0,0,0,0.8)]">
-        <div className="text-center space-y-1">
-          <div className="w-12 h-12 mx-auto rounded-2xl bg-white/[0.04] border border-white/[0.08] flex items-center justify-center text-white font-black text-xl shadow-inner mb-2 tracking-tighter">
-            BB
+    <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
+      <div className="bg-[#0B0F12] border border-white/[0.08] rounded-3xl max-w-md w-full p-5 sm:p-6 space-y-5 shadow-[0_25px_70px_rgba(0,0,0,0.9)] my-auto relative">
+        {/* Header Badge */}
+        <div className="text-center space-y-1.5">
+          <div className="flex items-center justify-center gap-2 mb-1">
+            <img
+              src="/images/logo.jpg"
+              alt="BalkanBite Logo"
+              className="w-10 h-10 rounded-2xl object-cover border-2 border-emerald-500/30 shadow-[0_2px_10px_rgba(16,185,129,0.2)]"
+            />
+            <span className="text-xl font-bold text-white font-['Outfit'] tracking-wide">
+              BalkanBite AI
+            </span>
           </div>
-          <h2 className="text-lg font-bold text-white font-['Outfit'] tracking-wide">
-            {currentText.welcomeTitle}
+
+          <h2 className="text-base sm:text-lg font-bold text-white tracking-wide">
+            {language === "es"
+              ? "Personaliza tu Cocina Inteligente"
+              : language === "bg"
+              ? "Персонализирайте вашата кухня"
+              : "Customize Your Smart Kitchen"}
           </h2>
+
           <p className="text-xs text-stone-400 font-medium">
-            {currentText.welcomeSubtitle}
+            {language === "es"
+              ? "Ajustaremos las recetas y alertas según tu estilo de vida"
+              : language === "bg"
+              ? "Ще настроим рецептите спрямо вашия начин на живот"
+              : "We'll adapt recipes and shopping alerts to your lifestyle"}
           </p>
+
+          {/* Progress Bar */}
+          <div className="w-full bg-white/[0.05] h-1.5 rounded-full overflow-hidden mt-3">
+            <div
+              className="bg-emerald-500 h-full transition-all duration-300"
+              style={{ width: `${(step / totalSteps) * 100}%` }}
+            />
+          </div>
+          <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-widest block pt-0.5">
+            Paso {step} de {totalSteps}
+          </span>
         </div>
 
-        {/* Step 1: Speed */}
+        {/* STEP 1: Hogar & Nombre */}
         {step === 1 && (
           <div className="space-y-4">
-            <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-widest block text-center">
-              1/3 • {currentText.cookingSpeed}
-            </span>
-            <div className="space-y-2.5">
-              {[
-                { id: "fast", label: currentText.speedFast },
-                { id: "moderate", label: currentText.speedModerate },
-                { id: "elaborate", label: currentText.speedElaborate },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => setSpeed(opt.id as any)}
-                  className={`w-full p-3.5 rounded-xl border text-xs text-left font-bold transition-all ${
-                    speed === opt.id
-                      ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 shadow-inner"
-                      : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:text-stone-300 hover:bg-white/[0.04]"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div>
+              <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
+                <ChefHat className="w-3.5 h-3.5 text-emerald-400" />
+                {language === "es" ? "¿Cómo te llamas?" : "Your Name"}
+              </label>
+              <input
+                type="text"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder="Ej. Alejandro"
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-stone-500 focus:outline-none focus:border-emerald-500/50"
+              />
             </div>
+
+            <div>
+              <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                <Users className="w-3.5 h-3.5 text-emerald-400" />
+                {language === "es" ? "¿Cuántas personas comen en casa?" : "Household size"}
+              </label>
+              <div className="grid grid-cols-4 gap-2">
+                {[
+                  { count: 1, label: "1 (Solo)" },
+                  { count: 2, label: "2 (Pareja)" },
+                  { count: 3, label: "3-4 (Familia)" },
+                  { count: 5, label: "5+ (Grande)" },
+                ].map((opt) => (
+                  <button
+                    key={opt.count}
+                    type="button"
+                    onClick={() => setHouseholdSize(opt.count)}
+                    className={`p-2.5 rounded-xl border text-center transition-all text-xs font-bold ${
+                      householdSize === opt.count
+                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-md"
+                        : "bg-white/[0.02] border-white/[0.05] text-stone-400 hover:text-white"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
             <button
+              type="button"
               onClick={() => setStep(2)}
-              className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-1.5 mt-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
+              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 mt-4 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
             >
               <span>{language === "bg" ? "Напред" : language === "es" ? "Siguiente" : "Next"}</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -81,75 +171,241 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </div>
         )}
 
-        {/* Step 2: Goal */}
+        {/* STEP 2: Dieta & Alergias */}
         {step === 2 && (
           <div className="space-y-4">
-            <span className="text-[10px] font-extrabold text-amber-400 uppercase tracking-widest block text-center">
-              2/3 • {currentText.healthGoals}
-            </span>
-            <div className="space-y-2.5">
-              {[
-                { id: "balanced", label: currentText.goalBalanced },
-                { id: "muscle", label: currentText.goalMuscle },
-                { id: "fat_loss", label: currentText.goalFatLoss },
-                { id: "heart", label: currentText.goalHeart },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => setGoal(opt.id as any)}
-                  className={`w-full p-3.5 rounded-xl border text-xs text-left font-bold transition-all ${
-                    goal === opt.id
-                      ? "bg-amber-500/10 border-amber-500/30 text-amber-400 shadow-inner"
-                      : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:text-stone-300 hover:bg-white/[0.04]"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div>
+              <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400" />
+                {language === "es" ? "Estilo de Dieta Preferido" : "Dietary Style"}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {[
+                  { id: "mediterranean", label: "Mediterránea (Equilibrada)" },
+                  { id: "vegetarian", label: "Vegetariana" },
+                  { id: "vegan", label: "Vegana" },
+                  { id: "gluten_free", label: "Sin Gluten" },
+                  { id: "keto", label: "Keto / Baja en Carbos" },
+                  { id: "all", label: "Sin Restricciones" },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setDietStyle(opt.id as any)}
+                    className={`p-2.5 rounded-xl border text-left text-xs font-bold transition-all ${
+                      dietStyle === opt.id
+                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-md"
+                        : "bg-white/[0.02] border-white/[0.05] text-stone-400 hover:text-white"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
             </div>
-            <button
-              onClick={() => setStep(3)}
-              className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-1.5 mt-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
-            >
-              <span>{language === "bg" ? "Напред" : language === "es" ? "Siguiente" : "Next"}</span>
-              <ArrowRight className="w-3.5 h-3.5" />
-            </button>
+
+            <div>
+              <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
+                {language === "es" ? "Alergias o Intolerancias (Opcional)" : "Allergies or Intolerances"}
+              </label>
+              <div className="flex flex-wrap gap-1.5">
+                {["Gluten", "Lactosa", "Frutos Secos", "Marisco", "Huevos", "Soja"].map((allergy) => {
+                  const isSelected = selectedAllergies.includes(allergy);
+                  return (
+                    <button
+                      key={allergy}
+                      type="button"
+                      onClick={() => toggleAllergy(allergy)}
+                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
+                        isSelected
+                          ? "bg-rose-500/20 border-rose-500/40 text-rose-300"
+                          : "bg-white/[0.02] border-white/[0.05] text-stone-400 hover:text-white"
+                      }`}
+                    >
+                      {isSelected && <Check className="w-3 h-3 text-rose-400" />}
+                      <span>{allergy}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setStep(1)}
+                className="py-3 px-4 rounded-xl bg-white/[0.04] text-stone-400 font-bold text-xs flex items-center gap-1 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Atrás</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
+              >
+                <span>Siguiente</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
           </div>
         )}
 
-        {/* Step 3: Diet */}
+        {/* STEP 3: Objetivo de Salud & Velocidad */}
         {step === 3 && (
           <div className="space-y-4">
-            <span className="text-[10px] font-extrabold text-teal-400 uppercase tracking-widest block text-center">
-              3/3 • {currentText.dietType}
-            </span>
-            <div className="space-y-2.5">
-              {[
-                { id: "all", label: currentText.dietAll },
-                { id: "mediterranean", label: currentText.dietMed },
-                { id: "vegetarian", label: currentText.dietVegetarian },
-                { id: "vegan", label: currentText.dietVegan },
-              ].map((opt) => (
-                <button
-                  key={opt.id}
-                  onClick={() => setDiet(opt.id as any)}
-                  className={`w-full p-3.5 rounded-xl border text-xs text-left font-bold transition-all ${
-                    diet === opt.id
-                      ? "bg-teal-500/10 border-teal-500/30 text-teal-400 shadow-inner"
-                      : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:text-stone-300 hover:bg-white/[0.04]"
-                  }`}
-                >
-                  {opt.label}
-                </button>
-              ))}
+            <div>
+              <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                <Target className="w-3.5 h-3.5 text-amber-400" />
+                {language === "es" ? "Objetivo de Salud Principal" : "Health Goal"}
+              </label>
+              <div className="space-y-2">
+                {[
+                  { id: "balanced", label: "Equilibrio & Ahorro Anti-Desperdicio", desc: "Aprovechar al 100% lo que hay en la despensa" },
+                  { id: "fat_loss", label: "Pérdida de Grasa / Ligero", desc: "Recetas con menos calorías y altas en saciedad" },
+                  { id: "muscle", label: "Ganancia Muscular (Alta Proteína)", desc: "Enfocado en proteínas magras y recuperación" },
+                  { id: "heart", label: "Salud Cardiovascular & Digestiva", desc: "Recetas ricas en fibra, omega-3 y bajas en sodio" },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setHealthGoal(opt.id as any)}
+                    className={`w-full p-3 rounded-xl border text-left transition-all ${
+                      healthGoal === opt.id
+                        ? "bg-amber-500/15 border-amber-500/40 text-amber-300 shadow-md"
+                        : "bg-white/[0.02] border-white/[0.05] text-stone-400 hover:text-white"
+                    }`}
+                  >
+                    <div className="text-xs font-bold">{opt.label}</div>
+                    <div className="text-[10px] text-stone-400 font-medium mt-0.5">{opt.desc}</div>
+                  </button>
+                ))}
+              </div>
             </div>
-            <button
-              onClick={finish}
-              className="w-full py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 mt-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all cursor-pointer"
-            >
-              <Sparkles className="w-4 h-4" />
-              <span>{currentText.quickStart}</span>
-            </button>
+
+            <div>
+              <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                <Flame className="w-3.5 h-3.5 text-emerald-400" />
+                {language === "es" ? "¿Cuánto tiempo tienes para cocinar?" : "Cooking Speed"}
+              </label>
+              <div className="grid grid-cols-3 gap-2">
+                {[
+                  { id: "fast", label: "Express (< 20 min)" },
+                  { id: "moderate", label: "Normal (20-40 min)" },
+                  { id: "elaborate", label: "Gourmet (+40 min)" },
+                ].map((opt) => (
+                  <button
+                    key={opt.id}
+                    type="button"
+                    onClick={() => setCookingSpeed(opt.id as any)}
+                    className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all ${
+                      cookingSpeed === opt.id
+                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-md"
+                        : "bg-white/[0.02] border-white/[0.05] text-stone-400 hover:text-white"
+                    }`}
+                  >
+                    {opt.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setStep(2)}
+                className="py-3 px-4 rounded-xl bg-white/[0.04] text-stone-400 font-bold text-xs flex items-center gap-1 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Atrás</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setStep(4)}
+                className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
+              >
+                <span>Siguiente</span>
+                <ArrowRight className="w-3.5 h-3.5" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* STEP 4: Equipamiento & Presupuesto */}
+        {step === 4 && (
+          <div className="space-y-4">
+            <div>
+              <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                <Microwave className="w-3.5 h-3.5 text-teal-400" />
+                {language === "es" ? "Equipamiento de Cocina Disponible" : "Kitchen Appliances"}
+              </label>
+              <div className="grid grid-cols-2 gap-2">
+                {["Airfryer", "Horno", "Thermomix / Robot", "Microondas", "Sartén / Vitro"].map((appliance) => {
+                  const isSelected = selectedAppliances.includes(appliance);
+                  return (
+                    <button
+                      key={appliance}
+                      type="button"
+                      onClick={() => toggleAppliance(appliance)}
+                      className={`p-2.5 rounded-xl border text-left text-xs font-bold transition-all flex items-center justify-between ${
+                        isSelected
+                          ? "bg-teal-500/20 border-teal-500/40 text-teal-300"
+                          : "bg-white/[0.02] border-white/[0.05] text-stone-400 hover:text-white"
+                      }`}
+                    >
+                      <span>{appliance}</span>
+                      {isSelected && <Check className="w-3.5 h-3.5 text-teal-400" />}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            <div>
+              <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
+                <Wallet className="w-3.5 h-3.5 text-emerald-400" />
+                {language === "es" ? "Presupuesto Mensual de Alimentación Estimado" : "Monthly Grocery Budget"}
+              </label>
+              <div className="bg-white/[0.02] border border-white/[0.05] p-3 rounded-2xl space-y-2">
+                <div className="flex justify-between items-center text-xs font-bold text-white">
+                  <span>Presupuesto Aproximado:</span>
+                  <span className="text-emerald-400 text-sm font-black">{monthlyBudgetEUR} €/mes</span>
+                </div>
+                <input
+                  type="range"
+                  min="150"
+                  max="800"
+                  step="25"
+                  value={monthlyBudgetEUR}
+                  onChange={(e) => setMonthlyBudgetEUR(Number(e.target.value))}
+                  className="w-full accent-emerald-500 cursor-pointer"
+                />
+                <div className="flex justify-between text-[10px] text-stone-500 font-medium">
+                  <span>150 € (Ahorro máximo)</span>
+                  <span>800 € (Flexibilidad total)</span>
+                </div>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2 pt-2">
+              <button
+                type="button"
+                onClick={() => setStep(3)}
+                className="py-3 px-4 rounded-xl bg-white/[0.04] text-stone-400 font-bold text-xs flex items-center gap-1 cursor-pointer"
+              >
+                <ArrowLeft className="w-3.5 h-3.5" />
+                <span>Atrás</span>
+              </button>
+              <button
+                type="button"
+                onClick={finish}
+                className="flex-1 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all"
+              >
+                <Sparkles className="w-4 h-4" />
+                <span>{language === "es" ? "Comenzar Experiencia" : "Start Experience"}</span>
+              </button>
+            </div>
           </div>
         )}
       </div>

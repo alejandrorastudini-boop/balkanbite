@@ -1,7 +1,5 @@
 import { PantryItem, Recipe, ShoppingItem, UserProfile, MealPlanDay } from "../types";
 
-export const INITIAL_PANTRY: PantryItem[] = [];
-
 export const SAMPLE_PANTRY: PantryItem[] = [
   { id: "sp-1", name: "Huevos frescos", quantity: 6, unit: "uds", category: "Dairy", expiryDaysLeft: 10, estimatedCostEUR: 1.80, addedAt: new Date().toISOString().split("T")[0] },
   { id: "sp-2", name: "Queso crema tipo Philadelphia", quantity: 1, unit: "tarrina", category: "Dairy", expiryDaysLeft: 14, estimatedCostEUR: 1.65, addedAt: new Date().toISOString().split("T")[0] },
@@ -14,9 +12,67 @@ export const SAMPLE_PANTRY: PantryItem[] = [
   { id: "sp-9", name: "Bacon ahumado", quantity: 1, unit: "paquete", category: "Meat/Fish", expiryDaysLeft: 8, estimatedCostEUR: 1.75, addedAt: new Date().toISOString().split("T")[0] },
   { id: "sp-10", name: "Ajo en polvo", quantity: 1, unit: "bote", category: "Spices", expiryDaysLeft: 120, estimatedCostEUR: 0.90, addedAt: new Date().toISOString().split("T")[0] },
   { id: "sp-11", name: "Aceite de oliva virgen", quantity: 1, unit: "botella", category: "Pantry/Grains", expiryDaysLeft: 180, estimatedCostEUR: 4.50, addedAt: new Date().toISOString().split("T")[0] },
+  { id: "sp-12", name: "Tomate", quantity: 4, unit: "uds", category: "Produce", expiryDaysLeft: 5, estimatedCostEUR: 1.50, addedAt: new Date().toISOString().split("T")[0] },
+  { id: "sp-13", name: "Pechugas de pollo", quantity: 2, unit: "filetes", category: "Meat/Fish", expiryDaysLeft: 4, estimatedCostEUR: 3.20, addedAt: new Date().toISOString().split("T")[0] },
+  { id: "sp-14", name: "Garbanzos", quantity: 2, unit: "botes", category: "Pantry/Grains", expiryDaysLeft: 120, estimatedCostEUR: 1.40, addedAt: new Date().toISOString().split("T")[0] },
 ];
 
+export const INITIAL_PANTRY: PantryItem[] = SAMPLE_PANTRY;
+
 export const SAMPLE_RECIPES: Recipe[] = [
+  {
+    id: "rec-breakfast-toast-tomato",
+    title: {
+      en: "Mediterranean Tomato & Egg Breakfast Toast",
+      bg: "Средиземноморска Закуска с Домат и Яйце",
+      es: "Tostada Matutina con Tomate Natural y Huevo",
+    },
+    description: {
+      en: "Crispy toast rubbed with fresh juicy tomato, olive oil, and topped with a fresh egg.",
+      bg: "Хрупкав тост с пресен домат, зехтин и яйце.",
+      es: "Pan tostado con tomate natural rallado, aceite de oliva virgen y huevo fresco para empezar el día con energía.",
+    },
+    prepTimeMin: 5,
+    cookTimeMin: 5,
+    costPerServingEUR: 0.90,
+    difficulty: "easy",
+    servings: 1,
+    calories: 290,
+    proteinG: 14,
+    carbsG: 25,
+    fatG: 14,
+    fiberG: 3,
+    healthScore: 94,
+    tags: ["Desayuno", "Rápido 5 min", "Saludable", "Vegetariano"],
+    ingredients: [
+      { name: "Huevos frescos", amount: 1, unit: "ud", inPantry: true },
+      { name: "Tomate", amount: 1, unit: "ud", inPantry: true },
+      { name: "Aceite de oliva virgen", amount: 1, unit: "cda", inPantry: true },
+    ],
+    instructions: {
+      en: [
+        "Toast a slice of bread until golden and crispy.",
+        "Grate or crush fresh ripe tomato over the toast with a drizzle of extra virgin olive oil and salt.",
+        "Fry or poach a fresh egg and place it on top of the tomato toast.",
+      ],
+      bg: [
+        "Препечете филийка хляб до златисто.",
+        "Настържете пресен узрял домат върху тоста със зехтин и сол.",
+        "Изпържете или поширайте яйце и го поставете отгоре.",
+      ],
+      es: [
+        "Tuesta una rebanada de pan al gusto hasta que esté crujiente.",
+        "Ralla o tritura el tomate natural sobre la tostada con un chorrito de aceite de oliva virgen.",
+        "Cocina un huevo fresco a la plancha o poché y colócalo encima de la tostada con tomate.",
+      ],
+    },
+    nutritionHighlights: {
+      en: "Light, energizing morning protein and vitamins.",
+      bg: "Лек и енергизиращ сутрешен протеин.",
+      es: "Energía matutina limpia, vitaminas antioxidantes y proteínas de alta calidad.",
+    },
+    imageUrl: "https://images.unsplash.com/photo-1525351484163-7529414344d8?auto=format&fit=crop&w=800&q=80",
+  },
   {
     id: "rec-med-lentil",
     title: {
@@ -189,6 +245,177 @@ export const SAMPLE_RECIPES: Recipe[] = [
     },
     imageUrl: "https://images.unsplash.com/photo-1621996346565-e3d5d6281699?auto=format&fit=crop&w=800&q=80",
   },
+  {
+    id: "rec-chicken-tomato",
+    title: {
+      en: "Juicy Chicken Breast in Savory Tomato Herb Sauce",
+      bg: "Сочни Пилешки Гърди в Доматен Сос с Подправки",
+      es: "Pechugas de Pollo Jugosas en Salsa de Tomate y Hierbas",
+    },
+    description: {
+      en: "Tender chicken breast sautéed with rich ripe tomatoes and aromatic garlic.",
+      bg: "Нежни пилешки гърди, задушени с узрели домати и ароматен чесън.",
+      es: "Pechugas de pollo tiernas cocinadas a fuego lento con tomate natural y toque de ajo.",
+    },
+    prepTimeMin: 10,
+    cookTimeMin: 15,
+    costPerServingEUR: 1.85,
+    difficulty: "easy",
+    servings: 2,
+    calories: 420,
+    proteinG: 38,
+    carbsG: 12,
+    fatG: 14,
+    fiberG: 3,
+    healthScore: 92,
+    tags: ["Proteico", "Bajo en Carbos", "Saludable", "Pollo"],
+    ingredients: [
+      { name: "Pechugas de pollo", amount: 350, unit: "g", inPantry: true },
+      { name: "Tomate", amount: 2, unit: "uds", inPantry: true },
+      { name: "Ajo en polvo", amount: 1, unit: "cdta", inPantry: true },
+      { name: "Aceite de oliva virgen", amount: 1, unit: "cda", inPantry: true },
+    ],
+    instructions: {
+      en: [
+        "Slice chicken breasts into medallions and season with salt and garlic powder.",
+        "In a skillet with olive oil, brown the chicken until golden on both sides.",
+        "Dice tomatoes and add them to the skillet, simmering covered for 10 minutes until a rich sauce forms.",
+        "Serve hot with the savory tomato sauce over the chicken.",
+      ],
+      bg: [
+        "Нарежете пилешките гърди на медальони и подправете със сол и чесън на прах.",
+        "В тиган със зехтин запържете пилешкото до златисто.",
+        "Нарежете доматите и ги добавете в тигана, като оставите да къкри покрито 10 минути.",
+        "Сервирайте горещо с доматения сос.",
+      ],
+      es: [
+        "Corta las pechugas de pollo en filetes o dados y salpimenta con ajo en polvo.",
+        "En una sartén con aceite de oliva virgen, dora el pollo por ambos lados.",
+        "Picota o trocea los tomates e incorpóralos a la sartén, cocinando a fuego medio tapado durante 10 minutos.",
+        "Sirve bien caliente salseado con el tomate natural.",
+      ],
+    },
+    nutritionHighlights: {
+      en: "High-quality lean animal protein combined with antioxidant-rich tomatoes.",
+      bg: "Висококачествен чист протеин, съчетан с антиоксиданти от доматите.",
+      es: "Proteína magra de alta calidad combinada con licopenos antioxidantes del tomate.",
+    },
+    imageUrl: "https://images.unsplash.com/photo-1604908176997-125f2596f37c?auto=format&fit=crop&w=800&q=80",
+  },
+  {
+    id: "rec-chickpea-tomato-stew",
+    title: {
+      en: "Rustic Chickpea & Tomato Power Stew",
+      bg: "Селска Яхния с Нахуд и Домати",
+      es: "Guiso Rústico de Garbanzos con Tomate y Ajo",
+    },
+    description: {
+      en: "A protein-packed, hearty vegan stew featuring tender chickpeas and rich tomato reduction.",
+      bg: "Засищащо веган ястие, пълно с протеини, нежен нахуд и доматен сос.",
+      es: "Un plato reconfortante de garbanzos tiernos cocinados con tomate y especias mediterráneas.",
+    },
+    prepTimeMin: 5,
+    cookTimeMin: 12,
+    costPerServingEUR: 0.90,
+    difficulty: "easy",
+    servings: 2,
+    calories: 380,
+    proteinG: 16,
+    carbsG: 55,
+    fatG: 10,
+    fiberG: 12,
+    healthScore: 96,
+    tags: ["Vegetariano", "Alto en Fibra", "Económico", "Garbanzos"],
+    ingredients: [
+      { name: "Garbanzos", amount: 300, unit: "g", inPantry: true },
+      { name: "Tomate", amount: 2, unit: "uds", inPantry: true },
+      { name: "Ajo en polvo", amount: 1, unit: "cdta", inPantry: true },
+      { name: "Aceite de oliva virgen", amount: 1, unit: "cda", inPantry: true },
+    ],
+    instructions: {
+      en: [
+        "In a saucepan, heat olive oil and sauté minced or chopped tomatoes with garlic powder until soft.",
+        "Add cooked or drained chickpeas into the tomato base along with 50ml of water.",
+        "Simmer gently for 10 minutes, mashing a few chickpeas to thicken the stew.",
+        "Serve warm as a hearty protein bowl.",
+      ],
+      bg: [
+        "В касерола загрейте зехтина и задушете доматите с чесън на прах до омекване.",
+        "Добавете нахута и 50 мл вода.",
+        "Варете на слаб огън 10 минути, като намачкате малко от нахута за гъстота.",
+        "Сервирайте топло.",
+      ],
+      es: [
+        "En una cacerola, calienta el aceite de oliva y sofríe el tomate troceado con ajo en polvo.",
+        "Añade los garbanzos cocidos junto con un chorrito de agua.",
+        "Cocina a fuego lento durante 10 minutos, chafando algunos garbanzos para espesar la salsa.",
+        "Sirve caliente.",
+      ],
+    },
+    nutritionHighlights: {
+      en: "Exceptional plant protein and slow-release complex carbs for steady energy.",
+      bg: "Изключителен растителен протеин и бавни въглехидрати за енергия.",
+      es: "Proteína vegetal completa y carbohidratos complejos de absorción lenta.",
+    },
+    imageUrl: "https://images.unsplash.com/photo-1546069901-ba9599a7e63c?auto=format&fit=crop&w=800&q=80",
+  },
+  {
+    id: "rec-chicken-chickpea-skillet",
+    title: {
+      en: "Chicken Breast & Chickpea Tomato Skillet",
+      bg: "Тиган с Пилешко, Нахуд и Домати",
+      es: "Salteado de Pechuga de Pollo y Garbanzos al Tomate",
+    },
+    description: {
+      en: "The ultimate high-protein skillet combining juicy chicken breast, chickpeas, and fresh tomatoes.",
+      bg: "Върховно протеиново ястие с пилешко, нахуд и сочни домати.",
+      es: "Combinación completa de pechuga de pollo, garbanzos y tomate natural en un solo plato.",
+    },
+    prepTimeMin: 10,
+    cookTimeMin: 18,
+    costPerServingEUR: 2.10,
+    difficulty: "easy",
+    servings: 2,
+    calories: 510,
+    proteinG: 45,
+    carbsG: 42,
+    fatG: 15,
+    fiberG: 9,
+    healthScore: 98,
+    tags: ["Proteico", "Fitness", "Plato Principal", "Pollo"],
+    ingredients: [
+      { name: "Pechugas de pollo", amount: 300, unit: "g", inPantry: true },
+      { name: "Garbanzos", amount: 200, unit: "g", inPantry: true },
+      { name: "Tomate", amount: 2, unit: "uds", inPantry: true },
+      { name: "Aceite de oliva virgen", amount: 1, unit: "cda", inPantry: true },
+    ],
+    instructions: {
+      en: [
+        "Dice chicken breast into bite-sized chunks and brown in a skillet with olive oil.",
+        "Add chopped tomatoes and cook until they break down into a sauce.",
+        "Stir in the chickpeas and a splash of water, simmering for 8 minutes until flavors meld.",
+        "Serve hot as a complete muscle-recovery meal.",
+      ],
+      bg: [
+        "Нарежете пилешките гърди на хапки и запържете в тиган със зехтин.",
+        "Добавете нарязаните домати и гответе до сос.",
+        "Прибавете нахута и малко вода, къкрете 8 минути.",
+        "Сервирайте топло.",
+      ],
+      es: [
+        "Corta la pechuga de pollo en dados y dóralos en una sartén con aceite de oliva virgen.",
+        "Agrega los tomates troceados y sofríe hasta formar una base de salsa.",
+        "Incorpora los garbanzos y un chorrito de agua, cocinando a fuego suave durante 8 minutos.",
+        "Sirve caliente como plato principal completo y nutritivo.",
+      ],
+    },
+    nutritionHighlights: {
+      en: "Massive dual protein source (poultry + legumes) for maximum muscle recovery and satiety.",
+      bg: "Масивен източник на двоен протеин за възстановяване и ситост.",
+      es: "Doble aporte proteico (ave y legumbre) ideal para saciedad prolongada y recuperación muscular.",
+    },
+    imageUrl: "https://images.unsplash.com/photo-1543339308-43e59d6b73a6?auto=format&fit=crop&w=800&q=80",
+  }
 ];
 
 export const INITIAL_RECIPES: Recipe[] = SAMPLE_RECIPES;

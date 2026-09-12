@@ -60,11 +60,11 @@ function isGeminiTransientOrQuotaError(err: any): boolean {
 
 /**
  * Robust wrapper for Gemini API calls with multi-model fallback:
- * (gemini-3.8-flash -> gemini-3.1-flash-lite -> gemini-flash-latest)
+ * (gemini-3.5-flash-lite -> gemini-3.1-flash-lite -> gemini-flash-latest)
  */
 async function generateWithRetry(ai: any, params: any, maxRetriesPerModel = 2) {
-  const primaryModel = params.model || "gemini-3.8-flash";
-  const fallbackModels = [primaryModel, "gemini-3.1-flash-lite", "gemini-flash-latest"];
+  const primaryModel = params.model || "gemini-3.5-flash-lite";
+  const fallbackModels = [primaryModel, "gemini-3.5-flash-lite", "gemini-3.1-flash-lite", "gemini-flash-latest"];
   const modelsToTry = Array.from(new Set(fallbackModels));
 
   let lastError;
@@ -300,6 +300,228 @@ const FALLBACK_RECIPES = [
       es: "Más de 14g de fibra prebiótica para el control del colesterol, saciedad y salud cardiovascular.",
     },
   },
+  {
+    id: "rec-chicken-tomato",
+    title: {
+      en: "Juicy Chicken Breast in Savory Garlic Tomato Sauce",
+      bg: "Сочни Пилешки Гърди в Доматен Сос с Чесън",
+      es: "Pechugas de Pollo Jugosas en Salsa de Tomate y Ajo",
+    },
+    description: {
+      en: "Tender chicken breast sautéed with rich ripe tomatoes, garlic, and fresh oregano.",
+      bg: "Нежни пилешки гърди, задушени с узрели домати и ароматен чесън.",
+      es: "Pechugas de pollo tiernas cocinadas a fuego lento con tomate natural y toque de ajo.",
+    },
+    prepTimeMin: 10,
+    cookTimeMin: 15,
+    costPerServingEUR: 1.85,
+    difficulty: "easy",
+    servings: 2,
+    calories: 420,
+    proteinG: 38,
+    carbsG: 12,
+    fatG: 14,
+    fiberG: 3,
+    healthScore: 92,
+    tags: ["Proteico", "Bajo en Carbos", "Pollo", "Saludable"],
+    imageUrl: "https://images.unsplash.com/photo-1604908176997-125f2596f37c?w=800",
+    ingredients: [
+      { name: "Pechugas de pollo", amount: 350, unit: "g", inPantry: true },
+      { name: "Tomate", amount: 2, unit: "uds", inPantry: true },
+      { name: "Ajo en polvo", amount: 1, unit: "cdta", inPantry: true },
+      { name: "Aceite de oliva virgen", amount: 1, unit: "cda", inPantry: true },
+      { name: "Orégano seco", amount: 1, unit: "cdta", inPantry: false },
+    ],
+    instructions: {
+      en: [
+        "Slice chicken breasts into fillets and season with salt and garlic powder.",
+        "Brown chicken in olive oil for 3-4 minutes per side.",
+        "Add diced tomatoes and oregano, simmering for 10 minutes until chicken is tender.",
+      ],
+      bg: [
+        "Нарежете пилешкото на филета и подправете със сол и чесън на прах.",
+        "Запържете в зехтин за 3-4 минути от всяка страна.",
+        "Добавете нарязаните домати и риган и оставете да покъкри 10 минути.",
+      ],
+      es: [
+        "Corta las pechugas de pollo en filetes y salpimenta con ajo en polvo.",
+        "Dora el pollo en una sartén con aceite de oliva durante 3-4 minutos por lado.",
+        "Añade los tomates picados y el orégano, dejando reducir a fuego suave 10 minutos.",
+      ],
+    },
+    nutritionHighlights: {
+      en: "38g muscle-building lean protein with zero added sugars.",
+      bg: "38г чист протеин за мускулно възстановяване без добавена захар.",
+      es: "38g de proteína magra pura para la recuperación muscular.",
+    },
+  },
+  {
+    id: "rec-creamy-macaroni",
+    title: {
+      en: "Creamy Garlic Macaroni with Refreshing Cucumber",
+      bg: "Кремообразни Макарони с Чесън и Свежа Краставица",
+      es: "Macarrones Cremosos al Ajo con Queso Crema y Pepino",
+    },
+    description: {
+      en: "Comforting pasta coated in a velvety cream cheese sauce served with fresh cucumber slices.",
+      bg: "Апетитна паста с сос от крем сирене и чесън, гарнирана с пресна краставица.",
+      es: "Pasta corta bañada en suave crema de queso y ajo con guarnición de pepino fresco.",
+    },
+    prepTimeMin: 5,
+    cookTimeMin: 10,
+    costPerServingEUR: 0.95,
+    difficulty: "easy",
+    servings: 2,
+    calories: 480,
+    proteinG: 18,
+    carbsG: 60,
+    fatG: 18,
+    fiberG: 4,
+    healthScore: 84,
+    tags: ["Rápido 15 min", "Económico", "Pasta"],
+    imageUrl: "https://images.unsplash.com/photo-1621996346565-e3d5d6281699?w=800",
+    ingredients: [
+      { name: "Macarrones", amount: 200, unit: "g", inPantry: true },
+      { name: "Queso crema tipo Philadelphia", amount: 80, unit: "g", inPantry: true },
+      { name: "Ajo en polvo", amount: 1, unit: "cdta", inPantry: true },
+      { name: "Pepino", amount: 1, unit: "ud", inPantry: true },
+      { name: "Queso parmesano", amount: 20, unit: "g", inPantry: false },
+    ],
+    instructions: {
+      en: [
+        "Boil macaroni in salted water for 8 minutes.",
+        "Melt cream cheese with 3 tbsp pasta water and garlic powder.",
+        "Toss pasta in sauce and serve with sliced cucumber.",
+      ],
+      bg: [
+        "Сварете макароните в подсолена вода за 8 минути.",
+        "Разбъркайте крем сиренето с малко от водата на пастата и чесън.",
+        "Объркайте макароните със соса и сервирайте с резени краставица.",
+      ],
+      es: [
+        "Cuece los macarrones en agua con sal durante 8 minutos.",
+        "Mezcla el queso crema con 3 cucharadas del agua de cocción y ajo en polvo.",
+        "Mezcla la pasta con la crema de queso y sirve junto con el pepino en rodajas.",
+      ],
+    },
+    nutritionHighlights: {
+      en: "Rich energy source with digestive comfort.",
+      bg: "Богат източник на енергия и калций.",
+      es: "Fuente rápida de energía y calcio con equilibrio de carbohidratos.",
+    },
+  },
+  {
+    id: "rec-med-lentil-zucchini",
+    title: {
+      en: "Mediterranean Lentil & Zucchini Stew",
+      bg: "Средиземноморска Леща с Тиквички",
+      es: "Guiso Mediterráneo de Lentejas y Calabacín",
+    },
+    description: {
+      en: "A fiber-dense stew using simple legumes and fresh zucchini.",
+      bg: "Питателна леща с тиквички и чесън.",
+      es: "Un guiso rico en fibra y proteína vegetal utilizando lentejas y calabacín.",
+    },
+    prepTimeMin: 10,
+    cookTimeMin: 20,
+    costPerServingEUR: 0.85,
+    difficulty: "easy",
+    servings: 2,
+    calories: 420,
+    proteinG: 22,
+    carbsG: 65,
+    fatG: 8,
+    fiberG: 16,
+    healthScore: 95,
+    tags: ["Alto en Fibra", "Vegano", "Económico"],
+    imageUrl: "/images/lentil_soup_balkan_style_1789192381584.jpg",
+    ingredients: [
+      { name: "Lentejas", amount: 200, unit: "g", inPantry: true },
+      { name: "Calabacín", amount: 1, unit: "ud", inPantry: true },
+      { name: "Ajo en polvo", amount: 1, unit: "cdta", inPantry: true },
+      { name: "Aceite de oliva", amount: 1, unit: "cda", inPantry: true },
+    ],
+    instructions: {
+      en: [
+        "Boil lentils for 18 mins.",
+        "Sauté zucchini with garlic and olive oil.",
+        "Combine lentils with zucchini and simmer for 3 mins.",
+      ],
+      bg: [
+        "Сварете лещата за 18 минути.",
+        "Задушете тиквичката с чесън.",
+        "Смесете с лещата и покъкрете 3 минути.",
+      ],
+      es: [
+        "Cuece las lentejas durante 18 minutos.",
+        "Sofríe el calabacín en dados con el ajo en polvo y aceite.",
+        "Mezcla las lentejas con el calabacín y cocina 3 minutos juntos.",
+      ],
+    },
+    nutritionHighlights: {
+      en: "High prebiotic fiber for gut microbiome health.",
+      bg: "Богата на пребиотични фибри за добра микробиома.",
+      es: "Excelente aporte de fibra prebiótica para la salud intestinal.",
+    },
+  },
+  {
+    id: "rec-balkan-shopska-salad",
+    title: {
+      en: "Classic Shopska Salad with Fresh Tomato & Feta",
+      bg: "Класическа Шопска Салата с Домати и Сирене",
+      es: "Ensalada Shopska Balcánica con Pepino, Tomate y Queso",
+    },
+    description: {
+      en: "The iconic Balkan salad: crispy cucumbers, ripe tomatoes, onions, and shredded white feta.",
+      bg: "Традиционна шопска салата с пресни домати, краставици и настъргано сирене.",
+      es: "La ensalada tradicional de los Balcanes: pepino crujiente, tomate, cebolla y abundante queso rayado.",
+    },
+    prepTimeMin: 10,
+    cookTimeMin: 0,
+    costPerServingEUR: 1.10,
+    difficulty: "easy",
+    servings: 2,
+    calories: 230,
+    proteinG: 10,
+    carbsG: 12,
+    fatG: 16,
+    fiberG: 4,
+    healthScore: 96,
+    tags: ["Ensalada", "Sin Fuego", "Fresca", "Vegetariano"],
+    imageUrl: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=800",
+    ingredients: [
+      { name: "Pepino", amount: 2, unit: "uds", inPantry: true },
+      { name: "Tomate", amount: 2, unit: "uds", inPantry: true },
+      { name: "Cebolla", amount: 0.5, unit: "ud", inPantry: true },
+      { name: "Queso blanco o Feta", amount: 100, unit: "g", inPantry: true },
+      { name: "Aceite de oliva virgen", amount: 1, unit: "cda", inPantry: true },
+    ],
+    instructions: {
+      en: [
+        "Chop tomatoes and cucumbers into medium bite-sized pieces.",
+        "Thinly slice the onion.",
+        "Combine vegetables in a bowl with olive oil and salt.",
+        "Grate white cheese generously over the top before serving.",
+      ],
+      bg: [
+        "Нарежете доматите и краставиците на кубчета.",
+        "Нарязания лук добавете към зеленчуците.",
+        "Подправете със зехтин и сол.",
+        "Настържете сирене отгоре.",
+      ],
+      es: [
+        "Corta los tomates y pepinos en dados de tamaño mediano.",
+        "Pica la cebolla finamente.",
+        "Mezcla las hortalizas en un bol con aceite de oliva virgen y sal.",
+        "Ralla abundantemente el queso blanco por encima antes de servir.",
+      ],
+    },
+    nutritionHighlights: {
+      en: "Hydrating electrolytes, antioxidants, and calcium.",
+      bg: "Богата на електролити, антиоксиданти и калций.",
+      es: "Altamente hidratante, rica en antioxidantes y calcio natural.",
+    },
+  },
 ];
 
 function resolveRecipeImageUrl(recipe: any): string {
@@ -526,9 +748,9 @@ function fallbackReconcileShopping(transcript: string, currentShoppingList: any[
     
     let isNegated = false;
     if (isMentioned) {
-      for (const neg of negations) {
-        const negIdx = lower.indexOf(neg);
-        const itemIdx = lower.indexOf(itemName);
+      for (const neg of (negations || [])) {
+        const negIdx = String(lower || "").indexOf(String(neg || ""));
+        const itemIdx = String(lower || "").indexOf(String(itemName || ""));
         if (negIdx !== -1 && itemIdx !== -1 && Math.abs(itemIdx - negIdx) < 40) {
           isNegated = true;
           break;
@@ -673,7 +895,7 @@ Return strictly JSON format:
 }`;
 
     const response = await generateWithRetry(ai, {
-      model: "gemini-3.8-flash",
+      model: "gemini-3.5-flash-lite",
       contents: transcript,
       config: {
         systemInstruction: systemPrompt,
@@ -750,7 +972,7 @@ Return strictly JSON format:
 }`;
 
     const response = await generateWithRetry(ai, {
-      model: "gemini-3.8-flash",
+      model: "gemini-3.5-flash-lite",
       contents: transcript,
       config: {
         systemInstruction: systemPrompt,
@@ -795,9 +1017,9 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
       });
     }
 
-    const prompt = `Generate 3 distinct, delicious, healthy, balanced and inexpensive recipes.
+    const prompt = `Generate 6 to 8 distinct, delicious, healthy, balanced and inexpensive recipes.
 Primary Language: ${language === "bg" ? "Bulgarian (български)" : language === "es" ? "Spanish (Español)" : "English"}.
-User Current Pantry: ${JSON.stringify(pantry)}.
+User Current Pantry Inventory: ${JSON.stringify(pantry)}.
 User Taste Profile & Preferences:
 - Cooking Level/Speed: ${profile.cookingSpeed || "fast 15-20 min"}
 - Health Goal: ${profile.healthGoal || "balanced & gut-health"}
@@ -805,19 +1027,18 @@ User Taste Profile & Preferences:
 - Disliked/Allergies: ${JSON.stringify(profile.disliked || [])}
 - Budget constraint: ${profile.budgetConstraint || "Very budget friendly (< 1.5-2 EUR per serving)"}
 - Household size: ${profile.servings || 2} servings
-- Specific user craving / voice query: "${query || "Healthy, cheap, balanced dinner using my pantry"}"
+- Specific user craving / voice query: "${query || "Recipes maximizing my pantry inventory"}"
 
-User Active Language: ${language || "es"}
+CRITICAL GOALS & RULES:
+1. MAXIMIZE PANTRY INVENTORY USAGE: Generate recipes that systematically cover and utilize ALL items present in the User's Current Pantry Inventory. Create a full set of 6 to 8 varied recipes (breakfasts, lunches, dinners, stews, salads, quick pasta/rice dishes, snacks) so that virtually every single ingredient in the user's pantry is used in one or more recipes.
+2. MISSING INGREDIENTS DETECTION: For any ingredient not currently in the user's pantry, set "inPantry": false clearly so the user can see what's missing and add them to their shopping list with 1 click.
+3. IN-PANTRY INGREDIENTS: For ingredients that ARE in the user's pantry, set "inPantry": true.
+4. Balance macros: Ensure good protein, high fiber, healthy fats, reasonable carbs.
+5. Calculate realistic cost per serving in EUR (€) and USD ($) based on actual market pricing.
+6. Emphasize wholesome Balkan/Mediterranean simplicity (savory herbs like chubritsa/dill, fresh produce, fermented probiotics like yogurt, legumes).
+7. Always provide high-quality localized translations for 'es' (Spanish), 'bg' (Bulgarian), and 'en' (English) in title, description, instructions, and nutrition highlights.
 
-Crucial Rules:
-1. Provide a great variety: Include recipes that use existing pantry items as well as creative recipes that suggest buying 1-3 extra fresh or complementary ingredients.
-2. For any ingredient not in the user's pantry, clearly set inPantry to false so it can be automatically added to their shopping list with a single click.
-3. Balance macros: Ensure good protein, high fiber, healthy fats, reasonable carbs.
-4. Calculate realistic cost per serving in EUR (€) and USD ($) based on actual market pricing.
-5. Emphasize wholesome Balkan/Mediterranean simplicity (savory herbs like chubritsa/dill, fresh produce, fermented probiotics like yogurt, legumes).
-6. Always provide high-quality localized translations for 'es' (Spanish), 'bg' (Bulgarian), and 'en' (English) in title, description, instructions, and nutrition highlights.
-
-Return strictly a JSON array of 3 recipe objects conforming to this schema:
+Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
 [
   {
     "id": "string",
@@ -857,7 +1078,7 @@ Return strictly a JSON array of 3 recipe objects conforming to this schema:
 ]`;
 
     const response = await generateWithRetry(ai, {
-      model: "gemini-3.8-flash",
+      model: "gemini-3.5-flash-lite",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -887,6 +1108,90 @@ Return strictly a JSON array of 3 recipe objects conforming to this schema:
       source: "fallback_error",
       error: err.message,
     });
+  }
+});
+
+// Endpoint: AI Smart 7-Day Weekly Meal Plan using latest Gemini model
+app.post("/api/ai/generate-weekly-plan", async (req, res) => {
+  const { pantry = [], recipes = [], profile = {}, language = "es" } = req.body || {};
+  try {
+    const ai = getGeminiClient();
+    if (!ai) {
+      return res.status(400).json({ error: "Gemini API key not configured" });
+    }
+
+    const today = new Date();
+    const dates: string[] = [];
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      dates.push(d.toISOString().split("T")[0]);
+    }
+
+    const prompt = `You are an expert Balkan and Mediterranean nutritionist and chef. 
+Think carefully and generate a complete, balanced 7-day weekly meal plan for the dates: ${JSON.stringify(dates)}.
+Language: ${language}.
+User Pantry Inventory: ${JSON.stringify(pantry)}.
+Available Recipes Pool: ${JSON.stringify(recipes.map((r: any) => ({ id: r.id, title: r.title, tags: r.tags, calories: r.calories, ingredients: r.ingredients } )))}.
+User Profile & Health Goal: ${JSON.stringify(profile)}.
+
+CRITICAL RULES:
+1. PANTRY OPTIMIZATION (ZERO WASTE): Strongly prioritize recipes and ingredients that are already present in the User Pantry Inventory to minimize unnecessary shopping and prevent food waste.
+2. Breakfast (desayuno) MUST BE STRICTLY LIGHT breakfast foods (e.g. toasts, eggs, yogurt, oatmeal, fruit, smoothie). NEVER assign heavy stews (guisos), chickpea stews, lentil stews, or chicken breast main dishes to breakfast!
+3. Lunch and Dinner must be satisfying, balanced recipes from the available recipe pool or logically created matching their pantry.
+4. Return strictly a JSON array of 7 objects (one for each date in order) conforming to this schema:
+[
+  {
+    "date": "YYYY-MM-DD",
+    "breakfast": { /* recipe object */ },
+    "lunch": { /* recipe object */ },
+    "dinner": { /* recipe object */ }
+  }
+]`;
+
+    const response = await generateWithRetry(ai, {
+      model: "gemini-3.5-flash-lite",
+      contents: prompt,
+      config: {
+        responseMimeType: "application/json",
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "[]");
+    const rawPlan = Array.isArray(parsed) ? parsed : [];
+    
+    // Ensure image URLs are resolved for each meal
+    const mealPlan = rawPlan.map((day: any) => ({
+      date: day.date,
+      breakfast: day.breakfast ? { ...day.breakfast, imageUrl: resolveRecipeImageUrl(day.breakfast) } : undefined,
+      lunch: day.lunch ? { ...day.lunch, imageUrl: resolveRecipeImageUrl(day.lunch) } : undefined,
+      dinner: day.dinner ? { ...day.dinner, imageUrl: resolveRecipeImageUrl(day.dinner) } : undefined,
+    }));
+
+    return res.json({ mealPlan, source: "gemini" });
+  } catch (err: any) {
+    console.warn("Error generating weekly meal plan with Gemini (quota/rate-limit), falling back to local smart plan:", err?.message);
+    const today = new Date();
+    const fallbackPlan: any[] = [];
+    const pool = Array.isArray(recipes) && recipes.length > 0 ? recipes : [];
+    
+    for (let i = 0; i < 7; i++) {
+      const d = new Date(today);
+      d.setDate(today.getDate() + i);
+      const dateStr = d.toISOString().split("T")[0];
+      const bRecipe = pool[i % pool.length] || { id: `b-${i}`, title: { es: "Desayuno saludable", en: "Healthy Breakfast" }, calories: 350, ingredients: [{ name: "Yogurt", quantity: "1 cup" }], imageUrl: "https://images.unsplash.com/photo-1525351484163-7529414344d8?w=600" };
+      const lRecipe = pool[(i + 1) % pool.length] || { id: `l-${i}`, title: { es: "Comida balcánica", en: "Balkan Lunch" }, calories: 600, ingredients: [{ name: "Meat", quantity: "200g" }], imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600" };
+      const dRecipe = pool[(i + 2) % pool.length] || { id: `d-${i}`, title: { es: "Cena ligera", en: "Light Dinner" }, calories: 450, ingredients: [{ name: "Vegetables", quantity: "150g" }], imageUrl: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=600" };
+      
+      fallbackPlan.push({
+        date: dateStr,
+        breakfast: { ...bRecipe, imageUrl: resolveRecipeImageUrl(bRecipe) },
+        lunch: { ...lRecipe, imageUrl: resolveRecipeImageUrl(lRecipe) },
+        dinner: { ...dRecipe, imageUrl: resolveRecipeImageUrl(dRecipe) },
+      });
+    }
+
+    return res.json({ mealPlan: fallbackPlan, source: "fallback" });
   }
 });
 
@@ -1038,7 +1343,7 @@ Return strictly JSON with this schema:
 }`;
 
     const response = await generateWithRetry(ai, {
-      model: "gemini-3.8-flash",
+      model: "gemini-3.5-flash-lite",
       contents: prompt,
       config: {
         responseMimeType: "application/json",
@@ -1151,7 +1456,7 @@ Return strictly a JSON array conforming to this schema, with no markdown code fe
     };
 
     const response = await generateWithRetry(ai, {
-      model: "gemini-3.8-flash",
+      model: "gemini-3.5-flash-lite",
       contents: {
         parts: [imagePart, { text: promptText }],
       },

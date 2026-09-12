@@ -20,6 +20,7 @@ import { ConfirmModal } from "./ConfirmModal";
 import { PrintMenuModal } from "./PrintMenuModal";
 import { useGoogleCalendarSync } from "../hooks/useGoogleCalendarSync";
 import { calculateRecipePantryScore } from "../utils/menuAutoPlanner";
+import { evaluateShoppingNeeds } from "../utils/shoppingAdvisor";
 
 interface MealPlanViewProps {
   mealPlan: MealPlanDay[];
@@ -37,6 +38,7 @@ interface MealPlanViewProps {
   onGenerateAiWeekPlan?: () => void;
   onAdaptToPantry?: () => void;
   isGeneratingPlan?: boolean;
+  onAddItemsToShoppingList?: (items: Array<Omit<ShoppingItem, "id" | "checked">>) => void;
 }
 
 export const MealPlanView: React.FC<MealPlanViewProps> = ({
@@ -55,6 +57,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   onGenerateAiWeekPlan,
   onAdaptToPantry,
   isGeneratingPlan = false,
+  onAddItemsToShoppingList,
 }) => {
   const currentText = t[language];
   const [selectedDate, setSelectedDate] = useState(new Date());
@@ -141,6 +144,9 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
     const score = calculateRecipePantryScore(r, pantry);
     return score.matchPercentage === 100;
   }).length;
+
+  const shoppingDiagnostic = evaluateShoppingNeeds(pantry, mealPlan, shoppingList, language);
+  const missingCount = shoppingDiagnostic.itemsToAddToShoppingList.length;
 
   const dayHeaders =
     language === "es"
@@ -271,6 +277,42 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
           </button>
         )}
       </div>
+
+      {missingCount > 0 && onAddItemsToShoppingList && (
+        <div className="bg-amber-500/10 border border-amber-500/30 rounded-3xl p-4 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3 animate-fade-in shadow-[0_4px_20px_rgba(245,158,11,0.06)]">
+          <div className="flex items-center gap-3">
+            <div className="w-10 h-10 rounded-2xl bg-amber-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400 shrink-0">
+              <ShoppingBag className="w-5 h-5" />
+            </div>
+            <div>
+              <p className="text-sm font-bold text-amber-300 font-['Outfit']">
+                {language === "es"
+                  ? `Faltan ${missingCount} ingredientes en tu despensa para este menú.`
+                  : language === "bg"
+                  ? `Липсват ${missingCount} съставки в килера за това меню.`
+                  : `${missingCount} ingredients missing from pantry for this menu.`}
+              </p>
+              <p className="text-xs text-stone-400 font-medium mt-0.5">
+                {language === "es"
+                  ? "Puedes añadirlos directamente a tu lista de la compra con un solo clic."
+                  : "Add them directly to your shopping list with 1 click."}
+              </p>
+            </div>
+          </div>
+          <button
+            type="button"
+            onClick={() => onAddItemsToShoppingList(shoppingDiagnostic.itemsToAddToShoppingList)}
+            className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 cursor-pointer"
+          >
+            <ShoppingBag className="w-4 h-4" />
+            <span>
+              {language === "es"
+                ? "🛒 Añadir faltantes a la compra"
+                : "Add missing to shopping list"}
+            </span>
+          </button>
+        </div>
+      )}
 
       {/* Calendar Header */}
       <div className="bg-[#131A1F]/60 backdrop-blur-md border border-white/[0.06] rounded-3xl p-5 shadow-[0_4px_20px_rgba(0,0,0,0.2)] flex items-center justify-between">

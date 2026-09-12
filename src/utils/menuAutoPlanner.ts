@@ -7,26 +7,31 @@ import { SAMPLE_RECIPES, INITIAL_RECIPES } from "../data/initialData";
 export function isIngredientInPantry(ingredientName: string, pantry: PantryItem[]): boolean {
   if (!pantry || pantry.length === 0) return false;
   const target = ingredientName.trim().toLowerCase();
+  const cleanTarget = target.replace(/s$/, ""); // basic singular stem
 
   return pantry.some((p) => {
     if (p.quantity <= 0) return false;
     const pName = (p.name || "").trim().toLowerCase();
     const pNameBg = (p.nameBg || "").trim().toLowerCase();
     const pNameEs = (p.nameEs || "").trim().toLowerCase();
+    const cleanPName = pName.replace(/s$/, "");
+    const cleanPNameEs = pNameEs.replace(/s$/, "");
 
-    // Exact or substring match
+    // Exact or substring match or stem match
     if (
       pName.includes(target) ||
       target.includes(pName) ||
+      cleanPName.includes(cleanTarget) ||
+      cleanTarget.includes(cleanPName) ||
       (pNameBg && (pNameBg.includes(target) || target.includes(pNameBg))) ||
-      (pNameEs && (pNameEs.includes(target) || target.includes(pNameEs)))
+      (pNameEs && (pNameEs.includes(target) || target.includes(pNameEs) || cleanPNameEs.includes(cleanTarget) || cleanTarget.includes(cleanPNameEs)))
     ) {
       return true;
     }
 
-    // Word-level match for common terms (e.g., "pollo" in "pechuga de pollo", "huevos" in "huevos camperos")
-    const targetWords = target.split(/\s+/).filter((w) => w.length > 3);
-    const pWords = pName.split(/\s+/).filter((w) => w.length > 3);
+    // Word-level match for common terms
+    const targetWords = target.split(/\s+/).map(w => w.replace(/s$/, "")).filter((w) => w.length > 2);
+    const pWords = pName.split(/\s+/).map(w => w.replace(/s$/, "")).filter((w) => w.length > 2);
 
     return targetWords.some((tw) => pWords.some((pw) => tw.includes(pw) || pw.includes(tw)));
   });
@@ -129,11 +134,17 @@ export function adaptMealPlanToPantry(
   // Sort descending by total score
   scoredRecipes.sort((a, b) => b.totalScore - a.totalScore);
 
-  const breakfastPool = scoredRecipes.filter(
+  let breakfastPool = scoredRecipes.filter(
     (sr) =>
-      sr.recipe.tags.some((t) => ["breakfast", "desayuno", "quick", "fácil", "smoothie"].includes(t.toLowerCase())) ||
-      sr.recipe.calories < 460
+      sr.recipe.tags.some((t) => ["breakfast", "desayuno", "quick", "fácil", "smoothie", "rápido"].includes(t.toLowerCase())) &&
+      !sr.recipe.tags.some((t) => ["guiso", "lentejas", "garbanzos", "plato principal", "fitness", "pollo", "mediterráneo"].includes(t.toLowerCase()))
   );
+  if (breakfastPool.length === 0) {
+    breakfastPool = scoredRecipes.filter((sr) => sr.recipe.calories < 400 && !sr.recipe.tags.some((t) => ["guiso", "lentejas", "garbanzos"].includes(t.toLowerCase())));
+  }
+  if (breakfastPool.length === 0) {
+    breakfastPool = scoredRecipes;
+  }
 
   const mainPool = scoredRecipes.filter(
     (sr) =>

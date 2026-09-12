@@ -249,7 +249,7 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
     // Collect list items that are selected as purchased
     const listItemsToAdd: Array<Omit<PantryItem, "id" | "addedAt">> = [];
 
-    shoppingList.forEach((shopItem) => {
+    (shoppingList || []).forEach((shopItem) => {
       if (selectedPurchasedIds.includes(shopItem.id)) {
         listItemsToAdd.push({
           name: shopItem.name,

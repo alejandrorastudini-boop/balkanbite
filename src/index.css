@@ -6,7 +6,7 @@
   }
 }
 
-/* Smooth custom scrollbars */
+/* Custom smooth scrollbars */
 ::-webkit-scrollbar {
   width: 6px;
   height: 6px;
@@ -15,9 +15,288 @@
   background: transparent;
 }
 ::-webkit-scrollbar-thumb {
-  background: rgba(120, 113, 108, 0.3);
+  background: rgba(100, 116, 139, 0.5);
   border-radius: 9999px;
 }
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(120, 113, 108, 0.5);
+  background: rgba(71, 85, 105, 0.8);
+}
+
+/* =============================================================
+   ULTRA HIGH-CONTRAST LIGHT THEME SYSTEM (data-theme="light")
+   ============================================================= */
+
+[data-theme="light"] {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] body {
+  background-color: #f1f5f9 !important;
+  color: #0f172a !important;
+}
+
+/* 1. Eliminate Transparent Glassmorphism & Washed-out Filters */
+[data-theme="light"] .backdrop-blur-sm,
+[data-theme="light"] .backdrop-blur,
+[data-theme="light"] .backdrop-blur-md,
+[data-theme="light"] .backdrop-blur-lg,
+[data-theme="light"] .backdrop-blur-xl,
+[data-theme="light"] .backdrop-blur-2xl,
+[data-theme="light"] .backdrop-blur-3xl {
+  backdrop-filter: none !important;
+  -webkit-backdrop-filter: none !important;
+}
+
+/* 2. Crisp Solid White Card Surfaces with Distinct Slate Borders */
+[data-theme="light"] .bg-\[\#131A1F\],
+[data-theme="light"] .bg-\[\#0B0F12\],
+[data-theme="light"] .bg-\[\#131A1F\]\/60,
+[data-theme="light"] .bg-\[\#131A1F\]\/70,
+[data-theme="light"] .bg-\[\#131A1F\]\/80,
+[data-theme="light"] .bg-\[\#131A1F\]\/90,
+[data-theme="light"] .bg-\[\#0B0F12\]\/60,
+[data-theme="light"] .bg-\[\#0B0F12\]\/80,
+[data-theme="light"] .bg-\[\#0B0F12\]\/90,
+[data-theme="light"] .bg-\[\#1A242B\],
+[data-theme="light"] .bg-\[\#1A232A\],
+[data-theme="light"] .bg-stone-900,
+[data-theme="light"] .bg-stone-950,
+[data-theme="light"] .bg-[#131A1F],
+[data-theme="light"] .bg-[#0B0F12] {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  border-width: 1px !important;
+  color: #0f172a !important;
+  box-shadow: 0 2px 8px -1px rgba(15, 23, 42, 0.08), 0 1px 3px 0 rgba(15, 23, 42, 0.04) !important;
+}
+
+/* 3. Secondary Controls, Quantity Bars, Counter Chips & Sub-surfaces */
+[data-theme="light"] .bg-white\/\[0\.02\],
+[data-theme="light"] .bg-white\/\[0\.03\],
+[data-theme="light"] .bg-white\/\[0\.04\],
+[data-theme="light"] .bg-white\/\[0\.05\],
+[data-theme="light"] .bg-white\/\[0\.06\],
+[data-theme="light"] .bg-white\/\[0\.08\],
+[data-theme="light"] .bg-black\/30,
+[data-theme="light"] .bg-black\/40,
+[data-theme="light"] .bg-black\/50,
+[data-theme="light"] .bg-black\/60,
+[data-theme="light"] .bg-stone-800,
+[data-theme="light"] .bg-stone-800\/80 {
+  background-color: #f8fafc !important;
+  border-color: #cbd5e1 !important;
+  border-width: 1px !important;
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .hover\:bg-white\/\[0\.04\]:hover,
+[data-theme="light"] .hover\:bg-white\/\[0\.08\]:hover,
+[data-theme="light"] .hover\:bg-white\/\[0\.1\]:hover,
+[data-theme="light"] .hover\:bg-stone-700\/80:hover {
+  background-color: #e2e8f0 !important;
+  color: #0f172a !important;
+}
+
+/* 4. Disable Transparent Gradients & Dark Gradient Stops */
+[data-theme="light"] .from-\[\#131A1F\],
+[data-theme="light"] .via-\[\#1A242B\],
+[data-theme="light"] .to-\[\#131A1F\],
+[data-theme="light"] .from-[#131A1F],
+[data-theme="light"] .via-[#1A242B],
+[data-theme="light"] .to-[#131A1F] {
+  --tw-gradient-from: #ffffff !important;
+  --tw-gradient-to: #f8fafc !important;
+  --tw-gradient-stops: #ffffff, #f8fafc, #ffffff !important;
+}
+
+[data-theme="light"] .from-red-950\/40,
+[data-theme="light"] .from-amber-950\/30,
+[data-theme="light"] .from-amber-950\/20,
+[data-theme="light"] .from-emerald-950\/20,
+[data-theme="light"] .via-\[\#181313\]\/90,
+[data-theme="light"] .via-\[\#171613\]\/90 {
+  --tw-gradient-from: #ffffff !important;
+  --tw-gradient-to: #f8fafc !important;
+  --tw-gradient-stops: #ffffff, #f8fafc !important;
+}
+
+/* 5. Deep Charcoal High-Contrast Typography */
+[data-theme="light"] h1,
+[data-theme="light"] h2,
+[data-theme="light"] h3,
+[data-theme="light"] h4,
+[data-theme="light"] h5,
+[data-theme="light"] h6 {
+  color: #0f172a !important;
+  font-weight: 800 !important;
+}
+
+/* Primary text converted to ultra-sharp charcoal */
+[data-theme="light"] .text-white:not(.bg-emerald-500 *):not(.bg-emerald-600 *):not(.bg-emerald-700 *):not(.bg-rose-500 *):not(.bg-rose-600 *):not(.bg-amber-500 *):not(.bg-red-500 *):not(.bg-red-600 *):not(.bg-indigo-600 *):not(.bg-blue-600 *):not(.bg-slate-900 *):not(.bg-stone-950 *) {
+  color: #0f172a !important;
+}
+
+[data-theme="light"] .text-stone-100,
+[data-theme="light"] .text-stone-200 {
+  color: #0f172a !important;
+  font-weight: 700 !important;
+}
+
+[data-theme="light"] .text-stone-300 {
+  color: #1e293b !important;
+  font-weight: 600 !important;
+}
+
+/* Secondary labels & descriptions in deep slate */
+[data-theme="light"] .text-stone-400 {
+  color: #334155 !important;
+  font-weight: 600 !important;
+}
+
+[data-theme="light"] .text-stone-500 {
+  color: #475569 !important;
+  font-weight: 600 !important;
+}
+
+/* 6. High-Contrast Colored Accents */
+[data-theme="light"] .text-emerald-400,
+[data-theme="light"] .text-emerald-300 {
+  color: #047857 !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="light"] .text-amber-400,
+[data-theme="light"] .text-amber-300,
+[data-theme="light"] .text-amber-400\/90 {
+  color: #b45309 !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="light"] .text-rose-400,
+[data-theme="light"] .text-rose-300,
+[data-theme="light"] .text-red-400 {
+  color: #be123c !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="light"] .text-sky-400,
+[data-theme="light"] .text-sky-300 {
+  color: #0369a1 !important;
+  font-weight: 800 !important;
+}
+
+/* 7. Remove Washed-Out Opacity */
+[data-theme="light"] .opacity-60,
+[data-theme="light"] .opacity-50,
+[data-theme="light"] .opacity-70,
+[data-theme="light"] .opacity-75 {
+  opacity: 1 !important;
+}
+
+/* 8. Solid Clean Borders */
+[data-theme="light"] .border-white\/\[0\.04\],
+[data-theme="light"] .border-white\/\[0\.05\],
+[data-theme="light"] .border-white\/\[0\.06\],
+[data-theme="light"] .border-white\/\[0\.08\],
+[data-theme="light"] .border-white\/\[0\.1\] {
+  border-color: #cbd5e1 !important;
+}
+
+/* 9. Primary Action Buttons */
+[data-theme="light"] .bg-emerald-500,
+[data-theme="light"] .bg-emerald-600 {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  box-shadow: 0 4px 12px 0 rgba(5, 150, 105, 0.3) !important;
+}
+
+[data-theme="light"] .bg-emerald-500 *,
+[data-theme="light"] .bg-emerald-600 * {
+  color: #ffffff !important;
+  font-weight: 800 !important;
+}
+
+/* Filter Chips */
+[data-theme="light"] .bg-white.text-stone-950 {
+  background-color: #059669 !important;
+  color: #ffffff !important;
+  font-weight: 800 !important;
+  box-shadow: 0 2px 8px rgba(5, 150, 105, 0.25) !important;
+}
+
+/* 10. Opaque Badges & Status Pills with Clear Dark Text */
+[data-theme="light"] .bg-emerald-500\/10,
+[data-theme="light"] .bg-emerald-500\/15,
+[data-theme="light"] .bg-emerald-500\/20 {
+  background-color: #dcfce7 !important;
+  border-color: #86efac !important;
+  color: #14532d !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="light"] .bg-amber-500\/10,
+[data-theme="light"] .bg-amber-500\/15,
+[data-theme="light"] .bg-amber-500\/20 {
+  background-color: #fef3c7 !important;
+  border-color: #fcd34d !important;
+  color: #78350f !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="light"] .bg-rose-500\/10,
+[data-theme="light"] .bg-rose-500\/15,
+[data-theme="light"] .bg-rose-500\/20 {
+  background-color: #ffe4e6 !important;
+  border-color: #fda4af !important;
+  color: #881337 !important;
+  font-weight: 800 !important;
+}
+
+[data-theme="light"] .bg-sky-500\/10,
+[data-theme="light"] .bg-sky-500\/15,
+[data-theme="light"] .bg-sky-500\/20 {
+  background-color: #e0f2fe !important;
+  border-color: #7dd3fc !important;
+  color: #075985 !important;
+  font-weight: 800 !important;
+}
+
+/* 11. Inputs, Textareas & Selects */
+[data-theme="light"] input,
+[data-theme="light"] select,
+[data-theme="light"] textarea {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  border-color: #94a3b8 !important;
+  border-width: 1.5px !important;
+  font-weight: 600;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05) !important;
+}
+
+[data-theme="light"] input::placeholder,
+[data-theme="light"] select::placeholder,
+[data-theme="light"] textarea::placeholder {
+  color: #475569 !important;
+  font-weight: 500;
+}
+
+/* 12. Recipe Image Overlays in Light Mode */
+[data-theme="light"] .bg-gradient-to-t.from-\[\#131A1F\] {
+  background-image: linear-gradient(to top, rgba(255, 255, 255, 0.8), transparent) !important;
+}
+
+/* 13. Fixed Navigation Bars */
+[data-theme="light"] #app-header {
+  background-color: #ffffff !important;
+  border-bottom-color: #cbd5e1 !important;
+  box-shadow: 0 1px 3px 0 rgba(15, 23, 42, 0.06) !important;
+}
+
+[data-theme="light"] #bottom-navigation {
+  background-color: #ffffff !important;
+  border-color: #cbd5e1 !important;
+  border-width: 1px !important;
+  box-shadow: 0 10px 25px -5px rgba(15, 23, 42, 0.12) !important;
 }

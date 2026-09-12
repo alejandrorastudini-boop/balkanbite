@@ -547,7 +547,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
           if (onAddMultipleItems) {
             onAddMultipleItems(items);
           } else {
-            items.forEach((item) => onAddItem(item));
+            (items || []).forEach((item) => onAddItem(item));
           }
         }}
       />

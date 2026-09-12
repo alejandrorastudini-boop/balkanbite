@@ -86,7 +86,7 @@ export function useFirebaseSync(
         const items = snapshot.docs.map(doc => doc.data() as any);
         // Remove userId before setting local state
         const itemsWithoutUserId = items.map(({ userId, ...rest }) => rest);
-        if (JSON.stringify(itemsWithoutUserId) !== JSON.stringify(localState)) {
+        if (itemsWithoutUserId.length > 0 && JSON.stringify(itemsWithoutUserId) !== JSON.stringify(localState)) {
           setLocalState(itemsWithoutUserId);
         }
       });

@@ -31,6 +31,7 @@ interface LandingPageProps {
   onCurrencyChange: (curr: Currency) => void;
   onOpenApp: () => void;
   onOpenPro: () => void;
+  onOpenAuth?: () => void;
 }
 
 export const LandingPage: React.FC<LandingPageProps> = ({
@@ -40,6 +41,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   onCurrencyChange,
   onOpenApp,
   onOpenPro,
+  onOpenAuth,
 }) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
   const [familyMembers, setFamilyMembers] = useState<number>(2);
@@ -166,6 +168,19 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {currency === "EUR" ? "€" : "$"}
             </button>
 
+            {/* Secondary Login Button */}
+            <button
+              id="landing-login-top-btn"
+              type="button"
+              onClick={() => {
+                if (onOpenAuth) onOpenAuth();
+                else onOpenApp();
+              }}
+              className="hidden sm:flex px-3 py-2 bg-white/[0.04] hover:bg-white/[0.08] text-stone-200 text-xs font-bold rounded-xl items-center gap-1.5 transition-colors cursor-pointer border border-white/[0.08]"
+            >
+              <span>{language === "es" ? "Iniciar Sesión" : "Sign In"}</span>
+            </button>
+
             {/* Primary Enter App Button */}
             <button
               id="landing-enter-app-top-btn"
@@ -173,7 +188,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               onClick={onOpenApp}
               className="px-3 sm:px-5 py-1.5 sm:py-2.5 bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs sm:text-sm font-extrabold tracking-wide uppercase rounded-xl flex items-center gap-1.5 sm:gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all hover:scale-[1.02] cursor-pointer shrink-0 whitespace-nowrap"
             >
-              <span>{language === "es" ? "Entrar" : language === "bg" ? "Вход" : "Open App"}</span>
+              <span>{language === "es" ? "Entrar a la App" : language === "bg" ? "Вход" : "Open App"}</span>
               <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>

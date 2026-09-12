@@ -76,8 +76,13 @@ export interface UserProfile {
   currency: Currency;
   cookingSpeed: "fast" | "moderate" | "elaborate";
   healthGoal: "balanced" | "muscle" | "fat_loss" | "heart";
-  dietStyle: "all" | "mediterranean" | "vegetarian" | "vegan";
+  dietStyle: "all" | "mediterranean" | "vegetarian" | "vegan" | "keto" | "gluten_free";
   disliked: string[];
+  allergies?: string[];
+  householdSize?: number;
+  cookingLevel?: "beginner" | "intermediate" | "chef";
+  appliances?: string[];
+  monthlyBudgetEUR?: number;
   budgetTier: "strict_budget" | "balanced" | "flexible";
   isProSubscriber: boolean;
   onboardingCompleted: boolean;

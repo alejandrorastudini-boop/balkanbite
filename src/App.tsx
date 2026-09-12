@@ -46,7 +46,8 @@ export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() => {
     try {
       const saved = localStorage.getItem("balkanbite_pantry");
-      return saved ? JSON.parse(saved) : INITIAL_PANTRY;
+      const parsed = saved ? JSON.parse(saved) : null;
+      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_PANTRY;
     } catch {
       return INITIAL_PANTRY;
     }
@@ -177,6 +178,15 @@ export default function App() {
   useEffect(() => {
     try {
       localStorage.setItem("balkanbite_theme", theme);
+      document.documentElement.setAttribute("data-theme", theme);
+      document.body.setAttribute("data-theme", theme);
+      if (theme === "light") {
+        document.body.classList.remove("bg-[#0B0F12]", "bg-stone-900", "text-stone-100");
+        document.body.classList.add("bg-[#F4F6F8]", "text-slate-900");
+      } else {
+        document.body.classList.remove("bg-[#F4F6F8]", "text-slate-900");
+        document.body.classList.add("bg-[#0B0F12]", "text-stone-100");
+      }
     } catch (e) {
       console.warn("localStorage write error", e);
     }
@@ -433,17 +443,58 @@ export default function App() {
 
     setIsGeneratingPlan(true);
     try {
+      const res = await fetch("/api/ai/generate-weekly-plan", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          pantry,
+          recipes,
+          profile,
+          language: profile.language,
+        }),
+      });
+      const data = await res.json();
+      if (Array.isArray(data.mealPlan) && data.mealPlan.length > 0) {
+        setMealPlan(data.mealPlan);
+      } else {
+        // Fallback smart plan
+        const today = new Date();
+        const newPlan: MealPlanDay[] = [];
+        const pool = recipes.length > 0 ? recipes : [...INITIAL_RECIPES, ...SAMPLE_RECIPES];
+        const bPool = pool.filter((r) => r.tags.includes("Desayuno") || r.tags.includes("breakfast") || r.tags.includes("quick") || r.tags.includes("Saludable"));
+        const mPool = pool.filter((r) => !r.tags.includes("Desayuno") && !r.tags.includes("breakfast"));
+
+        for (let d = 0; d < 7; d++) {
+          const dObj = new Date(today);
+          dObj.setDate(today.getDate() + d);
+          const dateStr = dObj.toISOString().split("T")[0];
+
+          const bRecipe = bPool.length > 0 ? bPool[d % bPool.length] : pool[d % pool.length];
+          const lRecipe = mPool.length > 0 ? mPool[(d * 2) % mPool.length] : pool[(d + 1) % pool.length];
+          const dRecipe = mPool.length > 0 ? mPool[(d * 2 + 1) % mPool.length] : pool[(d + 2) % pool.length];
+
+          newPlan.push({
+            date: dateStr,
+            breakfast: bRecipe,
+            lunch: lRecipe,
+            dinner: dRecipe,
+          });
+        }
+        setMealPlan(newPlan);
+      }
+    } catch (err) {
+      console.error("Failed to generate AI weekly menu, applying local fallback:", err);
+      // Local fallback plan to prevent blank/black screen
       const today = new Date();
       const newPlan: MealPlanDay[] = [];
       const pool = recipes.length > 0 ? recipes : [...INITIAL_RECIPES, ...SAMPLE_RECIPES];
+      const bPool = pool.filter((r) => r.tags.includes("Desayuno") || r.tags.includes("breakfast") || r.tags.includes("quick") || r.tags.includes("Saludable"));
+      const mPool = pool.filter((r) => !r.tags.includes("Desayuno") && !r.tags.includes("breakfast"));
 
       for (let d = 0; d < 7; d++) {
         const dObj = new Date(today);
         dObj.setDate(today.getDate() + d);
         const dateStr = dObj.toISOString().split("T")[0];
-
-        const bPool = pool.filter((r) => r.tags.includes("breakfast") || r.tags.includes("quick") || r.calories < 450);
-        const mPool = pool.filter((r) => !r.tags.includes("breakfast"));
 
         const bRecipe = bPool.length > 0 ? bPool[d % bPool.length] : pool[d % pool.length];
         const lRecipe = mPool.length > 0 ? mPool[(d * 2) % mPool.length] : pool[(d + 1) % pool.length];
@@ -456,10 +507,7 @@ export default function App() {
           dinner: dRecipe,
         });
       }
-
       setMealPlan(newPlan);
-    } catch (err) {
-      console.error("Failed to generate weekly menu:", err);
     } finally {
       setIsGeneratingPlan(false);
     }
@@ -493,7 +541,7 @@ export default function App() {
     setPantry((currentPantry) => {
       let updatedPantry = [...currentPantry];
 
-      recipe.ingredients.forEach((recIng) => {
+      (recipe.ingredients || []).forEach((recIng) => {
         const lowerRecName = recIng.name.toLowerCase();
 
         // Match against existing pantry items
@@ -575,7 +623,8 @@ export default function App() {
 
       const data = await res.json();
       if (Array.isArray(data.recipes) && data.recipes.length > 0) {
-        const enriched = data.recipes.map((r: Recipe) => ({
+        const synced = syncRecipesWithPantry(data.recipes, pantry);
+        const enriched = synced.map((r: Recipe) => ({
           ...r,
           imageUrl: getRecipeImageUrl(r),
         }));
@@ -727,7 +776,7 @@ export default function App() {
   const handleVoiceDeductItems = (items: any[]) => {
     setPantry((current) => {
       let updated = [...current];
-      items.forEach((it) => {
+      (items || []).forEach((it) => {
         const lower = (it.name || "").toLowerCase();
         const idx = updated.findIndex(
           (p) =>
@@ -764,7 +813,16 @@ export default function App() {
         onLanguageChange={(lang: Language) => setProfile((p) => ({ ...p, language: lang }))}
         currency={profile.currency}
         onCurrencyChange={(curr: Currency) => setProfile((p) => ({ ...p, currency: curr }))}
-        onOpenApp={() => setShowLanding(false)}
+        onOpenApp={() => {
+          setShowLanding(false);
+          if (!currentUser) {
+            setShowAuthModal(true);
+          }
+        }}
+        onOpenAuth={() => {
+          setShowLanding(false);
+          setShowAuthModal(true);
+        }}
         onOpenPro={() => {
           setShowLanding(false);
           setShowProModal(true);
@@ -775,8 +833,10 @@ export default function App() {
 
   return (
     <div
+      id="app-root"
+      data-theme={theme}
       className={`min-h-screen w-full overflow-x-hidden flex flex-col items-center justify-start antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200 ${
-        theme === "dark" ? "bg-[#0B0F12] text-stone-100" : "bg-stone-100 text-stone-900"
+        theme === "dark" ? "bg-[#0B0F12] text-stone-100" : "bg-[#F8FAFC] text-slate-900"
       }`}
     >
       {/* Outer Shell container - fully fluid & responsive across Mobile, Tablet and Desktop */}
@@ -811,6 +871,7 @@ export default function App() {
             onOpenAdvisorModal={() => setShowShoppingAdvisorModal(true)}
             onAddMissingToShoppingList={handleAddMultipleShoppingItems}
             onGoToShoppingTab={() => setActiveTab("shopping")}
+            theme={theme}
           />
 
           {activeTab === "pantry" && (
@@ -824,6 +885,7 @@ export default function App() {
               onOpenVoiceTab={() => setShowChefIaModal(true)}
               language={profile.language}
               currency={profile.currency}
+              theme={theme}
             />
           )}
 
@@ -844,6 +906,8 @@ export default function App() {
               onGenerateAiWeekPlan={handleGenerateAiWeekPlan}
               onAdaptToPantry={handleAdaptMenuToPantry}
               isGeneratingPlan={isGeneratingPlan}
+              onAddItemsToShoppingList={handleAddMultipleShoppingItems}
+              theme={theme}
             />
           )}
 
@@ -863,6 +927,7 @@ export default function App() {
               isPro={profile.isProSubscriber}
               onOpenProModal={() => setShowProModal(true)}
               onOpenShoppingAdvisor={() => setShowShoppingAdvisorModal(true)}
+              theme={theme}
             />
           )}
 
@@ -878,6 +943,7 @@ export default function App() {
               isLoadingAi={isLoadingAi}
               language={profile.language}
               currency={profile.currency}
+              theme={theme}
             />
           )}
 
@@ -893,6 +959,7 @@ export default function App() {
               onNavigateToRecipes={handleVoiceNavigateToRecipes}
               onLogMeal={handleLogMeal}
               language={profile.language}
+              theme={theme}
             />
           )}
 
@@ -906,6 +973,7 @@ export default function App() {
               onOpenAuthModal={() => setShowAuthModal(true)}
               language={profile.language}
               currency={profile.currency}
+              theme={theme}
             />
           )}
         </main>
@@ -977,7 +1045,7 @@ export default function App() {
         />
 
         <OnboardingModal
-          isOpen={!profile.onboardingCompleted}
+          isOpen={!showLanding && !profile.onboardingCompleted}
           onComplete={(upd) => setProfile((prev) => ({ ...prev, ...upd }))}
           language={profile.language}
         />
@@ -987,6 +1055,7 @@ export default function App() {
           onClose={() => setShowAuthModal(false)}
           currentUser={currentUser}
           language={profile.language}
+          onGuestAccess={() => setShowAuthModal(false)}
         />
 
         {/* Auto Menu Updated Notification Toast */}

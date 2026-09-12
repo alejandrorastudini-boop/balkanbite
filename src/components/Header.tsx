@@ -46,7 +46,7 @@ export const Header: React.FC<HeaderProps> = ({
       className={`sticky top-0 z-30 px-2.5 sm:px-4 py-2 sm:py-3 transition-colors duration-200 ${
         isDark
           ? "bg-[#0B0F12]/90 backdrop-blur-md border-b border-white/[0.06] text-white shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
-          : "bg-white/90 backdrop-blur-xl border-b border-stone-200/80 text-stone-900 shadow-xs"
+          : "bg-white border-b border-slate-300 text-slate-900 shadow-sm"
       }`}
     >
       <div className="max-w-6xl mx-auto flex items-center justify-between gap-1 sm:gap-4">
@@ -59,11 +59,11 @@ export const Header: React.FC<HeaderProps> = ({
           <img
             src="/images/logo.jpg"
             alt="BalkanBite Logo"
-            className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl object-cover border-2 border-emerald-500/40 shadow-[0_2px_10px_rgba(16,185,129,0.25)] shrink-0 group-hover:scale-105 group-hover:border-emerald-400 transition-all"
+            className="w-7 h-7 sm:w-10 sm:h-10 rounded-lg sm:rounded-xl object-cover border-2 border-emerald-500 shadow-sm shrink-0 group-hover:scale-105 transition-all"
           />
           <div className="shrink-0">
             <div className="flex items-center gap-1 sm:gap-2">
-              <h1 className="text-sm sm:text-lg font-extrabold tracking-tight font-['Outfit'] group-hover:text-emerald-400 transition-colors whitespace-nowrap">
+              <h1 className="text-sm sm:text-lg font-extrabold tracking-tight font-['Outfit'] group-hover:text-emerald-500 transition-colors whitespace-nowrap">
                 {currentText.appName}
               </h1>
               <button
@@ -73,14 +73,18 @@ export const Header: React.FC<HeaderProps> = ({
                   e.stopPropagation();
                   onOpenProModal();
                 }}
-                className="hidden sm:flex items-center gap-1 text-[9px] sm:text-[10px] font-bold px-1.5 sm:px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-400 border border-amber-500/20 hover:bg-amber-500/20 hover:border-amber-500/40 transition-all cursor-pointer shrink-0 uppercase tracking-widest"
+                className={`hidden sm:flex items-center gap-1 text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full border transition-all cursor-pointer shrink-0 uppercase tracking-widest ${
+                  isDark
+                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
+                    : "bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 font-extrabold shadow-xs"
+                }`}
                 title="BalkanBite Pro Tier"
               >
                 <Sparkles className="w-2.5 h-2.5" />
                 PRO
               </button>
             </div>
-            <p className="text-[10px] sm:text-xs text-stone-400 hidden md:block truncate font-medium">
+            <p className={`text-[10px] sm:text-xs hidden md:block truncate font-semibold ${isDark ? "text-stone-400" : "text-slate-600"}`}>
               {currentText.tagline}
             </p>
           </div>
@@ -96,12 +100,16 @@ export const Header: React.FC<HeaderProps> = ({
               onClick={onOpenShoppingAdvisor}
               className={`relative w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg sm:rounded-xl border transition-all cursor-pointer shrink-0 ${
                 isUrgent
-                  ? "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.3)] animate-pulse"
+                  ? isDark
+                    ? "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.3)] animate-pulse"
+                    : "bg-rose-100 border-rose-400 text-rose-800 shadow-xs animate-pulse"
                   : isRecommended
-                  ? "bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.25)]"
+                  ? isDark
+                    ? "bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.25)]"
+                    : "bg-amber-100 border-amber-400 text-amber-900 shadow-xs"
                   : isDark
                   ? "bg-white/[0.04] border-white/[0.08] text-stone-400 hover:text-white hover:bg-white/[0.08]"
-                  : "bg-stone-100 border-stone-200 text-stone-600 hover:text-stone-900"
+                  : "bg-slate-100 border-slate-300 text-slate-700 hover:text-slate-950 hover:bg-slate-200"
               }`}
               title={
                 language === "es"
@@ -114,20 +122,20 @@ export const Header: React.FC<HeaderProps> = ({
               }
             >
               {isUrgent ? (
-                <BellRing className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-red-400" />
+                <BellRing className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isDark ? "text-red-400" : "text-rose-700"}`} />
               ) : isRecommended ? (
-                <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" />
+                <Bell className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isDark ? "text-amber-400" : "text-amber-800"}`} />
               ) : (
-                <Bell className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
+                <Bell className={`w-3.5 h-3.5 sm:w-4 sm:h-4 ${isDark ? "text-stone-400" : "text-slate-700"}`} />
               )}
               {shoppingBadgeCount > 0 && (
                 <span
                   className={`absolute -top-1 -right-1 text-[8px] sm:text-[9px] font-black w-3.5 h-3.5 sm:w-4 sm:h-4 rounded-full flex items-center justify-center shadow-xs ${
                     isUrgent
-                      ? "bg-red-500 text-stone-950"
+                      ? "bg-red-500 text-white"
                       : isRecommended
-                      ? "bg-amber-400 text-stone-950"
-                      : "bg-emerald-500 text-stone-950"
+                      ? "bg-amber-500 text-stone-950"
+                      : "bg-emerald-600 text-white"
                   }`}
                 >
                   {shoppingBadgeCount > 9 ? "9+" : shoppingBadgeCount}
@@ -145,7 +153,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`w-7 h-7 sm:w-9 sm:h-9 flex items-center justify-center rounded-lg sm:rounded-xl border transition-all cursor-pointer shrink-0 ${
                 isDark
                   ? "bg-white/[0.04] border-white/[0.08] text-amber-400 hover:bg-white/[0.08] hover:text-amber-300"
-                  : "bg-stone-100 border-stone-200 text-amber-600 hover:bg-stone-200"
+                  : "bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200"
               }`}
               title={
                 isDark
@@ -161,7 +169,7 @@ export const Header: React.FC<HeaderProps> = ({
                   : "Switch to dark theme"
               }
             >
-              {isDark ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4" />}
+              {isDark ? <Sun className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-amber-400" /> : <Moon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-slate-800" />}
             </button>
           )}
 
@@ -182,7 +190,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`sm:hidden text-[11px] font-extrabold px-1.5 py-1 rounded-lg border transition-all cursor-pointer ${
                 isDark
                   ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 active:bg-emerald-500/20"
-                  : "bg-emerald-50 border-emerald-300 text-emerald-800 active:bg-emerald-100"
+                  : "bg-emerald-100 border-emerald-400 text-emerald-900 active:bg-emerald-200"
               }`}
               title={
                 language === "es"
@@ -198,7 +206,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Desktop segmented switch */}
             <div
               className={`hidden sm:flex items-center rounded-xl p-0.5 border shrink-0 ${
-                isDark ? "bg-white/[0.02] border-white/[0.04]" : "bg-stone-100 border-stone-200"
+                isDark ? "bg-white/[0.02] border-white/[0.04]" : "bg-slate-100 border-slate-300"
               }`}
             >
               <button
@@ -207,10 +215,12 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => onLanguageChange("es")}
                 className={`text-[11px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
                   language === "es"
-                    ? "bg-emerald-500 text-stone-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                    ? isDark
+                      ? "bg-emerald-500 text-stone-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                      : "bg-emerald-600 text-white shadow-sm font-extrabold"
                     : isDark
                     ? "text-stone-500 hover:text-stone-300 hover:bg-white/[0.04]"
-                    : "text-stone-500 hover:text-stone-900"
+                    : "text-slate-700 hover:text-slate-950 hover:bg-slate-200"
                 }`}
                 title="Español"
               >
@@ -222,10 +232,12 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => onLanguageChange("en")}
                 className={`text-[11px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
                   language === "en"
-                    ? "bg-emerald-500 text-stone-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                    ? isDark
+                      ? "bg-emerald-500 text-stone-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                      : "bg-emerald-600 text-white shadow-sm font-extrabold"
                     : isDark
                     ? "text-stone-500 hover:text-stone-300 hover:bg-white/[0.04]"
-                    : "text-stone-500 hover:text-stone-900"
+                    : "text-slate-700 hover:text-slate-950 hover:bg-slate-200"
                 }`}
                 title="English"
               >
@@ -237,10 +249,12 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => onLanguageChange("bg")}
                 className={`text-[11px] sm:text-xs font-bold px-2 sm:px-2.5 py-1 sm:py-1.5 rounded-lg transition-all flex items-center gap-1 cursor-pointer ${
                   language === "bg"
-                    ? "bg-emerald-500 text-stone-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                    ? isDark
+                      ? "bg-emerald-500 text-stone-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                      : "bg-emerald-600 text-white shadow-sm font-extrabold"
                     : isDark
                     ? "text-stone-500 hover:text-stone-300 hover:bg-white/[0.04]"
-                    : "text-stone-500 hover:text-stone-900"
+                    : "text-slate-700 hover:text-slate-950 hover:bg-slate-200"
                 }`}
                 title="Български"
               >
@@ -259,7 +273,7 @@ export const Header: React.FC<HeaderProps> = ({
               className={`sm:hidden text-[11px] font-extrabold px-1.5 py-1 rounded-lg border transition-all cursor-pointer ${
                 isDark
                   ? "bg-white/[0.02] border-white/[0.08] text-emerald-400 active:bg-white/[0.04]"
-                  : "bg-stone-100 border-stone-200 text-emerald-700 active:bg-stone-200"
+                  : "bg-slate-100 border-slate-300 text-slate-800 active:bg-slate-200"
               }`}
               title={
                 language === "es"
@@ -275,7 +289,7 @@ export const Header: React.FC<HeaderProps> = ({
             {/* Desktop segmented switch */}
             <div
               className={`hidden sm:flex items-center rounded-xl p-0.5 border ${
-                isDark ? "bg-white/[0.02] border-white/[0.04]" : "bg-stone-100 border-stone-200"
+                isDark ? "bg-white/[0.02] border-white/[0.04]" : "bg-slate-100 border-slate-300"
               }`}
             >
               <button
@@ -284,10 +298,12 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => onCurrencyChange("EUR")}
                 className={`text-xs font-bold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${
                   currency === "EUR"
-                    ? "bg-emerald-500 text-stone-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                    ? isDark
+                      ? "bg-emerald-500 text-stone-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                      : "bg-emerald-600 text-white shadow-sm font-extrabold"
                     : isDark
                     ? "text-stone-500 hover:text-stone-300 hover:bg-white/[0.04]"
-                    : "text-stone-500 hover:text-stone-900"
+                    : "text-slate-700 hover:text-slate-950 hover:bg-slate-200"
                 }`}
                 title="Euro (€)"
               >
@@ -299,10 +315,12 @@ export const Header: React.FC<HeaderProps> = ({
                 onClick={() => onCurrencyChange("USD")}
                 className={`text-xs font-bold px-2.5 py-1.5 rounded-lg transition-all cursor-pointer ${
                   currency === "USD"
-                    ? "bg-emerald-500 text-stone-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                    ? isDark
+                      ? "bg-emerald-500 text-stone-950 shadow-[0_0_10px_rgba(16,185,129,0.2)]"
+                      : "bg-emerald-600 text-white shadow-sm font-extrabold"
                     : isDark
                     ? "text-stone-400 hover:text-stone-200"
-                    : "text-stone-500 hover:text-stone-900"
+                    : "text-slate-700 hover:text-slate-950 hover:bg-slate-200"
                 }`}
                 title="US Dollar ($)"
               >
@@ -320,11 +338,11 @@ export const Header: React.FC<HeaderProps> = ({
               className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-colors cursor-pointer shrink-0 text-xs font-bold ${
                 isDark
                   ? "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:text-emerald-400 hover:border-emerald-500/50 hover:bg-white/[0.04]"
-                  : "bg-stone-100 border-stone-200 text-stone-700 hover:text-emerald-600 hover:bg-stone-200"
+                  : "bg-slate-100 border-slate-300 text-slate-800 hover:text-emerald-700 hover:bg-slate-200"
               }`}
               title={currentText.viewLandingPage}
             >
-              <Globe className="w-4 h-4 text-emerald-400" />
+              <Globe className="w-4 h-4 text-emerald-600" />
               <span>Landing</span>
             </button>
           )}
@@ -339,10 +357,10 @@ export const Header: React.FC<HeaderProps> = ({
                 currentUser
                   ? isDark
                     ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
-                    : "bg-emerald-50 border-emerald-300 text-emerald-800 hover:bg-emerald-100"
+                    : "bg-emerald-50 border-emerald-400 text-emerald-900 hover:bg-emerald-100 font-extrabold"
                   : isDark
                   ? "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:text-white hover:border-white/[0.1]"
-                  : "bg-stone-100 border-stone-200 text-stone-700 hover:bg-stone-200"
+                  : "bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200 font-bold"
               }`}
               title={
                 currentUser
@@ -358,11 +376,11 @@ export const Header: React.FC<HeaderProps> = ({
                 <img
                   src={currentUser.photoURL}
                   alt="Usuario"
-                  className="w-4 h-4 sm:w-5 sm:h-5 rounded-full object-cover shrink-0 border border-emerald-500/50"
+                  className="w-4 h-4 sm:w-5 sm:h-5 rounded-full object-cover shrink-0 border border-emerald-500"
                   referrerPolicy="no-referrer"
                 />
               ) : (
-                <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-400 shrink-0" />
+                <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
               )}
               <span className="hidden sm:inline truncate max-w-[70px]">
                 {currentUser ? (currentUser.displayName?.split(" ")[0] || "Perfil") : "Google"}

@@ -54,12 +54,12 @@ export function evaluateShoppingNeeds(
 
   // Analyze upcoming 3 days of meal plan
   const todayStr = new Date().toISOString().split("T")[0];
-  const upcomingDays = mealPlan.slice(0, 3); // next 3 days
+  const upcomingDays = (mealPlan || []).slice(0, 3); // next 3 days
 
   const missingMealIngredients: MissingMealIngredient[] = [];
   const candidateItemsToAdd: Map<string, Omit<ShoppingItem, "id" | "checked">> = new Map();
 
-  upcomingDays.forEach((day, index) => {
+  (upcomingDays || []).forEach((day, index) => {
     const dayName =
       index === 0
         ? language === "es"
@@ -85,7 +85,7 @@ export function evaluateShoppingNeeds(
       { type: "dinner", recipe: day.dinner },
     ];
 
-    meals.forEach((m) => {
+    (meals || []).forEach((m) => {
       if (!m.recipe) return;
       const rTitle =
         language === "es"
@@ -94,7 +94,7 @@ export function evaluateShoppingNeeds(
           ? m.recipe.title.bg || m.recipe.title.en
           : m.recipe.title.en;
 
-      m.recipe.ingredients.forEach((ing) => {
+      (m.recipe.ingredients || []).forEach((ing) => {
         const inStock = isIngredientInPantry(ing.name, pantry);
         if (!inStock) {
           const itemKey = ing.name.toLowerCase().trim();

@@ -10,6 +10,7 @@ interface SmartShoppingBannerProps {
   onOpenAdvisorModal: () => void;
   onAddMissingToShoppingList: (items: Array<Omit<ShoppingItem, "id" | "checked">>) => void;
   onGoToShoppingTab: () => void;
+  theme?: "dark" | "light";
 }
 
 export const SmartShoppingBanner: React.FC<SmartShoppingBannerProps> = ({
@@ -19,7 +20,9 @@ export const SmartShoppingBanner: React.FC<SmartShoppingBannerProps> = ({
   onOpenAdvisorModal,
   onAddMissingToShoppingList,
   onGoToShoppingTab,
+  theme = "dark",
 }) => {
+  const isDark = theme === "dark";
   const [isDismissed, setIsDismissed] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
 
@@ -40,10 +43,14 @@ export const SmartShoppingBanner: React.FC<SmartShoppingBannerProps> = ({
   return (
     <div
       id="smart-shopping-alert-banner"
-      className={`relative overflow-hidden rounded-3xl p-3.5 sm:p-4 border transition-all duration-300 shadow-[0_4px_25px_rgba(0,0,0,0.3)] mb-4 ${
-        isUrgent
-          ? "bg-gradient-to-r from-red-950/40 via-[#181313]/90 to-amber-950/20 border-red-500/40"
-          : "bg-gradient-to-r from-amber-950/30 via-[#171613]/90 to-emerald-950/20 border-amber-500/40"
+      className={`relative overflow-hidden rounded-3xl p-3.5 sm:p-4 border transition-all duration-300 shadow-md mb-4 ${
+        isDark
+          ? isUrgent
+            ? "bg-gradient-to-r from-red-950/40 via-[#181313]/90 to-amber-950/20 border-red-500/40 shadow-[0_4px_25px_rgba(0,0,0,0.3)]"
+            : "bg-gradient-to-r from-amber-950/30 via-[#171613]/90 to-emerald-950/20 border-amber-500/40 shadow-[0_4px_25px_rgba(0,0,0,0.3)]"
+          : isUrgent
+          ? "bg-rose-50 border-rose-200 text-rose-950 shadow-sm"
+          : "bg-amber-50/80 border-amber-200 text-amber-950 shadow-sm"
       }`}
     >
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
@@ -51,9 +58,13 @@ export const SmartShoppingBanner: React.FC<SmartShoppingBannerProps> = ({
           <div
             onClick={onOpenAdvisorModal}
             className={`w-10 h-10 rounded-2xl flex items-center justify-center shrink-0 border cursor-pointer ${
-              isUrgent
-                ? "bg-red-500/20 border-red-500/40 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.25)]"
-                : "bg-amber-500/20 border-amber-500/40 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)]"
+              isDark
+                ? isUrgent
+                  ? "bg-red-500/20 border-red-500/40 text-red-400 shadow-[0_0_15px_rgba(239,68,68,0.25)]"
+                  : "bg-amber-500/20 border-amber-500/40 text-amber-400 shadow-[0_0_15px_rgba(245,158,11,0.25)]"
+                : isUrgent
+                ? "bg-rose-100 border-rose-300 text-rose-700 font-bold"
+                : "bg-amber-100 border-amber-300 text-amber-800 font-bold"
             }`}
           >
             {isUrgent ? (
@@ -68,8 +79,12 @@ export const SmartShoppingBanner: React.FC<SmartShoppingBannerProps> = ({
               <span
                 className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${
                   isUrgent
-                    ? "bg-red-500 text-stone-950 font-black tracking-wider"
-                    : "bg-amber-400 text-stone-950 font-black tracking-wider"
+                    ? isDark
+                      ? "bg-red-500 text-stone-950 font-black tracking-wider"
+                      : "bg-rose-600 text-white font-black tracking-wider shadow-xs"
+                    : isDark
+                    ? "bg-amber-400 text-stone-950 font-black tracking-wider"
+                    : "bg-amber-500 text-stone-950 font-black tracking-wider shadow-xs"
                 }`}
               >
                 {isUrgent
@@ -86,7 +101,7 @@ export const SmartShoppingBanner: React.FC<SmartShoppingBannerProps> = ({
               </span>
 
               {diagnostic.missingMealIngredients.length > 0 && (
-                <span className="text-[11px] font-bold text-stone-300">
+                <span className={`text-[11px] font-bold ${isDark ? "text-stone-300" : "text-slate-700"}`}>
                   {language === "es"
                     ? `Faltan ${diagnostic.missingMealIngredients.length} ingredientes en menú`
                     : language === "bg"
@@ -96,7 +111,7 @@ export const SmartShoppingBanner: React.FC<SmartShoppingBannerProps> = ({
               )}
             </div>
 
-            <p className="text-xs text-stone-300 font-medium line-clamp-1 sm:line-clamp-none">
+            <p className={`text-xs font-semibold line-clamp-1 sm:line-clamp-none ${isDark ? "text-stone-300" : "text-slate-700"}`}>
               {diagnostic.reasons[language][0] || diagnostic.headline[language]}
             </p>
           </div>
@@ -132,16 +147,22 @@ export const SmartShoppingBanner: React.FC<SmartShoppingBannerProps> = ({
           <button
             type="button"
             onClick={onOpenAdvisorModal}
-            className="px-3 py-1.5 rounded-xl bg-white/[0.06] hover:bg-white/[0.12] border border-white/[0.1] text-xs font-bold text-white flex items-center justify-center gap-1 transition-colors cursor-pointer"
+            className={`px-3 py-1.5 rounded-xl border text-xs font-bold flex items-center justify-center gap-1 transition-colors cursor-pointer ${
+              isDark
+                ? "bg-white/[0.06] hover:bg-white/[0.12] border-white/[0.1] text-white"
+                : "bg-white hover:bg-slate-50 border-slate-300 text-slate-800 shadow-xs"
+            }`}
           >
             <span>{language === "es" ? "Ver detalles" : "Details"}</span>
-            <ArrowRight className="w-3 h-3 text-stone-400" />
+            <ArrowRight className={`w-3 h-3 ${isDark ? "text-stone-400" : "text-slate-500"}`} />
           </button>
 
           <button
             type="button"
             onClick={() => setIsDismissed(true)}
-            className="text-stone-400 hover:text-white p-1 rounded-lg hover:bg-white/[0.05] transition-colors cursor-pointer"
+            className={`p-1 rounded-lg transition-colors cursor-pointer ${
+              isDark ? "text-stone-400 hover:text-white hover:bg-white/[0.05]" : "text-slate-400 hover:text-slate-700 hover:bg-slate-200/50"
+            }`}
             title={language === "es" ? "Ocultar aviso" : "Dismiss"}
           >
             <X className="w-4 h-4" />
