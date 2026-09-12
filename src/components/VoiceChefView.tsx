@@ -273,7 +273,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   ];
 
   return (
-    <div id="voice-chef-view" className="flex flex-col h-[calc(100vh-140px)] -mt-2">
+    <div id="voice-chef-view" className="flex flex-col flex-1 h-full min-h-0">
       {/* Mini Header - More compact for mobile */}
       <div className="flex items-center justify-between px-1 pb-3 shrink-0 border-b border-stone-800/60 mb-2">
         <div className="flex items-center gap-2">

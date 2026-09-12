@@ -101,7 +101,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   };
 
   return (
-    <div id="profile-view" className="space-y-4 pb-20">
+    <div id="profile-view" className="space-y-4 pb-36 sm:pb-32">
       {/* Upgraded Auth & Cloud Sync Card */}
       <div className="bg-[#131A1F]/60 backdrop-blur-md border border-white/[0.06] rounded-3xl p-6 shadow-[0_8px_30px_rgba(0,0,0,0.4)] transition-all">
         {user ? (

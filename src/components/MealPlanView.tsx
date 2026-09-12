@@ -1,15 +1,31 @@
 import React, { useState } from "react";
-import { Calendar, ChevronLeft, ChevronRight, Clock, Activity, Target, Trash2, CheckCircle2, Sparkles, Printer, Globe } from "lucide-react";
-import { Recipe, MealPlanDay, Language, MealLog, ShoppingItem, Currency } from "../types";
+import {
+  Calendar,
+  ChevronLeft,
+  ChevronRight,
+  Clock,
+  Activity,
+  Target,
+  Trash2,
+  CheckCircle2,
+  Sparkles,
+  Printer,
+  Globe,
+  RefreshCw,
+  ShoppingBag,
+} from "lucide-react";
+import { Recipe, MealPlanDay, Language, MealLog, ShoppingItem, Currency, PantryItem } from "../types";
 import { t } from "../utils/translations";
 import { ConfirmModal } from "./ConfirmModal";
 import { PrintMenuModal } from "./PrintMenuModal";
 import { useGoogleCalendarSync } from "../hooks/useGoogleCalendarSync";
+import { calculateRecipePantryScore } from "../utils/menuAutoPlanner";
 
 interface MealPlanViewProps {
   mealPlan: MealPlanDay[];
   mealLogs: MealLog[];
   recipes: Recipe[];
+  pantry?: PantryItem[];
   language: Language;
   currency?: Currency;
   shoppingList?: ShoppingItem[];
@@ -19,6 +35,7 @@ interface MealPlanViewProps {
   isPro?: boolean;
   onOpenProModal?: () => void;
   onGenerateAiWeekPlan?: () => void;
+  onAdaptToPantry?: () => void;
   isGeneratingPlan?: boolean;
 }
 
@@ -26,6 +43,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   mealPlan,
   mealLogs,
   recipes,
+  pantry = [],
   language,
   currency = "EUR",
   shoppingList = [],
@@ -35,6 +53,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   isPro = false,
   onOpenProModal,
   onGenerateAiWeekPlan,
+  onAdaptToPantry,
   isGeneratingPlan = false,
 }) => {
   const currentText = t[language];
@@ -117,6 +136,12 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
     return getMealForDay(d);
   }).filter((d): d is MealPlanDay => d !== null);
 
+  const allPlannedMeals = next7Days.flatMap((d) => [d.breakfast, d.lunch, d.dinner]).filter(Boolean) as Recipe[];
+  const readyToCookCount = allPlannedMeals.filter((r) => {
+    const score = calculateRecipePantryScore(r, pantry);
+    return score.matchPercentage === 100;
+  }).length;
+
   const dayHeaders =
     language === "es"
       ? ["L", "M", "X", "J", "V", "S", "D"]
@@ -129,8 +154,26 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
     { month: "long", year: "numeric" }
   );
 
+  const renderPantryBadge = (rec?: Recipe | null) => {
+    if (!rec) return null;
+    const score = calculateRecipePantryScore(rec, pantry);
+    if (score.matchPercentage === 100) {
+      return (
+        <span className="inline-flex items-center gap-1 text-[9px] font-bold text-emerald-400 bg-emerald-500/10 px-1.5 py-0.5 rounded border border-emerald-500/20 shadow-xs">
+          <CheckCircle2 className="w-2.5 h-2.5" />
+          {language === "es" ? "100% Despensa" : language === "bg" ? "100% в килера" : "100% in Pantry"}
+        </span>
+      );
+    }
+    return (
+      <span className="inline-flex items-center gap-1 text-[9px] font-semibold text-amber-400/90 bg-amber-500/10 px-1.5 py-0.5 rounded border border-amber-500/20">
+        {score.matchPercentage}% {language === "es" ? "disp." : language === "bg" ? "налично" : "stock"}
+      </span>
+    );
+  };
+
   return (
-    <div id="meal-plan-view" className="space-y-4 pb-20">
+    <div id="meal-plan-view" className="space-y-4 pb-36 sm:pb-32">
       {/* AI Meal Plan PRO Feature Banner */}
       <div className="bg-[#131A1F]/80 backdrop-blur-md border border-amber-500/20 rounded-3xl p-5 shadow-[0_8px_30px_rgba(245,158,11,0.08)] relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 blur-[60px] rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none group-hover:bg-amber-500/15 transition-all duration-700" />
@@ -179,6 +222,54 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             )}
           </button>
         </div>
+      </div>
+
+      {/* Pantry Sync & Anti-Waste Optimization Banner */}
+      <div className="bg-gradient-to-r from-emerald-950/40 via-[#131A1F]/90 to-amber-950/20 border border-emerald-500/30 rounded-3xl p-4 shadow-[0_4px_20px_rgba(0,0,0,0.2)] flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+        <div className="flex items-center gap-3">
+          <div className="w-10 h-10 rounded-2xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-emerald-400 shrink-0 shadow-inner">
+            <Sparkles className="w-5 h-5 text-emerald-400" />
+          </div>
+          <div>
+            <div className="flex items-center gap-2">
+              <h4 className="text-sm font-bold text-white font-['Outfit']">
+                {language === "es"
+                  ? "Menú Sincronizado con Despensa"
+                  : language === "bg"
+                  ? "Меню, синхронизирано с килера"
+                  : "Menu Synced with Pantry"}
+              </h4>
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/30">
+                {readyToCookCount} {language === "es" ? "platos listos al 100%" : "ready meals"}
+              </span>
+            </div>
+            <p className="text-xs text-stone-400 font-medium mt-0.5">
+              {language === "es"
+                ? "El menú se actualiza automáticamente al hacer la compra o añadir a despensa para aprovechar tus ingredientes."
+                : language === "bg"
+                ? "Менюто се пренарежда автоматично при пазаруване или добавяне в килера за нулеви отпадъци."
+                : "The menu adapts automatically upon shopping or adding to pantry to maximize ingredient use."}
+            </p>
+          </div>
+        </div>
+
+        {onAdaptToPantry && (
+          <button
+            type="button"
+            onClick={onAdaptToPantry}
+            className="w-full sm:w-auto px-4 py-2 rounded-xl bg-emerald-500/15 hover:bg-emerald-500/25 border border-emerald-500/40 text-emerald-300 text-xs font-bold flex items-center justify-center gap-2 transition-all cursor-pointer shadow-sm shrink-0"
+            title={language === "es" ? "Re-adaptar menú con los ingredientes actuales de la despensa" : "Re-sync menu to current pantry"}
+          >
+            <RefreshCw className="w-3.5 h-3.5" />
+            <span>
+              {language === "es"
+                ? "Adaptar a Despensa"
+                : language === "bg"
+                ? "Пренареди според килера"
+                : "Re-adapt to Pantry"}
+            </span>
+          </button>
+        )}
       </div>
 
       {/* Calendar Header */}
@@ -445,10 +536,13 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
                 <div className="w-12 h-12 rounded-xl bg-white/[0.04] flex items-center justify-center text-2xl shrink-0 border border-white/[0.08]">
                   {meal.icon}
                 </div>
-                <div className="flex-1 min-w-0">
-                  <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500 block mb-1">
-                    {meal.title}
-                  </span>
+                <div className="flex-1 min-w-0 space-y-1">
+                  <div className="flex items-center justify-between gap-1">
+                    <span className="text-[10px] font-bold uppercase tracking-widest text-stone-500 block">
+                      {meal.title}
+                    </span>
+                    {renderPantryBadge(meal.recipe)}
+                  </div>
                   <p className="text-sm font-bold text-white truncate font-['Outfit'] tracking-wide">
                     {getRecipeTitle(meal.recipe)}
                   </p>
@@ -495,26 +589,35 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
                 </span>
               </div>
               <div className="grid grid-cols-3 gap-2.5">
-                <div className="text-center bg-black/40 p-2.5 rounded-2xl border border-white/[0.04] shadow-inner group-hover:bg-white/[0.02] transition-colors">
-                  <span className="text-[9px] text-stone-500 block uppercase font-bold tracking-widest mb-1">
-                    {language === "es" ? "DES" : language === "bg" ? "ЗАК" : "BRK"}
-                  </span>
+                <div className="text-center bg-black/40 p-2.5 rounded-2xl border border-white/[0.04] shadow-inner group-hover:bg-white/[0.02] transition-colors flex flex-col justify-between min-h-[70px]">
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="text-[9px] text-stone-500 uppercase font-bold tracking-widest">
+                      {language === "es" ? "DES" : language === "bg" ? "ЗАК" : "BRK"}
+                    </span>
+                    {day.breakfast && renderPantryBadge(day.breakfast)}
+                  </div>
                   <span className="text-[11px] text-stone-300 truncate block font-bold">
                     {getRecipeTitle(day.breakfast)}
                   </span>
                 </div>
-                <div className="text-center bg-black/40 p-2.5 rounded-2xl border border-white/[0.04] shadow-inner group-hover:bg-white/[0.02] transition-colors">
-                  <span className="text-[9px] text-stone-500 block uppercase font-bold tracking-widest mb-1">
-                    {language === "es" ? "ALM" : language === "bg" ? "ОБЯ" : "LUN"}
-                  </span>
+                <div className="text-center bg-black/40 p-2.5 rounded-2xl border border-white/[0.04] shadow-inner group-hover:bg-white/[0.02] transition-colors flex flex-col justify-between min-h-[70px]">
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="text-[9px] text-stone-500 uppercase font-bold tracking-widest">
+                      {language === "es" ? "ALM" : language === "bg" ? "ОБЯ" : "LUN"}
+                    </span>
+                    {day.lunch && renderPantryBadge(day.lunch)}
+                  </div>
                   <span className="text-[11px] text-stone-300 truncate block font-bold">
                     {getRecipeTitle(day.lunch)}
                   </span>
                 </div>
-                <div className="text-center bg-black/40 p-2.5 rounded-2xl border border-white/[0.04] shadow-inner group-hover:bg-white/[0.02] transition-colors">
-                  <span className="text-[9px] text-stone-500 block uppercase font-bold tracking-widest mb-1">
-                    {language === "es" ? "CEN" : language === "bg" ? "ВЕЧ" : "DIN"}
-                  </span>
+                <div className="text-center bg-black/40 p-2.5 rounded-2xl border border-white/[0.04] shadow-inner group-hover:bg-white/[0.02] transition-colors flex flex-col justify-between min-h-[70px]">
+                  <div className="flex items-center justify-between gap-1 mb-1">
+                    <span className="text-[9px] text-stone-500 uppercase font-bold tracking-widest">
+                      {language === "es" ? "CEN" : language === "bg" ? "ВЕЧ" : "DIN"}
+                    </span>
+                    {day.dinner && renderPantryBadge(day.dinner)}
+                  </div>
                   <span className="text-[11px] text-stone-300 truncate block font-bold">
                     {getRecipeTitle(day.dinner)}
                   </span>

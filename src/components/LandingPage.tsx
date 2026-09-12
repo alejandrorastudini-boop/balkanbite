@@ -64,20 +64,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       <div className="fixed top-[400px] right-0 w-[500px] h-[300px] bg-amber-500/8 blur-[120px] rounded-full pointer-events-none -z-10" />
 
       {/* Top Navigation Bar */}
-      <header className="sticky top-0 z-40 bg-[#131A1F]/80 backdrop-blur-md border-b border-white/[0.04] shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
-        <div className="max-w-6xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
+      <header className="sticky top-0 z-40 bg-[#131A1F]/90 backdrop-blur-md border-b border-white/[0.04] shadow-[0_4px_30px_rgba(0,0,0,0.5)]">
+        <div className="max-w-6xl mx-auto px-3 sm:px-6 h-14 sm:h-16 flex items-center justify-between gap-2 sm:gap-3">
           {/* Logo */}
-          <div className="flex items-center gap-3 cursor-pointer group" onClick={onOpenApp}>
+          <div className="flex items-center gap-2 sm:gap-3 cursor-pointer group shrink-0" onClick={onOpenApp}>
             <img
               src="/images/logo.jpg"
               alt="BalkanBite Logo"
-              className="w-10 h-10 rounded-xl object-cover border-2 border-emerald-500/30 shadow-[0_2px_10px_rgba(16,185,129,0.2)] shrink-0 group-hover:scale-105 transition-transform"
+              className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover border-2 border-emerald-500/30 shadow-[0_2px_10px_rgba(16,185,129,0.2)] shrink-0 group-hover:scale-105 transition-transform"
             />
             <div>
-              <span className="text-lg font-bold tracking-wide text-white font-['Outfit'] block leading-none">
+              <span className="text-base sm:text-lg font-bold tracking-wide text-white font-['Outfit'] block leading-none">
                 BalkanBite
               </span>
-              <span className="text-[10px] font-bold text-emerald-400 tracking-widest uppercase mt-0.5 block">
+              <span className="text-[9px] sm:text-[10px] font-bold text-emerald-400 tracking-widest uppercase mt-0.5 hidden sm:block">
                 AI Kitchen & Zero-Waste
               </span>
             </div>
@@ -100,9 +100,33 @@ export const LandingPage: React.FC<LandingPageProps> = ({
           </nav>
 
           {/* Right Action Controls */}
-          <div className="flex items-center gap-3 sm:gap-4">
-            {/* Language Picker */}
-            <div className="flex items-center bg-white/[0.02] border border-white/[0.04] rounded-xl p-0.5 text-xs font-bold">
+          <div className="flex items-center gap-1.5 sm:gap-3 shrink-0">
+            {/* Mobile Language Switcher (Tap to cycle) */}
+            <button
+              id="landing-lang-btn-mobile"
+              type="button"
+              onClick={() => {
+                const nextLang: Record<Language, Language> = {
+                  es: "en",
+                  en: "bg",
+                  bg: "es",
+                };
+                onLanguageChange(nextLang[language]);
+              }}
+              className="sm:hidden text-xs font-extrabold px-2 py-1 rounded-xl bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 active:bg-emerald-500/20 transition-all cursor-pointer shrink-0"
+              title={
+                language === "es"
+                  ? "Idioma: Español. Toca para cambiar."
+                  : language === "bg"
+                  ? "Език: Български. Докоснете за смяна."
+                  : "Language: English. Tap to cycle."
+              }
+            >
+              {language === "es" ? "ES" : language === "en" ? "EN" : "БГ"}
+            </button>
+
+            {/* Desktop Segmented Language Switcher */}
+            <div className="hidden sm:flex items-center bg-white/[0.02] border border-white/[0.04] rounded-xl p-0.5 text-xs font-bold shrink-0">
               <button
                 type="button"
                 onClick={() => onLanguageChange("es")}
@@ -136,7 +160,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             <button
               type="button"
               onClick={() => onCurrencyChange(currency === "EUR" ? "USD" : "EUR")}
-              className="px-2.5 py-1.5 bg-white/[0.02] border border-white/[0.04] rounded-xl text-xs font-bold text-emerald-400 hover:bg-white/[0.04] hover:text-emerald-300 transition-colors cursor-pointer"
+              className="px-2 sm:px-2.5 py-1 sm:py-1.5 bg-white/[0.02] border border-white/[0.04] rounded-xl text-xs font-bold text-emerald-400 hover:bg-white/[0.04] hover:text-emerald-300 transition-colors cursor-pointer shrink-0"
+              title="Cambiar Moneda"
             >
               {currency === "EUR" ? "€" : "$"}
             </button>
@@ -146,10 +171,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               id="landing-enter-app-top-btn"
               type="button"
               onClick={onOpenApp}
-              className="px-4 sm:px-5 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs sm:text-sm font-extrabold tracking-wide uppercase rounded-xl flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all hover:scale-[1.02] cursor-pointer"
+              className="px-3 sm:px-5 py-1.5 sm:py-2.5 bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs sm:text-sm font-extrabold tracking-wide uppercase rounded-xl flex items-center gap-1.5 sm:gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all hover:scale-[1.02] cursor-pointer shrink-0 whitespace-nowrap"
             >
               <span>{language === "es" ? "Entrar" : language === "bg" ? "Вход" : "Open App"}</span>
-              <ArrowRight className="w-4 h-4" />
+              <ArrowRight className="w-3.5 h-3.5 sm:w-4 sm:h-4" />
             </button>
           </div>
         </div>
@@ -845,13 +870,20 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
             {legalModal === "privacy" ? (
               <div className="text-xs text-stone-300 leading-relaxed space-y-3">
-                <p>En BalkanBite valoramos y protegemos la privacidad de tus datos personales.</p>
+                <p>En BalkanBite AI valoramos y protegemos la privacidad de tus datos personales.</p>
                 <h4 className="font-bold text-emerald-400 text-sm">1. Información que recopilamos</h4>
-                <p>Recopilamos únicamente tu correo electrónico y nombre de perfil suministrados a través de Google Sign-In para sincronizar tu inventario de despensa y recetas guardadas en la nube.</p>
+                <p>Recopilamos únicamente tu dirección de correo electrónico, nombre de usuario y foto de perfil suministrados mediante inicio de sesión seguro con Google (OAuth 2.0 / Firebase Auth) para autenticarte y sincronizar tu despensa y recetas en la nube.</p>
                 <h4 className="font-bold text-emerald-400 text-sm">2. Uso de la información</h4>
-                <p>Tus datos son utilizados exclusivamente para ofrecerte recomendaciones culinarias personalizadas y sincronizar tu menú semanal entre dispositivos.</p>
-                <h4 className="font-bold text-emerald-400 text-sm">3. Seguridad</h4>
-                <p>Utilizamos Firebase Authentication y reglas de seguridad de Google Cloud Firestore para proteger el acceso a tus colecciones.</p>
+                <p>Tus datos son utilizados exclusivamente para ofrecerte recomendaciones culinarias personalizadas mediante la API de Gemini y sincronizar tus compras entre tus dispositivos.</p>
+                <h4 className="font-bold text-emerald-400 text-sm">3. Protección y Uso Limitado de Google</h4>
+                <p>El uso y transferencia de información recibida de las API de Google cumple estrictamente con la Política de Datos de Usuario de los Servicios de API de Google (Google API Services User Data Policy, including Limited Use requirements). No vendemos ni compartimos tus datos con terceros.</p>
+                <h4 className="font-bold text-emerald-400 text-sm">4. Eliminación de datos</h4>
+                <p>Puedes eliminar tus datos en cualquier momento desde tu perfil o escribiéndonos a <a href="mailto:soporte@balkanbite.app" class="text-emerald-400 underline">soporte@balkanbite.app</a>.</p>
+                <div className="pt-2 border-t border-stone-800">
+                  <a href="/privacy.html" target="_blank" rel="noopener noreferrer" className="text-emerald-400 hover:underline font-bold text-xs inline-flex items-center gap-1">
+                    📄 Ver Política de Privacidad Completa (Página oficial) →
+                  </a>
+                </div>
               </div>
             ) : (
               <div className="text-xs text-stone-300 leading-relaxed space-y-3">

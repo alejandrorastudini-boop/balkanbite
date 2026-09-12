@@ -13,6 +13,8 @@ export const ChefIaFloatingButton: React.FC<ChefIaFloatingButtonProps> = ({
   language,
   isOpen = false,
 }) => {
+  if (isOpen) return null;
+
   const label =
     language === "es" ? "Chef IA" : language === "bg" ? "AI Шеф" : "AI Chef";
 
@@ -21,20 +23,16 @@ export const ChefIaFloatingButton: React.FC<ChefIaFloatingButtonProps> = ({
       id="chef-ia-floating-btn"
       type="button"
       onClick={onClick}
-      className={`fixed bottom-22 right-3 sm:bottom-26 sm:right-6 md:right-8 z-40 flex flex-col items-center justify-center w-13 h-13 sm:w-14 sm:h-14 rounded-2xl font-bold text-xs shadow-[0_8px_25px_rgba(16,185,129,0.35)] transition-all duration-300 cursor-pointer group active:scale-95 ${
-        isOpen
-          ? "bg-[#131A1F] border border-emerald-500/50 text-emerald-400 shadow-[0_8px_25px_rgba(0,0,0,0.8)] scale-95"
-          : "bg-emerald-500 hover:bg-emerald-400 text-stone-950 border border-emerald-400/50 hover:shadow-[0_10px_35px_rgba(16,185,129,0.5)] hover:scale-105"
-      }`}
-      title={language === "es" ? "Abrir Asistente Chef IA" : language === "bg" ? "Отвори AI Шеф" : "Open AI Chef Assistant"}
-      aria-label="Chef IA Assistant"
+      className="fixed bottom-24 right-4 sm:bottom-28 sm:right-6 md:right-8 z-40 flex flex-col items-center justify-center w-14 h-14 sm:w-16 sm:h-16 rounded-2xl font-bold shadow-[0_10px_30px_rgba(16,185,129,0.4)] transition-all duration-300 cursor-pointer group active:scale-95 ring-4 bg-gradient-to-b from-emerald-400 to-emerald-500 hover:from-emerald-300 hover:to-emerald-400 text-stone-950 border border-emerald-300/60 ring-emerald-500/25 hover:shadow-[0_12px_40px_rgba(16,185,129,0.6)] hover:scale-105"
+      title={language === "es" ? "Abrir Asistente Chef IA por Voz" : language === "bg" ? "Отвори Гласов AI Шеф" : "Open Voice AI Chef Assistant"}
+      aria-label="Chef IA Voice Assistant"
     >
       <div className="relative flex items-center justify-center">
-        <Mic className={`w-4 h-4 sm:w-5 sm:h-5 ${isOpen ? "text-emerald-400 animate-pulse" : "text-stone-950"}`} />
-        <Sparkles className="w-2 h-2 absolute -top-1 -right-2 text-amber-300 animate-pulse" />
+        <Mic className="w-5 h-5 sm:w-6 sm:h-6 transition-transform group-hover:scale-110 text-stone-950" />
+        <Sparkles className="w-2.5 h-2.5 absolute -top-1.5 -right-2.5 text-amber-300 animate-pulse" />
       </div>
 
-      <span className="font-['Outfit'] font-extrabold text-[9px] sm:text-[10px] uppercase tracking-tight mt-0.5 leading-none">
+      <span className="font-['Outfit'] font-extrabold text-[9px] sm:text-[10px] uppercase tracking-wider mt-0.5 leading-none">
         {label}
       </span>
     </button>

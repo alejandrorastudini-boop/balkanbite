@@ -140,7 +140,7 @@ export const t = {
     
     // Recipes UI
     recipeEngineTitle: "Smart Recipe Engine",
-    recipePantryStock: "items in stock",
+    recipePantryStock: "in pantry",
     recipeViewSteps: "Recipe & Steps",
     recipeAllInStock: "Ready to cook",
     recipeMissingItems: "Missing in pantry",
@@ -413,7 +413,7 @@ export const t = {
     
     // Recipes UI
     recipeEngineTitle: "AI Кулинарен Двигател",
-    recipePantryStock: "съставки в наличност",
+    recipePantryStock: "в килера",
     recipeViewSteps: "Рецепта и стъпки",
     recipeAllInStock: "Всичко е налично",
     recipeMissingItems: "продукти са налични",
@@ -686,7 +686,7 @@ export const t = {
     
     // Recipes UI
     recipeEngineTitle: "Motor de Recetas IA",
-    recipePantryStock: "artículos en despensa",
+    recipePantryStock: "en despensa",
     recipeViewSteps: "Receta y Pasos",
     recipeAllInStock: "Listo para cocinar",
     recipeMissingItems: "ingredientes en despensa",

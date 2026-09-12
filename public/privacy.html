@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
   <title>Política de Privacidad - BalkanBite AI</title>
-  <meta name="description" content="Política de privacidad oficial de BalkanBite AI." />
+  <meta name="description" content="Política de privacidad oficial y protección de datos de usuario para BalkanBite AI." />
   <link rel="icon" type="image/jpeg" href="/images/logo.jpg" />
   <script src="https://cdn.tailwindcss.com"></script>
   <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -16,14 +16,14 @@
   </style>
 </head>
 <body class="bg-stone-950 text-stone-200 min-h-screen flex flex-col items-center justify-start p-4 sm:p-8">
-  <div class="max-w-3xl w-full bg-stone-900 border border-stone-800 rounded-3xl p-6 sm:p-10 shadow-2xl my-8 space-y-6">
+  <div class="max-w-4xl w-full bg-stone-900 border border-stone-800 rounded-3xl p-6 sm:p-10 shadow-2xl my-8 space-y-8">
     <!-- Header -->
     <div class="flex items-center justify-between border-b border-stone-800 pb-6">
-      <div class="flex items-center gap-3">
-        <img src="/images/logo.jpg" alt="BalkanBite Logo" class="w-12 h-12 rounded-2xl object-cover border border-emerald-500/40 shadow-lg shadow-emerald-950/40" />
+      <div class="flex items-center gap-4">
+        <img src="/images/logo.jpg" alt="BalkanBite Logo" class="w-14 h-14 rounded-2xl object-cover border-2 border-emerald-500/40 shadow-lg shadow-emerald-950/40" />
         <div>
-          <h1 class="text-2xl font-extrabold text-white tracking-tight">Política de Privacidad</h1>
-          <p class="text-xs text-emerald-400 font-semibold">BalkanBite AI • Última actualización: 12 de septiembre de 2026</p>
+          <h1 class="text-2xl sm:text-3xl font-extrabold text-white tracking-tight">Política de Privacidad</h1>
+          <p class="text-xs sm:text-sm text-emerald-400 font-semibold mt-0.5">BalkanBite AI • Última actualización: 12 de septiembre de 2026</p>
         </div>
       </div>
       <a href="/" class="px-4 py-2 bg-stone-800 hover:bg-stone-700 text-stone-200 rounded-xl text-xs font-bold transition-colors">
@@ -31,51 +31,114 @@
       </a>
     </div>
 
-    <!-- Content -->
+    <!-- Legal Document Content -->
     <div class="space-y-6 text-sm text-stone-300 leading-relaxed">
-      <section class="space-y-2">
-        <h2 class="text-lg font-bold text-white text-emerald-400">1. Compromiso de Privacidad</h2>
-        <p>En <strong>BalkanBite AI</strong>, respetamos tu privacidad y nos comprometemos a proteger la información personal que compartes con nosotros al utilizar nuestra aplicación de gestión inteligente de despensa y recetas.</p>
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-emerald-400 border-b border-stone-800/80 pb-1">1. Introducción y Compromiso de Privacidad</h2>
+        <p>En <strong>BalkanBite AI</strong> (disponible en <a href="https://balkanbite.vercel.app/" class="text-emerald-400 underline">https://balkanbite.vercel.app/</a>), la protección de los datos personales de nuestros usuarios es una prioridad fundamental. Esta Política de Privacidad describe de manera detallada y transparente cómo recopilamos, utilizamos, almacenamos, protegemos y gestionamos la información personal que nos proporcionas cuando utilizas nuestra aplicación de gestión inteligente de despensa, recetas y planificación de comidas impulsada por Inteligencia Artificial.</p>
+        <p>Al acceder o utilizar BalkanBite AI, confirmas que has leído, comprendido y aceptado los términos descritos en esta política.</p>
       </section>
 
-      <section class="space-y-2">
-        <h2 class="text-lg font-bold text-white text-emerald-400">2. Información que Recopilamos</h2>
-        <p>Recopilamos únicamente la información estrictamente necesaria para prestar nuestros servicios:</p>
-        <ul class="list-disc list-inside space-y-1 pl-2 text-stone-400">
-          <li><strong>Datos de autenticación:</strong> Correo electrónico, nombre completo y foto de perfil proporcionados voluntariamente mediante inicio de sesión con Google (OAuth 2.0 / Firebase Auth).</li>
-          <li><strong>Datos de la aplicación:</strong> Inventario de despensa, listas de compras, menús semanales y preferencias culinarias guardadas en tu perfil.</li>
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-emerald-400 border-b border-stone-800/80 pb-1">2. Información Personal que Recopilamos</h2>
+        <p>Recopilamos únicamente la información estrictamente necesaria para prestar, mantener y optimizar los servicios de la aplicación:</p>
+        
+        <div class="space-y-2 pl-3 border-l-2 border-emerald-500/30">
+          <h3 class="font-bold text-white text-sm">A. Datos de Autenticación de Cuenta de Google (Google Sign-In / OAuth 2.0):</h3>
+          <p class="text-stone-400">Cuando eliges registrarte o iniciar sesión utilizando tu cuenta de Google (a través de los permisos OAuth 2.0 <code class="bg-stone-800 px-1.5 py-0.5 rounded text-emerald-300 text-xs">openid</code>, <code class="bg-stone-800 px-1.5 py-0.5 rounded text-emerald-300 text-xs">profile</code> y <code class="bg-stone-800 px-1.5 py-0.5 rounded text-emerald-300 text-xs">email</code>), recibimos únicamente:</p>
+          <ul class="list-disc list-inside space-y-1 text-stone-400 text-xs pl-2">
+            <li>Tu dirección de correo electrónico principal asociada a Google.</li>
+            <li>Tu nombre completo y nombre de perfil público.</li>
+            <li>La URL de tu imagen de foto de perfil de Google.</li>
+            <li>El identificador único de usuario de Google (Google User ID / UID).</li>
+          </ul>
+        </div>
+
+        <div class="space-y-2 pl-3 border-l-2 border-emerald-500/30 mt-3">
+          <h3 class="font-bold text-white text-sm">B. Datos Generados por el Usuario en la Aplicación:</h3>
+          <ul class="list-disc list-inside space-y-1 text-stone-400 text-xs pl-2">
+            <li>Inventario de despensa: alimentos, ingredientes, cantidades, unidades de medida y fechas de caducidad guardadas.</li>
+            <li>Listas de compras organizadas por categorías y estado de adquisición.</li>
+            <li>Planificación de menús semanales (desayunos, almuerzos, cenas y aperitivos).</li>
+            <li>Historial de recetas guardadas, recetas favoritas y comentarios o valoraciones personalizadas.</li>
+            <li>Preferencias culinarias, alergias e intenciones nutricionales configuradas en tu perfil de usuario.</li>
+          </ul>
+        </div>
+
+        <div class="space-y-2 pl-3 border-l-2 border-emerald-500/30 mt-3">
+          <h3 class="font-bold text-white text-sm">C. Datos Técnicos y de Navegación:</h3>
+          <p class="text-stone-400 text-xs">Utilizamos almacenamiento local del navegador (<code class="bg-stone-800 px-1.5 py-0.5 rounded text-emerald-300">localStorage</code>) para recordar preferencias de interfaz como el idioma de preferencia (español, inglés o búlgaro) y el tema de color (modo oscuro o claro), así como tokens de sesión segura gestionados por Firebase Authentication.</p>
+        </div>
+      </section>
+
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-emerald-400 border-b border-stone-800/80 pb-1">3. Finalidades del Tratamiento de la Información</h2>
+        <p>Utilizamos la información recopilada exclusivamente para los siguientes propósitos legítimos de servicio:</p>
+        <ul class="list-disc list-inside space-y-1 pl-2 text-stone-300 text-xs">
+          <li><strong>Autenticación de Usuarios:</strong> Verificar tu identidad mediante Google Sign-In para permitir un acceso seguro a tu cuenta personal en múltiples dispositivos.</li>
+          <li><strong>Sincronización en la Nube:</strong> Sincronizar en tiempo real tu despensa, listas de compras y recetas entre tus dispositivos utilizando la base de datos Google Cloud Firestore.</li>
+          <li><strong>Generación de Recetas con Inteligencia Artificial:</strong> Procesar tu inventario de despensa y restricciones alimentarias a través de la API de Gemini (Google Cloud AI) para sugerirte platos personalizados, saludables y económicos.</li>
+          <li><strong>Soporte Técnico y Mejora del Servicio:</strong> Diagnosticar incidencias técnicas, responder a solicitudes de soporte y garantizar el correcto funcionamiento de la infraestructura.</li>
         </ul>
       </section>
 
-      <section class="space-y-2">
-        <h2 class="text-lg font-bold text-white text-emerald-400">3. Uso de la Información</h2>
-        <p>Utilizamos tus datos exclusivamente para los siguientes fines:</p>
-        <ul class="list-disc list-inside space-y-1 pl-2 text-stone-400">
-          <li>Sincronizar tu inventario y recetas en tiempo real entre tus dispositivos mediante Firebase Firestore.</li>
-          <li>Generar sugerencias de recetas personalizadas utilizando la tecnología de Inteligencia Artificial de Gemini API.</li>
-          <li>Mantener la seguridad e integridad de tu cuenta de usuario.</li>
+      <!-- Google Limited Use Policy Disclosure Section (MANDATORY FOR GOOGLE OAUTH VERIFICATION) -->
+      <section class="space-y-3 bg-emerald-950/20 border border-emerald-500/30 rounded-2xl p-4 sm:p-5">
+        <h2 class="text-base font-bold text-emerald-400 flex items-center gap-2">
+          <span>🛡️</span> 4. Declaración de Uso Limitado de la API de Google (Google API Limited Use Disclosure)
+        </h2>
+        <p class="text-xs text-stone-300 leading-relaxed font-medium">
+          El uso y la transferencia por parte de <strong>BalkanBite AI</strong> a cualquier otra aplicación de la información recibida de las API de Google se adherirán rigurosamente a la <strong>Política de Datos de Usuario de los Servicios de API de Google</strong>, incluidos los requisitos de Uso Limitado (<a href="https://developers.google.com/terms/api-services-user-data-policy" target="_blank" rel="noopener noreferrer" class="text-emerald-400 underline font-bold">Google API Services User Data Policy, including Limited Use requirements</a>).
+        </p>
+        <p class="text-xs text-stone-400">
+          En particular, garantizamos que los datos obtenidos mediante las API de Google no se utilizarán para entrenar modelos de Inteligencia Artificial generales ni se compartirán con terceros ajenos a la prestación directa del servicio al usuario.
+        </p>
+      </section>
+
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-emerald-400 border-b border-stone-800/80 pb-1">5. Compartición y Divulgación de Datos con Terceros</h2>
+        <p>En BalkanBite AI <strong>NO vendemos, alquilamos, comercializamos ni transferimos tus datos personales a terceros con fines publicitarios o comerciales.</strong></p>
+        <p>Tus datos únicamente interactúan con proveedores de infraestructura tecnológica de máxima confianza que cumplen rigurosos estándares de seguridad y privacidad:</p>
+        <ul class="list-disc list-inside space-y-1 pl-2 text-stone-400 text-xs">
+          <li><strong>Google Cloud Platform / Firebase:</strong> Proveedor de autenticación segura (Firebase Auth), base de datos en tiempo real (Cloud Firestore) y procesamiento de IA (Gemini API).</li>
+          <li><strong>Vercel Inc.:</strong> Proveedor de alojamiento web seguro para la distribución de la interfaz de la aplicación.</li>
         </ul>
       </section>
 
-      <section class="space-y-2">
-        <h2 class="text-lg font-bold text-white text-emerald-400">4. Almacenamiento y Seguridad</h2>
-        <p>Tus datos están protegidos mediante estándares industriales de encriptación en tránsito y en reposo a través de la infraestructura en la nube de Google Cloud Platform y Firebase. No vendemos, alquilamos ni compartimos tus datos personales con terceros con fines comerciales.</p>
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-emerald-400 border-b border-stone-800/80 pb-1">6. Almacenamiento, Seguridad y Retención</h2>
+        <p>Aplicamos medidas de seguridad organizativas y técnicas avanzadas para proteger tus datos personales contra accesos no autorizados, alteración, divulgación o destrucción:</p>
+        <ul class="list-disc list-inside space-y-1 pl-2 text-stone-400 text-xs">
+          <li><strong>Encriptación en Tránsito:</strong> Todas las comunicaciones entre tu navegador y nuestros servidores utilizan protocolos cifrados seguros HTTPS (TLS 1.3).</li>
+          <li><strong>Encriptación en Reposo:</strong> La información almacenada en Google Cloud Firestore está protegida mediante encriptación estándar industrial AES-256.</li>
+          <li><strong>Reglas de Seguridad a Nivel de Registro:</strong> Solo la cuenta autenticada con tu UID específico tiene permisos para leer o escribir en tus colecciones personales de despensa y recetas.</li>
+        </ul>
       </section>
 
-      <section class="space-y-2">
-        <h2 class="text-lg font-bold text-white text-emerald-400">5. Tus Derechos</h2>
-        <p>Puedes solicitar la eliminación total de tus datos o cerrar tu cuenta en cualquier momento haciendo clic en el botón de <em>"Cerrar sesión"</em> o <em>"Restablecer aplicación"</em> en la pestaña de Perfil o enviando una solicitud a soporte.</p>
+      <section class="space-y-3">
+        <h2 class="text-lg font-bold text-emerald-400 border-b border-stone-800/80 pb-1">7. Tus Derechos de Acceso, Rectificación y Eliminación de Datos</h2>
+        <p>Tienes derecho a acceder, corregir, exportar o eliminar de forma definitiva todos los datos personales asociados a tu cuenta de BalkanBite AI en cualquier momento:</p>
+        <ul class="list-disc list-inside space-y-1.5 pl-2 text-stone-300 text-xs">
+          <li><strong>Eliminación Directa en la App:</strong> Puedes borrar tu inventario de despensa, listas y recetas en cualquier momento o hacer clic en el botón <em>"Restablecer Aplicación"</em> en la pestaña de <strong>Perfil</strong> para purgar todos tus datos guardados.</li>
+          <li><strong>Solicitud de Supresión por Correo:</strong> Puedes enviar una solicitud expresa de eliminación completa de tu cuenta y datos enviando un correo a <a href="mailto:soporte@balkanbite.app" class="text-emerald-400 underline font-semibold">soporte@balkanbite.app</a>. Responderemos y procesaremos tu solicitud en un plazo máximo de 48 horas laborales.</li>
+          <li><strong>Revocación de Permisos de Google:</strong> Puedes revocar en cualquier momento el acceso concedido a BalkanBite AI desde el panel oficial de seguridad de tu cuenta de Google en <a href="https://myaccount.google.com/permissions" target="_blank" rel="noopener noreferrer" class="text-emerald-400 underline">https://myaccount.google.com/permissions</a>.</li>
+        </ul>
       </section>
 
-      <section class="space-y-2 border-t border-stone-800 pt-6">
-        <h2 class="text-lg font-bold text-white text-emerald-400">6. Contacto</h2>
-        <p>Si tienes dudas sobre esta Política de Privacidad, puedes escribirnos a <a href="mailto:soporte@balkanbite.app" class="text-emerald-400 underline">soporte@balkanbite.app</a>.</p>
+      <section class="space-y-3 border-t border-stone-800 pt-6">
+        <h2 class="text-lg font-bold text-emerald-400">8. Información de Contacto</h2>
+        <p>Si tienes cualquier duda, sugerencia o solicitud relacionada con esta Política de Privacidad o la gestión de tus datos en BalkanBite AI, puedes ponerte en contacto con nuestro equipo a través de:</p>
+        <div class="bg-stone-800/60 p-4 rounded-xl space-y-1 text-xs text-stone-300">
+          <p><strong>Aplicación:</strong> BalkanBite AI</p>
+          <p><strong>Sitio Web Principal:</strong> <a href="https://balkanbite.vercel.app/" class="text-emerald-400 underline">https://balkanbite.vercel.app/</a></p>
+          <p><strong>Correo Electrónico de Soporte y Privacidad:</strong> <a href="mailto:soporte@balkanbite.app" class="text-emerald-400 underline">soporte@balkanbite.app</a></p>
+        </div>
       </section>
     </div>
 
     <!-- Footer -->
     <div class="border-t border-stone-800 pt-6 text-center text-xs text-stone-500">
-      © 2026 BalkanBite AI. Todos los derechos reservados.
+      © 2026 BalkanBite AI. Todos los derechos reservados. Política de Privacidad oficial para Google Cloud OAuth Verification.
     </div>
   </div>
 </body>

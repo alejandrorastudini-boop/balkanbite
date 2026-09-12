@@ -29,8 +29,38 @@ function getGeminiClient() {
 }
 
 /**
- * Robust wrapper for Gemini API calls to handle transient 503/429 errors
- * Includes multi-model fallback (gemini-3.8-flash -> gemini-3.1-flash-lite -> gemini-flash-latest)
+ * Helper to detect transient (503), quota (429/Resource Exhausted), or unavailable errors
+ */
+function isGeminiTransientOrQuotaError(err: any): boolean {
+  if (!err) return false;
+  const msg = String(err.message || "");
+  const status = err.status || err.statusCode || err.code || 0;
+  const statusText = String(err.statusText || "");
+  const str = `${msg} ${status} ${statusText} ${err.stack || ""}`.toLowerCase();
+
+  return (
+    status === 503 ||
+    status === 429 ||
+    status === 500 ||
+    status === 502 ||
+    status === 504 ||
+    str.includes("503") ||
+    str.includes("429") ||
+    str.includes("unavailable") ||
+    str.includes("high demand") ||
+    str.includes("resource_exhausted") ||
+    str.includes("resource exhausted") ||
+    str.includes("quota exceeded") ||
+    str.includes("rate limit") ||
+    str.includes("overloaded") ||
+    str.includes("temporarily unavailable") ||
+    str.includes("try again later")
+  );
+}
+
+/**
+ * Robust wrapper for Gemini API calls with multi-model fallback:
+ * (gemini-3.8-flash -> gemini-3.1-flash-lite -> gemini-flash-latest)
  */
 async function generateWithRetry(ai: any, params: any, maxRetriesPerModel = 2) {
   const primaryModel = params.model || "gemini-3.8-flash";
@@ -40,7 +70,7 @@ async function generateWithRetry(ai: any, params: any, maxRetriesPerModel = 2) {
   let lastError;
 
   for (const modelName of modelsToTry) {
-    let delay = 1000;
+    let delay = 600;
     const currentParams = { ...params, model: modelName };
 
     for (let i = 0; i < maxRetriesPerModel; i++) {
@@ -48,17 +78,15 @@ async function generateWithRetry(ai: any, params: any, maxRetriesPerModel = 2) {
         return await ai.models.generateContent(currentParams);
       } catch (err: any) {
         lastError = err;
-        const errorStr = JSON.stringify(err);
-        const isRetryable =
-          errorStr.includes("503") ||
-          errorStr.includes("429") ||
-          err.message?.includes("503") ||
-          err.message?.includes("429") ||
-          err.status === 503 ||
-          err.status === 429;
+        const isRetryable = isGeminiTransientOrQuotaError(err);
 
         if (isRetryable) {
-          console.warn(`Gemini API transient error on ${modelName} (attempt ${i + 1}):`, err.message || err);
+          console.warn(`Gemini API notice on ${modelName} (attempt ${i + 1}/${maxRetriesPerModel}):`, err?.message || err);
+          // If it's a quota or heavy demand error, immediately move to the next model
+          const errText = String(err?.message || "").toLowerCase();
+          if (errText.includes("resource_exhausted") || errText.includes("quota exceeded") || errText.includes("503") || err?.status === 503 || err?.status === 429) {
+            break; // Immediately try the next model
+          }
           if (i < maxRetriesPerModel - 1) {
             await new Promise((resolve) => setTimeout(resolve, delay));
             delay *= 1.5;
@@ -476,6 +504,129 @@ function fallbackParseIntent(transcript: string, language: string, currentPantry
   };
 }
 
+// Fallback reconciliation parser when offline or Gemini API is not available
+function fallbackReconcileShopping(transcript: string, currentShoppingList: any[] = [], language: string = "es") {
+  const lower = transcript.toLowerCase();
+  const negations = [
+    "no compré", "no compre", "no había", "no habia", "sin", "menos", "excepto", 
+    "didn't buy", "did not buy", "except", "нямаше", "не купих", "без", "faltó", "falto"
+  ];
+  
+  const boughtAll = lower.includes("todo") || lower.includes("toda") || lower.includes("all") || lower.includes("всичко");
+
+  const purchasedItemIds: string[] = [];
+  const unpurchasedItemIds: string[] = [];
+  const purchasedListItemsDetails: any[] = [];
+
+  currentShoppingList.forEach((item: any) => {
+    const itemName = String(item.name || "").toLowerCase();
+    const itemWords = itemName.split(/\s+/).filter((w) => w.length > 2);
+    
+    const isMentioned = itemName && (lower.includes(itemName) || itemWords.some((w) => lower.includes(w)));
+    
+    let isNegated = false;
+    if (isMentioned) {
+      for (const neg of negations) {
+        const negIdx = lower.indexOf(neg);
+        const itemIdx = lower.indexOf(itemName);
+        if (negIdx !== -1 && itemIdx !== -1 && Math.abs(itemIdx - negIdx) < 40) {
+          isNegated = true;
+          break;
+        }
+      }
+    }
+
+    if (boughtAll) {
+      if (isNegated) {
+        unpurchasedItemIds.push(item.id);
+      } else {
+        purchasedItemIds.push(item.id);
+        purchasedListItemsDetails.push({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity || 1,
+          unit: item.unit || "pcs",
+          category: item.category || "Produce",
+          estimatedCostEUR: item.estimatedPriceEUR || 1.5,
+          expiryDaysLeft: 7,
+        });
+      }
+    } else {
+      if (isMentioned && !isNegated) {
+        purchasedItemIds.push(item.id);
+        purchasedListItemsDetails.push({
+          id: item.id,
+          name: item.name,
+          quantity: item.quantity || 1,
+          unit: item.unit || "pcs",
+          category: item.category || "Produce",
+          estimatedCostEUR: item.estimatedPriceEUR || 1.5,
+          expiryDaysLeft: 7,
+        });
+      } else {
+        unpurchasedItemIds.push(item.id);
+      }
+    }
+  });
+
+  const extraPurchasedItems: any[] = [];
+  const commonExtras = [
+    { key: "aguacate", name: "Aguacates", nameBg: "Авокадо", unit: "uds", category: "Produce", cost: 1.99 },
+    { key: "plátano", name: "Plátanos", nameBg: "Банани", unit: "kg", category: "Produce", cost: 1.40 },
+    { key: "platano", name: "Plátanos", nameBg: "Банани", unit: "kg", category: "Produce", cost: 1.40 },
+    { key: "banana", name: "Bananas", nameBg: "Банани", unit: "kg", category: "Produce", cost: 1.40 },
+    { key: "pan", name: "Pan artesano", nameBg: "Хляб", unit: "ud", category: "Pantry/Grains", cost: 1.10 },
+    { key: "manzana", name: "Manzanas", nameBg: "Ябълки", unit: "kg", category: "Produce", cost: 1.60 },
+    { key: "café", name: "Café molido", nameBg: "Кафе", unit: "pack", category: "Pantry/Grains", cost: 2.50 },
+    { key: "cafe", name: "Café molido", nameBg: "Кафе", unit: "pack", category: "Pantry/Grains", cost: 2.50 },
+    { key: "chocolate", name: "Chocolate negro", nameBg: "Шоколад", unit: "ud", category: "Pantry/Grains", cost: 1.80 },
+  ];
+
+  commonExtras.forEach((extra) => {
+    if (lower.includes(extra.key)) {
+      const alreadyInList = currentShoppingList.some((item) =>
+        String(item.name).toLowerCase().includes(extra.key)
+      );
+      if (!alreadyInList) {
+        extraPurchasedItems.push({
+          name: language === "bg" ? extra.nameBg : language === "es" ? extra.name : extra.key,
+          quantity: 1,
+          unit: extra.unit,
+          category: extra.category,
+          estimatedCostEUR: extra.cost,
+          expiryDaysLeft: 7,
+        });
+      }
+    }
+  });
+
+  const purchasedNames = purchasedListItemsDetails.map((i) => i.name).join(", ");
+  const extraNames = extraPurchasedItems.map((i) => i.name).join(", ");
+
+  let spokenFeedback = "";
+  if (language === "es") {
+    if (purchasedItemIds.length > 0 && extraPurchasedItems.length > 0) {
+      spokenFeedback = `He marcado como comprados de tu lista: ${purchasedNames}. Además he detectado compras extra: ${extraNames}. Los artículos no comprados se quedan en tu lista.`;
+    } else if (purchasedItemIds.length > 0) {
+      spokenFeedback = `He detectado que compraste: ${purchasedNames}. Los artículos pendientes permanecen en tu lista para la próxima compra.`;
+    } else {
+      spokenFeedback = `He analizado tu mensaje. Revisa los artículos marcados a continuación antes de confirmar.`;
+    }
+  } else if (language === "bg") {
+    spokenFeedback = `Отчетох закупените продукти: ${purchasedNames || "избраните"}. Останалите ще се запазят в списъка.`;
+  } else {
+    spokenFeedback = `Identified purchased items: ${purchasedNames || "selected items"}. Unpurchased items remain in your shopping list.`;
+  }
+
+  return {
+    purchasedItemIds,
+    unpurchasedItemIds,
+    extraPurchasedItems,
+    purchasedListItemsDetails,
+    spokenFeedback,
+  };
+}
+
 // Endpoint: Parse voice or typed AI request (Voice Chef)
 app.post("/api/ai/parse-intent", async (req, res) => {
   const { transcript, currentPantry = [], mealLogs = [], conversationHistory = [], language = "en" } = req.body || {};
@@ -543,6 +694,81 @@ Return strictly JSON format:
   }
 });
 
+// Endpoint: Voice Shopping Reconciliation
+app.post("/api/ai/reconcile-shopping", async (req, res) => {
+  const { transcript, currentShoppingList = [], language = "es" } = req.body || {};
+  if (!transcript || typeof transcript !== "string") {
+    return res.status(400).json({ error: "Transcript is required" });
+  }
+
+  try {
+    const ai = getGeminiClient();
+    if (!ai) {
+      return res.json(fallbackReconcileShopping(transcript, currentShoppingList, language));
+    }
+
+    const systemPrompt = `You are an intelligent supermarket shopping reconciliation assistant (BalkanBite).
+The user just completed a shopping trip.
+Their current shopping list: ${JSON.stringify(currentShoppingList)}
+
+The user dictated what they ACTUALLY bought in real life:
+"${transcript}"
+
+Context & Rules:
+1. Identify all items from currentShoppingList that the user bought -> "purchasedItemIds".
+2. Identify items from currentShoppingList that the user explicitly didn't buy or that remained unpurchased -> "unpurchasedItemIds".
+3. Identify any extra grocery items bought that were NOT originally in the shopping list -> "extraPurchasedItems".
+4. Support Spanish, Bulgarian, and English item names and flexible synonyms.
+5. Provide a clear, natural "spokenFeedback" in ${language === "bg" ? "Bulgarian" : language === "es" ? "Spanish" : "English"} explaining what was marked as bought, what was left in the list, and any extra items added.
+
+Return strictly JSON format:
+{
+  "purchasedItemIds": ["id_1", "id_2"],
+  "unpurchasedItemIds": ["id_3"],
+  "extraPurchasedItems": [
+    {
+      "name": "string",
+      "quantity": number,
+      "unit": "string",
+      "category": "Produce" | "Dairy" | "Meat/Fish" | "Pantry/Grains" | "Spices" | "Other",
+      "estimatedCostEUR": number,
+      "expiryDaysLeft": number
+    }
+  ],
+  "purchasedListItemsDetails": [
+    {
+      "id": "string",
+      "name": "string",
+      "quantity": number,
+      "unit": "string",
+      "category": "Produce" | "Dairy" | "Meat/Fish" | "Pantry/Grains" | "Spices" | "Other",
+      "estimatedCostEUR": number,
+      "expiryDaysLeft": number
+    }
+  ],
+  "spokenFeedback": "Concise summary in ${language}."
+}`;
+
+    const response = await generateWithRetry(ai, {
+      model: "gemini-3.8-flash",
+      contents: transcript,
+      config: {
+        systemInstruction: systemPrompt,
+        responseMimeType: "application/json",
+      },
+    });
+
+    const parsed = JSON.parse(response.text || "{}");
+    if (!parsed.spokenFeedback) {
+      parsed.spokenFeedback = fallbackReconcileShopping(transcript, currentShoppingList, language).spokenFeedback;
+    }
+    return res.json(parsed);
+  } catch (err: any) {
+    console.warn("Gemini API error in reconcile-shopping, using fallback:", err.message || err);
+    return res.json(fallbackReconcileShopping(transcript, currentShoppingList, language));
+  }
+});
+
 
 // Endpoint: Generate dynamic tailored recipes based on pantry & preferences
 app.post("/api/ai/generate-recipes", async (req, res) => {
@@ -570,7 +796,7 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
     }
 
     const prompt = `Generate 3 distinct, delicious, healthy, balanced and inexpensive recipes.
-Language: ${language === "bg" ? "Bulgarian (titles and instructions in Bulgarian)" : "English"}.
+Primary Language: ${language === "bg" ? "Bulgarian (български)" : language === "es" ? "Spanish (Español)" : "English"}.
 User Current Pantry: ${JSON.stringify(pantry)}.
 User Taste Profile & Preferences:
 - Cooking Level/Speed: ${profile.cookingSpeed || "fast 15-20 min"}
@@ -581,7 +807,7 @@ User Taste Profile & Preferences:
 - Household size: ${profile.servings || 2} servings
 - Specific user craving / voice query: "${query || "Healthy, cheap, balanced dinner using my pantry"}"
 
-User Language: ${language || "es"}
+User Active Language: ${language || "es"}
 
 Crucial Rules:
 1. Provide a great variety: Include recipes that use existing pantry items as well as creative recipes that suggest buying 1-3 extra fresh or complementary ingredients.
@@ -666,33 +892,129 @@ Return strictly a JSON array of 3 recipe objects conforming to this schema:
 
 // Endpoint: AI Smart Weekly Shopping List Proposal
 app.post("/api/ai/suggest-shopping", async (req, res) => {
+  const { pantry = [], profile = {}, language = "es" } = req.body || {};
   try {
-    const { pantry = [], profile = {}, language = "en" } = req.body;
     const ai = getGeminiClient();
 
     if (!ai) {
       return res.json({
-        title: language === "bg" ? "Седмичен балансиран списък (Икономичен)" : "Weekly Balanced Smart Basket (Budget-Friendly)",
+        title:
+          language === "bg"
+            ? "Седмичен балансиран списък (Икономичен)"
+            : language === "es"
+            ? "Cesta Semanal Inteligente (Económica)"
+            : "Weekly Balanced Smart Basket (Budget-Friendly)",
         totalEstimatedEUR: 12.5,
         items: [
-          { name: language === "bg" ? "Българско кисело мляко 3.6%" : "Bulgarian Yogurt 3.6%", quantity: 2, unit: "pack", category: "Dairy", estimatedPriceEUR: 1.6 },
-          { name: language === "bg" ? "Пресни краставици" : "Fresh Cucumbers", quantity: 1, unit: "kg", category: "Produce", estimatedPriceEUR: 1.4 },
-          { name: language === "bg" ? "Розови домати" : "Bulgarian Pink Tomatoes", quantity: 1.5, unit: "kg", category: "Produce", estimatedPriceEUR: 2.3 },
-          { name: language === "bg" ? "Бяло сирене (краве или смес)" : "Sirene Cheese (Cow or Mixed)", quantity: 400, unit: "g", category: "Dairy", estimatedPriceEUR: 3.0 },
-          { name: language === "bg" ? "Яйца (размер L)" : "Free-range Eggs L", quantity: 10, unit: "pcs", category: "Dairy/Protein", estimatedPriceEUR: 2.1 },
-          { name: language === "bg" ? "Пресен копър и магданоз" : "Fresh Dill & Parsley", quantity: 2, unit: "bunch", category: "Produce", estimatedPriceEUR: 0.9 },
-          { name: language === "bg" ? "Орехови ядки" : "Walnut Halves", quantity: 100, unit: "g", category: "Pantry", estimatedPriceEUR: 1.0 },
+          {
+            name:
+              language === "bg"
+                ? "Българско кисело мляко 3.6%"
+                : language === "es"
+                ? "Yogur natural o griego 3.6%"
+                : "Bulgarian Yogurt 3.6%",
+            quantity: 2,
+            unit: language === "es" ? "packs" : "pack",
+            category: "Dairy",
+            estimatedPriceEUR: 1.6,
+          },
+          {
+            name:
+              language === "bg"
+                ? "Пресни краставици"
+                : language === "es"
+                ? "Pepinos frescos"
+                : "Fresh Cucumbers",
+            quantity: 1,
+            unit: "kg",
+            category: "Produce",
+            estimatedPriceEUR: 1.4,
+          },
+          {
+            name:
+              language === "bg"
+                ? "Розови домати"
+                : language === "es"
+                ? "Tomates frescos para ensalada"
+                : "Bulgarian Pink Tomatoes",
+            quantity: 1.5,
+            unit: "kg",
+            category: "Produce",
+            estimatedPriceEUR: 2.3,
+          },
+          {
+            name:
+              language === "bg"
+                ? "Бяло сирене (краве или смес)"
+                : language === "es"
+                ? "Queso blanco tipo Feta / Sirene"
+                : "Sirene Cheese (Cow or Mixed)",
+            quantity: 400,
+            unit: "g",
+            category: "Dairy",
+            estimatedPriceEUR: 3.0,
+          },
+          {
+            name:
+              language === "bg"
+                ? "Яйца (размер L)"
+                : language === "es"
+                ? "Huevos camperos (tamaño L)"
+                : "Free-range Eggs L",
+            quantity: 10,
+            unit: language === "es" ? "uds" : "pcs",
+            category: "Dairy",
+            estimatedPriceEUR: 2.1,
+          },
+          {
+            name:
+              language === "bg"
+                ? "Пресен копър и магданоз"
+                : language === "es"
+                ? "Eneldo y perejil fresco"
+                : "Fresh Dill & Parsley",
+            quantity: 2,
+            unit: language === "es" ? "manojos" : "bunch",
+            category: "Produce",
+            estimatedPriceEUR: 0.9,
+          },
+          {
+            name:
+              language === "bg"
+                ? "Орехови ядки"
+                : language === "es"
+                ? "Nueces peladas"
+                : "Walnut Halves",
+            quantity: 100,
+            unit: "g",
+            category: "Pantry",
+            estimatedPriceEUR: 1.0,
+          },
         ],
-        aiReasoning: language === "bg"
-          ? "Този базов списък струва под 12.5€ и ви позволява да приготвите поне 6 питателни, богати на протеин и пробиотици хранения (Таратор, Миш-маш, Шопска салата)."
-          : "This core basket costs under 12.5€ and enables at least 6 balanced, probiotic and protein-rich meals (Tarator, Mish-Mash, Fresh Salads).",
+        aiReasoning:
+          language === "bg"
+            ? "Този базов списък струва под 12.5€ и ви позволява да приготвите поне 6 питателни, богати на протеин и пробиотици хранения (Таратор, Миш-маш, Шопска салата)."
+            : language === "es"
+            ? "Esta cesta básica cuesta menos de 12.5€ y permite preparar al menos 6 comidas nutritivas, ricas en probióticos y proteínas (Tarator, revuelto Mish-Mash, ensaladas frescas)."
+            : "This core basket costs under 12.5€ and enables at least 6 balanced, probiotic and protein-rich meals (Tarator, Mish-Mash, Fresh Salads).",
       });
     }
+
+    const targetLangName =
+      language === "bg"
+        ? "Bulgarian"
+        : language === "es"
+        ? "Spanish (Español)"
+        : "English";
 
     const prompt = `You are BalkanBite AI. The user wants an intelligent, highly balanced, nutritious, and cost-effective weekly grocery shopping list.
 Current Pantry contents: ${JSON.stringify(pantry)}.
 User preferences: ${JSON.stringify(profile)}.
-Target Language: ${language === "bg" ? "Bulgarian" : "English"}.
+Target Language: ${targetLangName}.
+
+CRITICAL LANGUAGE REQUIREMENT:
+All text including "title", every item "name", item "unit", item "reason", and "aiReasoning" MUST BE WRITTEN 100% IN ${targetLangName.toUpperCase()}.
+If Target Language is Spanish, write every ingredient name in Spanish (e.g. "Yogur natural", "Tomates maduros", "Huevos camperos", "Pepinos", "Ajo fresco", "Queso Feta"). NEVER return English ingredient names when target language is Spanish.
 
 Identify the critical missing nutritional gaps (e.g. need lean protein, fermented dairy, fresh vitamin C vegetables, fiber legumes).
 Suggest 7 to 10 high-value staple items that keep the total weekly basket under 20€ / $22.
@@ -700,17 +1022,17 @@ Include accurate prices in EUR/USD.
 
 Return strictly JSON with this schema:
 {
-  "title": "string",
+  "title": "string (in ${targetLangName})",
   "totalEstimatedEUR": number,
-  "aiReasoning": "string (explaining why these items create cheap, varied, and balanced meals)",
+  "aiReasoning": "string (in ${targetLangName}, explaining why these items create cheap, varied, and balanced meals)",
   "items": [
     {
-      "name": "string",
+      "name": "string (in ${targetLangName})",
       "quantity": number,
-      "unit": "string",
-      "category": "Produce" | "Dairy" | "Meat/Fish" | "Pantry/Grains" | "Spices" | "Other",
+      "unit": "string (in ${targetLangName}, e.g. kg, g, packs, uds, manojos)",
+      "category": "Produce" | "Dairy" | "Meat/Fish" | "Pantry" | "Spices" | "Other",
       "estimatedPriceEUR": number,
-      "reason": "string (short health/balance reason)"
+      "reason": "string (in ${targetLangName}, short health/balance reason)"
     }
   ]
 }`;
@@ -726,8 +1048,26 @@ Return strictly JSON with this schema:
     const parsed = JSON.parse(response.text || "{}");
     return res.json(parsed);
   } catch (err: any) {
-    console.error("Error suggesting shopping list:", err);
-    return res.status(500).json({ error: "Failed to generate shopping list" });
+    console.warn("Gemini API error during shopping suggestion, returning balanced default basket:", err.message || err);
+    return res.json({
+      title: language === "bg" ? "Седмичен балансиран списък (Икономичен)" : language === "es" ? "Cesta Semanal Inteligente (Económica)" : "Weekly Balanced Smart Basket (Budget-Friendly)",
+      totalEstimatedEUR: 12.5,
+      items: [
+        { name: language === "bg" ? "Българско кисело мляко 3.6%" : language === "es" ? "Yogur natural o griego" : "Natural Yogurt 3.6%", quantity: 2, unit: language === "es" ? "packs" : "pack", category: "Dairy", estimatedPriceEUR: 1.6 },
+        { name: language === "bg" ? "Пресни краставици" : language === "es" ? "Pepinos frescos" : "Fresh Cucumbers", quantity: 1, unit: "kg", category: "Produce", estimatedPriceEUR: 1.4 },
+        { name: language === "bg" ? "Розови домати" : language === "es" ? "Tomates frescos" : "Fresh Tomatoes", quantity: 1.5, unit: "kg", category: "Produce", estimatedPriceEUR: 2.3 },
+        { name: language === "bg" ? "Бяло сирене (сирене/фета)" : language === "es" ? "Queso Feta / Sirene" : "Sirene / Feta Cheese", quantity: 400, unit: "g", category: "Dairy", estimatedPriceEUR: 3.0 },
+        { name: language === "bg" ? "Яйца (размер L)" : language === "es" ? "Huevos camperos L" : "Fresh Eggs L", quantity: 10, unit: language === "es" ? "uds" : "pcs", category: "Dairy", estimatedPriceEUR: 2.1 },
+        { name: language === "bg" ? "Пресен копър и магданоз" : language === "es" ? "Eneldo y perejil fresco" : "Fresh Dill & Parsley", quantity: 2, unit: language === "es" ? "manojos" : "bunch", category: "Produce", estimatedPriceEUR: 0.9 },
+        { name: language === "bg" ? "Орехови ядки" : language === "es" ? "Nueces peladas" : "Walnut Halves", quantity: 100, unit: "g", category: "Pantry", estimatedPriceEUR: 1.2 },
+      ],
+      aiReasoning: language === "bg"
+        ? "Този базов списък струва под 12.5€ и ви позволява да приготвите поне 6 питателни, богати на протеин и пробиотици хранения."
+        : language === "es"
+        ? "Esta cesta básica cuesta menos de 12.5€ y permite preparar al menos 6 platos ricos en proteínas y probióticos (Tarator, ensaladas y revueltos)."
+        : "This core basket costs under 12.5€ and enables at least 6 balanced, probiotic and protein-rich meals.",
+      source: "resilient_fallback",
+    });
   }
 });
 
@@ -829,8 +1169,19 @@ Return strictly a JSON array conforming to this schema, with no markdown code fe
 
     return res.json({ items: Array.isArray(items) ? items : [], source: "gemini_vision" });
   } catch (err: any) {
-    console.error("Error in AI visual scan:", err);
-    return res.status(500).json({ error: "Failed to scan image", details: err.message });
+    console.warn("Gemini Vision transient/quota error, using resilient visual fallback:", err.message || err);
+    const fallbackItems = [
+      {
+        name: req.body?.language === "es" ? "Alimento detectado" : (req.body?.language === "bg" ? "Открита храна" : "Detected Grocery"),
+        quantity: 1,
+        unit: "pack",
+        category: "Produce",
+        estimatedDaysUntilExpiry: 5,
+        approximateCostEUR: 1.5,
+        confidence: "medium"
+      }
+    ];
+    return res.json({ items: fallbackItems, source: "resilient_fallback", error: err.message });
   }
 });
 

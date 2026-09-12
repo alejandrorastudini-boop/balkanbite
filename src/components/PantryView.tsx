@@ -105,7 +105,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
   };
 
   return (
-    <div id="pantry-view" className="space-y-4 pb-20">
+    <div id="pantry-view" className="space-y-4 pb-36 sm:pb-32">
       {/* Top Banner Stats */}
       <div className="grid grid-cols-3 gap-3">
         <div className="bg-[#131A1F]/60 backdrop-blur-md border border-white/[0.06] rounded-2xl p-3.5 flex flex-col justify-between shadow-[0_4px_20px_rgba(0,0,0,0.2)]">

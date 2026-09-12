@@ -52,10 +52,10 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
 
   const filters = [
-    { id: "all", label: currentText.filterAll },
-    { id: "fast", label: currentText.quick15MinFilter },
-    { id: "cheap", label: language === "bg" ? "💰 Под 3€" : language === "es" ? "💰 Menos de 3€" : "💰 Under 3€" },
-    { id: "protein", label: currentText.highProteinFilter },
+    { id: "all", label: language === "es" ? "Todos" : language === "bg" ? "Всички" : "All" },
+    { id: "fast", label: "⚡ <20m" },
+    { id: "cheap", label: currency === "EUR" ? "💰 <3€" : "💰 <$3" },
+    { id: "protein", label: language === "es" ? "💪 Proteína" : language === "bg" ? "💪 Протеин" : "💪 Protein" },
   ];
 
   const filteredRecipes = recipes.filter((r) => {
@@ -102,64 +102,59 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   };
 
   return (
-    <div id="recipes-view" className="space-y-4 pb-20">
-      {/* Header with AI Trigger */}
-      <div className="bg-[#131A1F]/80 backdrop-blur-md border border-amber-500/20 rounded-3xl p-5 shadow-[0_8px_30px_rgba(245,158,11,0.08)] relative overflow-hidden group">
-        <div className="absolute top-0 right-0 w-48 h-48 bg-amber-500/10 blur-3xl rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none group-hover:bg-amber-500/15 transition-all duration-700" />
-        <div className="absolute bottom-0 left-0 w-32 h-32 bg-emerald-500/10 blur-3xl rounded-full translate-y-1/2 -translate-x-1/4 pointer-events-none" />
+    <div id="recipes-view" className="space-y-4 pb-36 sm:pb-32">
+      {/* Compact & High-Impact AI Recipe Header */}
+      <div className="bg-[#131A1F]/90 backdrop-blur-md border border-amber-500/20 rounded-2xl p-3.5 sm:p-4.5 shadow-[0_8px_25px_rgba(245,158,11,0.06)] relative overflow-hidden">
+        <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 blur-3xl rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none" />
         
-        <div className="relative z-10 space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="text-[10px] font-bold text-amber-500 uppercase tracking-widest flex items-center gap-1.5 bg-amber-500/10 px-2.5 py-1 rounded-full border border-amber-500/20">
-              <Sparkles className="w-3 h-3" />
-              {currentText.recipeEngineTitle} v4.2
-            </span>
+        <div className="relative z-10 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <span className="text-[10px] px-2.5 py-1 rounded-full bg-white/[0.04] text-stone-300 font-bold border border-white/[0.08] tracking-wider">
-                {pantry.length} {currentText.recipePantryStock}
+              <span className="text-base sm:text-lg font-extrabold text-white font-['Outfit'] tracking-tight flex items-center gap-1.5">
+                <Sparkles className="w-4 h-4 text-amber-400 shrink-0" />
+                {currentText.recipesTitle}
               </span>
-              {recipes.length > 0 && onClearRecipes && (
-                <button
-                  type="button"
-                  onClick={() => setShowClearConfirm(true)}
-                  className="p-1.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-stone-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/20 transition-all cursor-pointer"
-                  title={currentText.recipesClearAll}
-                >
-                  <Trash2 className="w-3.5 h-3.5" />
-                </button>
-              )}
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-white/[0.04] text-stone-300 border border-white/[0.08] whitespace-nowrap">
+                {pantry.length} {language === "es" ? "en despensa" : currentText.recipePantryStock}
+              </span>
             </div>
-          </div>
-
-          <div className="pt-2">
-            <h2 className="text-2xl font-extrabold text-white leading-tight font-['Outfit'] tracking-tight">
-              {currentText.recipesTitle}
-            </h2>
-            <p className="text-sm text-stone-400 leading-relaxed max-w-sm mt-1.5 font-medium">
+            <p className="text-xs text-stone-400 font-medium line-clamp-1 sm:line-clamp-none">
               {currentText.recipesSubtitle}
             </p>
           </div>
 
-          <div className="pt-3 flex flex-wrap items-center gap-2.5">
+          <div className="flex items-center gap-2 shrink-0">
             <button
               id="generate-ai-recipes-btn"
               disabled={isLoadingAi}
               onClick={onGenerateAiRecipes}
-              className="px-5 py-3 rounded-2xl bg-amber-500 hover:bg-amber-400 text-stone-950 text-sm font-bold flex items-center gap-2.5 transition-all shadow-[0_0_20px_rgba(245,158,11,0.2)] hover:shadow-[0_0_30px_rgba(245,158,11,0.4)] disabled:opacity-50 cursor-pointer"
+              className="flex-1 sm:flex-initial px-4 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-400 hover:from-amber-400 hover:to-amber-300 text-stone-950 text-xs sm:text-sm font-extrabold flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(245,158,11,0.25)] hover:shadow-[0_0_25px_rgba(245,158,11,0.4)] disabled:opacity-50 cursor-pointer shrink-0"
             >
-              <RefreshCw className={`w-4 h-4 ${isLoadingAi ? "animate-spin" : ""}`} />
+              <RefreshCw className={`w-3.5 h-3.5 ${isLoadingAi ? "animate-spin" : ""}`} />
               <span>
                 {isLoadingAi ? currentText.aiThinking : currentText.generateAiRecipes}
               </span>
             </button>
+
+            {recipes.length > 0 && onClearRecipes && (
+              <button
+                type="button"
+                onClick={() => setShowClearConfirm(true)}
+                className="p-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-stone-400 hover:text-rose-400 hover:bg-rose-500/10 hover:border-rose-500/20 transition-all cursor-pointer shrink-0"
+                title={currentText.recipesClearAll}
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            )}
+
             {recipes.length === 0 && onLoadSampleRecipes && (
               <button
                 type="button"
                 onClick={onLoadSampleRecipes}
-                className="px-4 py-3 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-stone-200 text-sm font-bold flex items-center gap-2 border border-white/[0.08] cursor-pointer transition-all shadow-sm"
+                className="px-3 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-stone-200 text-xs font-bold flex items-center gap-1.5 border border-white/[0.08] cursor-pointer transition-all shrink-0"
               >
-                <BookOpen className="w-4 h-4 text-emerald-400" />
-                <span>{language === "es" ? "Cargar Ejemplo" : language === "bg" ? "Пример" : "Load Sample"}</span>
+                <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
+                <span>{language === "es" ? "Ejemplo" : language === "bg" ? "Пример" : "Sample"}</span>
               </button>
             )}
           </div>
@@ -174,20 +169,20 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
         </div>
       )}
 
-      {/* Filter Chips */}
-      <div className="flex items-center gap-2 overflow-x-auto pb-2 no-scrollbar">
+      {/* Filter Chips - Fixed 4-column Compact Grid (No Scrolling) */}
+      <div className="grid grid-cols-4 gap-1.5 w-full">
         {filters.map((f) => (
           <button
             key={f.id}
             id={`recipe-filter-${f.id}`}
             onClick={() => setActiveFilter(f.id)}
-            className={`text-[11px] px-4 py-2 rounded-full font-bold uppercase tracking-wider whitespace-nowrap transition-all duration-300 ${
+            className={`text-[11px] sm:text-xs py-1.5 px-1 rounded-xl font-bold transition-all duration-200 cursor-pointer text-center flex items-center justify-center truncate ${
               activeFilter === f.id
-                ? "bg-white text-stone-950 shadow-[0_0_15px_rgba(255,255,255,0.2)]"
-                : "bg-white/[0.04] text-stone-400 hover:text-white hover:bg-white/[0.08] border border-white/[0.04]"
+                ? "bg-white text-stone-950 shadow-[0_0_12px_rgba(255,255,255,0.2)]"
+                : "bg-white/[0.04] text-stone-400 hover:text-white hover:bg-white/[0.08] border border-white/[0.06]"
             }`}
           >
-            {f.label}
+            <span className="truncate">{f.label}</span>
           </button>
         ))}
       </div>

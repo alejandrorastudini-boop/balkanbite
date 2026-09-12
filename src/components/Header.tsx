@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, Smartphone, Monitor, Sun, Moon, Globe, User as UserIcon } from "lucide-react";
+import { Sparkles, Smartphone, Monitor, Sun, Moon, Globe, User as UserIcon, Bell, BellRing, ShoppingCart } from "lucide-react";
 import { User } from "firebase/auth";
 import { Language, Currency } from "../types";
 import { t } from "../utils/translations";
@@ -15,6 +15,9 @@ interface HeaderProps {
   onGoToLanding?: () => void;
   currentUser?: User | null;
   onOpenAuthModal?: () => void;
+  onOpenShoppingAdvisor?: () => void;
+  shoppingUrgencyLevel?: "urgent" | "recommended" | "optimal";
+  shoppingBadgeCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,34 +31,39 @@ export const Header: React.FC<HeaderProps> = ({
   onGoToLanding,
   currentUser,
   onOpenAuthModal,
+  onOpenShoppingAdvisor,
+  shoppingUrgencyLevel = "optimal",
+  shoppingBadgeCount = 0,
 }) => {
   const currentText = t[language];
   const isDark = theme === "dark";
+  const isUrgent = shoppingUrgencyLevel === "urgent";
+  const isRecommended = shoppingUrgencyLevel === "recommended";
 
   return (
     <header
       id="app-header"
-      className={`sticky top-0 z-30 px-3 sm:px-4 py-3 transition-colors duration-200 ${
+      className={`sticky top-0 z-30 px-3 sm:px-4 py-2.5 sm:py-3 transition-colors duration-200 ${
         isDark
-          ? "bg-[#0B0F12]/80 backdrop-blur-md border-b border-white/[0.04] text-white shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
-          : "bg-white/80 backdrop-blur-xl border-b border-stone-200/80 text-stone-900 shadow-xs"
+          ? "bg-[#0B0F12]/90 backdrop-blur-md border-b border-white/[0.06] text-white shadow-[0_4px_30px_rgba(0,0,0,0.5)]"
+          : "bg-white/90 backdrop-blur-xl border-b border-stone-200/80 text-stone-900 shadow-xs"
       }`}
     >
-      <div className="max-w-6xl mx-auto flex items-center justify-between gap-2 sm:gap-4">
+      <div className="max-w-6xl mx-auto flex items-center justify-between gap-1.5 sm:gap-4">
         {/* Brand identity */}
         <div
-          className={`flex items-center gap-2 sm:gap-3 shrink min-w-0 ${onGoToLanding ? "cursor-pointer group" : ""}`}
+          className={`flex items-center gap-2 sm:gap-3 shrink-0 ${onGoToLanding ? "cursor-pointer group" : ""}`}
           onClick={onGoToLanding}
           title={onGoToLanding ? currentText.viewLandingPage : undefined}
         >
           <img
             src="/images/logo.jpg"
             alt="BalkanBite Logo"
-            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover border-2 border-emerald-500/30 shadow-[0_2px_10px_rgba(16,185,129,0.2)] shrink-0 group-hover:scale-105 group-hover:border-emerald-400/50 transition-all"
+            className="w-8 h-8 sm:w-10 sm:h-10 rounded-xl object-cover border-2 border-emerald-500/40 shadow-[0_2px_10px_rgba(16,185,129,0.25)] shrink-0 group-hover:scale-105 group-hover:border-emerald-400 transition-all"
           />
-          <div className="min-w-0">
+          <div className="shrink-0">
             <div className="flex items-center gap-1 sm:gap-2">
-              <h1 className="text-sm sm:text-lg font-bold tracking-wide font-['Outfit'] truncate group-hover:text-emerald-400 transition-colors">
+              <h1 className="text-base sm:text-lg font-extrabold tracking-tight font-['Outfit'] group-hover:text-emerald-400 transition-colors whitespace-nowrap">
                 {currentText.appName}
               </h1>
               <button
@@ -79,14 +87,62 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         {/* Action controls - guaranteed no overflow on mobile */}
-        <div className="flex items-center gap-2 sm:gap-3 shrink-0">
+        <div className="flex items-center gap-1.5 sm:gap-2.5 shrink-0">
+          {/* Shopping Alert & Urgency Bell */}
+          {onOpenShoppingAdvisor && (
+            <button
+              id="header-shopping-alert-btn"
+              type="button"
+              onClick={onOpenShoppingAdvisor}
+              className={`relative w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer shrink-0 ${
+                isUrgent
+                  ? "bg-red-500/20 border-red-500/50 text-red-400 shadow-[0_0_12px_rgba(239,68,68,0.3)] animate-pulse"
+                  : isRecommended
+                  ? "bg-amber-500/20 border-amber-500/50 text-amber-400 shadow-[0_0_10px_rgba(245,158,11,0.25)]"
+                  : isDark
+                  ? "bg-white/[0.04] border-white/[0.08] text-stone-400 hover:text-white hover:bg-white/[0.08]"
+                  : "bg-stone-100 border-stone-200 text-stone-600 hover:text-stone-900"
+              }`}
+              title={
+                language === "es"
+                  ? isUrgent
+                    ? "¡Alerta! Necesitas ir a comprar para tus menús"
+                    : "Asesor y avisos de compra"
+                  : isUrgent
+                  ? "Alert! Shopping needed for planned meals"
+                  : "Shopping Advisor & alerts"
+              }
+            >
+              {isUrgent ? (
+                <BellRing className="w-4 h-4 text-red-400" />
+              ) : isRecommended ? (
+                <Bell className="w-4 h-4 text-amber-400" />
+              ) : (
+                <Bell className="w-4 h-4" />
+              )}
+              {shoppingBadgeCount > 0 && (
+                <span
+                  className={`absolute -top-1 -right-1 text-[9px] font-black w-4 h-4 rounded-full flex items-center justify-center shadow-xs ${
+                    isUrgent
+                      ? "bg-red-500 text-stone-950"
+                      : isRecommended
+                      ? "bg-amber-400 text-stone-950"
+                      : "bg-emerald-500 text-stone-950"
+                  }`}
+                >
+                  {shoppingBadgeCount > 9 ? "9+" : shoppingBadgeCount}
+                </span>
+              )}
+            </button>
+          )}
+
           {/* Theme Switcher */}
           {onToggleTheme && (
             <button
               id="theme-toggle-btn"
               type="button"
               onClick={onToggleTheme}
-              className={`p-2 rounded-xl border transition-all cursor-pointer shrink-0 ${
+              className={`w-8 h-8 sm:w-9 sm:h-9 flex items-center justify-center rounded-xl border transition-all cursor-pointer shrink-0 ${
                 isDark
                   ? "bg-white/[0.04] border-white/[0.08] text-amber-400 hover:bg-white/[0.08] hover:text-amber-300"
                   : "bg-stone-100 border-stone-200 text-amber-600 hover:bg-stone-200"

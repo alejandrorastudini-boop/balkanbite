@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useMemo } from "react";
 import { Header } from "./components/Header";
 import { BottomNav, TabType } from "./components/BottomNav";
 import { PantryView } from "./components/PantryView";
@@ -13,6 +13,9 @@ import { ChefIaFloatingButton } from "./components/ChefIaFloatingButton";
 import { ChefIaModal } from "./components/ChefIaModal";
 import { LandingPage } from "./components/LandingPage";
 import { AuthModal } from "./components/AuthModal";
+import { AutoMenuToast } from "./components/AutoMenuToast";
+import { SmartShoppingModal } from "./components/SmartShoppingModal";
+import { SmartShoppingBanner } from "./components/SmartShoppingBanner";
 import { useFirebaseSync } from "./hooks/useFirebaseSync";
 import { signInWithGoogle, logout } from "./lib/firebase";
 import {
@@ -35,6 +38,8 @@ import {
   DEFAULT_MEAL_PLAN,
 } from "./data/initialData";
 import { getRecipeImageUrl } from "./utils/recipeImages";
+import { adaptMealPlanToPantry, syncRecipesWithPantry } from "./utils/menuAutoPlanner";
+import { evaluateShoppingNeeds } from "./utils/shoppingAdvisor";
 
 export default function App() {
   // Local persistence states
@@ -136,6 +141,21 @@ export default function App() {
   });
   const [showChefIaModal, setShowChefIaModal] = useState<boolean>(false);
   const [showAuthModal, setShowAuthModal] = useState<boolean>(false);
+  const [showShoppingAdvisorModal, setShowShoppingAdvisorModal] = useState<boolean>(false);
+  const [hasNotificationPermission, setHasNotificationPermission] = useState<boolean>(() => {
+    return (
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "granted"
+    );
+  });
+  const [autoMenuToast, setAutoMenuToast] = useState<{
+    isVisible: boolean;
+    readyMealsCount: number;
+  }>({
+    isVisible: false,
+    readyMealsCount: 0,
+  });
   const [showLanding, setShowLanding] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem("balkanbite_show_landing");
@@ -226,6 +246,137 @@ export default function App() {
     }
   }, [chatMessages, isResetting]);
 
+  // Central Helper to synchronize Pantry, Recipes, and Auto-Adapt Meal Plan
+  const updatePantryAndReconcileMenu = (
+    newPantryItemsToAdd: PantryItem[],
+    showToast = true
+  ) => {
+    setPantry((prevPantry) => {
+      const updatedPantry = [...newPantryItemsToAdd, ...prevPantry];
+      const syncedRecipes = syncRecipesWithPantry(recipes, updatedPantry);
+      setRecipes(syncedRecipes);
+
+      const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+        updatedPantry,
+        syncedRecipes,
+        mealPlan,
+        profile
+      );
+      setMealPlan(newPlan);
+
+      if (showToast) {
+        setAutoMenuToast({
+          isVisible: true,
+          readyMealsCount: readyToCookMealsCount,
+        });
+      }
+      return updatedPantry;
+    });
+  };
+
+  // Proactive Smart Shopping Advisor Diagnostics
+  const shoppingDiagnostic = useMemo(() => {
+    return evaluateShoppingNeeds(pantry, mealPlan, shoppingList, profile.language);
+  }, [pantry, mealPlan, shoppingList, profile.language]);
+
+  // Request native browser notifications
+  const handleRequestBrowserNotifications = async () => {
+    if (typeof window !== "undefined" && "Notification" in window) {
+      try {
+        const perm = await Notification.requestPermission();
+        if (perm === "granted") {
+          setHasNotificationPermission(true);
+          new Notification(
+            "BalkanBite - " +
+              (profile.language === "es"
+                ? "Avisos de Compra Activados"
+                : profile.language === "bg"
+                ? "Известията за пазар са активни"
+                : "Shopping Alerts Active"),
+            {
+              body:
+                profile.language === "es"
+                  ? "Te avisaremos automáticamente cuando falten ingredientes para tus menús o despensa."
+                  : profile.language === "bg"
+                  ? "Ще ви уведомяваме, когато липсват съставки за менюто или килера."
+                  : "We will notify you when ingredients are low or needed for planned meals.",
+              icon: "/images/logo.jpg",
+            }
+          );
+        }
+      } catch (e) {
+        console.warn("Notification permission request error", e);
+      }
+    }
+  };
+
+  // Trigger web notification when urgency is high
+  useEffect(() => {
+    if (
+      hasNotificationPermission &&
+      shoppingDiagnostic.urgencyLevel === "urgent" &&
+      typeof window !== "undefined" &&
+      "Notification" in window &&
+      Notification.permission === "granted"
+    ) {
+      const lastNotifyKey = "balkanbite_last_shopping_notif";
+      const lastTime = localStorage.getItem(lastNotifyKey);
+      const now = Date.now();
+      // Notify at most once every 4 hours
+      if (!lastTime || now - Number(lastTime) > 4 * 60 * 60 * 1000) {
+        try {
+          new Notification(
+            profile.language === "es"
+              ? "🛒 BalkanBite - ¡Aviso de Compra Hoy!"
+              : profile.language === "bg"
+              ? "🛒 BalkanBite - Време за пазар днес!"
+              : "🛒 BalkanBite - Shopping Needed Today!",
+            {
+              body:
+                shoppingDiagnostic.headline[profile.language] ||
+                (profile.language === "es"
+                  ? "Faltan ingredientes para tus próximas comidas planificadas."
+                  : "Missing ingredients for scheduled meals."),
+              icon: "/images/logo.jpg",
+            }
+          );
+          localStorage.setItem(lastNotifyKey, String(now));
+        } catch (e) {
+          console.warn("Notification trigger error", e);
+        }
+      }
+    }
+  }, [shoppingDiagnostic, hasNotificationPermission, profile.language]);
+
+  // Handler to add multiple items to shopping list
+  const handleAddMultipleShoppingItems = (
+    items: Array<Omit<ShoppingItem, "id" | "checked">>
+  ) => {
+    const newItems: ShoppingItem[] = items.map((item, idx) => ({
+      ...item,
+      id: `s-advisor-${Date.now()}-${idx}`,
+      checked: false,
+    }));
+    setShoppingList((prev) => [...newItems, ...prev]);
+  };
+
+  // Manual Trigger to re-adapt the 7-day menu to current pantry contents
+  const handleAdaptMenuToPantry = () => {
+    const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
+    setRecipes(syncedRecipes);
+    const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+      pantry,
+      syncedRecipes,
+      mealPlan,
+      profile
+    );
+    setMealPlan(newPlan);
+    setAutoMenuToast({
+      isVisible: true,
+      readyMealsCount: readyToCookMealsCount,
+    });
+  };
+
   // Pantry Handlers
   const handleAddPantryItem = (item: Omit<PantryItem, "id" | "addedAt">) => {
     const newItem: PantryItem = {
@@ -233,7 +384,7 @@ export default function App() {
       id: `p-${Date.now()}`,
       addedAt: new Date().toISOString().split("T")[0],
     };
-    setPantry((prev) => [newItem, ...prev]);
+    updatePantryAndReconcileMenu([newItem], true);
   };
 
   const handleAddMultiplePantryItems = (items: Array<Omit<PantryItem, "id" | "addedAt">>) => {
@@ -242,7 +393,7 @@ export default function App() {
       id: `p-${Date.now()}-${idx}`,
       addedAt: new Date().toISOString().split("T")[0],
     }));
-    setPantry((prev) => [...newItems, ...prev]);
+    updatePantryAndReconcileMenu(newItems, true);
   };
 
   const handleUpdatePantryQuantity = (id: string, newQty: number) => {
@@ -473,9 +624,37 @@ export default function App() {
       addedAt: new Date().toISOString().split("T")[0],
     }));
 
-    setPantry((prev) => [...newPantryItems, ...prev]);
+    updatePantryAndReconcileMenu(newPantryItems, true);
     // Remove checked from shopping list
     setShoppingList((prev) => prev.filter((i) => !i.checked));
+  };
+
+  // Reconcile Voice Shopping Result (Purchased items -> pantry, unpurchased stay in list, extra items -> pantry)
+  const handleReconcileShopping = ({
+    purchasedItemIds,
+    itemsToAddToPantry,
+  }: {
+    purchasedItemIds: string[];
+    itemsToAddToPantry: Array<Omit<PantryItem, "id" | "addedAt">>;
+  }) => {
+    if (itemsToAddToPantry.length > 0) {
+      const newPantryItems: PantryItem[] = itemsToAddToPantry.map((item, idx) => ({
+        id: `p-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
+        name: item.name,
+        nameBg: item.nameBg || item.name,
+        quantity: item.quantity || 1,
+        unit: item.unit || "pcs",
+        category: (item.category as any) || "Produce",
+        expiryDaysLeft: item.expiryDaysLeft || 7,
+        estimatedCostEUR: item.estimatedCostEUR || 1.5,
+        addedAt: new Date().toISOString().split("T")[0],
+      }));
+      updatePantryAndReconcileMenu(newPantryItems, true);
+    }
+
+    if (purchasedItemIds.length > 0) {
+      setShoppingList((prev) => prev.filter((i) => !purchasedItemIds.includes(i.id)));
+    }
   };
 
   const handleLogMeal = (logData: any) => {
@@ -542,7 +721,7 @@ export default function App() {
       addedAt: new Date().toISOString().split("T")[0],
     }));
 
-    setPantry((prev) => [...parsed, ...prev]);
+    updatePantryAndReconcileMenu(parsed, true);
   };
 
   const handleVoiceDeductItems = (items: any[]) => {
@@ -614,10 +793,26 @@ export default function App() {
           onGoToLanding={() => setShowLanding(true)}
           currentUser={currentUser}
           onOpenAuthModal={() => setShowAuthModal(true)}
+          onOpenShoppingAdvisor={() => setShowShoppingAdvisorModal(true)}
+          shoppingUrgencyLevel={shoppingDiagnostic.urgencyLevel}
+          shoppingBadgeCount={
+            shoppingDiagnostic.missingMealIngredients.length +
+            shoppingDiagnostic.pendingShoppingItemsCount
+          }
         />
 
         {/* Main Content Area */}
         <main className="px-4 py-3">
+          {/* Proactive Smart Shopping Alert Banner */}
+          <SmartShoppingBanner
+            diagnostic={shoppingDiagnostic}
+            language={profile.language}
+            currency={profile.currency}
+            onOpenAdvisorModal={() => setShowShoppingAdvisorModal(true)}
+            onAddMissingToShoppingList={handleAddMultipleShoppingItems}
+            onGoToShoppingTab={() => setActiveTab("shopping")}
+          />
+
           {activeTab === "pantry" && (
             <PantryView
               pantry={pantry}
@@ -670,11 +865,14 @@ export default function App() {
               onAddItem={handleAddShoppingItem}
               onTransferToPantry={handleTransferToPantry}
               onGenerateAiShopping={handleGenerateAiShopping}
+              onClearList={() => setShoppingList([])}
+              onReconcileShopping={handleReconcileShopping}
               isLoadingAi={isLoadingAi}
               language={profile.language}
               currency={profile.currency}
               isPro={profile.isProSubscriber}
               onOpenProModal={() => setShowProModal(true)}
+              onOpenShoppingAdvisor={() => setShowShoppingAdvisorModal(true)}
             />
           )}
 
@@ -683,6 +881,7 @@ export default function App() {
               mealPlan={mealPlan}
               mealLogs={mealLogs}
               recipes={recipes}
+              pantry={pantry}
               language={profile.language}
               currency={profile.currency}
               shoppingList={shoppingList}
@@ -692,6 +891,7 @@ export default function App() {
               isPro={profile.isProSubscriber}
               onOpenProModal={() => setShowProModal(true)}
               onGenerateAiWeekPlan={handleGenerateAiWeekPlan}
+              onAdaptToPantry={handleAdaptMenuToPantry}
               isGeneratingPlan={isGeneratingPlan}
             />
           )}
@@ -711,11 +911,13 @@ export default function App() {
         </main>
 
         {/* Floating Action Button for Chef IA */}
-        <ChefIaFloatingButton
-          onClick={() => setShowChefIaModal(true)}
-          language={profile.language}
-          isOpen={showChefIaModal}
-        />
+        {!showChefIaModal && activeTab !== "voice" && (
+          <ChefIaFloatingButton
+            onClick={() => setShowChefIaModal(true)}
+            language={profile.language}
+            isOpen={false}
+          />
+        )}
 
         {/* Bottom Navigation */}
         <BottomNav
@@ -725,7 +927,6 @@ export default function App() {
           pantryCount={pantry.length}
           shoppingCount={checkedShoppingCount}
           theme={theme}
-          onOpenChefIaModal={() => setShowChefIaModal(true)}
         />
 
         {/* Chef IA Floating Modal Drawer */}
@@ -786,6 +987,34 @@ export default function App() {
           onClose={() => setShowAuthModal(false)}
           currentUser={currentUser}
           language={profile.language}
+        />
+
+        {/* Auto Menu Updated Notification Toast */}
+        <AutoMenuToast
+          isVisible={autoMenuToast.isVisible}
+          readyMealsCount={autoMenuToast.readyMealsCount}
+          language={profile.language}
+          onClose={() => setAutoMenuToast((prev) => ({ ...prev, isVisible: false }))}
+          onViewMealPlan={() => {
+            setAutoMenuToast((prev) => ({ ...prev, isVisible: false }));
+            setActiveTab("mealPlan");
+          }}
+        />
+
+        {/* Smart Shopping Advisor & Notification Modal */}
+        <SmartShoppingModal
+          isOpen={showShoppingAdvisorModal}
+          onClose={() => setShowShoppingAdvisorModal(false)}
+          diagnostic={shoppingDiagnostic}
+          language={profile.language}
+          currency={profile.currency}
+          onAddMissingToShoppingList={handleAddMultipleShoppingItems}
+          onGoToShoppingTab={() => {
+            setActiveTab("shopping");
+            setShowShoppingAdvisorModal(false);
+          }}
+          onRequestBrowserNotifications={handleRequestBrowserNotifications}
+          hasNotificationPermission={hasNotificationPermission}
         />
       </div>
     </div>
