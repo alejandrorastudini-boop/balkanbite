@@ -28,6 +28,12 @@ export interface PantryConsumptionResult {
   issues: PantryConsumptionIssue[];
 }
 
+export interface VoiceRemovalItem {
+  name?: unknown;
+  quantity?: unknown;
+  unit?: unknown;
+}
+
 const sortConsumptionCandidates = (items: PantryItem[]): PantryItem[] =>
   [...items].sort((a, b) => {
     const aExpiry = a.expiryDaysLeft ?? Number.POSITIVE_INFINITY;
@@ -157,4 +163,28 @@ export function deductRecipeIngredientsFromPantry(
     deductions,
     issues,
   };
+}
+
+/**
+ * Safely applies REMOVE_ITEMS output from the voice intent parser.
+ * Missing/invalid units are intentionally not defaulted: without a trustworthy
+ * unit we cannot know whether a numeric quantity means grams, pieces, packs, etc.
+ */
+export function deductVoiceItemsFromPantry(
+  pantry: PantryItem[],
+  items: VoiceRemovalItem[]
+): PantryConsumptionResult {
+  const ingredients: RecipeIngredient[] = (items || []).map((item) => ({
+    name: typeof item.name === "string" ? item.name.trim() : "",
+    amount:
+      typeof item.quantity === "number"
+        ? item.quantity
+        : typeof item.quantity === "string"
+        ? Number(item.quantity)
+        : Number.NaN,
+    unit: typeof item.unit === "string" ? item.unit.trim() : "",
+    inPantry: true,
+  }));
+
+  return deductRecipeIngredientsFromPantry(pantry, ingredients);
 }
