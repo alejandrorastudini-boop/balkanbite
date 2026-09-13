@@ -17,7 +17,8 @@ import {
   Mic,
   Bell,
 } from "lucide-react";
-import { ShoppingItem, Language, Currency, PantryItem } from "../types";
+import { ShoppingItem, Language, Currency } from "../types";
+import type { RawReconciliationExtraItem } from "../utils/purchasePantryMerge";
 import { t } from "../utils/translations";
 import {
   translateFoodName,
@@ -37,7 +38,8 @@ interface ShoppingViewProps {
   onClearList?: () => void;
   onReconcileShopping?: (result: {
     purchasedItemIds: string[];
-    itemsToAddToPantry: Array<Omit<PantryItem, "id" | "addedAt">>;
+    itemsToAddToPantry: RawReconciliationExtraItem[];
+    reconciliationId?: string;
   }) => void;
   isLoadingAi: boolean;
   language: Language;
@@ -507,4 +509,3 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
     </div>
   );
 };
-

@@ -331,6 +331,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                           }`}
                         >
                           <Calendar className="w-3 h-3" />
+                          {item.expiryIsPartial && (language === "es" ? "Parte del stock: " : language === "bg" ? "Част от запаса: " : "Some stock: ")}
                           {item.expiryDaysLeft} {currentText.shelfLifeDays}
                         </span>
                       )}

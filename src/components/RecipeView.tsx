@@ -18,6 +18,7 @@ import {
 import { Recipe, PantryItem, Language, Currency } from "../types";
 import { t } from "../utils/translations";
 import { getRecipeImageUrl } from "../utils/recipeImages";
+import { isIngredientQuantityAvailable } from "../utils/menuAutoPlanner";
 import { ConfirmModal } from "./ConfirmModal";
 
 interface RecipeViewProps {
@@ -92,6 +93,14 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
     if (language === "bg" && recipe.nutritionHighlights?.bg) return recipe.nutritionHighlights.bg;
     return recipe.nutritionHighlights?.en;
   };
+
+  const isIngredientAvailable = (ingredient: Recipe["ingredients"][number]) =>
+    isIngredientQuantityAvailable(
+      ingredient.name,
+      ingredient.amount,
+      ingredient.unit,
+      pantry
+    );
 
   const handleCook = (recipe: Recipe) => {
     onCookRecipe(recipe);
@@ -225,7 +234,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
           const title = getRecipeTitle(recipe);
           const desc = getRecipeDesc(recipe);
 
-          const inPantryCount = recipe.ingredients.filter((i) => i.inPantry).length;
+          const inPantryCount = recipe.ingredients.filter(isIngredientAvailable).length;
           const totalIngCount = recipe.ingredients.length;
           const hasMissing = inPantryCount < totalIngCount;
 
@@ -303,30 +312,26 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                 </div>
                 <div>
                   <span className="text-stone-500 block text-[9px] font-bold uppercase tracking-widest mb-1">
-                    {currentText.protein}
-                  </span>
+                    {currentText.protein}</span>
                   <span className="font-extrabold text-emerald-400 font-['Outfit'] text-sm">
                     {recipe.proteinG}g
                   </span>
                 </div>
                 <div>
                   <span className="text-stone-500 block text-[9px] font-bold uppercase tracking-widest mb-1">
-                    {currentText.carbs}
-                  </span>
+                    {currentText.carbs}</span>
                   <span className="font-extrabold text-amber-400 font-['Outfit'] text-sm">
                     {recipe.carbsG}g
                   </span>
                 </div>
                 <div>
                   <span className="text-stone-500 block text-[9px] font-bold uppercase tracking-widest mb-1">
-                    {currentText.fat}
-                  </span>
+                    {currentText.fat}</span>
                   <span className="font-extrabold text-stone-300 font-['Outfit'] text-sm">{recipe.fatG}g</span>
                 </div>
                 <div>
                   <span className="text-stone-500 block text-[9px] font-bold uppercase tracking-widest mb-1">
-                    {currentText.prepTime}
-                  </span>
+                    {currentText.prepTime}</span>
                   <span className="font-extrabold text-teal-400 font-['Outfit'] text-sm">{totalMinutes}m</span>
                 </div>
               </div>
@@ -454,7 +459,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                   <div
                     key={i}
                     className={`p-3 rounded-xl border text-sm font-medium flex items-center justify-between transition-colors ${
-                      ing.inPantry
+                      isIngredientAvailable(ing)
                         ? "bg-white/[0.02] border-white/[0.04] text-stone-300"
                         : "bg-amber-500/5 border-amber-500/20 text-amber-200"
                     }`}

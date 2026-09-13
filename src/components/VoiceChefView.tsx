@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { ChatMessage, Language, PantryItem, MealLog } from "../types";
 import { t } from "../utils/translations";
+import { parseDeterministicRemovalIntent } from "../utils/deterministicRemovalIntent";
 
 interface VoiceChefViewProps {
   pantry: PantryItem[];
@@ -217,6 +218,12 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       });
 
       const data = await res.json();
+      const deterministicRemoval =
+        !data.actionType || data.actionType === "ANSWER"
+          ? parseDeterministicRemovalIntent(text, pantry)
+          : null;
+      const effectiveActionType = deterministicRemoval?.actionType || data.actionType;
+      const effectiveItems = deterministicRemoval?.items || data.items;
 
       let replyText =
         data.spokenFeedback ||
@@ -227,12 +234,24 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
           ? "¡Entendido! He procesado tu consulta."
           : "Got it! Processed your request.");
 
+      if (deterministicRemoval) {
+        const summary = deterministicRemoval.items
+          .map((item) => `${item.quantity} ${item.unit} ${item.name}`)
+          .join(", ");
+        replyText =
+          language === "bg"
+            ? `Разбрах. Приспаднах от килера: ${summary}.`
+            : language === "es"
+            ? `Entendido. He descontado de tu despensa: ${summary}.`
+            : `Got it. Deducted from your pantry: ${summary}.`;
+      }
+
       // Execute extracted actions
-      if (data.actionType === "ADD_ITEMS" && Array.isArray(data.items) && data.items.length > 0) {
-        onAddItemsToPantry(data.items);
-      } else if (data.actionType === "REMOVE_ITEMS" && Array.isArray(data.items) && data.items.length > 0) {
-        onDeductItemsFromPantry(data.items);
-      } else if (data.actionType === "MEAL_LOG" && data.mealLog) {
+      if (effectiveActionType === "ADD_ITEMS" && Array.isArray(effectiveItems) && effectiveItems.length > 0) {
+        onAddItemsToPantry(effectiveItems);
+      } else if (effectiveActionType === "REMOVE_ITEMS" && Array.isArray(effectiveItems) && effectiveItems.length > 0) {
+        onDeductItemsFromPantry(effectiveItems);
+      } else if (effectiveActionType === "MEAL_LOG" && data.mealLog) {
         onLogMeal(data.mealLog);
       }
 
@@ -240,8 +259,8 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
         id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         sender: "assistant",
         text: replyText,
-        actionType: data.actionType,
-        itemsAffected: data.items,
+        actionType: effectiveActionType,
+        itemsAffected: effectiveItems,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
 
