@@ -1,0 +1,59 @@
+import assert from 'node:assert/strict';
+import { createRequire } from 'node:module';
+import { spawn } from 'node:child_process';
+import { mkdir, writeFile } from 'node:fs/promises';
+const require = createRequire(process.env.QA_BROWSER_MODULES + '/package.json');
+const { chromium: playwright } = require('playwright-core');
+const chromium = require('@sparticuz/chromium');
+const output = process.env.QA_OUTPUT || 'dist/qa';
+await mkdir(output, { recursive: true });
+const server = spawn(process.execPath, ['node_modules/vite/bin/vite.js', 'preview', '--host', '127.0.0.1', '--port', '4173'], { stdio: 'inherit' });
+const url = 'http://127.0.0.1:4173';
+let browser;
+const observations = [];
+try {
+ for(let i=0;i<80;i++) {try {if((await fetch(url)).ok)break;}catch{} await new Promise(r=>setTimeout(r,250));}
+ browser = await playwright.launch({ executablePath: await chromium.executablePath(), args:chromium.args, headless:true });
+ const page=await browser.newPage({viewport:{width:1440,height:1000}});
+ const fatal=[]; page.on('pageerror', e=>fatal.push(e.message));
+ page.on('dialog',async d=>{observations.push({dialog:d.message()});await d.accept();});
+ const state = key=>page.evaluate(k=>JSON.parse(localStorage.getItem(k)),key);
+ const stored=async (key,predicate)=>{for(let i=0;i<40;i++){const d=await state(key);if(predicate(d))return d;await page.waitForTimeout(100);}throw Error(`State not reached: ${key}: ${JSON.stringify(await state(key))}`);};
+ await page.goto(url,{waitUntil:'domcontentloaded'});
+ await page.locator('#landing-enter-app-top-btn').click();
+ if(await page.locator('#auth-modal-close-btn').isVisible())await page.locator('#auth-modal-close-btn').click();
+ await page.locator('#pantry-item-sp-12').waitFor();
+ const tomato=page.locator('#pantry-item-sp-12');
+ for(let i=0;i<3;i++)await tomato.locator('button[title="Reducir cantidad"]').click();
+ await stored('balkanbite_pantry',p=>p?.find(x=>x.id==='sp-12')?.quantity===1);
+ await page.locator('#nav-tab-recipes').click();
+ await page.locator('#add-missing-btn-rec-chicken-tomato').click();
+ await page.locator('#nav-tab-shopping').click();
+ const first=await stored('balkanbite_shopping',s=>s?.some(x=>x.name==='Tomate'));
+ assert.equal(first.filter(x=>x.name==='Tomate').length,1); assert.equal(first.find(x=>x.name==='Tomate').quantity,1);assert.equal(first.find(x=>x.name==='Tomate').estimatedPriceEUR,0);
+ const tomatoShopping=first.find(x=>x.name==='Tomate');
+ assert.match(await page.locator(`[id="shopping-item-${tomatoShopping.id}"]`).innerText(),/€0\.00/);
+ await page.locator('#nav-tab-recipes').click();await page.locator('#add-missing-btn-rec-chicken-tomato').click();await page.locator('#nav-tab-shopping').click();
+ assert.deepEqual(await state('balkanbite_shopping'),first);observations.push({case:'recipe-shortfall-no-duplicate',shopping:first});
+ await page.screenshot({path:`${output}/recipe-shopping.png`,fullPage:true});
+ await page.locator(`[id="shopping-item-${tomatoShopping.id}"] button`).first().click();
+ await page.locator('#transfer-to-pantry-btn').click();
+ const bought=await stored('balkanbite_pantry',p=>p?.find(x=>x.id==='sp-12')?.quantity===2);
+ assert.equal(bought.filter(x=>x.name==='Tomate').length,1);assert.equal(bought.find(x=>x.name==='Tomate').estimatedCostEUR,null);
+ await stored('balkanbite_shopping',s=>s?.length===0);
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('#nav-tab-pantry').click();
+ assert.match(await page.locator('#pantry-item-sp-12').innerText(),/2 uds/);
+ await page.locator('#nav-tab-recipes').click();await page.locator('#cook-btn-rec-breakfast-toast-tomato').click();
+ await stored('balkanbite_pantry',p=>p?.find(x=>x.id==='sp-12')?.quantity===1);
+ const cooked=await state('balkanbite_pantry');assert.equal(cooked.find(x=>x.id==='sp-1').quantity,5);assert.equal(cooked.find(x=>x.id==='sp-11').quantity,1);
+ await page.reload({waitUntil:'domcontentloaded'});await page.locator('#nav-tab-pantry').click();
+ assert.match(await page.locator('#pantry-item-sp-12').innerText(),/1 uds/);observations.push({case:'purchase-cook-reload',pantry:await state('balkanbite_pantry')});
+ await page.screenshot({path:`${output}/purchase-cook.png`,fullPage:true});
+ assert.deepEqual(fatal,[]);
+ await writeFile(`${output}/result.json`,JSON.stringify({status:'PASS',observations},null,2));
+ console.log('BALKANBITE_BROWSER_CENTRAL_LOOP: PASS');
+} catch(error){
+ console.error('BALKANBITE_BROWSER_CENTRAL_LOOP: FAIL',error);
+ if(browser){const page=browser.contexts()[0]?.pages()[0];if(page){await page.screenshot({path:`${output}/failure.png`,fullPage:true}).catch(()=>{});console.log((await page.locator('body').innerText()).slice(-12000));}}
+ await writeFile(`${output}/result.json`,JSON.stringify({status:'FAIL',error:String(error),observations},null,2));process.exitCode=1;
+} finally { await browser?.close();server.kill(); }
