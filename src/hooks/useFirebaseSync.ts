@@ -36,12 +36,14 @@ export function useFirebaseSync(
   const [inventoryHydratedUser, setInventoryHydratedUser] = useState<string | null>(null);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
   const lastHydratedCollectionJson = useRef<Record<string, string>>({});
+  const hydratedInventoryActiveIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       // A new auth session must hydrate the remote state before any cloud writes are allowed.
       hydratedCollectionUser.current = {};
       lastHydratedCollectionJson.current = {};
+      hydratedInventoryActiveIds.current = new Set();
       setInventoryHydratedUser(null);
       setLoading(user !== null);
       setCurrentUser(user);
@@ -127,7 +129,17 @@ export function useFirebaseSync(
               byLogicalId.set(logicalId, entry);
             }
           });
-          itemsWithoutUserId = Array.from(byLogicalId.values()).map(({ item }) => item);
+
+          const activeEntries = Array.from(byLogicalId.values()).filter(
+            ({ item }) => item._deleted !== true
+          );
+          hydratedInventoryActiveIds.current = new Set(
+            activeEntries.map(({ documentId, item }) => String(item.id || documentId))
+          );
+          itemsWithoutUserId = activeEntries.map(({ item }) => {
+            const { _deleted, deletedAt, ...visibleItem } = item;
+            return visibleItem;
+          });
         }
 
         const remoteJson = JSON.stringify(itemsWithoutUserId);
@@ -151,12 +163,26 @@ export function useFirebaseSync(
       }
       const save = async () => {
         const itemsToPersist = localState.filter(shouldPersistItem);
-        if (itemsToPersist.length === 0) return;
+        const isInventory = collectionName === "inventory";
+        const currentInventoryIds = isInventory
+          ? new Set(itemsToPersist.map(item => String(item.id)))
+          : new Set<string>();
+        const deletedInventoryIds = isInventory
+          ? Array.from(hydratedInventoryActiveIds.current).filter(
+              id => !currentInventoryIds.has(id)
+            )
+          : [];
+
+        if (!isInventory && itemsToPersist.length === 0) return;
+        if (isInventory && itemsToPersist.length === 0 && deletedInventoryIds.length === 0) {
+          return;
+        }
 
         // Do not turn a freshly hydrated legacy snapshot into duplicate user-scoped documents.
         // Migration only begins after a real local inventory mutation changes the hydrated state.
         if (
-          collectionName === "inventory" &&
+          isInventory &&
+          deletedInventoryIds.length === 0 &&
           lastHydratedCollectionJson.current[collectionName] === JSON.stringify(itemsToPersist)
         ) {
           return;
@@ -164,13 +190,42 @@ export function useFirebaseSync(
 
         const batch = writeBatch(db);
         itemsToPersist.forEach(item => {
-          const documentId =
-            collectionName === "inventory"
-              ? getInventoryDocumentId(currentUser.uid, String(item.id))
-              : String(item.id);
+          const documentId = isInventory
+            ? getInventoryDocumentId(currentUser.uid, String(item.id))
+            : String(item.id);
           const docRef = doc(db, collectionName, documentId);
-          batch.set(docRef, { ...item, userId: currentUser.uid }, { merge: true });
+          batch.set(
+            docRef,
+            isInventory
+              ? {
+                  ...item,
+                  userId: currentUser.uid,
+                  _deleted: false,
+                  deletedAt: null,
+                }
+              : { ...item, userId: currentUser.uid },
+            { merge: true }
+          );
         });
+
+        deletedInventoryIds.forEach(itemId => {
+          const docRef = doc(
+            db,
+            collectionName,
+            getInventoryDocumentId(currentUser.uid, itemId)
+          );
+          batch.set(
+            docRef,
+            {
+              id: itemId,
+              userId: currentUser.uid,
+              _deleted: true,
+              deletedAt: Timestamp.now(),
+            },
+            { merge: true }
+          );
+        });
+
         await batch.commit();
       };
       save();
