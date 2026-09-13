@@ -12,6 +12,9 @@ import {
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile } from "../types";
+import { INITIAL_PANTRY } from "../data/initialData";
+
+const DEMO_PANTRY_ITEM_IDS = new Set(INITIAL_PANTRY.map(item => item.id));
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -78,7 +81,8 @@ export function useFirebaseSync(
   const syncCollection = (
     collectionName: string,
     localState: any[],
-    setLocalState: React.Dispatch<React.SetStateAction<any[]>>
+    setLocalState: React.Dispatch<React.SetStateAction<any[]>>,
+    shouldPersistItem: (item: any) => boolean = () => true
   ) => {
     useEffect(() => {
       if (!currentUser) return;
@@ -105,8 +109,11 @@ export function useFirebaseSync(
         return;
       }
       const save = async () => {
+        const itemsToPersist = localState.filter(shouldPersistItem);
+        if (itemsToPersist.length === 0) return;
+
         const batch = writeBatch(db);
-        localState.forEach(item => {
+        itemsToPersist.forEach(item => {
           const docRef = doc(db, collectionName, item.id);
           batch.set(docRef, { ...item, userId: currentUser.uid }, { merge: true });
         });
@@ -116,7 +123,12 @@ export function useFirebaseSync(
     }, [localState, currentUser]);
   };
 
-  syncCollection("inventory", pantry, setPantry);
+  syncCollection(
+    "inventory",
+    pantry,
+    setPantry,
+    item => !DEMO_PANTRY_ITEM_IDS.has(item.id)
+  );
   syncCollection("recipes", recipes, setRecipes);
   syncCollection("mealPlans", mealPlan, setMealPlan);
   syncCollection("shoppingList", shoppingList, setShoppingList);
