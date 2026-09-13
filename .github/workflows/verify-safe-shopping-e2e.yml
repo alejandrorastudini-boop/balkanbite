@@ -34,7 +34,7 @@ jobs:
           done
           cat /tmp/balkanbite-e2e.log
           exit 1
-      - run: node scripts/verify-shopping-reconciliation-e2e.mjs
+      - run: node scripts/verify-shopping-reconciliation-e2e-v2.mjs
       - name: Show app log on failure
         if: failure()
         run: cat /tmp/balkanbite-e2e.log || true
