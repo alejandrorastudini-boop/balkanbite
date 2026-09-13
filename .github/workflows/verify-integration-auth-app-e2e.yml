@@ -1,0 +1,59 @@
+name: Verify integration Auth + Firestore app E2E
+
+on:
+  push:
+    branches:
+      - verify/integration-auth-app-e2e-2026-09-13
+
+jobs:
+  auth-firestore-app-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install app and QA dependencies
+        run: |
+          npm install --ignore-scripts
+          npm install --no-save playwright firebase-tools @firebase/rules-unit-testing
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: Create local-only emulator config
+        run: |
+          cat > firebase.qa.json <<'EOF'
+          {
+            "firestore": {
+              "rules": "firestore.rules"
+            },
+            "emulators": {
+              "auth": {
+                "host": "127.0.0.1",
+                "port": 9099
+              },
+              "firestore": {
+                "host": "127.0.0.1",
+                "port": 8080
+              },
+              "ui": {
+                "enabled": false
+              },
+              "singleProjectMode": true
+            }
+          }
+          EOF
+
+      - name: Run real app against Auth + Firestore emulators
+        run: npx firebase emulators:exec --only auth,firestore --project demo-balkanbite-auth-e2e --config firebase.qa.json "node scripts/verify-auth-firestore-app-e2e.mjs"
+
+      - name: Show app log on failure
+        if: failure()
+        run: cat /tmp/balkanbite-auth-app-e2e.log || true
