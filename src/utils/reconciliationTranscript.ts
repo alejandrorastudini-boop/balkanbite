@@ -3,6 +3,17 @@ export interface ExplicitReconciliationAmount {
   unit: string;
 }
 
+export interface RawReconciliationProposal {
+  name?: unknown;
+  nameBg?: unknown;
+  nameEs?: unknown;
+  quantity?: unknown;
+  unit?: unknown;
+  category?: unknown;
+  estimatedCostEUR?: unknown;
+  expiryDaysLeft?: unknown;
+}
+
 const unitAliases: Array<{ canonical: string; pattern: string }> = [
   { canonical: "kg", pattern: "kg|kgs|kilogram(?:o|os)?|kilograms?|kilo(?:s)?|кг|килограм(?:а)?" },
   { canonical: "g", pattern: "g|gr|gram(?:o|os)?|grams?|г|грам(?:а)?" },
@@ -97,4 +108,29 @@ export function extractExplicitReconciliationAmount(
     }
   }
   return best ? { quantity: best.quantity, unit: best.unit } : null;
+}
+
+/**
+ * Converts AI/fallback extra proposals into non-authoritative review candidates.
+ * Provider quantity/unit, price and expiry are discarded. Quantity/unit survive
+ * only when they can be recovered explicitly from the user's own transcript.
+ */
+export function sanitizeReconciliationExtrasForReview(
+  rawExtras: RawReconciliationProposal[],
+  transcript: string
+): RawReconciliationProposal[] {
+  const extras = Array.isArray(rawExtras) ? rawExtras : [];
+  return extras.map((ext) => {
+    const names = [ext?.name, ext?.nameBg, ext?.nameEs].filter(
+      (value): value is string => typeof value === "string" && value.trim().length > 0
+    );
+    const explicit = extractExplicitReconciliationAmount(transcript, names, extras.length);
+    return {
+      ...(typeof ext?.name === "string" ? { name: ext.name } : {}),
+      ...(typeof ext?.nameBg === "string" ? { nameBg: ext.nameBg } : {}),
+      ...(typeof ext?.nameEs === "string" ? { nameEs: ext.nameEs } : {}),
+      ...(typeof ext?.category === "string" ? { category: ext.category } : {}),
+      ...(explicit ? { quantity: explicit.quantity, unit: explicit.unit } : {}),
+    };
+  });
 }
