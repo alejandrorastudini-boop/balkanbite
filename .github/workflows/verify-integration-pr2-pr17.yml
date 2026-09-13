@@ -20,6 +20,7 @@ jobs:
         with:
           ref: da0d974ea8a8d4072a4e79e92402038c2ba8e713
           path: app
+          fetch-depth: 2
 
       - name: Verify exact commit structure
         run: |
