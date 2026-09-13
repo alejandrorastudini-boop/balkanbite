@@ -30,12 +30,14 @@ export function useFirebaseSync(
 ) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [inventoryHydratedUser, setInventoryHydratedUser] = useState<string | null>(null);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       // A new auth session must hydrate the remote state before any cloud writes are allowed.
       hydratedCollectionUser.current = {};
+      setInventoryHydratedUser(null);
       setLoading(user !== null);
       setCurrentUser(user);
     });
@@ -82,7 +84,8 @@ export function useFirebaseSync(
     collectionName: string,
     localState: any[],
     setLocalState: React.Dispatch<React.SetStateAction<any[]>>,
-    shouldPersistItem: (item: any) => boolean = () => true
+    shouldPersistItem: (item: any) => boolean = () => true,
+    acceptEmptySnapshot = false
   ) => {
     useEffect(() => {
       if (!currentUser) return;
@@ -91,9 +94,17 @@ export function useFirebaseSync(
         const items = snapshot.docs.map(doc => doc.data() as any);
         // Mark hydration before allowing any subsequent local mutation to write to this collection.
         hydratedCollectionUser.current[collectionName] = currentUser.uid;
+        if (collectionName === "inventory") {
+          setInventoryHydratedUser(currentUser.uid);
+        }
+
         // Remove userId before setting local state
         const itemsWithoutUserId = items.map(({ userId, ...rest }) => rest);
-        if (itemsWithoutUserId.length > 0 && JSON.stringify(itemsWithoutUserId) !== JSON.stringify(localState)) {
+        const shouldApplySnapshot = itemsWithoutUserId.length > 0 || acceptEmptySnapshot;
+        if (
+          shouldApplySnapshot &&
+          JSON.stringify(itemsWithoutUserId) !== JSON.stringify(localState)
+        ) {
           setLocalState(itemsWithoutUserId);
         }
       });
@@ -127,11 +138,18 @@ export function useFirebaseSync(
     "inventory",
     pantry,
     setPantry,
-    item => !DEMO_PANTRY_ITEM_IDS.has(item.id)
+    item => !DEMO_PANTRY_ITEM_IDS.has(item.id),
+    true
   );
   syncCollection("recipes", recipes, setRecipes);
   syncCollection("mealPlans", mealPlan, setMealPlan);
   syncCollection("shoppingList", shoppingList, setShoppingList);
 
-  return { currentUser, loading };
+  const inventoryHydrated = !currentUser || inventoryHydratedUser === currentUser.uid;
+
+  return {
+    currentUser,
+    loading: loading || !inventoryHydrated,
+    inventoryHydrated,
+  };
 }
