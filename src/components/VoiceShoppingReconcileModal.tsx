@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { Language, Currency, ShoppingItem } from "../types";
 import { translateFoodName, translateUnit } from "../utils/foodTranslator";
+import { extractExplicitReconciliationAmount } from "../utils/reconciliationTranscript";
 
 interface ReconciliationExtraItem {
   name?: unknown;
@@ -237,14 +238,35 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
       });
 
       const data: ReconciliationData = await response.json();
+      const rawExtras = Array.isArray(data.extraPurchasedItems)
+        ? data.extraPurchasedItems
+        : [];
+      const reviewedExtras: ReconciliationExtraItem[] = rawExtras.map((ext) => {
+        const names = [ext?.name, ext?.nameBg, ext?.nameEs].filter(
+          (value): value is string => typeof value === "string" && value.trim().length > 0
+        );
+        const explicit = extractExplicitReconciliationAmount(text, names, rawExtras.length);
+        return {
+          ...(typeof ext?.name === "string" ? { name: ext.name } : {}),
+          ...(typeof ext?.nameBg === "string" ? { nameBg: ext.nameBg } : {}),
+          ...(typeof ext?.nameEs === "string" ? { nameEs: ext.nameEs } : {}),
+          ...(typeof ext?.category === "string" ? { category: ext.category } : {}),
+          ...(explicit ? { quantity: explicit.quantity, unit: explicit.unit } : {}),
+        };
+      });
+      const reviewedData: ReconciliationData = {
+        ...data,
+        extraPurchasedItems: reviewedExtras,
+      };
       const validShoppingIds = new Set(shoppingList.map((item) => item.id));
-      setReconciliationResult(data);
+      setReconciliationResult(reviewedData);
       setSelectedPurchasedIds(
         (data.purchasedItemIds || []).filter(
           (id): id is string => typeof id === "string" && validShoppingIds.has(id)
         )
       );
       // AI/fallback extras require an explicit user click in the review step.
+      // Server/model quantity, unit, price and expiry are never trusted here.
       setSelectedExtraItems([]);
       reconciliationIdRef.current = `voice-${Date.now()}-${Math.random()
         .toString(36)
@@ -277,8 +299,6 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
     setIsSaving(true);
     onConfirmReconciliation({
       purchasedItemIds: selectedPurchasedIds,
-      // Pass reviewed extras exactly as shown. App/core validate again and ignore
-      // AI-estimated price/expiry rather than converting them into pantry facts.
       itemsToAddToPantry: selectedExtraItems,
       reconciliationId,
     });
@@ -590,8 +610,8 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
                                 <span className={`text-[10px] ${selectable ? "text-stone-500" : "text-red-300"}`}>
                                   {selectable
                                     ? language === "es"
-                                      ? "Verifica cantidad y unidad; toca para confirmar"
-                                      : "Verify quantity/unit; tap to confirm"
+                                      ? "Cantidad/unidad detectadas en tu texto; toca para confirmar"
+                                      : "Quantity/unit found in your text; tap to confirm"
                                     : language === "es"
                                     ? "Falta una cantidad o unidad explícita: no se guardará"
                                     : "Explicit quantity or unit missing: it will not be saved"}
