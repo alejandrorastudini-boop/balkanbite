@@ -40,10 +40,12 @@ import {
 import { getRecipeImageUrl } from "./utils/recipeImages";
 import { adaptMealPlanToPantry, syncRecipesWithPantry } from "./utils/menuAutoPlanner";
 import { evaluateShoppingNeeds } from "./utils/shoppingAdvisor";
-import { deductRecipeIngredientsFromPantry } from "./utils/pantryConsumption";
+import {
+  deductRecipeIngredientsFromPantry,
+  deductVoiceItemsFromPantry,
+} from "./utils/pantryConsumption";
 
 export default function App() {
-  // Local persistence states
   const [pantry, setPantry] = useState<PantryItem[]>(() => {
     try {
       const saved = localStorage.getItem("balkanbite_pantry");
@@ -687,7 +689,7 @@ export default function App() {
     itemsToAddToPantry: Array<Omit<PantryItem, "id" | "addedAt">>;
   }) => {
     if (itemsToAddToPantry.length > 0) {
-      const newPantryItems: PantryItem[] = itemsToAddToPantry.map((item, idx) => ({
+      const newPantryItems: PantryItem[] = itemsToAddPantry.map((item, idx) => ({
         id: `p-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
         name: item.name,
         nameBg: item.nameBg || item.name,
@@ -772,25 +774,17 @@ export default function App() {
   };
 
   const handleVoiceDeductItems = (items: any[]) => {
-    setPantry((current) => {
-      let updated = [...current];
-      (items || []).forEach((it) => {
-        const lower = (it.name || "").toLowerCase();
-        const idx = updated.findIndex(
-          (p) =>
-            p.name.toLowerCase().includes(lower) ||
-            (p.nameBg && p.nameBg.toLowerCase().includes(lower))
+    setPantry((currentPantry) => {
+      const result = deductVoiceItemsFromPantry(currentPantry, items || []);
+
+      if (result.issues.length > 0) {
+        console.warn(
+          "Voice pantry consumption skipped for unresolved items",
+          result.issues
         );
-        if (idx !== -1) {
-          const newQty = Math.max(0, updated[idx].quantity - (it.quantity || 1));
-          if (newQty <= 0) {
-            updated.splice(idx, 1);
-          } else {
-            updated[idx] = { ...updated[idx], quantity: newQty };
-          }
-        }
-      });
-      return updated;
+      }
+
+      return result.pantry;
     });
   };
 
