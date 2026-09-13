@@ -31,12 +31,10 @@ export function useFirebaseSync(
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // A new auth session must hydrate each collection before any cloud writes are allowed.
+      // A new auth session must hydrate the remote state before any cloud writes are allowed.
       hydratedCollectionUser.current = {};
+      setLoading(user !== null);
       setCurrentUser(user);
-      if (!user) {
-        setLoading(false);
-      }
     });
     return unsubscribe;
   }, []);
