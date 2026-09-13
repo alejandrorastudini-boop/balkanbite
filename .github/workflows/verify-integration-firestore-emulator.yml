@@ -1,0 +1,49 @@
+name: Verify integration Firestore emulator
+
+on:
+  push:
+    branches:
+      - verify/integration-auth-emulator-2026-09-13
+
+jobs:
+  firestore-rules:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '21'
+
+      - name: Install app dependencies
+        run: npm install --ignore-scripts
+
+      - name: Install emulator QA dependencies only
+        run: npm install --no-save firebase-tools @firebase/rules-unit-testing
+
+      - name: Create local-only Firebase emulator config
+        run: |
+          cat > firebase.qa.json <<'EOF'
+          {
+            "firestore": {
+              "rules": "firestore.rules"
+            },
+            "emulators": {
+              "firestore": {
+                "host": "127.0.0.1",
+                "port": 8080
+              },
+              "ui": {
+                "enabled": false
+              },
+              "singleProjectMode": true
+            }
+          }
+          EOF
+
+      - name: Run Firestore rules and ownership QA
+        run: npx firebase emulators:exec --only firestore --project demo-balkanbite-integration --config firebase.qa.json "node scripts/verify-firestore-rules-emulator.mjs"
