@@ -16,6 +16,9 @@ import { INITIAL_PANTRY } from "../data/initialData";
 
 const DEMO_PANTRY_ITEM_IDS = new Set(INITIAL_PANTRY.map(item => item.id));
 
+const getInventoryDocumentId = (userId: string, itemId: string) =>
+  `u_${encodeURIComponent(userId)}__${encodeURIComponent(itemId)}`;
+
 export function useFirebaseSync(
   profile: UserProfile,
   setProfile: React.Dispatch<React.SetStateAction<UserProfile>>,
@@ -32,11 +35,13 @@ export function useFirebaseSync(
   const [loading, setLoading] = useState(true);
   const [inventoryHydratedUser, setInventoryHydratedUser] = useState<string | null>(null);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
+  const lastHydratedCollectionJson = useRef<Record<string, string>>({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
       // A new auth session must hydrate the remote state before any cloud writes are allowed.
       hydratedCollectionUser.current = {};
+      lastHydratedCollectionJson.current = {};
       setInventoryHydratedUser(null);
       setLoading(user !== null);
       setCurrentUser(user);
@@ -92,22 +97,44 @@ export function useFirebaseSync(
       if (!currentUser) return;
       const q = query(collection(db, collectionName), where("userId", "==", currentUser.uid));
       const unsub = onSnapshot(q, (snapshot) => {
-        const items = snapshot.docs.map(doc => doc.data() as any);
+        const remoteEntries = snapshot.docs
+          .map(snapshotDoc => {
+            const { userId, ...item } = snapshotDoc.data() as any;
+            return { documentId: snapshotDoc.id, item };
+          })
+          .filter(({ item }) => shouldAcceptRemoteItem(item));
+
         // Mark hydration before allowing any subsequent local mutation to write to this collection.
         hydratedCollectionUser.current[collectionName] = currentUser.uid;
         if (collectionName === "inventory") {
           setInventoryHydratedUser(currentUser.uid);
         }
 
-        // Remove ownership metadata and ignore any remote entries that are not real user data.
-        const itemsWithoutUserId = items
-          .map(({ userId, ...rest }) => rest)
-          .filter(shouldAcceptRemoteItem);
+        let itemsWithoutUserId = remoteEntries.map(({ item }) => item);
+
+        if (collectionName === "inventory") {
+          // Read both legacy global IDs and new user-scoped IDs during the transition.
+          // When both exist for the same logical item, the user-scoped document is authoritative.
+          const byLogicalId = new Map<string, { documentId: string; item: any }>();
+          remoteEntries.forEach(entry => {
+            const logicalId = String(entry.item.id || entry.documentId);
+            const expectedScopedId = getInventoryDocumentId(currentUser.uid, logicalId);
+            const existing = byLogicalId.get(logicalId);
+            const entryIsScoped = entry.documentId === expectedScopedId;
+            const existingIsScoped = existing?.documentId === expectedScopedId;
+
+            if (!existing || (entryIsScoped && !existingIsScoped)) {
+              byLogicalId.set(logicalId, entry);
+            }
+          });
+          itemsWithoutUserId = Array.from(byLogicalId.values()).map(({ item }) => item);
+        }
+
+        const remoteJson = JSON.stringify(itemsWithoutUserId);
+        lastHydratedCollectionJson.current[collectionName] = remoteJson;
+
         const shouldApplySnapshot = itemsWithoutUserId.length > 0 || acceptEmptySnapshot;
-        if (
-          shouldApplySnapshot &&
-          JSON.stringify(itemsWithoutUserId) !== JSON.stringify(localState)
-        ) {
+        if (shouldApplySnapshot && remoteJson !== JSON.stringify(localState)) {
           setLocalState(itemsWithoutUserId);
         }
       });
@@ -126,9 +153,22 @@ export function useFirebaseSync(
         const itemsToPersist = localState.filter(shouldPersistItem);
         if (itemsToPersist.length === 0) return;
 
+        // Do not turn a freshly hydrated legacy snapshot into duplicate user-scoped documents.
+        // Migration only begins after a real local inventory mutation changes the hydrated state.
+        if (
+          collectionName === "inventory" &&
+          lastHydratedCollectionJson.current[collectionName] === JSON.stringify(itemsToPersist)
+        ) {
+          return;
+        }
+
         const batch = writeBatch(db);
         itemsToPersist.forEach(item => {
-          const docRef = doc(db, collectionName, item.id);
+          const documentId =
+            collectionName === "inventory"
+              ? getInventoryDocumentId(currentUser.uid, String(item.id))
+              : String(item.id);
+          const docRef = doc(db, collectionName, documentId);
           batch.set(docRef, { ...item, userId: currentUser.uid }, { merge: true });
         });
         await batch.commit();
