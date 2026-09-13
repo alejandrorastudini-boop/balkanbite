@@ -9,15 +9,24 @@ import {
   RefreshCw,
   Plus,
   ArrowRight,
-  ShoppingBag,
   Check,
   Package,
-  Layers,
   Clock,
-  HelpCircle,
 } from "lucide-react";
-import { Language, Currency, ShoppingItem, PantryItem } from "../types";
-import { translateFoodName, translateCategory, translateUnit } from "../utils/foodTranslator";
+import { Language, Currency, ShoppingItem } from "../types";
+import { translateFoodName, translateUnit } from "../utils/foodTranslator";
+import { extractExplicitReconciliationAmount } from "../utils/reconciliationTranscript";
+
+interface ReconciliationExtraItem {
+  name?: unknown;
+  nameBg?: unknown;
+  nameEs?: unknown;
+  quantity?: unknown;
+  unit?: unknown;
+  category?: unknown;
+  estimatedCostEUR?: unknown;
+  expiryDaysLeft?: unknown;
+}
 
 interface VoiceShoppingReconcileModalProps {
   isOpen: boolean;
@@ -27,33 +36,30 @@ interface VoiceShoppingReconcileModalProps {
   currency: Currency;
   onConfirmReconciliation: (result: {
     purchasedItemIds: string[];
-    itemsToAddToPantry: Array<Omit<PantryItem, "id" | "addedAt">>;
+    itemsToAddToPantry: ReconciliationExtraItem[];
+    reconciliationId: string;
   }) => void;
 }
 
 interface ReconciliationData {
   purchasedItemIds: string[];
   unpurchasedItemIds: string[];
-  extraPurchasedItems: Array<{
-    name: string;
-    nameBg?: string;
-    quantity: number;
-    unit: string;
-    category: string;
-    estimatedCostEUR: number;
-    expiryDaysLeft: number;
-  }>;
-  purchasedListItemsDetails: Array<{
-    id: string;
-    name: string;
-    quantity: number;
-    unit: string;
-    category: string;
-    estimatedCostEUR: number;
-    expiryDaysLeft: number;
-  }>;
+  extraPurchasedItems: ReconciliationExtraItem[];
+  purchasedListItemsDetails: Array<unknown>;
   spokenFeedback: string;
 }
+
+const isSelectableExtra = (item: ReconciliationExtraItem): boolean =>
+  typeof item?.name === "string" &&
+  item.name.trim().length > 0 &&
+  typeof item?.quantity === "number" &&
+  Number.isFinite(item.quantity) &&
+  item.quantity > 0 &&
+  typeof item?.unit === "string" &&
+  item.unit.trim().length > 0;
+
+const displayExtraName = (item: ReconciliationExtraItem): string =>
+  typeof item?.name === "string" && item.name.trim() ? item.name.trim() : "—";
 
 export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalProps> = ({
   isOpen,
@@ -66,30 +72,36 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
   const [transcript, setTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [step, setStep] = useState<"input" | "review">("input");
   const [reconciliationResult, setReconciliationResult] = useState<ReconciliationData | null>(null);
 
-  // Editable state during review
+  // Human-reviewed state. List rows may be preselected from the parser because
+  // their quantity/unit comes from the existing shopping list. AI-detected extra
+  // purchases are intentionally NOT preselected and require explicit confirmation.
   const [selectedPurchasedIds, setSelectedPurchasedIds] = useState<string[]>([]);
-  const [selectedExtraItems, setSelectedExtraItems] = useState<Array<any>>([]);
+  const [selectedExtraItems, setSelectedExtraItems] = useState<ReconciliationExtraItem[]>([]);
 
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef(false);
   const lastProcessedIndexRef = useRef(-1);
+  const reconciliationIdRef = useRef("");
 
-  // Sync ref
   useEffect(() => {
     isListeningRef.current = isListening;
   }, [isListening]);
 
-  // Reset when modal opens
   useEffect(() => {
     if (isOpen) {
       setTranscript("");
       setIsListening(false);
       setIsAnalyzing(false);
+      setIsSaving(false);
       setStep("input");
       setReconciliationResult(null);
+      setSelectedPurchasedIds([]);
+      setSelectedExtraItems([]);
+      reconciliationIdRef.current = "";
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -106,7 +118,6 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
     };
   }, [isOpen]);
 
-  // Setup Web Speech Recognition
   useEffect(() => {
     const SpeechRecognition =
       (window as any).SpeechRecognition || (window as any).webkitSpeechRecognition;
@@ -227,9 +238,39 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
       });
 
       const data: ReconciliationData = await response.json();
-      setReconciliationResult(data);
-      setSelectedPurchasedIds(data.purchasedItemIds || []);
-      setSelectedExtraItems(data.extraPurchasedItems || []);
+      const rawExtras = Array.isArray(data.extraPurchasedItems)
+        ? data.extraPurchasedItems
+        : [];
+      const reviewedExtras: ReconciliationExtraItem[] = rawExtras.map((ext) => {
+        const names = [ext?.name, ext?.nameBg, ext?.nameEs].filter(
+          (value): value is string => typeof value === "string" && value.trim().length > 0
+        );
+        const explicit = extractExplicitReconciliationAmount(text, names, rawExtras.length);
+        return {
+          ...(typeof ext?.name === "string" ? { name: ext.name } : {}),
+          ...(typeof ext?.nameBg === "string" ? { nameBg: ext.nameBg } : {}),
+          ...(typeof ext?.nameEs === "string" ? { nameEs: ext.nameEs } : {}),
+          ...(typeof ext?.category === "string" ? { category: ext.category } : {}),
+          ...(explicit ? { quantity: explicit.quantity, unit: explicit.unit } : {}),
+        };
+      });
+      const reviewedData: ReconciliationData = {
+        ...data,
+        extraPurchasedItems: reviewedExtras,
+      };
+      const validShoppingIds = new Set(shoppingList.map((item) => item.id));
+      setReconciliationResult(reviewedData);
+      setSelectedPurchasedIds(
+        (data.purchasedItemIds || []).filter(
+          (id): id is string => typeof id === "string" && validShoppingIds.has(id)
+        )
+      );
+      // AI/fallback extras require an explicit user click in the review step.
+      // Server/model quantity, unit, price and expiry are never trusted here.
+      setSelectedExtraItems([]);
+      reconciliationIdRef.current = `voice-${Date.now()}-${Math.random()
+        .toString(36)
+        .slice(2, 10)}`;
       setStep("review");
     } catch (err) {
       console.error("Error analyzing shopping reconciliation:", err);
@@ -243,43 +284,24 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
     handleAnalyze(phrase);
   };
 
-  const handleConfirmAndSave = () => {
-    if (!reconciliationResult) return;
-
-    // Collect list items that are selected as purchased
-    const listItemsToAdd: Array<Omit<PantryItem, "id" | "addedAt">> = [];
-
-    (shoppingList || []).forEach((shopItem) => {
-      if (selectedPurchasedIds.includes(shopItem.id)) {
-        listItemsToAdd.push({
-          name: shopItem.name,
-          quantity: shopItem.quantity || 1,
-          unit: shopItem.unit || "pcs",
-          category: shopItem.category || "Produce",
-          expiryDaysLeft: 7,
-          estimatedCostEUR: shopItem.estimatedPriceEUR || 1.5,
-        });
-      }
-    });
-
-    // Add extra items
-    const extraItemsToAdd: Array<Omit<PantryItem, "id" | "addedAt">> = selectedExtraItems.map(
-      (ext) => ({
-        name: ext.name,
-        nameBg: ext.nameBg || ext.name,
-        quantity: ext.quantity || 1,
-        unit: ext.unit || "pcs",
-        category: ext.category || "Produce",
-        expiryDaysLeft: ext.expiryDaysLeft || 7,
-        estimatedCostEUR: ext.estimatedCostEUR || 1.5,
-      })
+  const toggleExtraSelection = (item: ReconciliationExtraItem) => {
+    if (!isSelectableExtra(item)) return;
+    setSelectedExtraItems((prev) =>
+      prev.includes(item) ? prev.filter((candidate) => candidate !== item) : [...prev, item]
     );
+  };
 
+  const handleConfirmAndSave = () => {
+    if (!reconciliationResult || isSaving) return;
+    const reconciliationId = reconciliationIdRef.current;
+    if (!reconciliationId) return;
+
+    setIsSaving(true);
     onConfirmReconciliation({
       purchasedItemIds: selectedPurchasedIds,
-      itemsToAddToPantry: [...listItemsToAdd, ...extraItemsToAdd],
+      itemsToAddToPantry: selectedExtraItems,
+      reconciliationId,
     });
-
     onClose();
   };
 
@@ -313,7 +335,6 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
         id="voice-shopping-modal-panel"
         className="w-full max-w-xl bg-[#131A1F] border border-amber-500/20 rounded-3xl shadow-[0_12px_40px_rgba(0,0,0,0.6)] overflow-hidden flex flex-col max-h-[92vh]"
       >
-        {/* Modal Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-white/[0.06] bg-[#161F26] shrink-0">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-2xl bg-gradient-to-tr from-amber-500/20 to-emerald-500/20 border border-amber-500/30 flex items-center justify-center text-amber-400">
@@ -332,10 +353,10 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
               </h3>
               <p className="text-[11px] text-stone-400">
                 {language === "es"
-                  ? "Dicta lo que compraste realmente y la IA actualizará tu despensa"
+                  ? "Dicta lo comprado y confirma los datos antes de modificar tu despensa"
                   : language === "bg"
-                  ? "Кажете какво точно купихте и килерът ще се обнови"
-                  : "Dictate what you actually bought to reconcile pantry & list"}
+                  ? "Кажете какво купихте и потвърдете данните преди промяна на килера"
+                  : "Dictate what you bought and confirm the data before changing pantry"}
               </p>
             </div>
           </div>
@@ -347,11 +368,9 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
           </button>
         </div>
 
-        {/* Modal Body */}
         <div className="p-5 overflow-y-auto space-y-4 flex-1">
           {step === "input" ? (
             <>
-              {/* Mic Action Box */}
               <div className="bg-gradient-to-b from-white/[0.03] to-white/[0.01] border border-white/[0.06] rounded-2xl p-6 text-center space-y-4 relative overflow-hidden">
                 <div className="relative inline-block">
                   {isListening && (
@@ -390,14 +409,13 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
                   </p>
                   <p className="text-xs text-stone-400 mt-1">
                     {language === "es"
-                      ? "Ej: 'Compré el pollo y los tomates, pero no había queso feta, y traje plátanos extra'"
+                      ? "Para compras extra, di también cantidad y unidad; después tendrás que confirmarlas."
                       : language === "bg"
-                      ? "Напр: 'Купих пилешкото и доматите, но сирене нямаше'"
-                      : "Ex: 'Bought chicken and tomatoes, but no cheese, and got extra bananas'"}
+                      ? "За допълнителни покупки кажете и количество и мерна единица; после ги потвърдете."
+                      : "For extra purchases, state quantity and unit too; you will confirm them next."}
                   </p>
                 </div>
 
-                {/* Live Transcript / Manual input */}
                 <div className="text-left space-y-1.5 pt-2">
                   <label className="text-[11px] font-bold text-stone-400 uppercase tracking-wider block">
                     {language === "es"
@@ -422,7 +440,6 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
                 </div>
               </div>
 
-              {/* Quick sample chips */}
               <div className="space-y-2">
                 <span className="text-[11px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-1.5">
                   <Sparkles className="w-3.5 h-3.5 text-amber-400" />
@@ -448,19 +465,17 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
               </div>
             </>
           ) : (
-            /* Review & Confirmation Step */
             reconciliationResult && (
               <div className="space-y-4 animate-in fade-in duration-200">
-                {/* AI Spoken Feedback */}
                 <div className="bg-emerald-500/10 border border-emerald-500/20 rounded-2xl p-4 flex items-start gap-3">
                   <Sparkles className="w-5 h-5 text-emerald-400 shrink-0 mt-0.5" />
                   <div className="space-y-1">
                     <p className="text-xs font-bold text-emerald-400 uppercase tracking-wider">
                       {language === "es"
-                        ? "Análisis Inteligente de Compra"
+                        ? "Análisis de Compra — Revisa antes de guardar"
                         : language === "bg"
-                        ? "AI Анализ на покупката"
-                        : "AI Purchase Reconciliation"}
+                        ? "AI анализ — прегледайте преди запис"
+                        : "Purchase Analysis — Review before saving"}
                     </p>
                     <p className="text-xs text-stone-300 leading-relaxed font-medium">
                       {reconciliationResult.spokenFeedback}
@@ -468,7 +483,6 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
                   </div>
                 </div>
 
-                {/* Section 1: Purchased Items from List */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-stone-300 uppercase tracking-wider flex items-center gap-1.5">
@@ -482,7 +496,7 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
                       </span>
                     </span>
                     <span className="text-[11px] text-stone-500">
-                      {language === "es" ? "Pasan a tu despensa" : "Moves to pantry"}
+                      {language === "es" ? "Cantidad/unidad de tu lista" : "Uses list quantity/unit"}
                     </span>
                   </div>
 
@@ -531,48 +545,99 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
                   </div>
                 </div>
 
-                {/* Section 2: Extra Spoken Items (Impulse / Not in list) */}
-                {selectedExtraItems.length > 0 && (
+                {(reconciliationResult.extraPurchasedItems || []).length > 0 && (
                   <div className="space-y-2 pt-1 border-t border-white/[0.06]">
-                    <div className="flex items-center justify-between">
+                    <div className="flex items-center justify-between gap-3">
                       <span className="text-xs font-bold text-amber-400 uppercase tracking-wider flex items-center gap-1.5">
                         <Plus className="w-4 h-4 text-amber-400" />
                         <span>
                           {language === "es"
-                            ? `Nuevas compras extra (${selectedExtraItems.length})`
+                            ? `Extras detectados (${selectedExtraItems.length}/${reconciliationResult.extraPurchasedItems.length} confirmados)`
                             : language === "bg"
-                            ? `Допълнителни покупки (${selectedExtraItems.length})`
-                            : `Extra items purchased (${selectedExtraItems.length})`}
+                            ? `Открити допълнителни (${selectedExtraItems.length}/${reconciliationResult.extraPurchasedItems.length})`
+                            : `Detected extras (${selectedExtraItems.length}/${reconciliationResult.extraPurchasedItems.length} confirmed)`}
                         </span>
                       </span>
-                      <span className="text-[11px] text-amber-500/80">
-                        {language === "es" ? "Añadir a despensa" : "Add to pantry"}
+                      <span className="text-[10px] text-amber-300/80 text-right">
+                        {language === "es"
+                          ? "No se añaden hasta que los selecciones"
+                          : "Not added until you select them"}
                       </span>
                     </div>
 
-                    <div className="space-y-1.5 max-h-36 overflow-y-auto pr-1">
-                      {selectedExtraItems.map((ext, idx) => (
-                        <div
-                          key={idx}
-                          className="p-2.5 rounded-xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-between text-xs"
-                        >
-                          <div className="flex items-center gap-2">
-                            <Package className="w-4 h-4 text-amber-400" />
-                            <span className="font-semibold text-stone-200">
-                              {ext.name} ({ext.quantity} {ext.unit})
+                    <div className="space-y-1.5 max-h-40 overflow-y-auto pr-1">
+                      {reconciliationResult.extraPurchasedItems.map((ext, idx) => {
+                        const selectable = isSelectableExtra(ext);
+                        const selected = selectedExtraItems.includes(ext);
+                        return (
+                          <button
+                            type="button"
+                            key={idx}
+                            disabled={!selectable}
+                            onClick={() => toggleExtraSelection(ext)}
+                            className={`w-full p-2.5 rounded-xl border flex items-center justify-between text-xs text-left transition-all ${
+                              !selectable
+                                ? "bg-red-500/5 border-red-500/20 opacity-70 cursor-not-allowed"
+                                : selected
+                                ? "bg-amber-500/15 border-amber-400/40 cursor-pointer"
+                                : "bg-white/[0.02] border-white/[0.08] hover:border-amber-500/30 cursor-pointer"
+                            }`}
+                          >
+                            <div className="flex items-center gap-2.5 min-w-0">
+                              <div
+                                className={`w-5 h-5 rounded-md flex items-center justify-center shrink-0 ${
+                                  selected
+                                    ? "bg-amber-400 text-stone-950"
+                                    : selectable
+                                    ? "border border-stone-600"
+                                    : "border border-red-500/40 text-red-400"
+                                }`}
+                              >
+                                {selected ? (
+                                  <Check className="w-3.5 h-3.5 stroke-[3]" />
+                                ) : !selectable ? (
+                                  <AlertCircle className="w-3.5 h-3.5" />
+                                ) : null}
+                              </div>
+                              <Package className="w-4 h-4 text-amber-400 shrink-0" />
+                              <div className="min-w-0">
+                                <span className="font-semibold text-stone-200 block truncate">
+                                  {displayExtraName(ext)}
+                                  {selectable
+                                    ? ` (${String(ext.quantity)} ${String(ext.unit)})`
+                                    : ""}
+                                </span>
+                                <span className={`text-[10px] ${selectable ? "text-stone-500" : "text-red-300"}`}>
+                                  {selectable
+                                    ? language === "es"
+                                      ? "Cantidad/unidad detectadas en tu texto; toca para confirmar"
+                                      : "Quantity/unit found in your text; tap to confirm"
+                                    : language === "es"
+                                    ? "Falta una cantidad o unidad explícita: no se guardará"
+                                    : "Explicit quantity or unit missing: it will not be saved"}
+                                </span>
+                              </div>
+                            </div>
+                            <span className={`text-[10px] font-bold shrink-0 ml-2 ${selected ? "text-amber-300" : "text-stone-500"}`}>
+                              {selected
+                                ? language === "es"
+                                  ? "CONFIRMADO"
+                                  : "CONFIRMED"
+                                : selectable
+                                ? language === "es"
+                                  ? "REVISAR"
+                                  : "REVIEW"
+                                : language === "es"
+                                ? "BLOQUEADO"
+                                : "BLOCKED"}
                             </span>
-                          </div>
-                          <span className="text-[11px] font-bold text-amber-400">
-                            +{currency === "EUR" ? "€" : "$"}
-                            {(ext.estimatedCostEUR || 1.5).toFixed(2)}
-                          </span>
-                        </div>
-                      ))}
+                          </button>
+                        );
+                      })}
                     </div>
                   </div>
                 )}
 
-                {/* Section 3: Pending in List */}
                 {shoppingList.filter((i) => !selectedPurchasedIds.includes(i.id)).length > 0 && (
                   <div className="p-3 bg-stone-900/60 border border-white/[0.06] rounded-xl flex items-center gap-2 text-xs text-stone-400">
                     <Clock className="w-4 h-4 text-stone-500 shrink-0" />
@@ -588,7 +653,6 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
           )}
         </div>
 
-        {/* Modal Footer Actions */}
         <div className="p-4 border-t border-white/[0.06] bg-[#161F26] flex items-center justify-between gap-3 shrink-0">
           {step === "input" ? (
             <>
@@ -635,7 +699,11 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
             <>
               <button
                 type="button"
-                onClick={() => setStep("input")}
+                onClick={() => {
+                  setStep("input");
+                  setSelectedExtraItems([]);
+                  reconciliationIdRef.current = "";
+                }}
                 className="px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-stone-400 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-colors cursor-pointer"
               >
                 <Mic className="w-3.5 h-3.5" />
@@ -644,12 +712,21 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
 
               <button
                 type="button"
+                disabled={isSaving}
                 onClick={handleConfirmAndSave}
-                className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs font-extrabold flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer"
+                className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs font-extrabold flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer disabled:opacity-50"
               >
-                <CheckCircle2 className="w-4 h-4" />
+                {isSaving ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CheckCircle2 className="w-4 h-4" />
+                )}
                 <span>
-                  {language === "es"
+                  {isSaving
+                    ? language === "es"
+                      ? "Guardando..."
+                      : "Saving..."
+                    : language === "es"
                     ? "Confirmar y Pasar a Despensa"
                     : language === "bg"
                     ? "Потвърди и прехвърли в килера"

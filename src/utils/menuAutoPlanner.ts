@@ -1,45 +1,106 @@
 import { PantryItem, Recipe, MealPlanDay, UserProfile } from "../types";
 import { SAMPLE_RECIPES, INITIAL_RECIPES } from "../data/initialData";
+import { assessTotalAvailability, areUnitsCompatible } from "./quantityUnits";
+
+const normalizeIngredientName = (value: string): string =>
+  (value || "").trim().toLowerCase();
+
+const singularStem = (value: string): string => value.replace(/s$/, "");
 
 /**
- * Checks if a recipe ingredient is satisfied by items in the pantry.
+ * Keeps the current fuzzy name matching behavior in one place so quantity
+ * checks, recipe scoring and later shopping calculations can share it.
  */
-export function isIngredientInPantry(ingredientName: string, pantry: PantryItem[]): boolean {
-  if (!pantry || pantry.length === 0) return false;
-  const target = ingredientName.trim().toLowerCase();
-  const cleanTarget = target.replace(/s$/, ""); // basic singular stem
+export function isPantryNameMatch(ingredientName: string, pantryItem: PantryItem): boolean {
+  const target = normalizeIngredientName(ingredientName);
+  if (!target) return false;
 
-  return pantry.some((p) => {
-    if (p.quantity <= 0) return false;
-    const pName = (p.name || "").trim().toLowerCase();
-    const pNameBg = (p.nameBg || "").trim().toLowerCase();
-    const pNameEs = (p.nameEs || "").trim().toLowerCase();
-    const cleanPName = pName.replace(/s$/, "");
-    const cleanPNameEs = pNameEs.replace(/s$/, "");
+  const cleanTarget = singularStem(target);
+  const pName = normalizeIngredientName(pantryItem.name);
+  const pNameBg = normalizeIngredientName(pantryItem.nameBg || "");
+  const pNameEs = normalizeIngredientName(pantryItem.nameEs || "");
+  const cleanPName = singularStem(pName);
+  const cleanPNameEs = singularStem(pNameEs);
 
-    // Exact or substring match or stem match
-    if (
-      pName.includes(target) ||
-      target.includes(pName) ||
-      cleanPName.includes(cleanTarget) ||
-      cleanTarget.includes(cleanPName) ||
-      (pNameBg && (pNameBg.includes(target) || target.includes(pNameBg))) ||
-      (pNameEs && (pNameEs.includes(target) || target.includes(pNameEs) || cleanPNameEs.includes(cleanTarget) || cleanTarget.includes(cleanPNameEs)))
-    ) {
-      return true;
-    }
+  if (
+    pName.includes(target) ||
+    target.includes(pName) ||
+    cleanPName.includes(cleanTarget) ||
+    cleanTarget.includes(cleanPName) ||
+    (pNameBg && (pNameBg.includes(target) || target.includes(pNameBg))) ||
+    (pNameEs &&
+      (pNameEs.includes(target) ||
+        target.includes(pNameEs) ||
+        cleanPNameEs.includes(cleanTarget) ||
+        cleanTarget.includes(cleanPNameEs)))
+  ) {
+    return true;
+  }
 
-    // Word-level match for common terms
-    const targetWords = target.split(/\s+/).map(w => w.replace(/s$/, "")).filter((w) => w.length > 2);
-    const pWords = pName.split(/\s+/).map(w => w.replace(/s$/, "")).filter((w) => w.length > 2);
+  const targetWords = target
+    .split(/\s+/)
+    .map(singularStem)
+    .filter((word) => word.length > 2);
+  const pantryWords = pName
+    .split(/\s+/)
+    .map(singularStem)
+    .filter((word) => word.length > 2);
 
-    return targetWords.some((tw) => pWords.some((pw) => tw.includes(pw) || pw.includes(tw)));
-  });
+  return targetWords.some((targetWord) =>
+    pantryWords.some(
+      (pantryWord) =>
+        targetWord.includes(pantryWord) || pantryWord.includes(targetWord)
+    )
+  );
+}
+
+export function findMatchingPantryItems(
+  ingredientName: string,
+  pantry: PantryItem[]
+): PantryItem[] {
+  if (!pantry || pantry.length === 0) return [];
+  return pantry.filter(
+    (item) => item.quantity > 0 && isPantryNameMatch(ingredientName, item)
+  );
+}
+
+/**
+ * Legacy presence-only helper retained for callers that do not yet provide a
+ * required amount/unit. It answers only whether a positive-quantity name match
+ * exists and must not be used to claim quantitative recipe coverage.
+ */
+export function isIngredientInPantry(
+  ingredientName: string,
+  pantry: PantryItem[]
+): boolean {
+  return findMatchingPantryItems(ingredientName, pantry).length > 0;
+}
+
+/**
+ * Returns true only when matching pantry stock can deterministically cover the
+ * required amount in a compatible unit. Unknown container sizes are not guessed.
+ */
+export function isIngredientQuantityAvailable(
+  ingredientName: string,
+  requiredAmount: number,
+  requiredUnit: string,
+  pantry: PantryItem[]
+): boolean {
+  const matchingItems = findMatchingPantryItems(ingredientName, pantry);
+  if (matchingItems.length === 0) return false;
+
+  const availability = assessTotalAvailability(
+    matchingItems.map((item) => ({ quantity: item.quantity, unit: item.unit })),
+    requiredAmount,
+    requiredUnit
+  );
+
+  return availability.status === "enough";
 }
 
 /**
  * Returns an updated list of recipes where each ingredient's `inPantry` flag
- * accurately reflects current pantry inventory.
+ * means the pantry has enough compatible quantity, not just a name match.
  */
 export function syncRecipesWithPantry(recipes: Recipe[], pantry: PantryItem[]): Recipe[] {
   const pool = recipes.length > 0 ? recipes : [...INITIAL_RECIPES, ...SAMPLE_RECIPES];
@@ -47,7 +108,12 @@ export function syncRecipesWithPantry(recipes: Recipe[], pantry: PantryItem[]): 
   return pool.map((recipe) => {
     const updatedIngredients = recipe.ingredients.map((ing) => ({
       ...ing,
-      inPantry: isIngredientInPantry(ing.name, pantry),
+      inPantry: isIngredientQuantityAvailable(
+        ing.name,
+        ing.amount,
+        ing.unit,
+        pantry
+      ),
     }));
 
     return {
@@ -60,8 +126,9 @@ export function syncRecipesWithPantry(recipes: Recipe[], pantry: PantryItem[]): 
 /**
  * Calculates a match score for a recipe given the pantry inventory.
  * Factors:
- * 1. % of ingredients currently in pantry (0 - 100)
- * 2. Perishable bonus: gives extra points if the recipe uses pantry items expiring soon (expiryDaysLeft <= 5)
+ * 1. % of ingredients with sufficient compatible quantity (0 - 100)
+ * 2. Perishable bonus: gives extra points if a quantitatively covered
+ *    ingredient uses compatible pantry stock expiring soon (expiryDaysLeft <= 5)
  */
 export function calculateRecipePantryScore(recipe: Recipe, pantry: PantryItem[]): {
   matchPercentage: number;
@@ -76,19 +143,26 @@ export function calculateRecipePantryScore(recipe: Recipe, pantry: PantryItem[])
   let perishableBonus = 0;
 
   recipe.ingredients.forEach((ing) => {
-    const inPantry = isIngredientInPantry(ing.name, pantry);
+    const matchingItems = findMatchingPantryItems(ing.name, pantry);
+    const inPantry = isIngredientQuantityAvailable(
+      ing.name,
+      ing.amount,
+      ing.unit,
+      pantry
+    );
+
     if (inPantry) {
       inCount++;
 
-      // Check if this matched item is close to expiring (anti-waste bonus)
-      const target = ing.name.toLowerCase();
-      const matchedPantryItem = pantry.find((p) => {
-        const pName = (p.name || "").toLowerCase();
-        return pName.includes(target) || target.includes(pName);
-      });
+      const expiringCompatibleItem = matchingItems.find(
+        (item) =>
+          areUnitsCompatible(item.unit, ing.unit) &&
+          item.expiryDaysLeft !== undefined &&
+          item.expiryDaysLeft <= 5
+      );
 
-      if (matchedPantryItem && matchedPantryItem.expiryDaysLeft !== undefined && matchedPantryItem.expiryDaysLeft <= 5) {
-        perishableBonus += 25; // High priority to prevent food waste
+      if (expiringCompatibleItem) {
+        perishableBonus += 25;
       }
     }
   });
@@ -122,33 +196,54 @@ export function adaptMealPlanToPantry(
 } {
   const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
 
-  // Score each recipe
-  const scoredRecipes = syncedRecipes.map((r) => {
-    const scoreData = calculateRecipePantryScore(r, pantry);
+  const scoredRecipes = syncedRecipes.map((recipe) => {
+    const scoreData = calculateRecipePantryScore(recipe, pantry);
     return {
-      recipe: r,
+      recipe,
       ...scoreData,
     };
   });
 
-  // Sort descending by total score
   scoredRecipes.sort((a, b) => b.totalScore - a.totalScore);
 
   let breakfastPool = scoredRecipes.filter(
-    (sr) =>
-      sr.recipe.tags.some((t) => ["breakfast", "desayuno", "quick", "fácil", "smoothie", "rápido"].includes(t.toLowerCase())) &&
-      !sr.recipe.tags.some((t) => ["guiso", "lentejas", "garbanzos", "plato principal", "fitness", "pollo", "mediterráneo"].includes(t.toLowerCase()))
+    (entry) =>
+      entry.recipe.tags.some((tag) =>
+        ["breakfast", "desayuno", "quick", "fácil", "smoothie", "rápido"].includes(
+          tag.toLowerCase()
+        )
+      ) &&
+      !entry.recipe.tags.some((tag) =>
+        [
+          "guiso",
+          "lentejas",
+          "garbanzos",
+          "plato principal",
+          "fitness",
+          "pollo",
+          "mediterráneo",
+        ].includes(tag.toLowerCase())
+      )
   );
+
   if (breakfastPool.length === 0) {
-    breakfastPool = scoredRecipes.filter((sr) => sr.recipe.calories < 400 && !sr.recipe.tags.some((t) => ["guiso", "lentejas", "garbanzos"].includes(t.toLowerCase())));
+    breakfastPool = scoredRecipes.filter(
+      (entry) =>
+        entry.recipe.calories < 400 &&
+        !entry.recipe.tags.some((tag) =>
+          ["guiso", "lentejas", "garbanzos"].includes(tag.toLowerCase())
+        )
+    );
   }
   if (breakfastPool.length === 0) {
     breakfastPool = scoredRecipes;
   }
 
   const mainPool = scoredRecipes.filter(
-    (sr) =>
-      !sr.recipe.tags.some((t) => ["breakfast", "desayuno"].includes(t.toLowerCase()))
+    (entry) =>
+      !entry.recipe.tags.some((tag) =>
+        ["breakfast", "desayuno"].includes(tag.toLowerCase())
+      )
   );
 
   const fallbackPool = scoredRecipes;
@@ -163,30 +258,36 @@ export function adaptMealPlanToPantry(
     dateObj.setDate(today.getDate() + dayOffset);
     const dateStr = dateObj.toISOString().split("T")[0];
 
-    // Select breakfast
-    const bIndex = dayOffset % (breakfastPool.length || 1);
-    const bEntry = breakfastPool[bIndex] || fallbackPool[dayOffset % fallbackPool.length];
+    const breakfastIndex = dayOffset % (breakfastPool.length || 1);
+    const breakfastEntry =
+      breakfastPool[breakfastIndex] ||
+      fallbackPool[dayOffset % fallbackPool.length];
 
-    // Select lunch (offset to avoid same as dinner)
-    const lPool = mainPool.length > 0 ? mainPool : fallbackPool;
-    const lIndex = (dayOffset * 2) % lPool.length;
-    const lEntry = lPool[lIndex] || fallbackPool[(dayOffset + 1) % fallbackPool.length];
+    const lunchDinnerPool = mainPool.length > 0 ? mainPool : fallbackPool;
+    const lunchIndex = (dayOffset * 2) % lunchDinnerPool.length;
+    const lunchEntry =
+      lunchDinnerPool[lunchIndex] ||
+      fallbackPool[(dayOffset + 1) % fallbackPool.length];
 
-    // Select dinner
-    const dIndex = (dayOffset * 2 + 1) % lPool.length;
-    const dEntry = lPool[dIndex] || fallbackPool[(dayOffset + 2) % fallbackPool.length];
+    const dinnerIndex = (dayOffset * 2 + 1) % lunchDinnerPool.length;
+    const dinnerEntry =
+      lunchDinnerPool[dinnerIndex] ||
+      fallbackPool[(dayOffset + 2) % fallbackPool.length];
 
-    if (bEntry?.matchPercentage === 100) readyToCookMealsCount++;
-    if (lEntry?.matchPercentage === 100) readyToCookMealsCount++;
-    if (dEntry?.matchPercentage === 100) readyToCookMealsCount++;
+    if (breakfastEntry?.matchPercentage === 100) readyToCookMealsCount++;
+    if (lunchEntry?.matchPercentage === 100) readyToCookMealsCount++;
+    if (dinnerEntry?.matchPercentage === 100) readyToCookMealsCount++;
 
-    perishableSavedCount += (bEntry?.perishableUsedCount || 0) + (lEntry?.perishableUsedCount || 0) + (dEntry?.perishableUsedCount || 0);
+    perishableSavedCount +=
+      (breakfastEntry?.perishableUsedCount || 0) +
+      (lunchEntry?.perishableUsedCount || 0) +
+      (dinnerEntry?.perishableUsedCount || 0);
 
     newPlan.push({
       date: dateStr,
-      breakfast: bEntry?.recipe,
-      lunch: lEntry?.recipe,
-      dinner: dEntry?.recipe,
+      breakfast: breakfastEntry?.recipe,
+      lunch: lunchEntry?.recipe,
+      dinner: dinnerEntry?.recipe,
     });
   }
 

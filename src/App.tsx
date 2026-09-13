@@ -40,14 +40,24 @@ import {
 import { getRecipeImageUrl } from "./utils/recipeImages";
 import { adaptMealPlanToPantry, syncRecipesWithPantry } from "./utils/menuAutoPlanner";
 import { evaluateShoppingNeeds } from "./utils/shoppingAdvisor";
+import {
+  deductRecipeIngredientsFromPantry,
+  deductVoiceItemsFromPantry,
+} from "./utils/pantryConsumption";
+import { buildRecipeShoppingNeeds } from "./utils/recipeShoppingNeeds";
+import {
+  transferCheckedShoppingItems,
+  reconcileConfirmedShoppingPurchases,
+  type RawReconciliationExtraItem,
+} from "./utils/purchasePantryMerge";
 
 export default function App() {
-  // Local persistence states
   const [pantry, setPantry] = useState<PantryItem[]>(() => {
     try {
       const saved = localStorage.getItem("balkanbite_pantry");
-      const parsed = saved ? JSON.parse(saved) : null;
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_PANTRY;
+      if (saved === null) return INITIAL_PANTRY;
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : INITIAL_PANTRY;
     } catch {
       return INITIAL_PANTRY;
     }
@@ -114,7 +124,11 @@ export default function App() {
     }
   });
 
-  const { currentUser, loading: firebaseLoading } = useFirebaseSync(
+  const {
+    currentUser,
+    loading: firebaseLoading,
+    inventoryHydrated,
+  } = useFirebaseSync(
     profile,
     setProfile,
     pantry,
@@ -127,6 +141,7 @@ export default function App() {
     setShoppingList
   );
 
+  const [pantryScope, setPantryScope] = useState<string>("guest");
   const [activeTab, setActiveTab] = useState<TabType>("pantry");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
@@ -160,7 +175,6 @@ export default function App() {
   const [showLanding, setShowLanding] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem("balkanbite_show_landing");
-      // By default show landing if it's the first time
       return saved === null ? true : saved === "true";
     } catch {
       return true;
@@ -192,15 +206,51 @@ export default function App() {
     }
   }, [theme]);
 
-  // Persist to localStorage
   useEffect(() => {
     if (isResetting) return;
+
+    if (currentUser) {
+      if (inventoryHydrated && pantryScope !== currentUser.uid) {
+        setPantryScope(currentUser.uid);
+      }
+      return;
+    }
+
+    if (firebaseLoading || pantryScope === "guest") return;
+
     try {
+      const savedGuestPantry = localStorage.getItem("balkanbite_pantry");
+      if (savedGuestPantry === null) {
+        setPantry(INITIAL_PANTRY);
+      } else {
+        const parsed = JSON.parse(savedGuestPantry);
+        setPantry(Array.isArray(parsed) ? parsed : INITIAL_PANTRY);
+      }
+    } catch {
+      setPantry(INITIAL_PANTRY);
+    }
+    setPantryScope("guest");
+  }, [currentUser, firebaseLoading, inventoryHydrated, pantryScope, isResetting]);
+
+  useEffect(() => {
+    if (isResetting) return;
+
+    try {
+      if (currentUser) {
+        if (!inventoryHydrated || pantryScope !== currentUser.uid) return;
+        localStorage.setItem(
+          `balkanbite_pantry_user_${currentUser.uid}`,
+          JSON.stringify(pantry)
+        );
+        return;
+      }
+
+      if (pantryScope !== "guest") return;
       localStorage.setItem("balkanbite_pantry", JSON.stringify(pantry));
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [pantry, isResetting]);
+  }, [pantry, currentUser, inventoryHydrated, pantryScope, isResetting]);
 
   useEffect(() => {
     if (isResetting) return;
@@ -256,7 +306,6 @@ export default function App() {
     }
   }, [chatMessages, isResetting]);
 
-  // Central Helper to synchronize Pantry, Recipes, and Auto-Adapt Meal Plan
   const updatePantryAndReconcileMenu = (
     newPantryItemsToAdd: PantryItem[],
     showToast = true
@@ -284,12 +333,10 @@ export default function App() {
     });
   };
 
-  // Proactive Smart Shopping Advisor Diagnostics
   const shoppingDiagnostic = useMemo(() => {
     return evaluateShoppingNeeds(pantry, mealPlan, shoppingList, profile.language);
   }, [pantry, mealPlan, shoppingList, profile.language]);
 
-  // Request native browser notifications
   const handleRequestBrowserNotifications = async () => {
     if (typeof window !== "undefined" && "Notification" in window) {
       try {
@@ -320,7 +367,6 @@ export default function App() {
     }
   };
 
-  // Trigger web notification when urgency is high
   useEffect(() => {
     if (
       hasNotificationPermission &&
@@ -332,7 +378,6 @@ export default function App() {
       const lastNotifyKey = "balkanbite_last_shopping_notif";
       const lastTime = localStorage.getItem(lastNotifyKey);
       const now = Date.now();
-      // Notify at most once every 4 hours
       if (!lastTime || now - Number(lastTime) > 4 * 60 * 60 * 1000) {
         try {
           new Notification(
@@ -358,7 +403,6 @@ export default function App() {
     }
   }, [shoppingDiagnostic, hasNotificationPermission, profile.language]);
 
-  // Handler to add multiple items to shopping list
   const handleAddMultipleShoppingItems = (
     items: Array<Omit<ShoppingItem, "id" | "checked">>
   ) => {
@@ -370,7 +414,6 @@ export default function App() {
     setShoppingList((prev) => [...newItems, ...prev]);
   };
 
-  // Manual Trigger to re-adapt the 7-day menu to current pantry contents
   const handleAdaptMenuToPantry = () => {
     const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
     setRecipes(syncedRecipes);
@@ -387,7 +430,6 @@ export default function App() {
     });
   };
 
-  // Pantry Handlers
   const handleAddPantryItem = (item: Omit<PantryItem, "id" | "addedAt">) => {
     const newItem: PantryItem = {
       ...item,
@@ -457,7 +499,6 @@ export default function App() {
       if (Array.isArray(data.mealPlan) && data.mealPlan.length > 0) {
         setMealPlan(data.mealPlan);
       } else {
-        // Fallback smart plan
         const today = new Date();
         const newPlan: MealPlanDay[] = [];
         const pool = recipes.length > 0 ? recipes : [...INITIAL_RECIPES, ...SAMPLE_RECIPES];
@@ -484,7 +525,6 @@ export default function App() {
       }
     } catch (err) {
       console.error("Failed to generate AI weekly menu, applying local fallback:", err);
-      // Local fallback plan to prevent blank/black screen
       const today = new Date();
       const newPlan: MealPlanDay[] = [];
       const pool = recipes.length > 0 ? recipes : [...INITIAL_RECIPES, ...SAMPLE_RECIPES];
@@ -515,10 +555,7 @@ export default function App() {
 
   const handleResetApp = () => {
     setIsResetting(true);
-    
-    // Use a small timeout to ensure the state update is processed and effects are blocked
     setTimeout(() => {
-      // Clear all potential storage keys
       const keys = [
         "balkanbite_pantry",
         "balkanbite_recipes",
@@ -529,84 +566,90 @@ export default function App() {
         "balkanbite_chat_messages"
       ];
       keys.forEach(k => localStorage.removeItem(k));
-      
       localStorage.clear();
-      
       window.location.href = window.location.origin + window.location.pathname;
     }, 100);
   };
 
-  // Recipe Cooking & Inventory Deduction Handler
   const handleCookRecipe = (recipe: Recipe) => {
     setPantry((currentPantry) => {
-      let updatedPantry = [...currentPantry];
+      const result = deductRecipeIngredientsFromPantry(
+        currentPantry,
+        recipe.ingredients || []
+      );
 
-      (recipe.ingredients || []).forEach((recIng) => {
-        const lowerRecName = recIng.name.toLowerCase();
+      if (result.issues.length > 0) {
+        console.warn(
+          "Pantry consumption skipped for unresolved ingredients",
+          result.issues
+        );
+      }
 
-        // Match against existing pantry items
-        const matchIndex = updatedPantry.findIndex((pItem) => {
-          const lowerPName = pItem.name.toLowerCase();
-          const lowerPNameBg = (pItem.nameBg || "").toLowerCase();
-          return (
-            lowerRecName.includes(lowerPName) ||
-            lowerPName.includes(lowerRecName) ||
-            lowerRecName.includes(lowerPNameBg) ||
-            lowerPNameBg.includes(lowerRecName)
-          );
-        });
-
-        if (matchIndex !== -1) {
-          const existing = updatedPantry[matchIndex];
-          const newQty = Math.max(0, existing.quantity - recIng.amount);
-          if (newQty === 0) {
-            // Keep a minimum or remove
-            updatedPantry.splice(matchIndex, 1);
-          } else {
-            updatedPantry[matchIndex] = {
-              ...existing,
-              quantity: Math.round(newQty * 10) / 10,
-            };
-          }
-        }
-      });
-
-      return updatedPantry;
+      return result.pantry;
     });
   };
 
-  // Add missing ingredients to smart shopping list
   const handleAddMissingToShopping = (recipe: Recipe) => {
-    const missing = recipe.ingredients.filter((i) => !i.inPantry);
-    if (missing.length === 0) return;
+    const { items, unverified } = buildRecipeShoppingNeeds(
+      recipe,
+      pantry,
+      shoppingList
+    );
 
-    const newShoppingItems: ShoppingItem[] = missing.map((m, idx) => ({
+    const recipeTitle =
+      profile.language === "bg"
+        ? recipe.title.bg || recipe.title.en
+        : profile.language === "es"
+        ? recipe.title.es || recipe.title.en
+        : recipe.title.en;
+
+    const newShoppingItems: ShoppingItem[] = items.map((item, idx) => ({
+      ...item,
       id: `shop-${Date.now()}-${idx}`,
-      name: m.name,
-      quantity: m.amount || 1,
-      unit: m.unit || "pcs",
-      category: "Produce",
-      estimatedPriceEUR: 2.2,
       checked: false,
       reason:
         profile.language === "bg"
-          ? `Необходимо за ${recipe.title.bg}`
+          ? `Необходимо за ${recipeTitle}`
           : profile.language === "es"
-          ? `Necesario para ${recipe.title.es || recipe.title.en}`
-          : `Needed for ${recipe.title.en}`,
+          ? `Necesario para ${recipeTitle}`
+          : `Needed for ${recipeTitle}`,
     }));
 
-    setShoppingList((prev) => [...prev, ...newShoppingItems]);
+    if (newShoppingItems.length > 0) {
+      setShoppingList((prev) => [...prev, ...newShoppingItems]);
+    }
+
+    if (unverified.length > 0) {
+      alert(
+        profile.language === "bg"
+          ? `Не добавих автоматично ${unverified.length} съставка(и), защото наличните мерни единици не могат да се сравнят надеждно.`
+          : profile.language === "es"
+          ? `No he añadido automáticamente ${unverified.length} ingrediente(s) porque las unidades disponibles no se pueden comparar de forma segura.`
+          : `I did not automatically add ${unverified.length} ingredient(s) because the available units cannot be safely compared.`
+      );
+      return;
+    }
+
+    if (newShoppingItems.length === 0) {
+      alert(
+        profile.language === "bg"
+          ? "Вече имате достатъчно количество в килера или в списъка за пазаруване."
+          : profile.language === "es"
+          ? "Ya tienes cantidad suficiente en la despensa o pendiente en la lista de compra."
+          : "You already have enough quantity in the pantry or pending on the shopping list."
+      );
+      return;
+    }
+
     alert(
       profile.language === "bg"
-        ? `Добавихте ${newShoppingItems.length} липсващи съставки към списъка за пазаруване!`
+        ? `Добавихте ${newShoppingItems.length} проверени липсващи съставки към списъка за пазаруване!`
         : profile.language === "es"
-        ? `¡Añadiste ${newShoppingItems.length} ingredientes necesarios a tu lista de compra!`
-        : `Added ${newShoppingItems.length} missing ingredients to your shopping list!`
+        ? `¡Añadiste ${newShoppingItems.length} faltante(s) cuantitativo(s) verificado(s) a tu lista de compra!`
+        : `Added ${newShoppingItems.length} verified quantitative shortfall(s) to your shopping list!`
     );
   };
 
-  // AI Recipe Generator Call
   const handleGenerateAiRecipes = async (queryText?: string) => {
     setIsLoadingAi(true);
     try {
@@ -637,7 +680,6 @@ export default function App() {
     }
   };
 
-  // Shopping List Handlers
   const handleToggleShoppingItem = (id: string) => {
     setShoppingList((prev) =>
       prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i))
@@ -657,52 +699,78 @@ export default function App() {
     setShoppingList((prev) => [...prev, newItem]);
   };
 
-  // Transfer Checked Shopping Items to Live Pantry
   const handleTransferToPantry = () => {
     const checkedItems = shoppingList.filter((i) => i.checked);
     if (checkedItems.length === 0) return;
 
-    const newPantryItems: PantryItem[] = checkedItems.map((c) => ({
-      id: `p-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      name: c.name,
-      quantity: c.quantity,
-      unit: c.unit,
-      category: (c.category as any) || "Produce",
-      expiryDaysLeft: 7,
-      estimatedCostEUR: c.estimatedPriceEUR,
-      addedAt: new Date().toISOString().split("T")[0],
-    }));
-
-    updatePantryAndReconcileMenu(newPantryItems, true);
-    // Remove checked from shopping list
-    setShoppingList((prev) => prev.filter((i) => !i.checked));
+    const result = transferCheckedShoppingItems(
+      pantry, shoppingList, new Date().toISOString().split("T")[0]
+    );
+    if (result.acceptedSourceIds.length > 0) {
+      setPantry(result.pantry);
+      const syncedRecipes = syncRecipesWithPantry(recipes, result.pantry);
+      setRecipes(syncedRecipes);
+      const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+        result.pantry, syncedRecipes, mealPlan, profile
+      );
+      setMealPlan(newPlan);
+      setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
+      setShoppingList(result.shoppingList);
+    }
+    if (result.rejected.length > 0) {
+      alert(profile.language === "es"
+        ? "Algunos artículos siguen en la lista: revisa su nombre, cantidad y unidad antes de transferirlos."
+        : profile.language === "bg"
+        ? "Някои продукти остават в списъка: проверете името, количеството и мерната единица."
+        : "Some items remain on the list: check their name, quantity and unit before transferring.");
+    }
   };
 
-  // Reconcile Voice Shopping Result (Purchased items -> pantry, unpurchased stay in list, extra items -> pantry)
   const handleReconcileShopping = ({
     purchasedItemIds,
     itemsToAddToPantry,
+    reconciliationId,
   }: {
     purchasedItemIds: string[];
-    itemsToAddToPantry: Array<Omit<PantryItem, "id" | "addedAt">>;
+    itemsToAddToPantry: RawReconciliationExtraItem[];
+    reconciliationId?: string;
   }) => {
-    if (itemsToAddToPantry.length > 0) {
-      const newPantryItems: PantryItem[] = itemsToAddToPantry.map((item, idx) => ({
-        id: `p-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
-        name: item.name,
-        nameBg: item.nameBg || item.name,
-        quantity: item.quantity || 1,
-        unit: item.unit || "pcs",
-        category: (item.category as any) || "Produce",
-        expiryDaysLeft: item.expiryDaysLeft || 7,
-        estimatedCostEUR: item.estimatedCostEUR || 1.5,
-        addedAt: new Date().toISOString().split("T")[0],
-      }));
-      updatePantryAndReconcileMenu(newPantryItems, true);
+    const result = reconcileConfirmedShoppingPurchases(
+      pantry,
+      shoppingList,
+      purchasedItemIds || [],
+      itemsToAddToPantry || [],
+      new Date().toISOString().split("T")[0],
+      reconciliationId || ""
+    );
+
+    if (result.acceptedSourceIds.length > 0) {
+      setPantry(result.pantry);
+      const syncedRecipes = syncRecipesWithPantry(recipes, result.pantry);
+      setRecipes(syncedRecipes);
+      const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+        result.pantry,
+        syncedRecipes,
+        mealPlan,
+        profile
+      );
+      setMealPlan(newPlan);
+      setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
+      setShoppingList(result.shoppingList);
     }
 
-    if (purchasedItemIds.length > 0) {
-      setShoppingList((prev) => prev.filter((i) => !purchasedItemIds.includes(i.id)));
+    if (
+      result.unresolvedPurchasedItemIds.length > 0 ||
+      result.rejectedExtraItems.length > 0 ||
+      result.rejected.length > 0
+    ) {
+      alert(
+        profile.language === "es"
+          ? "Algunos datos no se guardaron porque no tenían una cantidad/unidad verificable o ya no coincidían con tu lista. Revisa la compra antes de intentarlo de nuevo."
+          : profile.language === "bg"
+          ? "Някои данни не бяха запазени, защото количеството/мерната единица не могат да се потвърдят или вече не съвпадат със списъка."
+          : "Some data was not saved because quantity/unit could not be verified or the item no longer matched your shopping list."
+      );
     }
   };
 
@@ -721,7 +789,6 @@ export default function App() {
     setMealLogs((prev) => [...prev, newLog]);
   };
 
-  // AI Weekly Shopping Basket suggestion call
   const handleGenerateAiShopping = async () => {
     setIsLoadingAi(true);
     try {
@@ -756,7 +823,6 @@ export default function App() {
     }
   };
 
-  // Voice intent executions
   const handleVoiceAddItems = (items: any[]) => {
     const parsed: PantryItem[] = items.map((it, idx) => ({
       id: `p-${Date.now()}-${idx}`,
@@ -774,25 +840,17 @@ export default function App() {
   };
 
   const handleVoiceDeductItems = (items: any[]) => {
-    setPantry((current) => {
-      let updated = [...current];
-      (items || []).forEach((it) => {
-        const lower = (it.name || "").toLowerCase();
-        const idx = updated.findIndex(
-          (p) =>
-            p.name.toLowerCase().includes(lower) ||
-            (p.nameBg && p.nameBg.toLowerCase().includes(lower))
+    setPantry((currentPantry) => {
+      const result = deductVoiceItemsFromPantry(currentPantry, items || []);
+
+      if (result.issues.length > 0) {
+        console.warn(
+          "Voice pantry consumption skipped for unresolved items",
+          result.issues
         );
-        if (idx !== -1) {
-          const newQty = Math.max(0, updated[idx].quantity - (it.quantity || 1));
-          if (newQty <= 0) {
-            updated.splice(idx, 1);
-          } else {
-            updated[idx] = { ...updated[idx], quantity: newQty };
-          }
-        }
-      });
-      return updated;
+      }
+
+      return result.pantry;
     });
   };
 
@@ -839,9 +897,7 @@ export default function App() {
         theme === "dark" ? "bg-[#0B0F12] text-stone-100" : "bg-[#F8FAFC] text-slate-900"
       }`}
     >
-      {/* Outer Shell container - fully fluid & responsive across Mobile, Tablet and Desktop */}
       <div className="w-full max-w-6xl mx-auto min-h-screen relative pb-28 px-2.5 sm:px-6 lg:px-8">
-        {/* Top Header */}
         <Header
           language={profile.language}
           onLanguageChange={(lang: Language) => setProfile((p) => ({ ...p, language: lang }))}
@@ -861,9 +917,7 @@ export default function App() {
           }
         />
 
-        {/* Main Content Area */}
         <main className="px-4 py-3">
-          {/* Proactive Smart Shopping Alert Banner */}
           <SmartShoppingBanner
             diagnostic={shoppingDiagnostic}
             language={profile.language}
@@ -978,7 +1032,6 @@ export default function App() {
           )}
         </main>
 
-        {/* Floating Action Button for Chef IA */}
         {!showChefIaModal && activeTab !== "voice" && (
           <ChefIaFloatingButton
             onClick={() => setShowChefIaModal(true)}
@@ -987,7 +1040,6 @@ export default function App() {
           />
         )}
 
-        {/* Bottom Navigation */}
         <BottomNav
           activeTab={activeTab}
           onChangeTab={setActiveTab}
@@ -997,7 +1049,6 @@ export default function App() {
           theme={theme}
         />
 
-        {/* Chef IA Floating Modal Drawer */}
         <ChefIaModal
           isOpen={showChefIaModal}
           onClose={() => setShowChefIaModal(false)}
@@ -1014,7 +1065,6 @@ export default function App() {
           language={profile.language}
         />
 
-        {/* Modals */}
         {firebaseLoading && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-3">
@@ -1058,7 +1108,6 @@ export default function App() {
           onGuestAccess={() => setShowAuthModal(false)}
         />
 
-        {/* Auto Menu Updated Notification Toast */}
         <AutoMenuToast
           isVisible={autoMenuToast.isVisible}
           readyMealsCount={autoMenuToast.readyMealsCount}
@@ -1070,7 +1119,6 @@ export default function App() {
           }}
         />
 
-        {/* Smart Shopping Advisor & Notification Modal */}
         <SmartShoppingModal
           isOpen={showShoppingAdvisorModal}
           onClose={() => setShowShoppingAdvisorModal(false)}
