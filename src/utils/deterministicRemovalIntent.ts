@@ -139,6 +139,8 @@ export function parseDeterministicRemovalIntent(
 
   if (!Number.isFinite(quantity) || quantity <= 0 || !unit) return null;
 
+  // The fallback is allowed to mutate inventory only when the requested amount
+  // is already provably compatible with, and covered by, the matched pantry stock.
   const available = normalizeQuantity(pantryItem.quantity, pantryItem.unit);
   const requested = normalizeQuantity(quantity, unit);
   if (
