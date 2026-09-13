@@ -1,5 +1,5 @@
 import { PantryItem } from "../types";
-import { normalizeUnit } from "./quantityUnits";
+import { normalizeQuantity, normalizeUnit } from "./quantityUnits";
 
 export interface DeterministicRemovalItem {
   name: string;
@@ -138,6 +138,17 @@ export function parseDeterministicRemovalIntent(
   }
 
   if (!Number.isFinite(quantity) || quantity <= 0 || !unit) return null;
+
+  const available = normalizeQuantity(pantryItem.quantity, pantryItem.unit);
+  const requested = normalizeQuantity(quantity, unit);
+  if (
+    !available ||
+    !requested ||
+    available.unit.dimension !== requested.unit.dimension ||
+    available.baseQuantity + 1e-9 < requested.baseQuantity
+  ) {
+    return null;
+  }
 
   return {
     actionType: "REMOVE_ITEMS",
