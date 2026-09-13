@@ -85,7 +85,8 @@ export function useFirebaseSync(
     localState: any[],
     setLocalState: React.Dispatch<React.SetStateAction<any[]>>,
     shouldPersistItem: (item: any) => boolean = () => true,
-    acceptEmptySnapshot = false
+    acceptEmptySnapshot = false,
+    shouldAcceptRemoteItem: (item: any) => boolean = () => true
   ) => {
     useEffect(() => {
       if (!currentUser) return;
@@ -98,8 +99,10 @@ export function useFirebaseSync(
           setInventoryHydratedUser(currentUser.uid);
         }
 
-        // Remove userId before setting local state
-        const itemsWithoutUserId = items.map(({ userId, ...rest }) => rest);
+        // Remove ownership metadata and ignore any remote entries that are not real user data.
+        const itemsWithoutUserId = items
+          .map(({ userId, ...rest }) => rest)
+          .filter(shouldAcceptRemoteItem);
         const shouldApplySnapshot = itemsWithoutUserId.length > 0 || acceptEmptySnapshot;
         if (
           shouldApplySnapshot &&
@@ -134,12 +137,15 @@ export function useFirebaseSync(
     }, [localState, currentUser]);
   };
 
+  const isRealPantryItem = (item: PantryItem) => !DEMO_PANTRY_ITEM_IDS.has(item.id);
+
   syncCollection(
     "inventory",
     pantry,
     setPantry,
-    item => !DEMO_PANTRY_ITEM_IDS.has(item.id),
-    true
+    isRealPantryItem,
+    true,
+    isRealPantryItem
   );
   syncCollection("recipes", recipes, setRecipes);
   syncCollection("mealPlans", mealPlan, setMealPlan);
