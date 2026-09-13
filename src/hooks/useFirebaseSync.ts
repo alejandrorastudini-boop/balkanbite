@@ -164,12 +164,12 @@ export function useFirebaseSync(
       const save = async () => {
         const itemsToPersist = localState.filter(shouldPersistItem);
         const isInventory = collectionName === "inventory";
-        const currentInventoryIds = isInventory
-          ? new Set(itemsToPersist.map(item => String(item.id)))
+        const currentInventoryIds: Set<string> = isInventory
+          ? new Set<string>(itemsToPersist.map(item => String(item.id)))
           : new Set<string>();
-        const deletedInventoryIds = isInventory
+        const deletedInventoryIds: string[] = isInventory
           ? Array.from(hydratedInventoryActiveIds.current).filter(
-              id => !currentInventoryIds.has(id)
+              (id: string) => !currentInventoryIds.has(id)
             )
           : [];
 
@@ -208,7 +208,7 @@ export function useFirebaseSync(
           );
         });
 
-        deletedInventoryIds.forEach(itemId => {
+        deletedInventoryIds.forEach((itemId: string) => {
           const docRef = doc(
             db,
             collectionName,
