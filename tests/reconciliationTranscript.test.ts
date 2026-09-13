@@ -1,6 +1,9 @@
 import test from "node:test";
 import assert from "node:assert/strict";
-import { extractExplicitReconciliationAmount } from "../src/utils/reconciliationTranscript";
+import {
+  extractExplicitReconciliationAmount,
+  sanitizeReconciliationExtrasForReview,
+} from "../src/utils/reconciliationTranscript";
 
 test("extracts explicit count quantity and unit from Spanish transcript", () => {
   assert.deepEqual(
@@ -72,5 +75,39 @@ test("multiple extras require a nearby amount rather than arbitrary pairing", ()
       2
     ),
     { quantity: 500, unit: "g" }
+  );
+});
+
+test("sanitizer discards provider defaults, price and expiry and keeps transcript amount only", () => {
+  assert.deepEqual(
+    sanitizeReconciliationExtrasForReview(
+      [{
+        name: "Aguacates",
+        quantity: 1,
+        unit: "kg",
+        category: "Produce",
+        estimatedCostEUR: 9.99,
+        expiryDaysLeft: 7,
+      }],
+      "Compré 2 uds de aguacate"
+    ),
+    [{ name: "Aguacates", category: "Produce", quantity: 2, unit: "uds" }]
+  );
+});
+
+test("sanitizer blocks vague provider proposal by removing fabricated amount metadata", () => {
+  assert.deepEqual(
+    sanitizeReconciliationExtrasForReview(
+      [{
+        name: "Aguacates",
+        quantity: 1,
+        unit: "uds",
+        category: "Produce",
+        estimatedCostEUR: 1.99,
+        expiryDaysLeft: 7,
+      }],
+      "Compré aguacates"
+    ),
+    [{ name: "Aguacates", category: "Produce" }]
   );
 });
