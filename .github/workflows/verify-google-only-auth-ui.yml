@@ -1,0 +1,41 @@
+name: Verify Google-only auth UI
+
+on:
+  push:
+    branches:
+      - verify/google-only-auth-ui-2026-09-13
+
+jobs:
+  google-only-auth-ui:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: '20'
+
+      - name: Install app dependencies
+        run: npm install --ignore-scripts
+
+      - name: Install Playwright for QA only
+        run: npm install --no-save playwright
+
+      - name: Install Chromium
+        run: npx playwright install --with-deps chromium
+
+      - name: TypeScript / lint
+        run: npm run lint
+
+      - name: Deterministic test suite
+        run: npm test
+
+      - name: Production build
+        run: npm run build
+
+      - name: Google-only Auth modal E2E
+        run: node scripts/verify-google-only-auth-ui.mjs
+
+      - name: Show app log on failure
+        if: failure()
+        run: cat /tmp/balkanbite-google-auth-ui.log || true
