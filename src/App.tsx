@@ -45,7 +45,11 @@ import {
   deductVoiceItemsFromPantry,
 } from "./utils/pantryConsumption";
 import { buildRecipeShoppingNeeds } from "./utils/recipeShoppingNeeds";
-import { transferCheckedShoppingItems } from "./utils/purchasePantryMerge";
+import {
+  transferCheckedShoppingItems,
+  reconcileConfirmedShoppingPurchases,
+  type RawReconciliationExtraItem,
+} from "./utils/purchasePantryMerge";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() => {
@@ -725,27 +729,48 @@ export default function App() {
   const handleReconcileShopping = ({
     purchasedItemIds,
     itemsToAddToPantry,
+    reconciliationId,
   }: {
     purchasedItemIds: string[];
-    itemsToAddToPantry: Array<Omit<PantryItem, "id" | "addedAt">>;
+    itemsToAddToPantry: RawReconciliationExtraItem[];
+    reconciliationId?: string;
   }) => {
-    if (itemsToAddToPantry.length > 0) {
-      const newPantryItems: PantryItem[] = itemsToAddToPantry.map((item, idx) => ({
-        id: `p-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
-        name: item.name,
-        nameBg: item.nameBg || item.name,
-        quantity: item.quantity || 1,
-        unit: item.unit || "pcs",
-        category: (item.category as any) || "Produce",
-        expiryDaysLeft: item.expiryDaysLeft || 7,
-        estimatedCostEUR: item.estimatedCostEUR || 1.5,
-        addedAt: new Date().toISOString().split("T")[0],
-      }));
-      updatePantryAndReconcileMenu(newPantryItems, true);
+    const result = reconcileConfirmedShoppingPurchases(
+      pantry,
+      shoppingList,
+      purchasedItemIds || [],
+      itemsToAddToPantry || [],
+      new Date().toISOString().split("T")[0],
+      reconciliationId || ""
+    );
+
+    if (result.acceptedSourceIds.length > 0) {
+      setPantry(result.pantry);
+      const syncedRecipes = syncRecipesWithPantry(recipes, result.pantry);
+      setRecipes(syncedRecipes);
+      const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+        result.pantry,
+        syncedRecipes,
+        mealPlan,
+        profile
+      );
+      setMealPlan(newPlan);
+      setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
+      setShoppingList(result.shoppingList);
     }
 
-    if (purchasedItemIds.length > 0) {
-      setShoppingList((prev) => prev.filter((i) => !purchasedItemIds.includes(i.id)));
+    if (
+      result.unresolvedPurchasedItemIds.length > 0 ||
+      result.rejectedExtraItems.length > 0 ||
+      result.rejected.length > 0
+    ) {
+      alert(
+        profile.language === "es"
+          ? "Algunos datos no se guardaron porque no tenían una cantidad/unidad verificable o ya no coincidían con tu lista. Revisa la compra antes de intentarlo de nuevo."
+          : profile.language === "bg"
+          ? "Някои данни не бяха запазени, защото количеството/мерната единица не могат да се потвърдят или вече не съвпадат със списъка."
+          : "Some data was not saved because quantity/unit could not be verified or the item no longer matched your shopping list."
+      );
     }
   };
 
