@@ -1,13 +1,13 @@
-import React, { useEffect, useState } from "react";
-import { 
-  collection, 
-  doc, 
-  setDoc, 
-  onSnapshot, 
-  query, 
-  where, 
+import React, { useEffect, useRef, useState } from "react";
+import {
+  collection,
+  doc,
+  setDoc,
+  onSnapshot,
+  query,
+  where,
   writeBatch,
-  Timestamp 
+  Timestamp
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -27,9 +27,12 @@ export function useFirebaseSync(
 ) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const hydratedCollectionUser = useRef<Record<string, string>>({});
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
+      // A new auth session must hydrate each collection before any cloud writes are allowed.
+      hydratedCollectionUser.current = {};
       setCurrentUser(user);
       if (!user) {
         setLoading(false);
@@ -42,7 +45,7 @@ export function useFirebaseSync(
   useEffect(() => {
     if (!currentUser) return;
     const userDoc = doc(db, "users", currentUser.uid);
-    
+
     const unsub = onSnapshot(userDoc, (docSnap) => {
       if (docSnap.exists()) {
         const data = docSnap.data() as UserProfile;
@@ -75,8 +78,8 @@ export function useFirebaseSync(
 
   // Sync Collection Helper
   const syncCollection = (
-    collectionName: string, 
-    localState: any[], 
+    collectionName: string,
+    localState: any[],
     setLocalState: React.Dispatch<React.SetStateAction<any[]>>
   ) => {
     useEffect(() => {
@@ -84,6 +87,8 @@ export function useFirebaseSync(
       const q = query(collection(db, collectionName), where("userId", "==", currentUser.uid));
       const unsub = onSnapshot(q, (snapshot) => {
         const items = snapshot.docs.map(doc => doc.data() as any);
+        // Mark hydration before allowing any subsequent local mutation to write to this collection.
+        hydratedCollectionUser.current[collectionName] = currentUser.uid;
         // Remove userId before setting local state
         const itemsWithoutUserId = items.map(({ userId, ...rest }) => rest);
         if (itemsWithoutUserId.length > 0 && JSON.stringify(itemsWithoutUserId) !== JSON.stringify(localState)) {
@@ -94,7 +99,13 @@ export function useFirebaseSync(
     }, [currentUser]);
 
     useEffect(() => {
-      if (!currentUser || loading) return;
+      if (
+        !currentUser ||
+        loading ||
+        hydratedCollectionUser.current[collectionName] !== currentUser.uid
+      ) {
+        return;
+      }
       const save = async () => {
         const batch = writeBatch(db);
         localState.forEach(item => {
@@ -111,6 +122,6 @@ export function useFirebaseSync(
   syncCollection("recipes", recipes, setRecipes);
   syncCollection("mealPlans", mealPlan, setMealPlan);
   syncCollection("shoppingList", shoppingList, setShoppingList);
-  
+
   return { currentUser, loading };
 }
