@@ -522,8 +522,6 @@ export default function App() {
           });
         }
         setMealPlan(newPlan);
-      } else {
-        setMealPlan([]);
       }
     } catch (err) {
       console.error("Failed to generate AI weekly menu, applying local fallback:", err);
