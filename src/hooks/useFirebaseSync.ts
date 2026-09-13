@@ -167,10 +167,11 @@ export function useFirebaseSync(
         const currentInventoryIds: Set<string> = isInventory
           ? new Set<string>(itemsToPersist.map(item => String(item.id)))
           : new Set<string>();
+        const hydratedActiveInventoryIds = Array.from(
+          hydratedInventoryActiveIds.current.values()
+        ) as string[];
         const deletedInventoryIds: string[] = isInventory
-          ? Array.from(hydratedInventoryActiveIds.current).filter(
-              (id: string) => !currentInventoryIds.has(id)
-            )
+          ? hydratedActiveInventoryIds.filter(id => !currentInventoryIds.has(id))
           : [];
 
         if (!isInventory && itemsToPersist.length === 0) return;
