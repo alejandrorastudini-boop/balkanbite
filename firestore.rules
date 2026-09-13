@@ -1,9 +1,16 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Helper to check if user is authenticated and matches the owner of the document
     function isOwner(userId) {
       return request.auth != null && request.auth.uid == userId;
+    }
+
+    function ownsExistingDocument() {
+      return request.auth != null && resource.data.userId == request.auth.uid;
+    }
+
+    function ownsIncomingDocument() {
+      return request.auth != null && request.resource.data.userId == request.auth.uid;
     }
 
     match /users/{userId} {
@@ -11,19 +18,27 @@ service cloud.firestore {
     }
 
     match /inventory/{itemId} {
-      allow read, write: if request.auth != null && isOwner(resource.data.userId || request.resource.data.userId);
+      allow create: if ownsIncomingDocument();
+      allow read, delete: if ownsExistingDocument();
+      allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
 
     match /recipes/{recipeId} {
-      allow read, write: if request.auth != null && isOwner(resource.data.userId || request.resource.data.userId);
+      allow create: if ownsIncomingDocument();
+      allow read, delete: if ownsExistingDocument();
+      allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
 
     match /mealPlans/{planId} {
-      allow read, write: if request.auth != null && isOwner(resource.data.userId || request.resource.data.userId);
+      allow create: if ownsIncomingDocument();
+      allow read, delete: if ownsExistingDocument();
+      allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
 
     match /shoppingList/{itemId} {
-      allow read, write: if request.auth != null && isOwner(resource.data.userId || request.resource.data.userId);
+      allow create: if ownsIncomingDocument();
+      allow read, delete: if ownsExistingDocument();
+      allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
   }
 }
