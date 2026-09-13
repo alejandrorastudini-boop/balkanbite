@@ -30,7 +30,7 @@ export const AutoMenuToast: React.FC<AutoMenuToastProps> = ({
   return (
     <div
       id="auto-menu-toast-banner"
-      className="fixed bottom-20 left-1/2 -translate-x-1/2 z-50 w-[94%] max-w-md bg-[#131A1F]/95 backdrop-blur-xl border border-emerald-500/40 rounded-2xl p-3.5 shadow-[0_12px_40px_rgba(16,185,129,0.25)] animate-in fade-in slide-in-from-bottom-5 duration-300 flex items-start gap-3"
+      className="fixed bottom-20 left-1/2 -translate-x-1/2 z-[45] w-[94%] max-w-md bg-[#131A1F]/95 backdrop-blur-xl border border-emerald-500/40 rounded-2xl p-3.5 shadow-[0_12px_40px_rgba(16,185,129,0.25)] animate-in fade-in slide-in-from-bottom-5 duration-300 flex items-start gap-3"
     >
       <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-500/30 to-amber-500/30 border border-emerald-500/40 flex items-center justify-center text-emerald-400 shrink-0 mt-0.5">
         <Sparkles className="w-5 h-5 animate-pulse" />
