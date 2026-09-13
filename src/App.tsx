@@ -689,7 +689,7 @@ export default function App() {
     itemsToAddToPantry: Array<Omit<PantryItem, "id" | "addedAt">>;
   }) => {
     if (itemsToAddToPantry.length > 0) {
-      const newPantryItems: PantryItem[] = itemsToAddPantry.map((item, idx) => ({
+      const newPantryItems: PantryItem[] = itemsToAddToPantry.map((item, idx) => ({
         id: `p-${Date.now()}-${idx}-${Math.random().toString(36).substr(2, 4)}`,
         name: item.name,
         nameBg: item.nameBg || item.name,
