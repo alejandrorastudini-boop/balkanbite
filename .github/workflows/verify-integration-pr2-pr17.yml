@@ -18,14 +18,14 @@ jobs:
       - name: Checkout exact integration tree
         uses: actions/checkout@v4
         with:
-          ref: 8eb16277368438b29318979fee51412700fcff23
+          ref: 6e2a0146331590bcebaf870277178c53a92b254c
           path: app
           fetch-depth: 2
 
       - name: Verify exact commit structure
         run: |
-          test "$(git -C app rev-parse HEAD)" = "8eb16277368438b29318979fee51412700fcff23"
-          test "$(git -C app rev-parse HEAD^{tree})" = "0ddab824d90951608c843bb93721e0852d1abe74"
+          test "$(git -C app rev-parse HEAD)" = "6e2a0146331590bcebaf870277178c53a92b254c"
+          test "$(git -C app rev-parse HEAD^{tree})" = "49407ad1df59c3f183eede65ac486aba723a6d46"
           test "$(git -C app rev-parse HEAD^)" = "66b6384b56626e48707dc7e41df01186916d1bed"
           echo "Integration commit/tree/parent identity: PASS"
 
