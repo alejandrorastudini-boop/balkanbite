@@ -54,6 +54,11 @@ jobs:
       - name: Run real app against Auth + Firestore emulators
         run: npx firebase emulators:exec --only auth,firestore --project demo-balkanbite-auth-e2e --config firebase.qa.json "node scripts/verify-auth-firestore-app-e2e.mjs"
 
-      - name: Show app log on failure
+      - name: Detect empty-cloud secondary collection auto-upload
+        run: npx firebase emulators:exec --only auth,firestore --project demo-balkanbite-empty-cloud-risk --config firebase.qa.json "node scripts/verify-empty-cloud-secondary-collections.mjs"
+
+      - name: Show app logs on failure
         if: failure()
-        run: cat /tmp/balkanbite-auth-app-e2e.log || true
+        run: |
+          cat /tmp/balkanbite-auth-app-e2e.log || true
+          cat /tmp/balkanbite-empty-cloud-risk.log || true
