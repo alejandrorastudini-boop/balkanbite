@@ -44,6 +44,7 @@ import {
   deductRecipeIngredientsFromPantry,
   deductVoiceItemsFromPantry,
 } from "./utils/pantryConsumption";
+import { buildRecipeShoppingNeeds } from "./utils/recipeShoppingNeeds";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() => {
@@ -584,32 +585,63 @@ export default function App() {
   };
 
   const handleAddMissingToShopping = (recipe: Recipe) => {
-    const missing = recipe.ingredients.filter((i) => !i.inPantry);
-    if (missing.length === 0) return;
+    const { items, unverified } = buildRecipeShoppingNeeds(
+      recipe,
+      pantry,
+      shoppingList
+    );
 
-    const newShoppingItems: ShoppingItem[] = missing.map((m, idx) => ({
+    const recipeTitle =
+      profile.language === "bg"
+        ? recipe.title.bg || recipe.title.en
+        : profile.language === "es"
+        ? recipe.title.es || recipe.title.en
+        : recipe.title.en;
+
+    const newShoppingItems: ShoppingItem[] = items.map((item, idx) => ({
+      ...item,
       id: `shop-${Date.now()}-${idx}`,
-      name: m.name,
-      quantity: m.amount || 1,
-      unit: m.unit || "pcs",
-      category: "Produce",
-      estimatedPriceEUR: 2.2,
       checked: false,
       reason:
         profile.language === "bg"
-          ? `Необходимо за ${recipe.title.bg}`
+          ? `Необходимо за ${recipeTitle}`
           : profile.language === "es"
-          ? `Necesario para ${recipe.title.es || recipe.title.en}`
-          : `Needed for ${recipe.title.en}`,
+          ? `Necesario para ${recipeTitle}`
+          : `Needed for ${recipeTitle}`,
     }));
 
-    setShoppingList((prev) => [...prev, ...newShoppingItems]);
+    if (newShoppingItems.length > 0) {
+      setShoppingList((prev) => [...prev, ...newShoppingItems]);
+    }
+
+    if (unverified.length > 0) {
+      alert(
+        profile.language === "bg"
+          ? `Не добавих автоматично ${unverified.length} съставка(и), защото наличните мерни единици не могат да се сравнят надеждно.`
+          : profile.language === "es"
+          ? `No he añadido automáticamente ${unverified.length} ingrediente(s) porque las unidades disponibles no se pueden comparar de forma segura.`
+          : `I did not automatically add ${unverified.length} ingredient(s) because the available units cannot be safely compared.`
+      );
+      return;
+    }
+
+    if (newShoppingItems.length === 0) {
+      alert(
+        profile.language === "bg"
+          ? "Вече имате достатъчно количество в килера или в списъка за пазаруване."
+          : profile.language === "es"
+          ? "Ya tienes cantidad suficiente en la despensa o pendiente en la lista de compra."
+          : "You already have enough quantity in the pantry or pending on the shopping list."
+      );
+      return;
+    }
+
     alert(
       profile.language === "bg"
-        ? `Добавихте ${newShoppingItems.length} липсващи съставки към списъка за пазаруване!`
+        ? `Добавихте ${newShoppingItems.length} проверени липсващи съставки към списъка за пазаруване!`
         : profile.language === "es"
-        ? `¡Añadiste ${newShoppingItems.length} ingredientes necesarios a tu lista de compra!`
-        : `Added ${newShoppingItems.length} missing ingredients to your shopping list!`
+        ? `¡Añadiste ${newShoppingItems.length} faltante(s) cuantitativo(s) verificado(s) a tu lista de compra!`
+        : `Added ${newShoppingItems.length} verified quantitative shortfall(s) to your shopping list!`
     );
   };
 
