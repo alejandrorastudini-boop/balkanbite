@@ -1,0 +1,85 @@
+name: Verify accumulated PR2-PR17 integration
+
+on:
+  push:
+    branches:
+      - verify/integration-pr2-pr17-2026-09-13
+
+jobs:
+  integration-guest-circuit:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - name: Checkout QA harness
+        uses: actions/checkout@v4
+        with:
+          path: harness
+
+      - name: Checkout exact integration tree
+        uses: actions/checkout@v4
+        with:
+          ref: da0d974ea8a8d4072a4e79e92402038c2ba8e713
+          path: app
+
+      - name: Verify exact commit structure
+        run: |
+          test "$(git -C app rev-parse HEAD)" = "da0d974ea8a8d4072a4e79e92402038c2ba8e713"
+          test "$(git -C app rev-parse HEAD^{tree})" = "2781a51da37bcba519f6b2e55ab64068e320d93f"
+          test "$(git -C app rev-parse HEAD^)" = "66b6384b56626e48707dc7e41df01186916d1bed"
+          echo "Integration commit/tree/parent identity: PASS"
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install app dependencies
+        working-directory: app
+        run: npm install --ignore-scripts
+
+      - name: Install Playwright for QA only
+        working-directory: app
+        run: npm install --no-save playwright
+
+      - name: Install Chromium
+        working-directory: app
+        run: npx playwright install --with-deps chromium
+
+      - name: TypeScript / lint
+        working-directory: app
+        run: npm run lint
+
+      - name: Full deterministic test suite
+        working-directory: app
+        run: npm test
+
+      - name: Production build
+        working-directory: app
+        run: npm run build
+
+      - name: Copy external E2E harness into checked integration tree
+        run: cp harness/scripts/verify-integration-guest-e2e.mjs app/verify-integration-guest-e2e.mjs
+
+      - name: Start exact integration tree without Gemini
+        run: |
+          unset GEMINI_API_KEY
+          cd app
+          npm run dev > /tmp/balkanbite-integration-e2e.log 2>&1 &
+          echo $! > /tmp/balkanbite-integration-e2e.pid
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000/api/health >/tmp/integration-health.json; then
+              cat /tmp/integration-health.json
+              grep -q '"aiConfigured":false' /tmp/integration-health.json
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/balkanbite-integration-e2e.log
+          exit 1
+
+      - name: Combined guest circuit E2E
+        working-directory: app
+        run: node verify-integration-guest-e2e.mjs
+
+      - name: Show app log on failure
+        if: failure()
+        run: cat /tmp/balkanbite-integration-e2e.log || true
