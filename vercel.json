@@ -1,6 +1,6 @@
 {
   "version": 2,
-  "buildCommand": "npm run lint && npm test && npm run build && npm install --prefix /tmp/balkanbite-browser-qa --no-package-lock --no-audit --no-fund playwright-core@1.63.0 @sparticuz/chromium@153.0.0 && QA_BROWSER_MODULES=/tmp/balkanbite-browser-qa node tests/browser/central-loop.mjs",
+  "buildCommand": "npm run lint && npm test && npm run build && bash tests/browser/run-central-loop.sh",
   "outputDirectory": "dist",
   "functions": {
     "api/index.ts": {
