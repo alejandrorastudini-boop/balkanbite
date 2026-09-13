@@ -115,7 +115,11 @@ export default function App() {
     }
   });
 
-  const { currentUser, loading: firebaseLoading } = useFirebaseSync(
+  const {
+    currentUser,
+    loading: firebaseLoading,
+    inventoryHydrated,
+  } = useFirebaseSync(
     profile,
     setProfile,
     pantry,
@@ -128,6 +132,7 @@ export default function App() {
     setShoppingList
   );
 
+  const [pantryScope, setPantryScope] = useState<string>("guest");
   const [activeTab, setActiveTab] = useState<TabType>("pantry");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
@@ -193,15 +198,54 @@ export default function App() {
     }
   }, [theme]);
 
-  // Persist to localStorage
+  // Switch pantry persistence scope only after the authenticated inventory has hydrated.
+  // Guest data stays in its original key and is restored after sign-out.
   useEffect(() => {
     if (isResetting) return;
+
+    if (currentUser) {
+      if (inventoryHydrated && pantryScope !== currentUser.uid) {
+        setPantryScope(currentUser.uid);
+      }
+      return;
+    }
+
+    if (firebaseLoading || pantryScope === "guest") return;
+
     try {
+      const savedGuestPantry = localStorage.getItem("balkanbite_pantry");
+      if (savedGuestPantry === null) {
+        setPantry(INITIAL_PANTRY);
+      } else {
+        const parsed = JSON.parse(savedGuestPantry);
+        setPantry(Array.isArray(parsed) ? parsed : INITIAL_PANTRY);
+      }
+    } catch {
+      setPantry(INITIAL_PANTRY);
+    }
+    setPantryScope("guest");
+  }, [currentUser, firebaseLoading, inventoryHydrated, pantryScope, isResetting]);
+
+  // Persist pantry to a guest key or a user-specific cache without mixing identities.
+  useEffect(() => {
+    if (isResetting) return;
+
+    try {
+      if (currentUser) {
+        if (!inventoryHydrated || pantryScope !== currentUser.uid) return;
+        localStorage.setItem(
+          `balkanbite_pantry_user_${currentUser.uid}`,
+          JSON.stringify(pantry)
+        );
+        return;
+      }
+
+      if (pantryScope !== "guest") return;
       localStorage.setItem("balkanbite_pantry", JSON.stringify(pantry));
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [pantry, isResetting]);
+  }, [pantry, currentUser, inventoryHydrated, pantryScope, isResetting]);
 
   useEffect(() => {
     if (isResetting) return;
