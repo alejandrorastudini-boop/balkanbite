@@ -35,10 +35,12 @@ async function createEmulatorUser(email) {
 }
 
 async function adminDocs(testEnv, collectionName) {
-  return testEnv.withSecurityRulesDisabled(async (context) => {
+  let documents = [];
+  await testEnv.withSecurityRulesDisabled(async (context) => {
     const snapshot = await getDocs(collection(context.firestore(), collectionName));
-    return snapshot.docs.map((snapshotDoc) => ({ id: snapshotDoc.id, data: snapshotDoc.data() }));
+    documents = snapshot.docs.map((snapshotDoc) => ({ id: snapshotDoc.id, data: snapshotDoc.data() }));
   });
+  return documents;
 }
 
 async function adminSet(testEnv, collectionName, documentId, data) {
