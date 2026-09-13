@@ -1,6 +1,17 @@
 export type Language = "en" | "bg" | "es";
 export type Currency = "EUR" | "USD";
 
+export interface PantryPurchaseRecord {
+  sourceId: string;
+  source: "pantry_legacy" | "shopping_list" | "confirmed_reconciliation";
+  name: string;
+  quantity: number;
+  unit: string;
+  acquiredAt: string;
+  estimatedCostEUR?: number;
+  expiryDaysLeft?: number;
+}
+
 export interface PantryItem {
   id: string;
   name: string;
@@ -10,8 +21,10 @@ export interface PantryItem {
   unit: string;
   category: "Produce" | "Dairy" | "Meat/Fish" | "Pantry/Grains" | "Spices" | "Other";
   expiryDaysLeft?: number;
-  estimatedCostEUR?: number;
+  estimatedCostEUR?: number | null;
   addedAt: string;
+  purchaseHistory?: PantryPurchaseRecord[];
+  expiryIsPartial?: boolean;
 }
 
 export interface RecipeIngredient {

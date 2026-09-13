@@ -45,6 +45,7 @@ import {
   deductVoiceItemsFromPantry,
 } from "./utils/pantryConsumption";
 import { buildRecipeShoppingNeeds } from "./utils/recipeShoppingNeeds";
+import { transferCheckedShoppingItems } from "./utils/purchasePantryMerge";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() => {
@@ -698,19 +699,27 @@ export default function App() {
     const checkedItems = shoppingList.filter((i) => i.checked);
     if (checkedItems.length === 0) return;
 
-    const newPantryItems: PantryItem[] = checkedItems.map((c) => ({
-      id: `p-${Date.now()}-${Math.random().toString(36).substr(2, 4)}`,
-      name: c.name,
-      quantity: c.quantity,
-      unit: c.unit,
-      category: (c.category as any) || "Produce",
-      expiryDaysLeft: 7,
-      estimatedCostEUR: c.estimatedPriceEUR,
-      addedAt: new Date().toISOString().split("T")[0],
-    }));
-
-    updatePantryAndReconcileMenu(newPantryItems, true);
-    setShoppingList((prev) => prev.filter((i) => !i.checked));
+    const result = transferCheckedShoppingItems(
+      pantry, shoppingList, new Date().toISOString().split("T")[0]
+    );
+    if (result.acceptedSourceIds.length > 0) {
+      setPantry(result.pantry);
+      const syncedRecipes = syncRecipesWithPantry(recipes, result.pantry);
+      setRecipes(syncedRecipes);
+      const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+        result.pantry, syncedRecipes, mealPlan, profile
+      );
+      setMealPlan(newPlan);
+      setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
+      setShoppingList(result.shoppingList);
+    }
+    if (result.rejected.length > 0) {
+      alert(profile.language === "es"
+        ? "Algunos artículos siguen en la lista: revisa su nombre, cantidad y unidad antes de transferirlos."
+        : profile.language === "bg"
+        ? "Някои продукти остават в списъка: проверете името, количеството и мерната единица."
+        : "Some items remain on the list: check their name, quantity and unit before transferring.");
+    }
   };
 
   const handleReconcileShopping = ({
