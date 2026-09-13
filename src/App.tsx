@@ -46,8 +46,9 @@ export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() => {
     try {
       const saved = localStorage.getItem("balkanbite_pantry");
-      const parsed = saved ? JSON.parse(saved) : null;
-      return Array.isArray(parsed) && parsed.length > 0 ? parsed : INITIAL_PANTRY;
+      if (saved === null) return INITIAL_PANTRY;
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? parsed : INITIAL_PANTRY;
     } catch {
       return INITIAL_PANTRY;
     }
