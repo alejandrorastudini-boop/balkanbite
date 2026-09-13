@@ -1,0 +1,40 @@
+name: Verify safe shopping reconciliation E2E
+
+on:
+  push:
+    branches:
+      - verify/safe-shopping-reconciliation-e2e
+
+jobs:
+  browser-e2e:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+      - run: npm install --ignore-scripts
+      - run: npm install --no-save playwright
+      - run: npx playwright install --with-deps chromium
+      - run: npm run lint
+      - run: npm test
+      - run: npm run build
+      - name: Start BalkanBite without Gemini
+        run: |
+          unset GEMINI_API_KEY
+          npm run dev > /tmp/balkanbite-e2e.log 2>&1 &
+          echo $! > /tmp/balkanbite-e2e.pid
+          for i in {1..60}; do
+            if curl -fsS http://127.0.0.1:3000/api/health >/tmp/health.json; then
+              cat /tmp/health.json
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/balkanbite-e2e.log
+          exit 1
+      - run: node scripts/verify-shopping-reconciliation-e2e.mjs
+      - name: Show app log on failure
+        if: failure()
+        run: cat /tmp/balkanbite-e2e.log || true
