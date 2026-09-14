@@ -20,7 +20,7 @@
   "rewrites": [
     {
       "source": "/api/agent-status",
-      "destination": "/api/agent-status-route"
+      "destination": "/api/status-probe"
     },
     {
       "source": "/api/(.*)",
