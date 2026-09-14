@@ -1,7 +1,7 @@
 // BalkanBite service worker
 // Navigations must never be cache-first: a stale HTML shell can reference hashed
 // JS assets from an older deployment and leave the app on a blank screen.
-const CACHE_NAME = 'balkanbite-cache-v2';
+const CACHE_NAME = 'balkanbite-cache-v3';
 const STATIC_ASSETS = [
   '/manifest.json',
   '/favicon.svg'
@@ -19,24 +19,45 @@ self.addEventListener('install', (event) => {
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) =>
-      Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)))
-    )
-  );
-  self.clients.claim();
+  event.waitUntil((async () => {
+    const keys = await caches.keys();
+    await Promise.all(keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key)));
+    await self.clients.claim();
+
+    // Existing tabs may currently be displaying a blank page from the previous
+    // cache-first worker. Reload each open BalkanBite window once when this new
+    // worker takes control so recovery does not require clearing browser data.
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    await Promise.all(
+      windows.map((client) => {
+        if (typeof client.navigate === 'function') {
+          return client.navigate(client.url).catch(() => undefined);
+        }
+        return undefined;
+      })
+    );
+  })());
 });
 
 self.addEventListener('fetch', (event) => {
   if (event.request.method !== 'GET') return;
   if (event.request.url.includes('/api/')) return;
 
-  // Always resolve document navigations from the network first. This guarantees
-  // that each deployment loads its matching hashed JS/CSS bundle.
+  // Always resolve document navigations from the network first. Cache the latest
+  // successful HTML only as an offline fallback, never as the primary response.
   if (event.request.mode === 'navigate') {
-    event.respondWith(
-      fetch(event.request).catch(() => caches.match('/index.html'))
-    );
+    event.respondWith((async () => {
+      try {
+        const networkResponse = await fetch(event.request);
+        if (networkResponse && networkResponse.status === 200) {
+          const copy = networkResponse.clone();
+          caches.open(CACHE_NAME).then((cache) => cache.put('/index.html', copy));
+        }
+        return networkResponse;
+      } catch {
+        return caches.match('/index.html');
+      }
+    })());
     return;
   }
 
