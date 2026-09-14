@@ -20,10 +20,10 @@ import { t } from "../utils/translations";
 interface ScannedItem {
   id: string;
   name: string;
-  quantity: number;
-  unit: string;
-  category: "Produce" | "Dairy" | "Meat/Fish" | "Pantry/Grains" | "Spices" | "Other";
-  estimatedDaysUntilExpiry: number;
+  quantity?: number;
+  unit?: string;
+  category?: "Produce" | "Dairy" | "Meat/Fish" | "Pantry/Grains" | "Spices" | "Other";
+  estimatedDaysUntilExpiry?: number;
   approximateCostEUR?: number;
   confidence?: "high" | "medium" | "low";
   selected: boolean;
