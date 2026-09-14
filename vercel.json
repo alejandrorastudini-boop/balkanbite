@@ -1,7 +1,17 @@
 {
+  "$schema": "https://openapi.vercel.sh/vercel.json",
   "version": 2,
   "buildCommand": "npm run build",
   "outputDirectory": "dist",
+  "git": {
+    "deploymentEnabled": {
+      "**": false,
+      "main": true,
+      "integration/**": true,
+      "release/**": true,
+      "preview/**": true
+    }
+  },
   "functions": {
     "api/index.ts": {
       "includeFiles": "node_modules/@rollup/rollup-linux-x64-gnu/**"
