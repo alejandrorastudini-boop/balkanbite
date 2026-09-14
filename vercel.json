@@ -19,6 +19,10 @@
   },
   "rewrites": [
     {
+      "source": "/api/agent-status",
+      "destination": "/api/agent-status-route"
+    },
+    {
       "source": "/api/(.*)",
       "destination": "/api"
     },
