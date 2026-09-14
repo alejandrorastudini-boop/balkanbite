@@ -36,12 +36,22 @@
         try { return JSON.stringify(value); } catch { return String(value); }
       };
 
+      const reportBootFailure = (kind, detail) => {
+        // The route intentionally does not exist. Vercel still records its request
+        // path, which gives us the exact client-side failure without collecting
+        // account data, localStorage contents, tokens, or form values.
+        const compact = String(detail || 'unknown').replace(/[\r\n]+/g, ' ').slice(0, 900);
+        const path = `/api/client-boot-error/${encodeURIComponent(kind)}/${encodeURIComponent(compact)}`;
+        fetch(path, { method: 'GET', cache: 'no-store', credentials: 'omit' }).catch(() => {});
+      };
+
       const showBootFailure = (kind, value) => {
         if (bootFailureShown || !root || root.childElementCount > 0) return;
         bootFailureShown = true;
         const detail = formatFailure(value).slice(0, 4000);
         document.documentElement.dataset.bbBoot = 'failed';
         document.documentElement.dataset.bbBootKind = kind;
+        reportBootFailure(kind, detail);
         const panel = document.createElement('pre');
         panel.id = 'bb-boot-error';
         panel.style.cssText = 'box-sizing:border-box;margin:0;padding:16px;min-height:100vh;white-space:pre-wrap;overflow-wrap:anywhere;background:#fff;color:#991b1b;font:13px/1.5 monospace;';
@@ -50,8 +60,6 @@
       };
 
       window.addEventListener('error', (event) => {
-        // Only surface errors that leave the app completely unmounted. External
-        // widgets can fail independently without taking BalkanBite down.
         window.setTimeout(() => {
           if (root && root.childElementCount === 0) {
             showBootFailure('window-error', event.error || event.message);
