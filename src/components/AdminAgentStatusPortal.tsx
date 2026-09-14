@@ -1,5 +1,4 @@
 import React, { useCallback, useEffect, useMemo, useState } from "react";
-import { createPortal } from "react-dom";
 import { Activity, Clock3, Coins, RefreshCw, ShieldCheck, TimerReset } from "lucide-react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "../lib/firebase";
@@ -223,20 +222,9 @@ function AgentStatusCard({ user }: { user: User }) {
   );
 }
 
-export function AdminAgentStatusPortal() {
+export function AdminAgentStatusPanel() {
   const [user, setUser] = useState<User | null>(auth.currentUser);
-  const [target, setTarget] = useState<HTMLElement | null>(null);
-
   useEffect(() => onAuthStateChanged(auth, setUser), []);
-
-  useEffect(() => {
-    const updateTarget = () => setTarget(document.getElementById("profile-view"));
-    updateTarget();
-    const observer = new MutationObserver(updateTarget);
-    observer.observe(document.body, { childList: true, subtree: true });
-    return () => observer.disconnect();
-  }, []);
-
-  if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL || !target) return null;
-  return createPortal(<AgentStatusCard user={user} />, target);
+  if (!user || user.email?.toLowerCase() !== ADMIN_EMAIL) return null;
+  return <AgentStatusCard user={user} />;
 }
