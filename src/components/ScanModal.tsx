@@ -72,6 +72,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   const runAiScan = async (base64Image: string, mimeType: string) => {
     setIsScanning(true);
     setErrorMsg(null);
+    setScannedItems([]);
     try {
       const res = await fetch("/api/ai/scan-image", {
         method: "POST",
@@ -89,7 +90,9 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       }
 
       const data = await res.json();
-      const detected = (data.items || []).map((item: any, index: number) => {
+      const detected = (Array.isArray(data.items) ? data.items : [])
+        .filter((item: any) => typeof item?.name === "string" && item.name.trim().length > 0)
+        .map((item: any, index: number) => {
         let cat: "Produce" | "Dairy" | "Meat/Fish" | "Pantry/Grains" | "Spices" | "Other" = "Pantry/Grains";
         const rawCat = (item.category || "").toLowerCase();
         if (rawCat.includes("produce") || rawCat.includes("fruit") || rawCat.includes("veg")) cat = "Produce";
@@ -142,9 +145,17 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
     setIsScanning(true);
     setErrorMsg(null);
+    setScannedItems([]);
     try {
       const res = await fetch(`/api/barcode/${encodeURIComponent(barcodeInput.trim())}?lang=${language}`);
+      if (!res.ok) {
+        throw new Error("Barcode not found");
+      }
+
       const data = await res.json();
+      if (typeof data?.name !== "string" || !data.name.trim()) {
+        throw new Error("Barcode result has no product name");
+      }
 
       let cat: "Produce" | "Dairy" | "Meat/Fish" | "Pantry/Grains" | "Spices" | "Other" = "Pantry/Grains";
       const rawCat = (data.category || "").toLowerCase();
@@ -154,7 +165,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
       const newItem: ScannedItem = {
         id: `barcode-${Date.now()}`,
-        name: data.name || (language === "es" ? `Producto ${barcodeInput}` : language === "bg" ? `Продукт ${barcodeInput}` : `Product ${barcodeInput}`),
+        name: data.name.trim(),
         quantity: data.quantity || 1,
         unit: data.unit || "pcs",
         category: cat,
