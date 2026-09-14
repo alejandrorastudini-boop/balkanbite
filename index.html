@@ -25,33 +25,61 @@
   </head>
   <body class="antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
     <div id="root"></div>
-    <script type="module" src="/src/main.tsx"></script>
-    <script>
-      // Last-resort self-heal for a failed frontend boot. This specifically
-      // protects users who still have a stale PWA service worker/cache after a
-      // deployment. It runs at most once per browser tab.
-      window.setTimeout(async () => {
-        const root = document.getElementById('root');
-        if (root && root.childElementCount === 0 && !sessionStorage.getItem('balkanbite_boot_recovery')) {
-          sessionStorage.setItem('balkanbite_boot_recovery', '1');
-          try {
-            if ('serviceWorker' in navigator) {
-              const registrations = await navigator.serviceWorker.getRegistrations();
-              await Promise.all(registrations.map((registration) => registration.unregister()));
-            }
-            if ('caches' in window) {
-              const keys = await caches.keys();
-              await Promise.all(keys.map((key) => caches.delete(key)));
-            }
-          } catch (err) {
-            console.warn('BalkanBite boot recovery cleanup failed', err);
-          }
-          const recoveryUrl = new URL(window.location.href);
-          recoveryUrl.searchParams.set('bb_recover', Date.now().toString());
-          window.location.replace(recoveryUrl.toString());
-        }
-      }, 6000);
+    <script type="module">
+      const root = document.getElementById('root');
+      let bootFailureShown = false;
 
+      const formatFailure = (value) => {
+        if (!value) return 'Unknown frontend boot error';
+        if (value instanceof Error) return value.stack || value.message || String(value);
+        if (typeof value === 'string') return value;
+        try { return JSON.stringify(value); } catch { return String(value); }
+      };
+
+      const showBootFailure = (kind, value) => {
+        if (bootFailureShown || !root || root.childElementCount > 0) return;
+        bootFailureShown = true;
+        const detail = formatFailure(value).slice(0, 4000);
+        document.documentElement.dataset.bbBoot = 'failed';
+        document.documentElement.dataset.bbBootKind = kind;
+        const panel = document.createElement('pre');
+        panel.id = 'bb-boot-error';
+        panel.style.cssText = 'box-sizing:border-box;margin:0;padding:16px;min-height:100vh;white-space:pre-wrap;overflow-wrap:anywhere;background:#fff;color:#991b1b;font:13px/1.5 monospace;';
+        panel.textContent = `BalkanBite frontend boot failure (${kind})\n\n${detail}`;
+        root.replaceChildren(panel);
+      };
+
+      window.addEventListener('error', (event) => {
+        // Only surface errors that leave the app completely unmounted. External
+        // widgets can fail independently without taking BalkanBite down.
+        window.setTimeout(() => {
+          if (root && root.childElementCount === 0) {
+            showBootFailure('window-error', event.error || event.message);
+          }
+        }, 0);
+      });
+      window.addEventListener('unhandledrejection', (event) => {
+        window.setTimeout(() => {
+          if (root && root.childElementCount === 0) {
+            showBootFailure('unhandled-rejection', event.reason);
+          }
+        }, 0);
+      });
+
+      document.documentElement.dataset.bbBoot = 'loading';
+      import('/src/main.tsx')
+        .then(() => {
+          window.setTimeout(() => {
+            if (root && root.childElementCount > 0) {
+              document.documentElement.dataset.bbBoot = 'mounted';
+            } else {
+              showBootFailure('empty-root-after-module', 'The application module loaded, but React did not mount any UI.');
+            }
+          }, 2500);
+        })
+        .catch((error) => showBootFailure('module-import', error));
+    </script>
+    <script>
       if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
         window.addEventListener('load', () => {
           navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch((err) => {
@@ -62,4 +90,3 @@
     </script>
   </body>
 </html>
-
