@@ -27,9 +27,34 @@
     <div id="root"></div>
     <script type="module" src="/src/main.tsx"></script>
     <script>
+      // Last-resort self-heal for a failed frontend boot. This specifically
+      // protects users who still have a stale PWA service worker/cache after a
+      // deployment. It runs at most once per browser tab.
+      window.setTimeout(async () => {
+        const root = document.getElementById('root');
+        if (root && root.childElementCount === 0 && !sessionStorage.getItem('balkanbite_boot_recovery')) {
+          sessionStorage.setItem('balkanbite_boot_recovery', '1');
+          try {
+            if ('serviceWorker' in navigator) {
+              const registrations = await navigator.serviceWorker.getRegistrations();
+              await Promise.all(registrations.map((registration) => registration.unregister()));
+            }
+            if ('caches' in window) {
+              const keys = await caches.keys();
+              await Promise.all(keys.map((key) => caches.delete(key)));
+            }
+          } catch (err) {
+            console.warn('BalkanBite boot recovery cleanup failed', err);
+          }
+          const recoveryUrl = new URL(window.location.href);
+          recoveryUrl.searchParams.set('bb_recover', Date.now().toString());
+          window.location.replace(recoveryUrl.toString());
+        }
+      }, 6000);
+
       if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch((err) => {
+          navigator.serviceWorker.register('/sw.js', { updateViaCache: 'none' }).catch((err) => {
             console.log('SW registration skipped or error:', err);
           });
         });
