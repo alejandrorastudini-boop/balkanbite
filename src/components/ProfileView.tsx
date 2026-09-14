@@ -21,6 +21,7 @@ import {
 import { UserProfile, Language, Currency } from "../types";
 import { t } from "../utils/translations";
 import { ConfirmModal } from "./ConfirmModal";
+import { AdminAgentStatusPanel } from "./AdminAgentStatusPortal";
 import { signInWithGoogle, logout, auth } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 
@@ -193,6 +194,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         )}
       </div>
+
+      <AdminAgentStatusPanel />
 
       {/* BalkanBite Logo Showcase & Download Card */}
       <div className="bg-[#131A1F]/60 backdrop-blur-md border border-white/[0.06] rounded-3xl p-5 shadow-[0_8px_30px_rgba(0,0,0,0.4)] space-y-4">
