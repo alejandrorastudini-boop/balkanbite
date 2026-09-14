@@ -72,6 +72,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   const runAiScan = async (base64Image: string, mimeType: string) => {
     setIsScanning(true);
     setErrorMsg(null);
+    setScannedItems([]);
     try {
       const res = await fetch("/api/ai/scan-image", {
         method: "POST",
