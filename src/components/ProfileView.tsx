@@ -21,6 +21,7 @@ import {
 import { UserProfile, Language, Currency } from "../types";
 import { t } from "../utils/translations";
 import { ConfirmModal } from "./ConfirmModal";
+import { AdminAgentStatusPanel } from "./AdminAgentStatusPortal";
 import { signInWithGoogle, logout, auth } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 
@@ -179,326 +180,78 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               </div>
             </div>
 
-            {/* Official style Sign-In Button */}
             <button
               id="profile-google-signin-btn"
               onClick={() => (onOpenAuthModal ? onOpenAuthModal() : signInWithGoogle())}
               className="w-full py-3 px-5 rounded-xl bg-white hover:bg-stone-200 text-stone-950 font-extrabold text-sm transition-all flex items-center justify-center gap-3 shadow-[0_0_20px_rgba(255,255,255,0.1)] cursor-pointer font-['Outfit'] tracking-wide"
             >
-              <div className="w-5 h-5 rounded-full flex items-center justify-center font-extrabold text-[12px] bg-stone-900 text-white shrink-0">
-                G
-              </div>
+              <div className="w-5 h-5 rounded-full flex items-center justify-center font-extrabold text-[12px] bg-stone-900 text-white shrink-0">G</div>
               <span>{currentText.continueWithGoogle || "Continuar con Google"}</span>
             </button>
           </div>
         )}
       </div>
 
+      <AdminAgentStatusPanel />
+
       {/* BalkanBite Logo Showcase & Download Card */}
       <div className="bg-[#131A1F]/60 backdrop-blur-md border border-white/[0.06] rounded-3xl p-5 shadow-[0_8px_30px_rgba(0,0,0,0.4)] space-y-4">
         <div className="flex items-center justify-between gap-4">
           <div className="flex items-center gap-4">
-            <img
-              src="/images/logo.jpg"
-              alt="BalkanBite Logo"
-              className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-500/30 shadow-[0_4px_15px_rgba(16,185,129,0.2)]"
-            />
+            <img src="/images/logo.jpg" alt="BalkanBite Logo" className="w-16 h-16 rounded-2xl object-cover border-2 border-emerald-500/30 shadow-[0_4px_15px_rgba(16,185,129,0.2)]" />
             <div>
-              <h3 className="text-base font-bold text-white font-['Outfit'] tracking-wide">
-                Logotipo Oficial BalkanBite
-              </h3>
-              <p className="text-sm text-stone-400 font-medium">
-                Icono vectorial con isotipo
-              </p>
+              <h3 className="text-base font-bold text-white font-['Outfit'] tracking-wide">Logotipo Oficial BalkanBite</h3>
+              <p className="text-sm text-stone-400 font-medium">Icono vectorial con isotipo</p>
             </div>
           </div>
-
-          <a
-            href="/images/logo.jpg"
-            download="BalkanBite_Logo.jpg"
-            target="_blank"
-            rel="noopener noreferrer"
-            className="p-3 sm:px-4 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-sm shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all flex items-center gap-2 cursor-pointer shrink-0"
-          >
-            <Download className="w-4 h-4" />
-            <span className="hidden sm:inline">Descargar HD</span>
+          <a href="/images/logo.jpg" download="BalkanBite_Logo.jpg" target="_blank" rel="noopener noreferrer" className="p-3 sm:px-4 sm:py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-sm shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all flex items-center gap-2 cursor-pointer shrink-0">
+            <Download className="w-4 h-4" /><span className="hidden sm:inline">Descargar HD</span>
           </a>
         </div>
       </div>
 
-      {/* BalkanBite Pro Subscription Showcase Card */}
       <div className="bg-[#131A1F]/80 backdrop-blur-md border border-amber-500/20 rounded-3xl p-6 shadow-[0_8px_30px_rgba(245,158,11,0.08)] relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 blur-3xl rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none group-hover:bg-amber-500/15 transition-all duration-700" />
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center font-bold shadow-inner shrink-0">
-              <Sparkles className="w-6 h-6" />
-            </div>
-            <div>
-              <h2 className="text-lg font-bold text-white font-['Outfit'] tracking-wide">
-                {currentText.activePro}
-              </h2>
-              <span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1.5 mt-0.5">
-                <ShieldCheck className="w-3.5 h-3.5" />
-                {currentText.activeSubscription}
-              </span>
-            </div>
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center font-bold shadow-inner shrink-0"><Sparkles className="w-6 h-6" /></div>
+            <div><h2 className="text-lg font-bold text-white font-['Outfit'] tracking-wide">{currentText.activePro}</h2><span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1.5 mt-0.5"><ShieldCheck className="w-3.5 h-3.5" />{currentText.activeSubscription}</span></div>
           </div>
-
-          <button
-            onClick={onOpenProModal}
-            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/[0.04] text-amber-400 text-sm font-bold border border-white/[0.08] hover:bg-white/[0.08] hover:border-amber-500/30 transition-all cursor-pointer text-center"
-          >
-            {currentText.manageSub}
-          </button>
+          <button onClick={onOpenProModal} className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/[0.04] text-amber-400 text-sm font-bold border border-white/[0.08] hover:bg-white/[0.08] hover:border-amber-500/30 transition-all cursor-pointer text-center">{currentText.manageSub}</button>
         </div>
-
-        <p className="text-sm text-stone-400 font-medium leading-relaxed mt-4 relative z-10">
-          {currentText.proBenefits}
-        </p>
+        <p className="text-sm text-stone-400 font-medium leading-relaxed mt-4 relative z-10">{currentText.proBenefits}</p>
       </div>
 
-      {/* Cooking Style / Speed */}
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-4 shadow-inner">
-        <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 w-fit">
-          <Clock className="w-4 h-4 text-emerald-400" />
-          <span>{currentText.cookingSpeed}</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-          {[
-            { id: "fast", label: currentText.speedFast },
-            { id: "moderate", label: currentText.speedModerate },
-            { id: "elaborate", label: currentText.speedElaborate },
-          ].map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => onUpdateProfile({ cookingSpeed: opt.id as any })}
-              className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${
-                profile.cookingSpeed === opt.id
-                  ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.1)]"
-                  : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span>{opt.label}</span>
-                {profile.cookingSpeed === opt.id && (
-                  <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 ml-1" />
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
+        <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 w-fit"><Clock className="w-4 h-4 text-emerald-400" /><span>{currentText.cookingSpeed}</span></div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{[{ id: "fast", label: currentText.speedFast }, { id: "moderate", label: currentText.speedModerate }, { id: "elaborate", label: currentText.speedElaborate }].map((opt) => <button key={opt.id} onClick={() => onUpdateProfile({ cookingSpeed: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.cookingSpeed === opt.id ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.cookingSpeed === opt.id && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 ml-1" />}</div></button>)}</div>
       </div>
 
-      {/* Health Goal */}
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-4 shadow-inner">
-        <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20 w-fit">
-          <Target className="w-4 h-4 text-amber-400" />
-          <span>{currentText.healthGoals}</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[
-            { id: "balanced", label: currentText.goalBalanced },
-            { id: "muscle", label: currentText.goalMuscle },
-            { id: "fat_loss", label: currentText.goalFatLoss },
-            { id: "heart", label: currentText.goalHeart },
-          ].map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => onUpdateProfile({ healthGoal: opt.id as any })}
-              className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${
-                profile.healthGoal === opt.id
-                  ? "bg-amber-500/10 border-amber-500/40 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.1)]"
-                  : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span>{opt.label}</span>
-                {profile.healthGoal === opt.id && (
-                  <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0 ml-1" />
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
+        <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20 w-fit"><Target className="w-4 h-4 text-amber-400" /><span>{currentText.healthGoals}</span></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{[{ id: "balanced", label: currentText.goalBalanced }, { id: "muscle", label: currentText.goalMuscle }, { id: "fat_loss", label: currentText.goalFatLoss }, { id: "heart", label: currentText.goalHeart }].map((opt) => <button key={opt.id} onClick={() => onUpdateProfile({ healthGoal: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.healthGoal === opt.id ? "bg-amber-500/10 border-amber-500/40 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.healthGoal === opt.id && <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0 ml-1" />}</div></button>)}</div>
       </div>
 
-      {/* Dietary Preference */}
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-4 shadow-inner">
-        <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-teal-500/10 px-3 py-1.5 rounded-lg border border-teal-500/20 w-fit">
-          <Utensils className="w-4 h-4 text-teal-400" />
-          <span>{currentText.dietType}</span>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          {[
-            { id: "all", label: currentText.dietAll },
-            { id: "mediterranean", label: currentText.dietMed },
-            { id: "vegetarian", label: currentText.dietVegetarian },
-            { id: "vegan", label: currentText.dietVegan },
-          ].map((opt) => (
-            <button
-              key={opt.id}
-              onClick={() => onUpdateProfile({ dietStyle: opt.id as any })}
-              className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${
-                profile.dietStyle === opt.id
-                  ? "bg-teal-500/10 border-teal-500/40 text-teal-300 shadow-[0_0_15px_rgba(20,184,166,0.1)]"
-                  : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"
-              }`}
-            >
-              <div className="flex items-center justify-between">
-                <span>{opt.label}</span>
-                {profile.dietStyle === opt.id && (
-                  <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 ml-1" />
-                )}
-              </div>
-            </button>
-          ))}
-        </div>
+        <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-teal-500/10 px-3 py-1.5 rounded-lg border border-teal-500/20 w-fit"><Utensils className="w-4 h-4 text-teal-400" /><span>{currentText.dietType}</span></div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{[{ id: "all", label: currentText.dietAll }, { id: "mediterranean", label: currentText.dietMed }, { id: "vegetarian", label: currentText.dietVegetarian }, { id: "vegan", label: currentText.dietVegan }].map((opt) => <button key={opt.id} onClick={() => onUpdateProfile({ dietStyle: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.dietStyle === opt.id ? "bg-teal-500/10 border-teal-500/40 text-teal-300 shadow-[0_0_15px_rgba(20,184,166,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.dietStyle === opt.id && <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 ml-1" />}</div></button>)}</div>
       </div>
 
-      {/* Disliked Foods / Allergies */}
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-5 shadow-inner">
-        <div className="flex items-center justify-between">
-          <span className="text-white font-bold text-xs uppercase tracking-widest bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20">
-            {currentText.dislikedTitle}
-          </span>
-          <span className="text-[11px] font-bold text-stone-500 uppercase tracking-widest">
-            {profile.disliked.length} {currentText.dislikedExcluded}
-          </span>
-        </div>
-
-        <form onSubmit={handleAddDislike} className="flex gap-3">
-          <input
-            type="text"
-            value={newDislike}
-            onChange={(e) => setNewDislike(e.target.value)}
-            placeholder={currentText.dislikedPlaceholder}
-            className="flex-1 px-4 py-3 bg-[#131A1F] border border-white/[0.08] rounded-xl text-sm font-medium text-white placeholder-stone-600 focus:outline-none focus:border-rose-500/50 transition-colors"
-          />
-          <button
-            type="submit"
-            className="px-5 py-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.04] hover:border-white/[0.1] text-stone-300 text-sm font-bold rounded-xl cursor-pointer transition-colors"
-          >
-            {currentText.add}
-          </button>
-        </form>
-
-        <div className="flex flex-wrap gap-2 pt-1">
-          {profile.disliked.length === 0 ? (
-            <span className="text-sm text-stone-500 font-medium italic">
-              {currentText.dislikedNone}
-            </span>
-          ) : (
-            profile.disliked.map((item, idx) => (
-              <span
-                key={idx}
-                className="text-sm font-medium px-3 py-1.5 rounded-lg bg-black/40 border border-white/[0.08] text-stone-300 flex items-center gap-2 shadow-inner"
-              >
-                <span>{item}</span>
-                <button
-                  onClick={() => handleRemoveDislike(item)}
-                  className="text-stone-400 hover:text-red-400 text-sm cursor-pointer ml-1"
-                >
-                  ×
-                </button>
-              </span>
-            ))
-          )}
-        </div>
+        <div className="flex items-center justify-between"><span className="text-white font-bold text-xs uppercase tracking-widest bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20">{currentText.dislikedTitle}</span><span className="text-[11px] font-bold text-stone-500 uppercase tracking-widest">{profile.disliked.length} {currentText.dislikedExcluded}</span></div>
+        <form onSubmit={handleAddDislike} className="flex gap-3"><input type="text" value={newDislike} onChange={(e) => setNewDislike(e.target.value)} placeholder={currentText.dislikedPlaceholder} className="flex-1 px-4 py-3 bg-[#131A1F] border border-white/[0.08] rounded-xl text-sm font-medium text-white placeholder-stone-600 focus:outline-none focus:border-rose-500/50 transition-colors" /><button type="submit" className="px-5 py-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.04] hover:border-white/[0.1] text-stone-300 text-sm font-bold rounded-xl cursor-pointer transition-colors">{currentText.add}</button></form>
+        <div className="flex flex-wrap gap-2 pt-1">{profile.disliked.length === 0 ? <span className="text-sm text-stone-500 font-medium italic">{currentText.dislikedNone}</span> : profile.disliked.map((item, idx) => <span key={idx} className="text-sm font-medium px-3 py-1.5 rounded-lg bg-black/40 border border-white/[0.08] text-stone-300 flex items-center gap-2 shadow-inner"><span>{item}</span><button onClick={() => handleRemoveDislike(item)} className="text-stone-400 hover:text-red-400 text-sm cursor-pointer ml-1">×</button></span>)}</div>
       </div>
 
-      {/* PWA Device Installation Card */}
       <div className="bg-[#131A1F]/60 backdrop-blur-md border border-white/[0.06] rounded-3xl p-6 shadow-[0_8px_30px_rgba(0,0,0,0.4)] space-y-4">
-        <div className="flex items-center justify-between gap-4">
-          <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 shadow-inner">
-              <Smartphone className="w-6 h-6" />
-            </div>
-            <div>
-              <h3 className="text-base font-bold text-white font-['Outfit'] tracking-wide">
-                {currentText.installAppBtn || "Instalar en el Móvil"}
-              </h3>
-              <p className="text-xs text-stone-400 font-medium">
-                {isInstalled
-                  ? (currentText.pwaInstalled || "App instalada con éxito")
-                  : (currentText.installAppDesc || "Acceso instantáneo a pantalla completa.")}
-              </p>
-            </div>
-          </div>
-
-          <button
-            id="pwa-install-action-btn"
-            type="button"
-            onClick={handleInstallApp}
-            className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-sm flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer shrink-0"
-          >
-            {isInstalled ? (
-              <>
-                <Check className="w-4 h-4" />
-                <span className="hidden sm:inline">{currentText.appInstalled}</span>
-              </>
-            ) : (
-              <>
-                <Download className="w-4 h-4" />
-                <span className="hidden sm:inline">{currentText.install}</span>
-              </>
-            )}
-          </button>
-        </div>
-
-        {/* Quick Instructions for iOS/Android if prompt not triggered */}
-        {showInstallGuide && !isInstalled && (
-          <div className="p-4 bg-black/40 rounded-2xl border border-white/[0.04] text-sm text-stone-300 space-y-2 animate-in fade-in duration-200 shadow-inner">
-            <p className="font-bold text-emerald-400 flex items-center gap-2">
-              <span>📲</span> {currentText.installGuideTitle}
-            </p>
-            <ul className="list-disc pl-5 space-y-1.5 text-stone-400 font-medium">
-              <li>{currentText.installGuideIos}</li>
-              <li>{currentText.installGuideAndroid}</li>
-            </ul>
-          </div>
-        )}
-        {/* Landing Page link */}
-        {onGoToLanding && (
-          <div className="pt-3">
-            <button
-              id="profile-view-landing-btn"
-              type="button"
-              onClick={onGoToLanding}
-              className="w-full py-3 px-4 border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] hover:border-emerald-500/30 text-stone-300 text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"
-            >
-              <Globe className="w-5 h-5 text-emerald-400" />
-              <span>{currentText.viewLandingPage}</span>
-            </button>
-          </div>
-        )}
+        <div className="flex items-center justify-between gap-4"><div className="flex items-center gap-4"><div className="w-12 h-12 rounded-xl bg-emerald-500/10 text-emerald-400 flex items-center justify-center border border-emerald-500/20 shadow-inner"><Smartphone className="w-6 h-6" /></div><div><h3 className="text-base font-bold text-white font-['Outfit'] tracking-wide">{currentText.installAppBtn || "Instalar en el Móvil"}</h3><p className="text-xs text-stone-400 font-medium">{isInstalled ? (currentText.pwaInstalled || "App instalada con éxito") : (currentText.installAppDesc || "Acceso instantáneo a pantalla completa.")}</p></div></div><button id="pwa-install-action-btn" type="button" onClick={handleInstallApp} className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-bold text-sm flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer shrink-0">{isInstalled ? <><Check className="w-4 h-4" /><span className="hidden sm:inline">{currentText.appInstalled}</span></> : <><Download className="w-4 h-4" /><span className="hidden sm:inline">{currentText.install}</span></>}</button></div>
+        {showInstallGuide && !isInstalled && <div className="p-4 bg-black/40 rounded-2xl border border-white/[0.04] text-sm text-stone-300 space-y-2 animate-in fade-in duration-200 shadow-inner"><p className="font-bold text-emerald-400 flex items-center gap-2"><span>📲</span> {currentText.installGuideTitle}</p><ul className="list-disc pl-5 space-y-1.5 text-stone-400 font-medium"><li>{currentText.installGuideIos}</li><li>{currentText.installGuideAndroid}</li></ul></div>}
+        {onGoToLanding && <div className="pt-3"><button id="profile-view-landing-btn" type="button" onClick={onGoToLanding} className="w-full py-3 px-4 border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] hover:border-emerald-500/30 text-stone-300 text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"><Globe className="w-5 h-5 text-emerald-400" /><span>{currentText.viewLandingPage}</span></button></div>}
       </div>
 
-      {/* Danger Zone: Reset App */}
-      <div className="pt-8 pb-10">
-        <button
-          onClick={() => setShowResetConfirm(true)}
-          className="w-full py-4 px-4 border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 hover:border-rose-500/40 text-rose-400 text-sm font-bold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-inner"
-        >
-          <RotateCcw className="w-5 h-5" />
-          <span className="tracking-wide uppercase font-['Outfit']">{currentText.resetAppTitle}</span>
-        </button>
-      </div>
+      <div className="pt-8 pb-10"><button onClick={() => setShowResetConfirm(true)} className="w-full py-4 px-4 border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 hover:border-rose-500/40 text-rose-400 text-sm font-bold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-inner"><RotateCcw className="w-5 h-5" /><span className="tracking-wide uppercase font-['Outfit']">{currentText.resetAppTitle}</span></button></div>
 
-      {/* Custom Reset Confirm Modal */}
-      <ConfirmModal
-        isOpen={showResetConfirm}
-        onClose={() => setShowResetConfirm(false)}
-        onConfirm={onResetApp}
-        title={currentText.resetAppTitle}
-        description={currentText.resetAppConfirm}
-        confirmText={currentText.yesResetAll}
-        cancelText={currentText.cancel}
-        danger={true}
-      />
+      <ConfirmModal isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} onConfirm={onResetApp} title={currentText.resetAppTitle} description={currentText.resetAppConfirm} confirmText={currentText.yesResetAll} cancelText={currentText.cancel} danger={true} />
     </div>
   );
 };

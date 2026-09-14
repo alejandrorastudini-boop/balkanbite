@@ -1,57 +1,35 @@
-// BalkanBite Lightweight Service Worker for PWA
-const CACHE_NAME = 'balkanbite-cache-v1';
-const STATIC_ASSETS = [
-  '/',
-  '/index.html',
-  '/manifest.json',
-  '/favicon.svg'
-];
-
-self.addEventListener('install', (event) => {
-  event.waitUntil(
-    caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(STATIC_ASSETS).catch((err) => {
-        console.warn('Pre-cache error:', err);
-      });
-    })
-  );
+// BalkanBite service-worker retirement shim.
+// The previous cache-first PWA worker could keep an old HTML shell alive across
+// deployments. This worker performs one deterministic cleanup, reloads open
+// clients from the network, and unregisters itself. BalkanBite can reintroduce
+// offline caching later with a versioned/atomic strategy once it has dedicated QA.
+self.addEventListener('install', () => {
   self.skipWaiting();
 });
 
 self.addEventListener('activate', (event) => {
-  event.waitUntil(
-    caches.keys().then((keys) => {
-      return Promise.all(
-        keys.filter((key) => key !== CACHE_NAME).map((key) => caches.delete(key))
-      );
-    })
-  );
-  self.clients.claim();
-});
+  event.waitUntil((async () => {
+    try {
+      const keys = await caches.keys();
+      await Promise.all(keys.map((key) => caches.delete(key)));
+    } catch (_) {}
 
-self.addEventListener('fetch', (event) => {
-  // Only intercept GET requests, skip /api/ routes
-  if (event.request.method !== 'GET') return;
-  if (event.request.url.includes('/api/')) return;
+    await self.clients.claim();
 
-  event.respondWith(
-    caches.match(event.request).then((cachedResponse) => {
-      if (cachedResponse) {
-        // Return cache and refresh in background
-        fetch(event.request).then((networkResponse) => {
-          if (networkResponse && networkResponse.status === 200) {
-            caches.open(CACHE_NAME).then((cache) => {
-              cache.put(event.request, networkResponse);
-            });
-          }
-        }).catch(() => {});
-        return cachedResponse;
+    try {
+      await self.registration.unregister();
+    } catch (_) {}
+
+    const windows = await self.clients.matchAll({ type: 'window', includeUncontrolled: true });
+    await Promise.all(windows.map((client) => {
+      if (typeof client.navigate !== 'function') return undefined;
+      try {
+        const url = new URL(client.url);
+        url.searchParams.set('bb_sw_cleanup', Date.now().toString());
+        return client.navigate(url.toString()).catch(() => undefined);
+      } catch (_) {
+        return client.navigate(client.url).catch(() => undefined);
       }
-      return fetch(event.request).catch(() => {
-        if (event.request.mode === 'navigate') {
-          return caches.match('/');
-        }
-      });
-    })
-  );
+    }));
+  })());
 });

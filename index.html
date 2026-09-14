@@ -25,16 +25,74 @@
   </head>
   <body class="antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-200">
     <div id="root"></div>
+    <script>
+      (() => {
+        const root = document.getElementById('root');
+        let reported = false;
+
+        const formatFailure = (value) => {
+          if (!value) return 'Unknown frontend boot error';
+          if (value instanceof Error) return value.stack || value.message || String(value);
+          if (typeof value === 'string') return value;
+          try { return JSON.stringify(value); } catch { return String(value); }
+        };
+
+        const report = (kind, value) => {
+          if (reported) return;
+          reported = true;
+          const detail = formatFailure(value).replace(/[\r\n]+/g, ' ').slice(0, 900);
+          document.documentElement.dataset.bbBoot = 'failed';
+          document.documentElement.dataset.bbBootKind = kind;
+          fetch(`/api/client-boot-error/${encodeURIComponent(kind)}/${encodeURIComponent(detail)}`, {
+            method: 'GET', cache: 'no-store', credentials: 'omit'
+          }).catch(() => {});
+          if (root && root.childElementCount === 0) {
+            const panel = document.createElement('pre');
+            panel.id = 'bb-boot-error';
+            panel.style.cssText = 'box-sizing:border-box;margin:0;padding:16px;min-height:100vh;white-space:pre-wrap;overflow-wrap:anywhere;background:#fff;color:#991b1b;font:13px/1.5 monospace;';
+            panel.textContent = `BalkanBite frontend boot failure (${kind})\n\n${formatFailure(value).slice(0, 4000)}`;
+            root.replaceChildren(panel);
+          }
+        };
+
+        document.documentElement.dataset.bbBoot = 'loading';
+        window.addEventListener('error', (event) => {
+          window.setTimeout(() => {
+            if (root && root.childElementCount === 0) report('window-error', event.error || event.message);
+          }, 0);
+        });
+        window.addEventListener('unhandledrejection', (event) => {
+          window.setTimeout(() => {
+            if (root && root.childElementCount === 0) report('unhandled-rejection', event.reason);
+          }, 0);
+        });
+        window.setTimeout(() => {
+          if (root && root.childElementCount === 0) {
+            report('empty-root-timeout', 'Main module did not mount React UI within 5 seconds.');
+          } else {
+            document.documentElement.dataset.bbBoot = 'mounted';
+          }
+        }, 5000);
+      })();
+    </script>
     <script type="module" src="/src/main.tsx"></script>
     <script>
-      if ('serviceWorker' in navigator && window.location.protocol === 'https:') {
-        window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/sw.js').catch((err) => {
-            console.log('SW registration skipped or error:', err);
-          });
-        });
-      }
+      window.addEventListener('load', async () => {
+        try {
+          if ('serviceWorker' in navigator) {
+            const registrations = await navigator.serviceWorker.getRegistrations();
+            await Promise.all(registrations.map((registration) => registration.unregister()));
+          }
+          if ('caches' in window) {
+            const keys = await caches.keys();
+            await Promise.all(
+              keys.filter((key) => key.startsWith('balkanbite-cache')).map((key) => caches.delete(key))
+            );
+          }
+        } catch (err) {
+          console.warn('BalkanBite legacy PWA cleanup skipped', err);
+        }
+      });
     </script>
   </body>
 </html>
-
