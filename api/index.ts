@@ -1,5 +1,5 @@
 import app from "../server.js";
-import agentStatusHandler from "./agent-status.js";
+import agentStatusHandler from "./agent-status";
 
 export default function handler(req: any, res: any) {
   const url = new URL(req.url || "/", "http://localhost");
