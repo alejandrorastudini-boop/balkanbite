@@ -115,6 +115,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       });
 
       if (detected.length === 0) {
+        setScannedItems([]);
         setErrorMsg(
           language === "es"
             ? "No se han detectado alimentos con claridad. Intenta con una foto más iluminada o introduce los datos manualmente."
