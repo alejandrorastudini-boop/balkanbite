@@ -1,5 +1,4 @@
-import firebaseConfig from "../firebase-applet-config.json";
-
+const FIREBASE_API_KEY = "AIzaSyDv1M9ayqOn3X_UsMWNG_R4nxDrOH80C44";
 const ADMIN_EMAIL = "alejandrorastudini@gmail.com";
 const AGENT_REPOSITORY = "alejandrorastudini-boop/balkanbite-dev-agent";
 const AGENT_STATE_REF = "agent-state";
@@ -26,7 +25,7 @@ function getBearerToken(req: ApiRequest): string | null {
 
 async function verifyAdmin(idToken: string): Promise<boolean> {
   const response = await fetch(
-    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(firebaseConfig.apiKey)}`,
+    `https://identitytoolkit.googleapis.com/v1/accounts:lookup?key=${encodeURIComponent(FIREBASE_API_KEY)}`,
     {
       method: "POST",
       headers: { "Content-Type": "application/json" },
