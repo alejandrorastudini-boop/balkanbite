@@ -109,7 +109,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
           category: cat,
           estimatedDaysUntilExpiry: item.estimatedDaysUntilExpiry || 7,
           approximateCostEUR: item.approximateCostEUR || 1.5,
-          confidence: item.confidence || "high",
+          confidence: item.confidence || "low",
           selected: true,
         };
       });
@@ -172,7 +172,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         category: cat,
         estimatedDaysUntilExpiry: data.estimatedDaysUntilExpiry || 14,
         approximateCostEUR: 1.8,
-        confidence: "high",
+        confidence: "low",
         selected: true,
       };
 
