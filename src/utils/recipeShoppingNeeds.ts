@@ -160,7 +160,6 @@ export function buildRecipeShoppingNeeds(
         unit: assessment.unit,
         category: assessment.category,
         // No verified price source exists in this path.
-        estimatedPriceEUR: 0,
       })),
     unverified: assessments.filter(
       (assessment) => assessment.status === "unverified"

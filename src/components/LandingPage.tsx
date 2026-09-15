@@ -409,13 +409,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         {[
                           {
                             title: language === "es" ? "Ensalada Shopska" : language === "bg" ? "Шопска салата" : "Shopska Salad",
-                            price: "1,20 €",
+                            price: language === "es" ? "Precio al comprar" : language === "bg" ? "Цена при покупка" : "Price at purchase",
                             time: "10 min",
                             cal: "210 kcal"
                           },
                           {
                             title: language === "es" ? "Tortilla con Feta" : language === "bg" ? "Омлет със сирене" : "Feta Cheese Omelette",
-                            price: "1,65 €",
+                            price: language === "es" ? "Precio al comprar" : language === "bg" ? "Цена при покупка" : "Price at purchase",
                             time: "15 min",
                             cal: "340 kcal"
                           }
@@ -531,7 +531,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                             ? "✓ Escaneado con IA • Cero Desperdicio"
                             : language === "bg"
                             ? "✓ AI Сканиране • Нулев отпадък"
-                            : "✓ AI Scanned • Zero Waste"}
+                            : "✓ AI-assisted scanning"}
                         </div>
                       </div>
                     </div>

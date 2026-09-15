@@ -49,11 +49,11 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
   // New item form state
   const [name, setName] = useState("");
-  const [quantity, setQuantity] = useState<number>(1);
-  const [unit, setUnit] = useState<string>("pcs");
-  const [category, setCategory] = useState<PantryItem["category"]>("Produce");
-  const [expiryDays, setExpiryDays] = useState<number>(7);
-  const [cost, setCost] = useState<number>(2.5);
+  const [quantity, setQuantity] = useState<number | "">("");
+  const [unit, setUnit] = useState<string>("");
+  const [category, setCategory] = useState<PantryItem["category"] | "">("");
+  const [expiryDays, setExpiryDays] = useState<number | "">("");
+  const [cost, setCost] = useState<number | "">("");
 
   const categories = [
     { id: "All", label: currentText.filterAll },
@@ -88,19 +88,39 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (
+      !name.trim() ||
+      quantity === "" ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      !unit.trim() ||
+      !category ||
+      (expiryDays !== "" &&
+        (!Number.isFinite(expiryDays) || expiryDays < 0)) ||
+      (cost !== "" && (!Number.isFinite(cost) || cost < 0))
+    ) {
+      return;
+    }
 
     onAddItem({
       name: name.trim(),
-      quantity: Number(quantity),
+      quantity,
       unit,
       category,
-      expiryDaysLeft: Number(expiryDays),
-      estimatedCostEUR: Number(cost),
+      ...(expiryDays !== "" && Number.isFinite(expiryDays)
+        ? { expiryDaysLeft: expiryDays }
+        : {}),
+      ...(cost !== "" && Number.isFinite(cost)
+        ? { estimatedCostEUR: cost }
+        : {}),
     });
 
     setName("");
-    setQuantity(1);
+    setQuantity("");
+    setUnit("");
+    setCategory("");
+    setExpiryDays("");
+    setCost("");
     setShowAddModal(false);
   };
 
@@ -170,16 +190,16 @@ export const PantryView: React.FC<PantryViewProps> = ({
             <span className="text-stone-200 font-bold block tracking-wide">{currentText.savingsRadarTitle || "Radar de Ahorro Anti-Desperdicio"}</span>
             <p className="text-[11px] text-stone-400 mt-0.5">
               {language === "es"
-                ? "Ingredientes aprovechados a tiempo"
+                ? "No hay datos de ahorro verificados"
                 : language === "bg"
-                ? "Спестени продукти навреме"
-                : "Ingredients rescued in time"}
+                ? "Няма потвърдени данни за спестявания"
+                : "No verified savings data"}
             </p>
           </div>
         </div>
         <div className="text-right shrink-0 relative z-10">
           <span className="text-emerald-400 font-extrabold font-['Outfit'] text-base tracking-tight">
-            +{currency === "EUR" ? "€42.50" : "$46.80"}
+            {language === "es" ? "Sin datos" : language === "bg" ? "Няма данни" : "No data"}
           </span>
           <span className="block text-[10px] text-stone-500 font-bold uppercase tracking-wider mt-0.5">{currentText.savingsRadarEstimated || "Ahorrado este mes"}</span>
         </div>
@@ -433,8 +453,11 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     type="number"
                     min="0.1"
                     step="any"
+                    required
                     value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    onChange={(e) =>
+                      setQuantity(e.target.value === "" ? "" : Number(e.target.value))
+                    }
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
