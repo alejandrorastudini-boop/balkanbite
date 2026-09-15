@@ -182,7 +182,6 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     e.preventDefault();
     // A new lookup immediately invalidates any prior suggestion so validation,
     // not-found responses, and request failures can never leave a stale save path.
-    setDetectedItems([]);
     // Every lookup attempt, including an empty submission, invalidates an older in-flight result.
     const requestId = ++captureRequestIdRef.current;
     setScannedItems([]);
