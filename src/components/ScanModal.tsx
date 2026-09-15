@@ -25,6 +25,8 @@ import {
 interface ScannedItem extends SafeScanCandidate {
   id: string;
   selected: boolean;
+  /** Capture results are review candidates, never authoritative pantry records. */
+  captureSource: "ai-suggestion" | "barcode-suggestion";
   quantityConfirmed: boolean;
   unitConfirmed: boolean;
 }
@@ -135,6 +137,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             ...candidate,
             id: `scanned-${Date.now()}-${index}`,
             selected: false,
+            captureSource: "ai-suggestion",
             quantityConfirmed: false,
             unitConfirmed: false,
           } satisfies ScannedItem;
@@ -200,6 +203,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         ...candidate,
         id: `barcode-${Date.now()}`,
         selected: false,
+        captureSource: "barcode-suggestion",
         quantityConfirmed: false,
         unitConfirmed: false,
       };
