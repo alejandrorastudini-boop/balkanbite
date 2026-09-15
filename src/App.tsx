@@ -50,6 +50,7 @@ import {
   reconcileConfirmedShoppingPurchases,
   type RawReconciliationExtraItem,
 } from "./utils/purchasePantryMerge";
+import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() => {
@@ -749,10 +750,7 @@ export default function App() {
       const syncedRecipes = syncRecipesWithPantry(recipes, result.pantry);
       setRecipes(syncedRecipes);
       const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
-        result.pantry,
-        syncedRecipes,
-        mealPlan,
-        profile
+        result.pantry, syncedRecipes, mealPlan, profile
       );
       setMealPlan(newPlan);
       setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
@@ -824,19 +822,28 @@ export default function App() {
   };
 
   const handleVoiceAddItems = (items: any[]) => {
-    const parsed: PantryItem[] = items.map((it, idx) => ({
-      id: `p-${Date.now()}-${idx}`,
-      name: it.nameEn || it.name,
-      nameBg: it.name,
-      quantity: it.quantity || 1,
-      unit: it.unit || "pcs",
-      category: it.category || "Produce",
-      expiryDaysLeft: it.shelfLifeDays || 7,
-      estimatedCostEUR: it.estimatedCostEUR || 1.3,
-      addedAt: new Date().toISOString().split("T")[0],
+    const { accepted, rejectedCount } = normalizeVoicePantryItems(items || []);
+    const now = Date.now();
+    const addedAt = new Date().toISOString().split("T")[0];
+    const parsed: PantryItem[] = accepted.map((item, idx) => ({
+      ...item,
+      id: `p-${now}-${idx}`,
+      addedAt,
     }));
 
-    updatePantryAndReconcileMenu(parsed, true);
+    if (parsed.length > 0) {
+      updatePantryAndReconcileMenu(parsed, true);
+    }
+
+    if (rejectedCount > 0) {
+      alert(
+        profile.language === "bg"
+          ? `Не запазих ${rejectedCount} продукт(а), защото липсва потвърдено количество или мерна единица. Кажете количеството и мерната единица и опитайте отново.`
+          : profile.language === "es"
+          ? `No guardé ${rejectedCount} producto(s) porque faltaba una cantidad o unidad confirmada. Indica la cantidad y la unidad e inténtalo de nuevo.`
+          : `I did not save ${rejectedCount} item(s) because a confirmed quantity or unit was missing. Provide the quantity and unit and try again.`
+      );
+    }
   };
 
   const handleVoiceDeductItems = (items: any[]) => {
