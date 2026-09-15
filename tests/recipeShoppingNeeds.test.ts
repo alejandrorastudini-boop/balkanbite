@@ -5,10 +5,10 @@ import { INITIAL_RECIPES } from '../src/data/initialData';
 import type { PantryItem, ShoppingItem } from '../src/types';
 const stock = (quantity: number, unit: string): PantryItem => ({ id: `${quantity}-${unit}`, name: 'Lentejas', quantity, unit, category: 'Pantry/Grains', addedAt: '2026-09-13' });
 const recipe = (amount: number, unit: string) => ({ ...INITIAL_RECIPES[0], ingredients: [{ name: 'Lentejas', amount, unit, inPantry: false }] });
-const pending = (quantity: number, unit = 'g'): ShoppingItem => ({ id: 's1', name: 'Lentejas', quantity, unit, checked: false, category: 'Other', estimatedPriceEUR: 0 });
-test('buys only the deficit and does not invent price', () => {
+const pending = (quantity: number, unit = 'g'): ShoppingItem => ({ id: 's1', name: 'Lentejas', quantity, unit, checked: false, category: 'Other' });
+test('buys only the deficit and leaves an unknown price absent', () => {
  const result = buildRecipeShoppingNeeds(recipe(500, 'g'), [stock(320, 'g')]);
- assert.equal(result.items.length, 1); assert.equal(result.items[0].quantity, 180); assert.equal(result.items[0].estimatedPriceEUR, 0);
+ assert.equal(result.items.length, 1); assert.equal(result.items[0].quantity, 180); assert.equal(result.items[0].estimatedPriceEUR, undefined);
 });
 test('sums compatible kg/g stocks', () => assert.equal(buildRecipeShoppingNeeds(recipe(500, 'g'), [stock(.2, 'kg'), stock(300, 'g')]).items.length, 0));
 test('does not turn a package into grams', () => {
