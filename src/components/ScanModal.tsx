@@ -95,7 +95,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
           return {
             ...candidate,
             id: `scanned-${Date.now()}-${index}`,
-            selected: isCandidateReadyForPantry(candidate),
+            selected: false,
           } satisfies ScannedItem;
         })
         .filter((item: ScannedItem | null): item is ScannedItem => item !== null);
@@ -143,7 +143,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       const newItem: ScannedItem = {
         ...candidate,
         id: `barcode-${Date.now()}`,
-        selected: isCandidateReadyForPantry(candidate),
+        selected: false,
       };
 
       setScannedItems([newItem]);
