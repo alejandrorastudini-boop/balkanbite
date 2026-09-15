@@ -93,6 +93,9 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       if (!res.ok) throw new Error("Failed to analyze image");
 
       const data = await res.json();
+      if (data?.error || data?.success === false || data?.available === false) {
+        throw new Error("Scanner returned a failure result");
+      }
       const detected = (Array.isArray(data.items) ? data.items : [])
         .map((item: unknown, index: number) => {
           const candidate = normalizeScanCandidate(item);
@@ -108,6 +111,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         .filter((item: ScannedItem | null): item is ScannedItem => item !== null);
 
       if (detected.length === 0) {
+        // Empty results are not detections and must not leave a saveable candidate behind.
+        setScannedItems([]);
         setErrorMsg(
           language === "es"
             ? "No se han detectado alimentos con claridad. Intenta con una foto más iluminada o introduce los datos manualmente."
@@ -146,6 +151,9 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       if (!res.ok) throw new Error("Barcode not found");
 
       const data = await res.json();
+      if (data?.error || data?.found === false || data?.success === false) {
+        throw new Error("Barcode lookup returned a not-found or failure result");
+      }
       const candidate = normalizeScanCandidate({ ...data, confidence: data?.confidence ?? "low" });
       if (!candidate) throw new Error("Barcode result has no product name");
 
