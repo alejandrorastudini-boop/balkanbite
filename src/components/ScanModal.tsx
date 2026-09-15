@@ -81,6 +81,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     setErrorMsg(null);
 
     const handleReadFailure = () => {
+      if (readRequestId !== captureRequestIdRef.current) return;
       ++captureRequestIdRef.current;
       setScannedItems([]);
       setImagePreview(null);
@@ -96,6 +97,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
     const reader = new FileReader();
     reader.onload = (event) => {
+      if (readRequestId !== captureRequestIdRef.current) return;
       const base64 = event.target?.result;
       if (typeof base64 !== "string" || !base64) {
         handleReadFailure();
