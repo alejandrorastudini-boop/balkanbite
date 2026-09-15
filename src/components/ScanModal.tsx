@@ -25,7 +25,12 @@ import {
 interface ScannedItem extends SafeScanCandidate {
   id: string;
   selected: boolean;
+  quantityConfirmed: boolean;
+  unitConfirmed: boolean;
 }
+
+const isScannedItemConfirmed = (item: ScannedItem) =>
+  item.quantityConfirmed && item.unitConfirmed && isCandidateReadyForPantry(item);
 
 interface ScanModalProps {
   isOpen: boolean;
@@ -96,6 +101,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             ...candidate,
             id: `scanned-${Date.now()}-${index}`,
             selected: false,
+            quantityConfirmed: false,
+            unitConfirmed: false,
           } satisfies ScannedItem;
         })
         .filter((item: ScannedItem | null): item is ScannedItem => item !== null);
@@ -144,6 +151,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         ...candidate,
         id: `barcode-${Date.now()}`,
         selected: false,
+        quantityConfirmed: false,
+        unitConfirmed: false,
       };
 
       setScannedItems([newItem]);
@@ -166,7 +175,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     setScannedItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
-        if (!item.selected && !isCandidateReadyForPantry(item)) {
+        if (!item.selected && !isScannedItemConfirmed(item)) {
           setErrorMsg(confirmationText);
           return item;
         }
@@ -191,7 +200,12 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                     : undefined,
               }
             : { ...item, unit: rawValue.trim() || undefined };
-        return { ...next, selected: item.selected && isCandidateReadyForPantry(next) };
+        const confirmed = {
+          ...next,
+          quantityConfirmed: field === "quantity" ? true : item.quantityConfirmed,
+          unitConfirmed: field === "unit" ? true : item.unitConfirmed,
+        };
+        return { ...confirmed, selected: item.selected && isScannedItemConfirmed(confirmed) };
       })
     );
   };
