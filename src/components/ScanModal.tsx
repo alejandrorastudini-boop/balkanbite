@@ -250,7 +250,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   };
 
   const selectedCount = scannedItems.filter((item) => item.selected).length;
-  const pendingConfirmationCount = scannedItems.filter((item) => !isCandidateReadyForPantry(item)).length;
+  const pendingConfirmationCount = scannedItems.filter((item) => !isScannedItemConfirmed(item)).length;
 
   return (
     <div id="scan-modal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -355,7 +355,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {scannedItems.map((item) => {
-                  const ready = isCandidateReadyForPantry(item);
+                  const ready = isScannedItemConfirmed(item);
                   return (
                     <div key={item.id} className={`p-3 rounded-xl border transition-all ${item.selected ? "bg-emerald-950/20 border-emerald-500/40 text-white" : ready ? "bg-stone-850/50 border-stone-700 text-stone-300" : "bg-amber-950/10 border-amber-500/30 text-stone-300"}`}>
                       <div className="flex items-start justify-between gap-2.5">
