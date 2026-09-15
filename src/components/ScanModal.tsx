@@ -214,8 +214,9 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             : { ...item, unit: rawValue.trim() || undefined };
         const confirmed = {
           ...next,
-          quantityConfirmed: field === "quantity" ? true : item.quantityConfirmed,
-          unitConfirmed: field === "unit" ? true : item.unitConfirmed,
+          quantityConfirmed:
+            field === "quantity" ? typeof next.quantity === "number" : item.quantityConfirmed,
+          unitConfirmed: field === "unit" ? Boolean(next.unit) : item.unitConfirmed,
         };
         return { ...confirmed, selected: item.selected && isScannedItemConfirmed(confirmed) };
       })
