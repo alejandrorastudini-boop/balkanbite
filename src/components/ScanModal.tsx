@@ -12,20 +12,18 @@ import {
   Calendar,
   AlertCircle,
   Loader2,
-  Image as ImageIcon,
 } from "lucide-react";
 import { Language, Currency, PantryItem } from "../types";
 import { t } from "../utils/translations";
+import {
+  isCandidateReadyForPantry,
+  normalizeScanCandidate,
+  toPantryPayload,
+  type SafeScanCandidate,
+} from "../utils/safeScanCandidate";
 
-interface ScannedItem {
+interface ScannedItem extends SafeScanCandidate {
   id: string;
-  name: string;
-  quantity?: number;
-  unit?: string;
-  category?: "Produce" | "Dairy" | "Meat/Fish" | "Pantry/Grains" | "Spices" | "Other";
-  estimatedDaysUntilExpiry?: number;
-  approximateCostEUR?: number;
-  confidence?: "high" | "medium" | "low";
   selected: boolean;
 }
 
@@ -41,7 +39,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   isOpen,
   onClose,
   language,
-  currency,
+  currency: _currency,
   onAddItems,
 }) => {
   const currentText = t[language];
@@ -54,6 +52,13 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   if (!isOpen) return null;
+
+  const confirmationText =
+    language === "es"
+      ? "Confirma cantidad y unidad antes de añadir este alimento. Los datos desconocidos no se inventan."
+      : language === "bg"
+      ? "Потвърдете количество и мерна единица, преди да добавите продукта. Неизвестните данни не се измислят."
+      : "Confirm quantity and unit before adding this item. Unknown data is not invented.";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -77,20 +82,14 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       const res = await fetch("/api/ai/scan-image", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          image: base64Image,
-          mimeType,
-          scanType: scanMode,
-          language,
-        }),
+        body: JSON.stringify({ image: base64Image, mimeType, scanType: scanMode, language }),
       });
 
-      if (!res.ok) {
-        throw new Error("Failed to analyze image");
-      }
+      if (!res.ok) throw new Error("Failed to analyze image");
 
       const data = await res.json();
       const detected = (Array.isArray(data.items) ? data.items : [])
+<<<<<<< HEAD
         .filter((item: any) => typeof item?.name === "string" && item.name.trim().length > 0)
         .map((item: any, index: number) => {
         let cat: ScannedItem["category"];
@@ -134,9 +133,20 @@ export const ScanModal: React.FC<ScanModalProps> = ({
           selected: true,
         };
       });
+=======
+        .map((item: unknown, index: number) => {
+          const candidate = normalizeScanCandidate(item);
+          if (!candidate) return null;
+          return {
+            ...candidate,
+            id: `scanned-${Date.now()}-${index}`,
+            selected: isCandidateReadyForPantry(candidate),
+          } satisfies ScannedItem;
+        })
+        .filter((item: ScannedItem | null): item is ScannedItem => item !== null);
+>>>>>>> origin/main
 
       if (detected.length === 0) {
-        setScannedItems([]);
         setErrorMsg(
           language === "es"
             ? "No se han detectado alimentos con claridad. Intenta con una foto más iluminada o introduce los datos manualmente."
@@ -147,7 +157,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       } else {
         setScannedItems(detected);
       }
-    } catch (err: any) {
+    } catch (err) {
       console.error(err);
       setErrorMsg(
         language === "es"
@@ -170,11 +180,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     setScannedItems([]);
     try {
       const res = await fetch(`/api/barcode/${encodeURIComponent(barcodeInput.trim())}?lang=${language}`);
-      if (!res.ok) {
-        throw new Error("Barcode not found");
-      }
+      if (!res.ok) throw new Error("Barcode not found");
 
       const data = await res.json();
+<<<<<<< HEAD
       if (typeof data?.name !== "string" || !data.name.trim()) {
         throw new Error("Barcode result has no product name");
       }
@@ -185,9 +194,15 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       else if (rawCat.includes("dairy")) cat = "Dairy";
       else if (rawCat.includes("meat")) cat = "Meat/Fish";
       else if (rawCat.includes("other")) cat = "Other";
+=======
+      const candidate = normalizeScanCandidate({ ...data, confidence: data?.confidence ?? "low" });
+      if (!candidate) throw new Error("Barcode result has no product name");
+>>>>>>> origin/main
 
       const newItem: ScannedItem = {
+        ...candidate,
         id: `barcode-${Date.now()}`,
+<<<<<<< HEAD
         name: data.name.trim(),
         quantity:
           typeof data.quantity === "number" && Number.isFinite(data.quantity) && data.quantity > 0
@@ -209,11 +224,15 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             : undefined,
         confidence: "low",
         selected: true,
+=======
+        selected: isCandidateReadyForPantry(candidate),
+>>>>>>> origin/main
       };
 
-      setScannedItems((prev) => [newItem, ...prev]);
+      setScannedItems([newItem]);
       setBarcodeInput("");
     } catch (err) {
+      console.error(err);
       setErrorMsg(
         language === "es"
           ? "Error buscando el código de barras."
@@ -228,7 +247,35 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
   const handleToggleItem = (id: string) => {
     setScannedItems((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, selected: !item.selected } : item))
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        if (!item.selected && !isCandidateReadyForPantry(item)) {
+          setErrorMsg(confirmationText);
+          return item;
+        }
+        setErrorMsg(null);
+        return { ...item, selected: !item.selected };
+      })
+    );
+  };
+
+  const updateRequiredField = (id: string, field: "quantity" | "unit", rawValue: string) => {
+    setErrorMsg(null);
+    setScannedItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const next =
+          field === "quantity"
+            ? {
+                ...item,
+                quantity:
+                  rawValue.trim() && Number.isFinite(Number(rawValue)) && Number(rawValue) > 0
+                    ? Number(rawValue)
+                    : undefined,
+              }
+            : { ...item, unit: rawValue.trim() || undefined };
+        return { ...next, selected: item.selected && isCandidateReadyForPantry(next) };
+      })
     );
   };
 
@@ -237,19 +284,16 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   };
 
   const handleSaveToPantry = () => {
-    const selected = scannedItems.filter((i) => i.selected);
+    const selected = scannedItems.filter((item) => item.selected);
     if (selected.length === 0) return;
 
-    const payload = selected.map((item) => ({
-      name: item.name,
-      quantity: item.quantity,
-      unit: item.unit,
-      category: item.category,
-      expiryDaysLeft: item.estimatedDaysUntilExpiry,
-      estimatedCostEUR: item.approximateCostEUR,
-    }));
+    const payload = selected.map(toPantryPayload);
+    if (payload.some((item) => item === null)) {
+      setErrorMsg(confirmationText);
+      return;
+    }
 
-    onAddItems(payload);
+    onAddItems(payload as Array<Omit<PantryItem, "id" | "addedAt">>);
     handleResetModal();
     onClose();
   };
@@ -261,15 +305,12 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     setBarcodeInput("");
   };
 
-  const selectedCount = scannedItems.filter((i) => i.selected).length;
+  const selectedCount = scannedItems.filter((item) => item.selected).length;
+  const pendingConfirmationCount = scannedItems.filter((item) => !isCandidateReadyForPantry(item)).length;
 
   return (
-    <div
-      id="scan-modal-overlay"
-      className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200"
-    >
+    <div id="scan-modal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
       <div className="bg-stone-900 border border-stone-800 rounded-2xl w-full max-w-xl max-h-[92vh] flex flex-col shadow-2xl overflow-hidden">
-        {/* Header */}
         <div className="p-4 border-b border-stone-800 flex items-center justify-between bg-stone-850/80">
           <div className="flex items-center gap-2.5">
             <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-emerald-600 to-teal-500 text-white flex items-center justify-center shadow-sm">
@@ -278,80 +319,36 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             <div>
               <h2 className="text-base font-bold text-white font-['Outfit'] flex items-center gap-2">
                 {currentText.scanCameraModalTitle || (language === "es" ? "Escáner Visual con IA" : language === "bg" ? "AI Визуален скенер" : "AI Visual Scanner")}
-                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-wider">
-                  AI Vision
-                </span>
+                <span className="text-[10px] font-extrabold px-1.5 py-0.5 rounded bg-amber-500/20 text-amber-300 border border-amber-500/30 uppercase tracking-wider">AI Vision</span>
               </h2>
               <p className="text-xs text-stone-400 line-clamp-1">
                 {currentText.scanCameraModalSubtitle || (language === "es" ? "Detecta ingredientes desde tu cámara o ticket" : language === "bg" ? "Разпознайте продукти с камерата или от касова бележка" : "Detect ingredients from camera or receipt")}
               </p>
             </div>
           </div>
-          <button
-            onClick={() => {
-              handleResetModal();
-              onClose();
-            }}
-            className="w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer"
-          >
+          <button onClick={() => { handleResetModal(); onClose(); }} className="w-8 h-8 rounded-full bg-stone-800 hover:bg-stone-700 text-stone-400 hover:text-white flex items-center justify-center transition-colors cursor-pointer">
             <X className="w-4 h-4" />
           </button>
         </div>
 
-        {/* Mode Selector Tabs */}
         <div className="p-3 border-b border-stone-800 bg-stone-900/60 flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={() => {
-              setScanMode("fridge");
-              handleResetModal();
-            }}
-            className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              scanMode === "fridge"
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "bg-stone-800/80 text-stone-400 hover:text-stone-200"
-            }`}
-          >
-            <Camera className="w-3.5 h-3.5" />
-            <span>{currentText.scanModeFridge || (language === "es" ? "Nevera / Despensa" : language === "bg" ? "Хладилник / Килер" : "Fridge / Pantry")}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setScanMode("receipt");
-              handleResetModal();
-            }}
-            className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              scanMode === "receipt"
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "bg-stone-800/80 text-stone-400 hover:text-stone-200"
-            }`}
-          >
-            <Receipt className="w-3.5 h-3.5" />
-            <span>{currentText.scanModeReceipt || (language === "es" ? "Ticket de Súper" : language === "bg" ? "Касова бележка" : "Supermarket Receipt")}</span>
-          </button>
-
-          <button
-            type="button"
-            onClick={() => {
-              setScanMode("barcode");
-              handleResetModal();
-            }}
-            className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${
-              scanMode === "barcode"
-                ? "bg-emerald-600 text-white shadow-sm"
-                : "bg-stone-800/80 text-stone-400 hover:text-stone-200"
-            }`}
-          >
-            <Barcode className="w-3.5 h-3.5" />
-            <span>{currentText.scanModeBarcode || (language === "es" ? "Código de Barras" : language === "bg" ? "Баркод" : "Barcode")}</span>
-          </button>
+          {(["fridge", "receipt", "barcode"] as const).map((mode) => {
+            const Icon = mode === "fridge" ? Camera : mode === "receipt" ? Receipt : Barcode;
+            const label = mode === "fridge"
+              ? (currentText.scanModeFridge || (language === "es" ? "Nevera / Despensa" : language === "bg" ? "Хладилник / Килер" : "Fridge / Pantry"))
+              : mode === "receipt"
+              ? (currentText.scanModeReceipt || (language === "es" ? "Ticket de Súper" : language === "bg" ? "Касова бележка" : "Supermarket Receipt"))
+              : (currentText.scanModeBarcode || (language === "es" ? "Código de Barras" : language === "bg" ? "Баркод" : "Barcode"));
+            return (
+              <button key={mode} type="button" onClick={() => { setScanMode(mode); handleResetModal(); }} className={`flex-1 py-2 px-2.5 rounded-xl text-xs font-semibold flex items-center justify-center gap-1.5 transition-all cursor-pointer ${scanMode === mode ? "bg-emerald-600 text-white shadow-sm" : "bg-stone-800/80 text-stone-400 hover:text-stone-200"}`}>
+                <Icon className="w-3.5 h-3.5" />
+                <span>{label}</span>
+              </button>
+            );
+          })}
         </div>
 
-        {/* Content Body */}
         <div className="flex-1 overflow-y-auto p-4 space-y-4">
-          {/* Error Message */}
           {errorMsg && (
             <div className="p-3 bg-red-950/40 border border-red-800/50 rounded-xl text-xs text-red-300 flex items-start gap-2">
               <AlertCircle className="w-4 h-4 text-red-400 shrink-0 mt-0.5" />
@@ -359,242 +356,106 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             </div>
           )}
 
-          {/* Barcode Mode View */}
           {scanMode === "barcode" ? (
             <div className="space-y-3">
               <form onSubmit={handleBarcodeSearch} className="flex gap-2">
                 <div className="relative flex-1">
-                  <input
-                    type="text"
-                    value={barcodeInput}
-                    onChange={(e) => setBarcodeInput(e.target.value)}
-                    placeholder={
-                      language === "es"
-                        ? "Introduce código EAN (ej: 8480000100412)..."
-                        : language === "bg"
-                        ? "Въведете EAN баркод (напр. 8480000100412)..."
-                        : "Enter EAN barcode (e.g. 8480000100412)..."
-                    }
-                    className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-stone-400 focus:outline-none focus:border-emerald-500"
-                  />
+                  <input type="text" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} placeholder={language === "es" ? "Introduce código EAN..." : language === "bg" ? "Въведете EAN баркод..." : "Enter EAN barcode..."} className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-stone-400 focus:outline-none focus:border-emerald-500" />
                 </div>
-                <button
-                  type="submit"
-                  disabled={isScanning || !barcodeInput.trim()}
-                  className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0"
-                >
+                <button type="submit" disabled={isScanning || !barcodeInput.trim()} className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0">
                   {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Barcode className="w-4 h-4" />}
                   <span>{language === "es" ? "Buscar" : language === "bg" ? "Търси" : "Search"}</span>
                 </button>
               </form>
-
-              {/* Quick Barcode Examples */}
-              <div className="flex flex-wrap gap-1.5 items-center">
-                <span className="text-[11px] text-stone-400">
-                  {language === "es" ? "Probar rápido:" : language === "bg" ? "Бърз тест:" : "Quick try:"}
-                </span>
-                {[
-                  {
-                    label: language === "es" ? "Leche Entera" : language === "bg" ? "Прясно мляко" : "Whole Milk",
-                    code: "8480000100412",
-                  },
-                  {
-                    label: language === "es" ? "Yogur Búlgaro" : language === "bg" ? "Кисело мляко" : "Bulgarian Yogurt",
-                    code: "3800000100123",
-                  },
-                  {
-                    label: language === "es" ? "Huevos L" : language === "bg" ? "Яйца L" : "Eggs L",
-                    code: "8410000000123",
-                  },
-                ].map((sample) => (
-                  <button
-                    key={sample.code}
-                    type="button"
-                    onClick={() => {
-                      setBarcodeInput(sample.code);
-                    }}
-                    className="text-[11px] px-2 py-0.5 rounded-lg bg-stone-800 hover:bg-stone-700 text-stone-300 border border-stone-700 transition-colors"
-                  >
-                    {sample.label}
-                  </button>
-                ))}
-              </div>
             </div>
           ) : (
-            /* Visual Camera / Upload View */
             <div className="space-y-3">
               {!imagePreview ? (
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  className="border-2 border-dashed border-stone-700 hover:border-emerald-500/70 bg-stone-850/50 hover:bg-stone-850 rounded-2xl p-8 text-center transition-all cursor-pointer group space-y-3"
-                >
-                  <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 text-emerald-400 group-hover:scale-105 group-hover:bg-emerald-500/20 flex items-center justify-center transition-all">
-                    <Camera className="w-7 h-7" />
-                  </div>
+                <div onClick={() => fileInputRef.current?.click()} className="border-2 border-dashed border-stone-700 hover:border-emerald-500/70 bg-stone-850/50 hover:bg-stone-850 rounded-2xl p-8 text-center transition-all cursor-pointer group space-y-3">
+                  <div className="w-14 h-14 mx-auto rounded-2xl bg-emerald-500/10 text-emerald-400 group-hover:scale-105 group-hover:bg-emerald-500/20 flex items-center justify-center transition-all"><Camera className="w-7 h-7" /></div>
                   <div>
                     <p className="text-sm font-bold text-white">
-                      {scanMode === "fridge"
-                        ? language === "es"
-                          ? "Hacer foto de la nevera o despensa"
-                          : language === "bg"
-                          ? "Снимка на хладилника или килера"
-                          : "Take photo of fridge or pantry"
-                        : language === "es"
-                        ? "Fotografiar ticket de supermercado"
-                        : language === "bg"
-                        ? "Снимка на касова бележка"
-                        : "Take photo of supermarket receipt"}
+                      {scanMode === "fridge" ? (language === "es" ? "Hacer foto de la nevera o despensa" : language === "bg" ? "Снимка на хладилника или килера" : "Take photo of fridge or pantry") : (language === "es" ? "Fotografiar ticket de supermercado" : language === "bg" ? "Снимка на касова бележка" : "Take photo of supermarket receipt")}
                     </p>
-                    <p className="text-xs text-stone-400 mt-1">
-                      {language === "es"
-                        ? "Haz clic para abrir tu cámara o subir una imagen"
-                        : language === "bg"
-                        ? "Натиснете, за да отворите камерата или качите снимка"
-                        : "Click to open camera or upload an image"}
-                    </p>
+                    <p className="text-xs text-stone-400 mt-1">{language === "es" ? "Haz clic para abrir tu cámara o subir una imagen" : language === "bg" ? "Натиснете, за да отворите камерата или качите снимка" : "Click to open camera or upload an image"}</p>
                   </div>
                   <div className="inline-flex items-center gap-1.5 text-xs text-emerald-400 font-semibold px-3 py-1.5 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
                     <Upload className="w-3.5 h-3.5" />
-                    <span>
-                      {language === "es"
-                        ? "Seleccionar archivo o disparar cámara"
-                        : language === "bg"
-                        ? "Изберете файл или снимайте"
-                        : "Select file or snap photo"}
-                    </span>
+                    <span>{language === "es" ? "Seleccionar archivo o disparar cámara" : language === "bg" ? "Изберете файл или снимайте" : "Select file or snap photo"}</span>
                   </div>
                 </div>
               ) : (
                 <div className="relative rounded-2xl overflow-hidden border border-stone-750 bg-stone-950">
-                  <img
-                    src={imagePreview}
-                    alt="Preview"
-                    className="w-full max-h-48 object-cover opacity-80"
-                  />
-                  {isScanning && (
-                    <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center gap-2">
-                      <Loader2 className="w-8 h-8 text-emerald-400 animate-spin" />
-                      <span className="text-xs font-bold text-white font-['Outfit'] animate-pulse">
-                        {currentText.scanAnalyzing || (language === "es" ? "Analizando alimentos con IA..." : language === "bg" ? "Анализиране на храни с AI..." : "Analyzing items with AI...")}
-                      </span>
-                    </div>
-                  )}
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setImagePreview(null);
-                      setScannedItems([]);
-                    }}
-                    className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-white text-[11px] font-semibold backdrop-blur-sm transition-colors cursor-pointer"
-                  >
-                    {language === "es" ? "Cambiar foto" : language === "bg" ? "Смени снимката" : "Change photo"}
-                  </button>
+                  <img src={imagePreview} alt="Preview" className="w-full max-h-48 object-cover opacity-80" />
+                  {isScanning && <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center gap-2"><Loader2 className="w-8 h-8 text-emerald-400 animate-spin" /><span className="text-xs font-bold text-white font-['Outfit'] animate-pulse">{currentText.scanAnalyzing || (language === "es" ? "Analizando alimentos con IA..." : language === "bg" ? "Анализиране на храни с AI..." : "Analyzing items with AI...")}</span></div>}
+                  <button type="button" onClick={() => { setImagePreview(null); setScannedItems([]); }} className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-white text-[11px] font-semibold backdrop-blur-sm transition-colors cursor-pointer">{language === "es" ? "Cambiar foto" : language === "bg" ? "Смени снимката" : "Change photo"}</button>
                 </div>
               )}
-
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                capture="environment"
-                onChange={handleFileChange}
-                className="hidden"
-              />
+              <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
             </div>
           )}
 
-          {/* Scanned Items Results */}
           {scannedItems.length > 0 && (
             <div className="space-y-2.5 pt-2 border-t border-stone-800">
-              <div className="flex items-center justify-between">
-                <span className="text-xs font-bold text-white font-['Outfit'] flex items-center gap-1.5">
-                  <Sparkles className="w-3.5 h-3.5 text-amber-400" />
-                  {currentText.scanFoundItems || (language === "es" ? "Alimentos detectados" : language === "bg" ? "Разпознати продукти" : "Detected items")} ({scannedItems.length})
-                </span>
-                <span className="text-[11px] text-stone-400">
-                  {selectedCount} {language === "es" ? "seleccionados" : language === "bg" ? "избрани" : "selected"}
-                </span>
+              <div className="flex items-center justify-between gap-3">
+                <span className="text-xs font-bold text-white font-['Outfit'] flex items-center gap-1.5"><Sparkles className="w-3.5 h-3.5 text-amber-400" />{currentText.scanFoundItems || (language === "es" ? "Alimentos detectados" : language === "bg" ? "Разпознати продукти" : "Detected items")} ({scannedItems.length})</span>
+                <span className="text-[11px] text-stone-400">{selectedCount} {language === "es" ? "listos" : language === "bg" ? "готови" : "ready"}</span>
               </div>
 
-              <div className="space-y-1.5 max-h-56 overflow-y-auto pr-1">
-                {scannedItems.map((item) => (
-                  <div
-                    key={item.id}
-                    className={`p-2.5 rounded-xl border transition-all flex items-center justify-between gap-2.5 ${
-                      item.selected
-                        ? "bg-emerald-950/20 border-emerald-500/40 text-white"
-                        : "bg-stone-850/50 border-stone-800 text-stone-400"
-                    }`}
-                  >
-                    <div className="flex items-center gap-2.5 min-w-0">
-                      <button
-                        type="button"
-                        onClick={() => handleToggleItem(item.id)}
-                        className={`w-5 h-5 rounded-md border flex items-center justify-center transition-all cursor-pointer shrink-0 ${
-                          item.selected
-                            ? "bg-emerald-600 border-emerald-500 text-white"
-                            : "border-stone-600 hover:border-stone-500"
-                        }`}
-                      >
-                        {item.selected && <Check className="w-3.5 h-3.5" />}
-                      </button>
+              {pendingConfirmationCount > 0 && (
+                <div className="p-2.5 rounded-xl border border-amber-500/30 bg-amber-500/10 text-[11px] text-amber-200 flex items-start gap-2">
+                  <AlertCircle className="w-3.5 h-3.5 shrink-0 mt-0.5" />
+                  <span>{confirmationText}</span>
+                </div>
+              )}
 
-                      <div className="min-w-0">
-                        <span className="text-xs font-semibold block truncate">
-                          {item.name}
-                        </span>
-                        <div className="flex items-center gap-1.5 text-[10px] text-stone-400">
-                          <span>
-                            {item.quantity} {item.unit}
-                          </span>
-                          <span>•</span>
-                          <span className="text-emerald-400">{item.category}</span>
-                          <span>•</span>
-                          <span className="flex items-center gap-0.5">
-                            <Calendar className="w-2.5 h-2.5" />
-                            ~{item.estimatedDaysUntilExpiry}d
-                          </span>
+              <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+                {scannedItems.map((item) => {
+                  const ready = isCandidateReadyForPantry(item);
+                  return (
+                    <div key={item.id} className={`p-3 rounded-xl border transition-all ${item.selected ? "bg-emerald-950/20 border-emerald-500/40 text-white" : ready ? "bg-stone-850/50 border-stone-700 text-stone-300" : "bg-amber-950/10 border-amber-500/30 text-stone-300"}`}>
+                      <div className="flex items-start justify-between gap-2.5">
+                        <div className="flex items-start gap-2.5 min-w-0 flex-1">
+                          <button type="button" onClick={() => handleToggleItem(item.id)} aria-label={ready ? "Toggle item" : "Complete quantity and unit first"} className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 ${ready ? "cursor-pointer" : "cursor-not-allowed opacity-50"} ${item.selected ? "bg-emerald-600 border-emerald-500 text-white" : "border-stone-600"}`}>
+                            {item.selected && <Check className="w-3.5 h-3.5" />}
+                          </button>
+                          <div className="min-w-0 flex-1">
+                            <span className="text-xs font-semibold block truncate">{item.name}</span>
+                            <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] gap-2">
+                              <label className="space-y-1">
+                                <span className="text-[10px] text-stone-400">{language === "es" ? "Cantidad" : language === "bg" ? "Количество" : "Quantity"}</span>
+                                <input type="number" min="0" step="any" inputMode="decimal" value={item.quantity ?? ""} onChange={(e) => updateRequiredField(item.id, "quantity", e.target.value)} placeholder="?" className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
+                              </label>
+                              <label className="space-y-1">
+                                <span className="text-[10px] text-stone-400">{language === "es" ? "Unidad" : language === "bg" ? "Единица" : "Unit"}</span>
+                                <input type="text" value={item.unit ?? ""} onChange={(e) => updateRequiredField(item.id, "unit", e.target.value)} placeholder={language === "es" ? "kg, g, uds..." : language === "bg" ? "кг, г, бр..." : "kg, g, pcs..."} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
+                              </label>
+                            </div>
+                            <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-stone-400">
+                              <span className="text-emerald-400">{item.category}</span>
+                              <span>•</span>
+                              <span className="flex items-center gap-0.5"><Calendar className="w-2.5 h-2.5" />{item.estimatedDaysUntilExpiry !== undefined ? `~${item.estimatedDaysUntilExpiry}d` : (language === "es" ? "caducidad desconocida" : language === "bg" ? "неизвестен срок" : "expiry unknown")}</span>
+                              <span>•</span>
+                              <span>{item.approximateCostEUR !== undefined ? `€${item.approximateCostEUR.toFixed(2)}` : (language === "es" ? "coste desconocido" : language === "bg" ? "неизвестна цена" : "cost unknown")}</span>
+                            </div>
+                            {!ready && <p className="mt-1.5 text-[10px] text-amber-300">{confirmationText}</p>}
+                          </div>
                         </div>
+                        <button type="button" onClick={() => handleRemoveItem(item.id)} className="p-1 rounded-lg text-stone-500 hover:text-red-400 hover:bg-stone-800 transition-colors cursor-pointer"><Trash2 className="w-3.5 h-3.5" /></button>
                       </div>
                     </div>
-
-                    <button
-                      type="button"
-                      onClick={() => handleRemoveItem(item.id)}
-                      className="p-1 rounded-lg text-stone-500 hover:text-red-400 hover:bg-stone-800 transition-colors cursor-pointer"
-                    >
-                      <Trash2 className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                ))}
+                  );
+                })}
               </div>
             </div>
           )}
         </div>
 
-        {/* Footer */}
         <div className="p-3.5 border-t border-stone-800 bg-stone-850/80 flex items-center justify-between gap-3">
-          <button
-            type="button"
-            onClick={() => {
-              handleResetModal();
-              onClose();
-            }}
-            className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold transition-colors cursor-pointer"
-          >
-            {currentText.cancel || "Cancel"}
-          </button>
-
-          <button
-            type="button"
-            disabled={selectedCount === 0}
-            onClick={handleSaveToPantry}
-            className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 flex items-center gap-1.5 cursor-pointer"
-          >
+          <button type="button" onClick={() => { handleResetModal(); onClose(); }} className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold transition-colors cursor-pointer">{currentText.cancel || "Cancel"}</button>
+          <button type="button" disabled={selectedCount === 0} onClick={handleSaveToPantry} className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 flex items-center gap-1.5 cursor-pointer">
             <Plus className="w-3.5 h-3.5" />
-            <span>
-              {currentText.addScannedToPantry || (language === "es" ? "Añadir a mi despensa" : language === "bg" ? "Добави към килера" : "Add to pantry")} ({selectedCount})
-            </span>
+            <span>{currentText.addScannedToPantry || (language === "es" ? "Añadir a mi despensa" : language === "bg" ? "Добави към килера" : "Add to pantry")} ({selectedCount})</span>
           </button>
         </div>
       </div>
