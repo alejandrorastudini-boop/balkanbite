@@ -88,19 +88,36 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    if (
+      !name.trim() ||
+      quantity === "" ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      !unit ||
+      !category
+    ) {
+      return;
+    }
 
     onAddItem({
       name: name.trim(),
-      quantity: Number(quantity),
+      quantity,
       unit,
       category,
-      expiryDaysLeft: Number(expiryDays),
-      estimatedCostEUR: Number(cost),
+      ...(expiryDays !== "" && Number.isFinite(expiryDays)
+        ? { expiryDaysLeft: expiryDays }
+        : {}),
+      ...(cost !== "" && Number.isFinite(cost)
+        ? { estimatedCostEUR: cost }
+        : {}),
     });
 
     setName("");
-    setQuantity(1);
+    setQuantity("");
+    setUnit("");
+    setCategory("");
+    setExpiryDays("");
+    setCost("");
     setShowAddModal(false);
   };
 
