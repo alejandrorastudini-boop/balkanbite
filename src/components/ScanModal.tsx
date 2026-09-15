@@ -82,6 +82,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   };
 
   const runAiScan = async (base64Image: string, mimeType: string) => {
+    const requestId = ++captureRequestIdRef.current;
     setIsScanning(true);
     setErrorMsg(null);
     setScannedItems([]);
@@ -92,9 +93,11 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         body: JSON.stringify({ image: base64Image, mimeType, scanType: scanMode, language }),
       });
 
+      if (requestId !== captureRequestIdRef.current) return;
       if (!res.ok) throw new Error("Failed to analyze image");
 
       const data = await res.json();
+      if (requestId !== captureRequestIdRef.current) return;
       if (data?.error || data?.success === false || data?.available === false) {
         throw new Error("Scanner returned a failure result");
       }
@@ -128,6 +131,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         setErrorMsg(confirmationText);
       }
     } catch (err) {
+      if (requestId !== captureRequestIdRef.current) return;
       console.error(err);
       // AI unavailability is a failure, not a detection.
       setScannedItems([]);
@@ -139,7 +143,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
           : "Error connecting to AI vision scanner. Please try again."
       );
     } finally {
-      setIsScanning(false);
+      if (requestId === captureRequestIdRef.current) setIsScanning(false);
     }
   };
 
@@ -147,14 +151,17 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     e.preventDefault();
     if (!barcodeInput.trim()) return;
 
+    const requestId = ++captureRequestIdRef.current;
     setIsScanning(true);
     setErrorMsg(null);
     setScannedItems([]);
     try {
       const res = await fetch(`/api/barcode/${encodeURIComponent(barcodeInput.trim())}?lang=${language}`);
+      if (requestId !== captureRequestIdRef.current) return;
       if (!res.ok) throw new Error("Barcode not found");
 
       const data = await res.json();
+      if (requestId !== captureRequestIdRef.current) return;
       if (data?.error || data?.found === false || data?.success === false) {
         throw new Error("Barcode lookup returned a not-found or failure result");
       }
@@ -174,6 +181,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       setErrorMsg(confirmationText);
       setBarcodeInput("");
     } catch (err) {
+      if (requestId !== captureRequestIdRef.current) return;
       console.error(err);
       // Failure and not-found states must never expose an authoritative candidate or save path.
       setScannedItems([]);
@@ -185,7 +193,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
           : "Error looking up barcode."
       );
     } finally {
-      setIsScanning(false);
+      if (requestId === captureRequestIdRef.current) setIsScanning(false);
     }
   };
 
