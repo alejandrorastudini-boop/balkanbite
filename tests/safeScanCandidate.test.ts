@@ -68,10 +68,13 @@ test("pantry payload requires confirmed quantity and unit while optional facts r
   });
   assert.ok(candidate);
   assert.equal(isCandidateReadyForPantry(candidate), true);
-  assert.deepEqual(toPantryPayload(candidate), {
+  const payload = toPantryPayload(candidate);
+  assert.deepEqual(payload, {
     name: "Rice",
     quantity: 1.5,
     unit: "kg",
     category: "Pantry/Grains",
   });
+  assert.equal(Object.hasOwn(payload!, "expiryDaysLeft"), false);
+  assert.equal(Object.hasOwn(payload!, "estimatedCostEUR"), false);
 });
