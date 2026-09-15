@@ -120,6 +120,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       }
     } catch (err) {
       console.error(err);
+      // AI unavailability is a failure, not a detection.
+      setScannedItems([]);
       setErrorMsg(
         language === "es"
           ? "Error de conexión con el escáner de IA. Inténtalo de nuevo."
@@ -159,6 +161,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       setBarcodeInput("");
     } catch (err) {
       console.error(err);
+      // Failure and not-found states must never expose an authoritative candidate or save path.
+      setScannedItems([]);
       setErrorMsg(
         language === "es"
           ? "Error buscando el código de barras."
