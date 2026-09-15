@@ -180,11 +180,15 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
   const handleBarcodeSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    // Never reuse a previous product after a new or empty lookup attempt.
-    setScannedItems([]);
-    if (!barcodeInput.trim()) return;
-
+    // Every lookup attempt, including an empty submission, invalidates an older in-flight result.
     const requestId = ++captureRequestIdRef.current;
+    setScannedItems([]);
+    if (!barcodeInput.trim()) {
+      setIsScanning(false);
+      setErrorMsg(null);
+      return;
+    }
+
     setIsScanning(true);
     setErrorMsg(null);
     setScannedItems([]);
