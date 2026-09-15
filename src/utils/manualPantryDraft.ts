@@ -12,7 +12,7 @@ export const createEmptyManualPantryDraft = (): ManualPantryDraft => ({
   quantity: "",
   unit: "",
   category: "",
-  expiryDate: "",
+  expiryDate: "", // Optional: unknown expiry remains blank.
   cost: "",
 });
 
