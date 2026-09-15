@@ -89,51 +89,6 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
       const data = await res.json();
       const detected = (Array.isArray(data.items) ? data.items : [])
-<<<<<<< HEAD
-        .filter((item: any) => typeof item?.name === "string" && item.name.trim().length > 0)
-        .map((item: any, index: number) => {
-        let cat: ScannedItem["category"];
-        const rawCat = typeof item.category === "string" ? item.category.toLowerCase() : "";
-        if (rawCat.includes("produce") || rawCat.includes("fruit") || rawCat.includes("veg")) cat = "Produce";
-        else if (rawCat.includes("dairy") || rawCat.includes("cheese") || rawCat.includes("milk")) cat = "Dairy";
-        else if (rawCat.includes("meat") || rawCat.includes("fish")) cat = "Meat/Fish";
-        else if (rawCat.includes("spice") || rawCat.includes("herb")) cat = "Spices";
-        else if (rawCat.includes("pantry") || rawCat.includes("grain") || rawCat.includes("bake")) cat = "Pantry/Grains";
-        else if (rawCat.includes("other")) cat = "Other";
-
-        const quantity = typeof item.quantity === "number" && Number.isFinite(item.quantity) && item.quantity > 0
-          ? item.quantity
-          : undefined;
-        const unit = typeof item.unit === "string" && item.unit.trim() ? item.unit.trim() : undefined;
-        const estimatedDaysUntilExpiry =
-          typeof item.estimatedDaysUntilExpiry === "number" &&
-          Number.isFinite(item.estimatedDaysUntilExpiry) &&
-          item.estimatedDaysUntilExpiry >= 0
-            ? item.estimatedDaysUntilExpiry
-            : undefined;
-        const approximateCostEUR =
-          typeof item.approximateCostEUR === "number" &&
-          Number.isFinite(item.approximateCostEUR) &&
-          item.approximateCostEUR >= 0
-            ? item.approximateCostEUR
-            : undefined;
-        const confidence = ["high", "medium", "low"].includes(item.confidence)
-          ? (item.confidence as ScannedItem["confidence"])
-          : undefined;
-
-        return {
-          id: `scanned-${Date.now()}-${index}`,
-          name: item.name.trim(),
-          quantity,
-          unit,
-          category: cat,
-          estimatedDaysUntilExpiry,
-          approximateCostEUR,
-          confidence,
-          selected: true,
-        };
-      });
-=======
         .map((item: unknown, index: number) => {
           const candidate = normalizeScanCandidate(item);
           if (!candidate) return null;
@@ -144,7 +99,6 @@ export const ScanModal: React.FC<ScanModalProps> = ({
           } satisfies ScannedItem;
         })
         .filter((item: ScannedItem | null): item is ScannedItem => item !== null);
->>>>>>> origin/main
 
       if (detected.length === 0) {
         setErrorMsg(
@@ -183,50 +137,13 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       if (!res.ok) throw new Error("Barcode not found");
 
       const data = await res.json();
-<<<<<<< HEAD
-      if (typeof data?.name !== "string" || !data.name.trim()) {
-        throw new Error("Barcode result has no product name");
-      }
-
-      let cat: ScannedItem["category"];
-      const rawCat = typeof data.category === "string" ? data.category.toLowerCase() : "";
-      if (rawCat.includes("produce")) cat = "Produce";
-      else if (rawCat.includes("dairy")) cat = "Dairy";
-      else if (rawCat.includes("meat")) cat = "Meat/Fish";
-      else if (rawCat.includes("other")) cat = "Other";
-=======
       const candidate = normalizeScanCandidate({ ...data, confidence: data?.confidence ?? "low" });
       if (!candidate) throw new Error("Barcode result has no product name");
->>>>>>> origin/main
 
       const newItem: ScannedItem = {
         ...candidate,
         id: `barcode-${Date.now()}`,
-<<<<<<< HEAD
-        name: data.name.trim(),
-        quantity:
-          typeof data.quantity === "number" && Number.isFinite(data.quantity) && data.quantity > 0
-            ? data.quantity
-            : undefined,
-        unit: typeof data.unit === "string" && data.unit.trim() ? data.unit.trim() : undefined,
-        category: cat,
-        estimatedDaysUntilExpiry:
-          typeof data.estimatedDaysUntilExpiry === "number" &&
-          Number.isFinite(data.estimatedDaysUntilExpiry) &&
-          data.estimatedDaysUntilExpiry >= 0
-            ? data.estimatedDaysUntilExpiry
-            : undefined,
-        approximateCostEUR:
-          typeof data.approximateCostEUR === "number" &&
-          Number.isFinite(data.approximateCostEUR) &&
-          data.approximateCostEUR >= 0
-            ? data.approximateCostEUR
-            : undefined,
-        confidence: "low",
-        selected: true,
-=======
         selected: isCandidateReadyForPantry(candidate),
->>>>>>> origin/main
       };
 
       setScannedItems([newItem]);
