@@ -2,7 +2,7 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { normalizeVoicePantryItems } from "../src/utils/safeVoicePantryCapture";
 
-test("voice pantry capture preserves supplied facts without inventing optional values", () => {
+test("voice pantry capture preserves confirmed quantity/unit without inventing optional values", () => {
   const result = normalizeVoicePantryItems([
     {
       name: "кисело мляко",
@@ -17,7 +17,6 @@ test("voice pantry capture preserves supplied facts without inventing optional v
     accepted: [
       {
         name: "Yogurt",
-        nameBg: "кисело мляко",
         quantity: 2,
         unit: "cups",
         category: "Dairy",
@@ -39,32 +38,38 @@ test("voice pantry capture refuses missing or invalid quantity and unit", () => 
   assert.deepEqual(result, { accepted: [], rejectedCount: 3 });
 });
 
-test("voice pantry capture keeps explicit zero cost/expiry and rejects malformed candidates", () => {
+test("AI-inferred voice price and expiry never become pantry facts", () => {
   const result = normalizeVoicePantryItems([
     {
       name: "Salt",
       quantity: 1,
       unit: "pack",
       category: "spice",
-      shelfLifeDays: 0,
-      estimatedCostEUR: 0,
+      shelfLifeDays: 365,
+      estimatedCostEUR: 2.5,
     },
-    null,
-    { name: "   ", quantity: 1, unit: "pcs" },
   ]);
 
   assert.deepEqual(result, {
     accepted: [
       {
         name: "Salt",
-        nameBg: "Salt",
         quantity: 1,
         unit: "pack",
         category: "Spices",
-        expiryDaysLeft: 0,
-        estimatedCostEUR: 0,
       },
     ],
-    rejectedCount: 2,
+    rejectedCount: 0,
   });
+  assert.equal(Object.hasOwn(result.accepted[0], "expiryDaysLeft"), false);
+  assert.equal(Object.hasOwn(result.accepted[0], "estimatedCostEUR"), false);
+});
+
+test("malformed voice candidates are rejected", () => {
+  const result = normalizeVoicePantryItems([
+    null,
+    { name: "   ", quantity: 1, unit: "pcs" },
+  ]);
+
+  assert.deepEqual(result, { accepted: [], rejectedCount: 2 });
 });
