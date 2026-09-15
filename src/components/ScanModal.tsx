@@ -55,6 +55,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Only the latest capture request may publish candidates or failure state.
+  const captureRequestIdRef = useRef(0);
 
   if (!isOpen) return null;
 
