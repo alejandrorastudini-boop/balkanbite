@@ -50,6 +50,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [speechSynthesisEnabled, setSpeechSynthesisEnabled] = useState(true);
+  const [pendingPantryItems, setPendingPantryItems] = useState<any[] | null>(null);
 
   // Initialize welcome message when language changes if no messages exist
   useEffect(() => {
@@ -83,7 +84,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   // Auto-scroll to bottom of conversation
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages, isProcessing]);
+  }, [chatMessages, isProcessing, pendingPantryItems]);
 
   // Setup Web Speech API for voice dictation
   useEffect(() => {
@@ -188,9 +189,80 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     }
   };
 
+  const pendingPantryItemsAreComplete = Boolean(
+    pendingPantryItems?.length &&
+      pendingPantryItems.every((item) => {
+        if (!item || typeof item !== "object") return false;
+        const name = typeof item.nameEn === "string" && item.nameEn.trim()
+          ? item.nameEn.trim()
+          : typeof item.name === "string"
+          ? item.name.trim()
+          : "";
+        return Boolean(
+          name &&
+            typeof item.quantity === "number" &&
+            Number.isFinite(item.quantity) &&
+            item.quantity > 0 &&
+            typeof item.unit === "string" &&
+            item.unit.trim()
+        );
+      })
+  );
+
+  const confirmPendingPantryItems = () => {
+    if (!pendingPantryItems || !pendingPantryItemsAreComplete) return;
+    const confirmedItems = pendingPantryItems;
+    const summary = confirmedItems
+      .map((item) => `${item.quantity} ${item.unit} ${item.nameEn || item.name}`)
+      .join(", ");
+
+    setPendingPantryItems(null);
+    onAddItemsToPantry(confirmedItems);
+
+    const confirmationText =
+      language === "bg"
+        ? `Потвърдено. Добавих в килера: ${summary}.`
+        : language === "es"
+        ? `Confirmado. Añadí a la despensa: ${summary}.`
+        : `Confirmed. Added to the pantry: ${summary}.`;
+
+    onUpdateChatMessages((prev) => [
+      ...prev,
+      {
+        id: `ai-confirm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        sender: "assistant",
+        text: confirmationText,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
+    speakText(confirmationText);
+  };
+
+  const cancelPendingPantryItems = () => {
+    setPendingPantryItems(null);
+    const cancellationText =
+      language === "bg"
+        ? "Отменено. Не записах тези продукти в килера."
+        : language === "es"
+        ? "Cancelado. No guardé esos productos en la despensa."
+        : "Cancelled. I did not save those items to the pantry.";
+    onUpdateChatMessages((prev) => [
+      ...prev,
+      {
+        id: `ai-cancel-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        sender: "assistant",
+        text: cancellationText,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
+    ]);
+  };
+
   const handleSend = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
     if (!text || isProcessing) return;
+
+    // A new message supersedes any unconfirmed extraction. Nothing pending is persisted.
+    setPendingPantryItems(null);
 
     // Add user message
     const userMsg: ChatMessage = {
@@ -246,9 +318,21 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             : `Got it. Deducted from your pantry: ${summary}.`;
       }
 
-      // Execute extracted actions
-      if (effectiveActionType === "ADD_ITEMS" && Array.isArray(effectiveItems) && effectiveItems.length > 0) {
-        onAddItemsToPantry(effectiveItems);
+      // ADD_ITEMS is staged for explicit user confirmation. AI extraction is never
+      // promoted directly into authoritative pantry inventory.
+      const isPendingPantryAdd =
+        effectiveActionType === "ADD_ITEMS" &&
+        Array.isArray(effectiveItems) &&
+        effectiveItems.length > 0;
+
+      if (isPendingPantryAdd) {
+        setPendingPantryItems(effectiveItems);
+        replyText =
+          language === "bg"
+            ? "Разпознах продуктите по-долу. Проверете количеството и мерната единица и потвърдете, преди да ги запиша в килера."
+            : language === "es"
+            ? "He detectado los productos de abajo. Revisa la cantidad y la unidad y confirma antes de guardarlos en la despensa."
+            : "I detected the items below. Review the quantity and unit, then confirm before I save them to the pantry.";
       } else if (effectiveActionType === "REMOVE_ITEMS" && Array.isArray(effectiveItems) && effectiveItems.length > 0) {
         onDeductItemsFromPantry(effectiveItems);
       } else if (effectiveActionType === "MEAL_LOG" && data.mealLog) {
@@ -259,8 +343,8 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
         id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         sender: "assistant",
         text: replyText,
-        actionType: effectiveActionType,
-        itemsAffected: effectiveItems,
+        actionType: isPendingPantryAdd ? undefined : effectiveActionType,
+        itemsAffected: isPendingPantryAdd ? undefined : effectiveItems,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
 
@@ -431,6 +515,74 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             </div>
           );
         })}
+
+        {pendingPantryItems && (
+          <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-3">
+            <div>
+              <p className="text-xs font-bold text-amber-300">
+                {language === "bg"
+                  ? "Потвърдете преди запис"
+                  : language === "es"
+                  ? "Confirma antes de guardar"
+                  : "Confirm before saving"}
+              </p>
+              <p className="text-[11px] text-stone-400 mt-1">
+                {language === "bg"
+                  ? "Това са данни, извлечени от AI. Нищо още не е записано в килера."
+                  : language === "es"
+                  ? "Estos datos han sido extraídos por IA. Todavía no se ha guardado nada en la despensa."
+                  : "These values were extracted by AI. Nothing has been saved to the pantry yet."}
+              </p>
+            </div>
+
+            <div className="space-y-1.5">
+              {pendingPantryItems.map((item, idx) => {
+                const name = item?.nameEn || item?.name || "?";
+                const quantity = typeof item?.quantity === "number" ? item.quantity : "?";
+                const unit = typeof item?.unit === "string" && item.unit.trim() ? item.unit : "?";
+                return (
+                  <div key={idx} className="flex items-center justify-between gap-3 rounded-xl border border-white/[0.06] bg-black/20 px-3 py-2">
+                    <span className="text-xs text-white font-medium truncate">{name}</span>
+                    <span className="text-xs text-amber-200 font-bold whitespace-nowrap">{quantity} {unit}</span>
+                  </div>
+                );
+              })}
+            </div>
+
+            {!pendingPantryItemsAreComplete && (
+              <p className="text-[11px] text-rose-300">
+                {language === "bg"
+                  ? "Липсва количество или мерна единица. Отменете и ги посочете изрично."
+                  : language === "es"
+                  ? "Falta cantidad o unidad. Cancela e indícalas de forma explícita."
+                  : "Quantity or unit is missing. Cancel and provide it explicitly."}
+              </p>
+            )}
+
+            <div className="flex gap-2">
+              <button
+                type="button"
+                onClick={cancelPendingPantryItems}
+                className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-bold text-stone-300 hover:bg-white/[0.08]"
+              >
+                {language === "bg" ? "Отказ" : language === "es" ? "Cancelar" : "Cancel"}
+              </button>
+              <button
+                type="button"
+                disabled={!pendingPantryItemsAreComplete}
+                onClick={confirmPendingPantryItems}
+                className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5 ${
+                  pendingPantryItemsAreComplete
+                    ? "bg-emerald-500 text-stone-950 hover:bg-emerald-400"
+                    : "bg-white/[0.04] text-stone-600 cursor-not-allowed"
+                }`}
+              >
+                <Check className="w-3.5 h-3.5" />
+                {language === "bg" ? "Потвърди" : language === "es" ? "Confirmar" : "Confirm"}
+              </button>
+            </div>
+          </div>
+        )}
 
         {isProcessing && (
           <div className="flex justify-start">
