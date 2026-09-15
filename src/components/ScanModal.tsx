@@ -60,10 +60,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
   const confirmationText =
     language === "es"
-      ? "Todos los campos rellenados son sugerencias inferidas del análisis de imagen con IA o de la consulta de código de barras, no datos confirmados del producto. Revisa todos los campos y confirma cantidad y unidad antes de añadir el alimento; los datos desconocidos permanecen vacíos."
+      ? "Todos los campos rellenados son sugerencias revisables inferidas del análisis de imagen con IA o de la consulta de código de barras, no datos confirmados del producto. Revisa todos los campos. La cantidad y la unidad deben confirmarse explícitamente antes de añadir el alimento; los datos desconocidos permanecen vacíos."
       : language === "bg"
-      ? "Всички попълнени полета са предложения, изведени от AI анализа на изображението или справката по баркод, а не потвърдени данни за продукта. Прегледайте всички полета и потвърдете количеството и мерната единица, преди да добавите продукта; неизвестните данни остават празни."
-      : "Every populated field is a suggestion inferred from AI image analysis or barcode lookup, not confirmed product data. Review every field and confirm quantity and unit before adding the item; unknown data stays blank.";
+      ? "Всички попълнени полета са предложения за преглед, изведени от AI анализа на изображението или справката по баркод, а не потвърдени данни за продукта. Прегледайте всички полета. Количеството и мерната единица трябва да бъдат изрично потвърдени, преди да добавите продукта; неизвестните данни остават празни."
+      : "Every populated field is a reviewable suggestion inferred from AI image analysis or barcode lookup, not confirmed product data. Review every field. Quantity and unit must be explicitly confirmed before adding the item; unknown data stays blank.";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
