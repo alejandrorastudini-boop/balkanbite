@@ -93,8 +93,11 @@ export const PantryView: React.FC<PantryViewProps> = ({
       quantity === "" ||
       !Number.isFinite(quantity) ||
       quantity <= 0 ||
-      !unit ||
-      !category
+      !unit.trim() ||
+      !category ||
+      (expiryDays !== "" &&
+        (!Number.isFinite(expiryDays) || expiryDays < 0)) ||
+      (cost !== "" && (!Number.isFinite(cost) || cost < 0))
     ) {
       return;
     }
@@ -450,8 +453,11 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     type="number"
                     min="0.1"
                     step="any"
+                    required
                     value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    onChange={(e) =>
+                      setQuantity(e.target.value === "" ? "" : Number(e.target.value))
+                    }
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
