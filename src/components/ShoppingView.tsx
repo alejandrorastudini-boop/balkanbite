@@ -79,7 +79,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
     (item) =>
       typeof item.estimatedPriceEUR === "number" &&
       Number.isFinite(item.estimatedPriceEUR) &&
-      item.estimatedPriceEUR >= 0
+      item.estimatedPriceEUR > 0
   );
   const knownTotalEUR = pricedItems.reduce(
     (total, item) => total + (item.estimatedPriceEUR as number),
@@ -112,7 +112,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
       category,
       ...(estimatedCost.trim() !== "" &&
       Number.isFinite(Number(estimatedCost)) &&
-      Number(estimatedCost) >= 0
+      Number(estimatedCost) > 0
         ? { estimatedPriceEUR: Number(estimatedCost) }
         : {}),
     });
@@ -351,6 +351,13 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
             const displayCategory = translateCategory(item.category, language);
             const displayUnit = translateUnit(item.unit, language);
             const displayReason = translateReason(item.reason, language);
+            const itemPriceEUR = item.estimatedPriceEUR;
+            const priceDisplay =
+              typeof itemPriceEUR === "number" &&
+              Number.isFinite(itemPriceEUR) &&
+              itemPriceEUR > 0
+                ? `€${itemPriceEUR.toFixed(2)}`
+                : unknownPriceLabel;
 
             return (
               <div
@@ -398,7 +405,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
 
                 <div className="flex items-center gap-3 shrink-0">
                   <span className="text-sm font-bold text-emerald-400 font-['Outfit'] tracking-wide">
-                    {`€${item.estimatedPriceEUR.toFixed(2)}`}
+                    {priceDisplay}
                   </span>
                   <button
                     onClick={() => onDeleteItem(item.id)}
