@@ -190,16 +190,16 @@ export const PantryView: React.FC<PantryViewProps> = ({
             <span className="text-stone-200 font-bold block tracking-wide">{currentText.savingsRadarTitle || "Radar de Ahorro Anti-Desperdicio"}</span>
             <p className="text-[11px] text-stone-400 mt-0.5">
               {language === "es"
-                ? "Ingredientes aprovechados a tiempo"
+                ? "No hay datos de ahorro verificados"
                 : language === "bg"
-                ? "Спестени продукти навреме"
-                : "Ingredients rescued in time"}
+                ? "Няма потвърдени данни за спестявания"
+                : "No verified savings data"}
             </p>
           </div>
         </div>
         <div className="text-right shrink-0 relative z-10">
           <span className="text-emerald-400 font-extrabold font-['Outfit'] text-base tracking-tight">
-            +{currency === "EUR" ? "€42.50" : "$46.80"}
+            {language === "es" ? "Sin datos" : language === "bg" ? "Няма данни" : "No data"}
           </span>
           <span className="block text-[10px] text-stone-500 font-bold uppercase tracking-wider mt-0.5">{currentText.savingsRadarEstimated || "Ahorrado este mes"}</span>
         </div>
