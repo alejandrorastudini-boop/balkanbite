@@ -75,10 +75,29 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
   const [category, setCategory] = useState<string>("Produce");
   const [estimatedCost, setEstimatedCost] = useState<string>("");
 
-  const totalCostEUR = shoppingList.reduce(
-    (acc, curr) => acc + (curr.estimatedPriceEUR || 0),
+  const pricedItems = shoppingList.filter(
+    (item) =>
+      typeof item.estimatedPriceEUR === "number" &&
+      Number.isFinite(item.estimatedPriceEUR) &&
+      item.estimatedPriceEUR >= 0
+  );
+  const knownTotalEUR = pricedItems.reduce(
+    (total, item) => total + (item.estimatedPriceEUR as number),
     0
   );
+  const hasUnknownPrices = pricedItems.length < shoppingList.length;
+  const unknownPriceLabel =
+    language === "es"
+      ? "precios desconocidos"
+      : language === "bg"
+      ? "неизвестни цени"
+      : "unknown prices";
+  const totalCostDisplay =
+    pricedItems.length === 0 && hasUnknownPrices
+      ? unknownPriceLabel
+      : `€${knownTotalEUR.toFixed(2)}${
+          hasUnknownPrices ? ` + ${unknownPriceLabel}` : ""
+        }`;
 
   const checkedCount = shoppingList.filter((i) => i.checked).length;
 
@@ -100,6 +119,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
 
     setNewItemName("");
     setQuantity(1);
+    setEstimatedCost("");
     setShowAddModal(false);
   };
 
@@ -113,7 +133,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
         return `${item.checked ? "✅" : "▫️"} ${displayName} (${item.quantity} ${displayUnit})`;
       })
       .join("\n");
-    const footer = `\n💰 Total est: ${currency === "EUR" ? `€${totalCostEUR.toFixed(2)}` : `$${(totalCostEUR * 1.1).toFixed(2)}`}`;
+    const footer = `\n💰 Total est: ${totalCostDisplay}`;
     return `${header}\n${items}\n${footer}`;
   };
 
@@ -146,9 +166,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
             {currentText.shoppingBasketTitle}
           </span>
           <span className="text-sm font-extrabold text-emerald-400 font-['Outfit'] tracking-wide">
-            {currency === "EUR"
-              ? `€${totalCostEUR.toFixed(2)}`
-              : `$${(totalCostEUR * 1.1).toFixed(2)}`}
+            {totalCostDisplay}
           </span>
         </div>
 
@@ -380,9 +398,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
 
                 <div className="flex items-center gap-3 shrink-0">
                   <span className="text-sm font-bold text-emerald-400 font-['Outfit'] tracking-wide">
-                    {currency === "EUR"
-                      ? `€${item.estimatedPriceEUR.toFixed(2)}`
-                      : `$${(item.estimatedPriceEUR * 1.1).toFixed(2)}`}
+                    {`€${item.estimatedPriceEUR.toFixed(2)}`}
                   </span>
                   <button
                     onClick={() => onDeleteItem(item.id)}
