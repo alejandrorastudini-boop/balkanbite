@@ -49,11 +49,11 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
   // New item form state
   const [name, setName] = useState("");
-  const [quantity, setQuantity] = useState<number>(1);
-  const [unit, setUnit] = useState<string>("pcs");
-  const [category, setCategory] = useState<PantryItem["category"]>("Produce");
-  const [expiryDays, setExpiryDays] = useState<number>(7);
-  const [cost, setCost] = useState<number>(2.5);
+  const [quantity, setQuantity] = useState<number | "">("");
+  const [unit, setUnit] = useState<string>("");
+  const [category, setCategory] = useState<PantryItem["category"] | "">("");
+  const [expiryDays, setExpiryDays] = useState<number | "">("");
+  const [cost, setCost] = useState<number | "">("");
 
   const categories = [
     { id: "All", label: currentText.filterAll },
