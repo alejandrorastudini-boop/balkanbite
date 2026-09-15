@@ -60,10 +60,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
   const confirmationText =
     language === "es"
-      ? "Confirma cantidad y unidad antes de añadir este alimento. Los datos desconocidos no se inventan."
+      ? "Los resultados del escáner son sugerencias sin verificar. Revisa todos los datos y confirma cantidad y unidad antes de añadir el alimento; los datos desconocidos permanecen vacíos."
       : language === "bg"
-      ? "Потвърдете количество и мерна единица, преди да добавите продукта. Неизвестните данни не се измислят."
-      : "Confirm quantity and unit before adding this item. Unknown data is not invented.";
+      ? "Резултатите от скенера са непотвърдени предложения. Прегледайте всички данни и потвърдете количеството и мерната единица, преди да добавите продукта; неизвестните данни остават празни."
+      : "Scanner results are unverified suggestions. Review every field and confirm quantity and unit before adding the item; unknown data stays blank.";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
