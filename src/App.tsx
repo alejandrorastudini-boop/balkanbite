@@ -33,7 +33,6 @@ import {
   INITIAL_PANTRY,
   INITIAL_RECIPES,
   SAMPLE_RECIPES,
-  INITIAL_SHOPPING,
   DEFAULT_PROFILE,
   DEFAULT_MEAL_PLAN,
 } from "./data/initialData";
@@ -83,9 +82,13 @@ export default function App() {
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() => {
     try {
       const saved = localStorage.getItem("balkanbite_shopping");
-      return saved ? JSON.parse(saved) : INITIAL_SHOPPING;
+      // A missing saved list is unknown/empty, not permission to seed fabricated
+      // basket items or prices. Users add or confirm every shopping item.
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return INITIAL_SHOPPING;
+      // Invalid saved data must not be replaced with an authoritative-looking
+      // sample basket or prices.
+      return [];
     }
   });
 
