@@ -154,7 +154,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       if (data?.error || data?.found === false || data?.success === false) {
         throw new Error("Barcode lookup returned a not-found or failure result");
       }
-      const candidate = normalizeScanCandidate({ ...data, confidence: data?.confidence ?? "low" });
+      const candidate = normalizeScanCandidate(data);
       if (!candidate) throw new Error("Barcode result has no product name");
 
       const newItem: ScannedItem = {
