@@ -196,7 +196,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       const data = await res.json();
       if (requestId !== captureRequestIdRef.current) return;
       if (data?.error || data?.found === false || data?.success === false) {
-        throw new Error("Barcode lookup returned a not-found or failure result");
+        throw new Error("Barcode not found. No pantry item was created.");
       }
       const candidate = normalizeScanCandidate(data);
       if (!candidate) throw new Error("Barcode result has no product name");
