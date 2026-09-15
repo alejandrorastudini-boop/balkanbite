@@ -71,13 +71,39 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // A new capture invalidates every previous candidate immediately, including while the file is being read.
+    const readRequestId = ++captureRequestIdRef.current;
+    setScannedItems([]);
+    setImagePreview(null);
+    setIsScanning(true);
     setErrorMsg(null);
+
+    const handleReadFailure = () => {
+      ++captureRequestIdRef.current;
+      setScannedItems([]);
+      setImagePreview(null);
+      setIsScanning(false);
+      setErrorMsg(
+        language === "es"
+          ? "No se pudo leer la imagen. Selecciona otro archivo e inténtalo de nuevo."
+          : language === "bg"
+          ? "Изображението не можа да бъде прочетено. Изберете друг файл и опитайте отново."
+          : "The image could not be read. Please choose another file and try again."
+      );
+    };
+
     const reader = new FileReader();
     reader.onload = (event) => {
-      const base64 = event.target?.result as string;
+      const base64 = event.target?.result;
+      if (typeof base64 !== "string" || !base64) {
+        handleReadFailure();
+        return;
+      }
       setImagePreview(base64);
       runAiScan(base64, file.type);
     };
+    reader.onerror = handleReadFailure;
+    reader.onabort = handleReadFailure;
     reader.readAsDataURL(file);
   };
 
