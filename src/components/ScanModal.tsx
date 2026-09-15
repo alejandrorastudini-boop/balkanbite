@@ -175,6 +175,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
   const handleBarcodeSearch = async (e: React.FormEvent) => {
     e.preventDefault();
+    // Never reuse a previous product after a new or empty lookup attempt.
+    setScannedItems([]);
     if (!barcodeInput.trim()) return;
 
     const requestId = ++captureRequestIdRef.current;
