@@ -811,11 +811,9 @@ export default function App() {
           quantity: i.quantity,
           unit: i.unit,
           category: i.category || "Produce",
-          estimatedPriceEUR:
-            typeof i.estimatedPriceEUR === "number" &&
-            Number.isFinite(i.estimatedPriceEUR)
-              ? i.estimatedPriceEUR
-              : undefined,
+          // Advisor output is not an authoritative purchase price. Keep it unknown
+          // until the user records an actual price during purchase.
+          estimatedPriceEUR: undefined,
           checked: false,
           reason: i.reason,
         }));
