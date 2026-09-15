@@ -531,7 +531,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                             ? "✓ Escaneado con IA • Cero Desperdicio"
                             : language === "bg"
                             ? "✓ AI Сканиране • Нулев отпадък"
-                            : "✓ AI Scanned • Zero Waste"}
+                            : "✓ AI-assisted scanning"}
                         </div>
                       </div>
                     </div>
