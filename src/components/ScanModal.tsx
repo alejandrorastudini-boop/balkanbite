@@ -122,6 +122,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         );
       } else {
         setScannedItems(detected);
+        // Keep provenance visible from the moment AI suggestions are shown, not only after a blocked save attempt.
+        setErrorMsg(confirmationText);
       }
     } catch (err) {
       console.error(err);
@@ -166,6 +168,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       };
 
       setScannedItems([newItem]);
+      // Barcode lookup fields are candidates too; keep their unverified provenance visible during review.
+      setErrorMsg(confirmationText);
       setBarcodeInput("");
     } catch (err) {
       console.error(err);
