@@ -1,11 +1,6 @@
 import type { PantryItem } from "../types";
 import { normalizeScanCategory } from "./safeScanCandidate";
 
-export interface VoicePantryAddResult {
-  addedCount: number;
-  rejectedCount: number;
-}
-
 export interface VoicePantryCaptureResult {
   accepted: Array<Omit<PantryItem, "id" | "addedAt">>;
   rejectedCount: number;
@@ -17,10 +12,6 @@ function nonBlankString(value: unknown): string | undefined {
 
 function finitePositive(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
-}
-
-function finiteNonNegative(value: unknown): number | undefined {
-  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? value : undefined;
 }
 
 export function normalizeVoicePantryItems(values: unknown[]): VoicePantryCaptureResult {
@@ -46,17 +37,11 @@ export function normalizeVoicePantryItems(values: unknown[]): VoicePantryCapture
       continue;
     }
 
-    const expiryDaysLeft = finiteNonNegative(raw.shelfLifeDays);
-    const estimatedCostEUR = finiteNonNegative(raw.estimatedCostEUR);
-
     accepted.push({
       name,
-      ...(localizedName ? { nameBg: localizedName } : {}),
       quantity,
       unit,
       category: normalizeScanCategory(raw.category),
-      ...(expiryDaysLeft !== undefined ? { expiryDaysLeft } : {}),
-      ...(estimatedCostEUR !== undefined ? { estimatedCostEUR } : {}),
     });
   }
 
