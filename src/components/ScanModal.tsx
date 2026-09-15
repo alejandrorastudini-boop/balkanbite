@@ -202,7 +202,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       const data = await res.json();
       if (requestId !== captureRequestIdRef.current) return;
       if (data?.error || data?.found === false || data?.success === false) {
-        throw new Error("Barcode not found. No pantry item was created.");
+        throw new Error("Barcode not found. No pantry candidate is available to review or add.");
       }
       const candidate = normalizeScanCandidate(data);
       if (!candidate) throw new Error("Barcode result has no product name");
@@ -227,10 +227,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       setScannedItems([]);
       setErrorMsg(
         language === "es"
-          ? "Error buscando el código de barras."
+          ? "No se pudo encontrar el código de barras. No hay ningún candidato de despensa disponible para revisar o añadir."
           : language === "bg"
-          ? "Грешка при търсене на баркода."
-          : "Error looking up barcode."
+          ? "Баркодът не можа да бъде намерен. Няма налично предложение за преглед или добавяне в килера."
+          : "The barcode could not be found. No pantry candidate is available to review or add."
       );
     } finally {
       if (requestId === captureRequestIdRef.current) setIsScanning(false);
