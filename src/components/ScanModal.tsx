@@ -67,7 +67,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       ? "Cada campo rellenado es una sugerencia no confirmada y revisable del análisis de imagen con IA o de la consulta de código de barras. El nombre, la categoría, el coste y la caducidad no son datos verificados; los valores desconocidos permanecen vacíos. La cantidad y la unidad deben confirmarse por separado antes de añadir el alimento."
       : language === "bg"
       ? "Всяко попълнено поле е непотвърдено предложение за преглед от AI анализа на изображението или справката по баркод. Името, категорията, цената и срокът на годност не са проверени данни; неизвестните стойности остават празни. Количеството и мерната единица трябва да бъдат потвърдени поотделно, преди да добавите продукта."
-      : "Every populated field is an unconfirmed, reviewable suggestion from AI image analysis or barcode lookup. Product name, category, cost, and expiry are not verified facts; unknown values stay blank. Quantity and unit must each be explicitly confirmed before the item can be added.";
+      : "Every populated field remains labelled as an unconfirmed, reviewable suggestion from AI image analysis or barcode lookup until you confirm it. Product name, category, cost, and expiry are not verified facts; unknown values stay blank. Quantity and unit must each be explicitly confirmed before the item can be added.";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
