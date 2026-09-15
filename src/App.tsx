@@ -808,7 +808,11 @@ export default function App() {
           quantity: i.quantity,
           unit: i.unit,
           category: i.category || "Produce",
-          estimatedPriceEUR: i.estimatedPriceEUR || 1.3,
+          estimatedPriceEUR:
+            typeof i.estimatedPriceEUR === "number" &&
+            Number.isFinite(i.estimatedPriceEUR)
+              ? i.estimatedPriceEUR
+              : undefined,
           checked: false,
           reason: i.reason,
         }));
