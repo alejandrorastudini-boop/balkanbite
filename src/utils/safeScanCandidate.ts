@@ -56,11 +56,8 @@ export function normalizeScanCandidate(value: unknown): SafeScanCandidate | null
 }
 
 export function isCandidateReadyForPantry(
-  candidate: Pick<SafeScanCandidate, "name" | "quantity" | "unit" | "category">,
-): candidate is Pick<SafeScanCandidate, "name" | "quantity" | "unit" | "category"> & {
-  quantity: number;
-  unit: string;
-} {
+  candidate: SafeScanCandidate,
+): candidate is SafeScanCandidate & { quantity: number; unit: string } {
   return Boolean(
     candidate.name.trim() &&
       typeof candidate.quantity === "number" &&
