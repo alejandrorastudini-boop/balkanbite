@@ -91,7 +91,11 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
       quantity: Number(quantity),
       unit,
       category,
-      estimatedPriceEUR: Number(estimatedCost),
+      ...(estimatedCost.trim() !== "" &&
+      Number.isFinite(Number(estimatedCost)) &&
+      Number(estimatedCost) >= 0
+        ? { estimatedPriceEUR: Number(estimatedCost) }
+        : {}),
     });
 
     setNewItemName("");
