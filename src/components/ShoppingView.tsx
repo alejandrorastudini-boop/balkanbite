@@ -73,7 +73,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
   const [quantity, setQuantity] = useState<number>(1);
   const [unit, setUnit] = useState<string>(language === "es" ? "uds" : "pcs");
   const [category, setCategory] = useState<string>("Produce");
-  const [estimatedCost, setEstimatedCost] = useState<number>(2.0);
+  const [estimatedCost, setEstimatedCost] = useState<string>("");
 
   const totalCostEUR = shoppingList.reduce(
     (acc, curr) => acc + (curr.estimatedPriceEUR || 0),
