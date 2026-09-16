@@ -219,6 +219,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         !data ||
         typeof data !== "object" ||
         data.error ||
+        data.found === false ||
+        data.available === false ||
         (data.found !== true && data.success !== true)
       ) {
         throw new Error("Barcode not found. No pantry candidate is available to review or add, and nothing can be saved.");
