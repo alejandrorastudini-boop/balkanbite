@@ -132,7 +132,7 @@ export const ProModal: React.FC<ProModalProps> = ({
           desc: "Add groceries and inventory adjustments seamlessly using voice.",
         },
       ],
-      activeProText: "Pro Subscription Active",
+      activeProText: "Pro subscription status unavailable",
       keepActive: "Keep Subscription Active",
       activateBtn: `Activate BalkanBite Pro (${billingCycle === "annual" ? annualPrice : monthlyPrice})`,
       guarantee: "Cancel anytime with 1 click. No questions asked.",
