@@ -734,6 +734,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <p className="mb-6 text-center text-sm text-slate-400">
+              Illustrative profiles — not verified customer testimonials.
+            </p>
             {LANDING_DATA.testimonials.map((t, idx) => (
               <div key={idx} className="bg-stone-900 border border-stone-800 rounded-3xl p-6 flex flex-col justify-between space-y-4 shadow-lg">
                 <div className="space-y-3">
