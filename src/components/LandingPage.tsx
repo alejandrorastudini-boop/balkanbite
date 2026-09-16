@@ -544,6 +544,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* METRICS COUNTER BAR */}
+      <p className="px-6 pt-10 text-center text-sm font-semibold text-slate-500">
+        {language === "es"
+          ? "Objetivos ilustrativos del producto; no son resultados medidos ni garantizados."
+          : language === "bg"
+            ? "Илюстративни продуктови цели, а не измерени или гарантирани резултати."
+            : "Illustrative product goals, not measured or guaranteed results."}
+      </p>
       <section className="py-12 bg-stone-900/60 border-y border-stone-850 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
           {LANDING_DATA.metrics.map((m, idx) => (
