@@ -755,7 +755,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div key={idx} className="bg-stone-900 border border-stone-800 rounded-3xl p-6 flex flex-col justify-between space-y-4 shadow-lg">
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
-                    <div className="flex text-amber-400">{[...Array(t.rating)].map((_, i) => <Star key={i} className="w-4 h-4 fill-amber-400" />)}</div>
+                    <p className="text-xs text-slate-500">Illustrative profile</p>
                     <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">{t.savings}</span>
                   </div>
                   <p className="text-xs sm:text-sm text-stone-300 italic leading-relaxed">"{t.comment[language]}"</p>
