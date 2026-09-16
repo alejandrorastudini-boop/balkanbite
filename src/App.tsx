@@ -805,6 +805,10 @@ export default function App() {
         }),
       });
 
+      if (!res.ok) {
+        throw new Error(`Shopping suggestions unavailable (${res.status})`);
+      }
+
       const data = await res.json();
       if (Array.isArray(data.items) && data.items.length > 0) {
         const newItems: ShoppingItem[] = data.items.map((i: any, idx: number) => ({
