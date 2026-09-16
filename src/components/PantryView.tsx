@@ -55,6 +55,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
   const [category, setCategory] = useState<PantryItem["category"] | "">("");
   const [expiryDays, setExpiryDays] = useState<number | "">("");
   const [cost, setCost] = useState<number | "">("");
+  const [formError, setFormError] = useState("");
 
   const categories = [
     { id: "All", label: currentText.filterAll },
@@ -98,9 +99,17 @@ export const PantryView: React.FC<PantryViewProps> = ({
       cost: String(cost),
     });
     if (!name.trim() || !requiredFields.valid || !category) {
+      setFormError(
+        language === "bg"
+          ? "Въведете валидно количество и мерна единица. Незадължителните дни и цена не могат да са отрицателни."
+          : language === "es"
+            ? "Introduce una cantidad y unidad válidas. Los días y el coste opcionales no pueden ser negativos."
+            : "Enter a valid quantity and unit. Optional days and cost cannot be negative.",
+      );
       return;
     }
 
+    setFormError("");
     onAddItem({
       name: name.trim(),
       quantity: requiredFields.quantity,
@@ -120,6 +129,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
     setCategory("");
     setExpiryDays("");
     setCost("");
+    setFormError("");
     setShowAddModal(false);
   };
 
