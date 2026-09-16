@@ -32,7 +32,12 @@ export function useFirebaseSync(
   setShoppingList: React.Dispatch<React.SetStateAction<ShoppingItem[]>>
 ) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
+  // `loading` remains the internal write gate: profile/collection writes stay
+  // blocked until the signed-in user's profile listener has hydrated.
   const [loading, setLoading] = useState(true);
+  // UI startup only needs Auth to resolve plus inventory hydration. Profile sync
+  // can finish in the background instead of holding a full-screen overlay.
+  const [authReady, setAuthReady] = useState(false);
   const [inventoryHydratedUser, setInventoryHydratedUser] = useState<string | null>(null);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
   const lastHydratedCollectionJson = useRef<Record<string, string>>({});
@@ -47,6 +52,7 @@ export function useFirebaseSync(
       setInventoryHydratedUser(null);
       setLoading(user !== null);
       setCurrentUser(user);
+      setAuthReady(true);
     });
     return unsubscribe;
   }, []);
@@ -251,7 +257,7 @@ export function useFirebaseSync(
 
   return {
     currentUser,
-    loading: loading || !inventoryHydrated,
+    loading: !authReady || !inventoryHydrated,
     inventoryHydrated,
   };
 }

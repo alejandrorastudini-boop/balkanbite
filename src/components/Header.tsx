@@ -329,21 +329,22 @@ export const Header: React.FC<HeaderProps> = ({
             </div>
           </div>
 
-          {/* Go to Landing button (Desktop & tablet only, mobile uses logo or profile) */}
+          {/* Go to Landing button: icon stays visible on mobile, label expands on desktop. */}
           {onGoToLanding && (
             <button
               id="header-goto-landing-btn"
               type="button"
               onClick={onGoToLanding}
-              className={`hidden md:flex items-center gap-1.5 px-2.5 py-1.5 rounded-xl border transition-colors cursor-pointer shrink-0 text-xs font-bold ${
+              className={`flex w-7 h-7 sm:w-9 sm:h-9 md:w-auto md:h-auto items-center justify-center gap-1.5 md:px-2.5 md:py-1.5 rounded-lg sm:rounded-xl border transition-colors cursor-pointer shrink-0 text-xs font-bold ${
                 isDark
-                  ? "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:text-emerald-400 hover:border-emerald-500/50 hover:bg-white/[0.04]"
+                  ? "bg-white/[0.02] border-white/[0.08] text-stone-400 hover:text-emerald-400 hover:border-emerald-500/50 hover:bg-white/[0.04]"
                   : "bg-slate-100 border-slate-300 text-slate-800 hover:text-emerald-700 hover:bg-slate-200"
               }`}
               title={currentText.viewLandingPage}
+              aria-label={currentText.viewLandingPage}
             >
-              <Globe className="w-4 h-4 text-emerald-600" />
-              <span>Landing</span>
+              <Globe className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600" />
+              <span className="hidden md:inline">Landing</span>
             </button>
           )}
 

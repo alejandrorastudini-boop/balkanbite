@@ -1201,107 +1201,12 @@ app.post("/api/ai/suggest-shopping", async (req, res) => {
   try {
     const ai = getGeminiClient();
 
+    // AI unavailability is not a valid product or price detection. Keep the
+    // response explicitly empty so clients cannot save a fabricated basket.
     if (!ai) {
-      return res.json({
-        title:
-          language === "bg"
-            ? "Седмичен балансиран списък (Икономичен)"
-            : language === "es"
-            ? "Cesta Semanal Inteligente (Económica)"
-            : "Weekly Balanced Smart Basket (Budget-Friendly)",
-        totalEstimatedEUR: 12.5,
-        items: [
-          {
-            name:
-              language === "bg"
-                ? "Българско кисело мляко 3.6%"
-                : language === "es"
-                ? "Yogur natural o griego 3.6%"
-                : "Bulgarian Yogurt 3.6%",
-            quantity: 2,
-            unit: language === "es" ? "packs" : "pack",
-            category: "Dairy",
-            estimatedPriceEUR: 1.6,
-          },
-          {
-            name:
-              language === "bg"
-                ? "Пресни краставици"
-                : language === "es"
-                ? "Pepinos frescos"
-                : "Fresh Cucumbers",
-            quantity: 1,
-            unit: "kg",
-            category: "Produce",
-            estimatedPriceEUR: 1.4,
-          },
-          {
-            name:
-              language === "bg"
-                ? "Розови домати"
-                : language === "es"
-                ? "Tomates frescos para ensalada"
-                : "Bulgarian Pink Tomatoes",
-            quantity: 1.5,
-            unit: "kg",
-            category: "Produce",
-            estimatedPriceEUR: 2.3,
-          },
-          {
-            name:
-              language === "bg"
-                ? "Бяло сирене (краве или смес)"
-                : language === "es"
-                ? "Queso blanco tipo Feta / Sirene"
-                : "Sirene Cheese (Cow or Mixed)",
-            quantity: 400,
-            unit: "g",
-            category: "Dairy",
-            estimatedPriceEUR: 3.0,
-          },
-          {
-            name:
-              language === "bg"
-                ? "Яйца (размер L)"
-                : language === "es"
-                ? "Huevos camperos (tamaño L)"
-                : "Free-range Eggs L",
-            quantity: 10,
-            unit: language === "es" ? "uds" : "pcs",
-            category: "Dairy",
-            estimatedPriceEUR: 2.1,
-          },
-          {
-            name:
-              language === "bg"
-                ? "Пресен копър и магданоз"
-                : language === "es"
-                ? "Eneldo y perejil fresco"
-                : "Fresh Dill & Parsley",
-            quantity: 2,
-            unit: language === "es" ? "manojos" : "bunch",
-            category: "Produce",
-            estimatedPriceEUR: 0.9,
-          },
-          {
-            name:
-              language === "bg"
-                ? "Орехови ядки"
-                : language === "es"
-                ? "Nueces peladas"
-                : "Walnut Halves",
-            quantity: 100,
-            unit: "g",
-            category: "Pantry",
-            estimatedPriceEUR: 1.0,
-          },
-        ],
-        aiReasoning:
-          language === "bg"
-            ? "Този базов списък струва под 12.5€ и ви позволява да приготвите поне 6 питателни, богати на протеин и пробиотици хранения (Таратор, Миш-маш, Шопска салата)."
-            : language === "es"
-            ? "Esta cesta básica cuesta menos de 12.5€ y permite preparar al menos 6 comidas nutritivas, ricas en probióticos y proteínas (Tarator, revuelto Mish-Mash, ensaladas frescas)."
-            : "This core basket costs under 12.5€ and enables at least 6 balanced, probiotic and protein-rich meals (Tarator, Mish-Mash, Fresh Salads).",
+      return res.status(503).json({
+        error: "Shopping suggestions are temporarily unavailable",
+        items: [],
       });
     }
 
@@ -1353,7 +1258,12 @@ Return strictly JSON with this schema:
     const parsed = JSON.parse(response.text || "{}");
     return res.json(parsed);
   } catch (err: any) {
-    console.warn("Gemini API error during shopping suggestion, returning balanced default basket:", err.message || err);
+    console.warn("Gemini API error during shopping suggestion:", err.message || err);
+    return res.status(503).json({
+      error: "Shopping suggestions are temporarily unavailable",
+      items: [],
+    });
+
     return res.json({
       title: language === "bg" ? "Седмичен балансиран списък (Икономичен)" : language === "es" ? "Cesta Semanal Inteligente (Económica)" : "Weekly Balanced Smart Basket (Budget-Friendly)",
       totalEstimatedEUR: 12.5,
@@ -1535,17 +1445,8 @@ app.get("/api/barcode/:code", async (req, res) => {
       }
     }
 
-    // Fallback if not in Open Food Facts: AI prediction based on barcode or fallback
-    return res.json({
-      found: false,
-      barcode: code,
-      name: `Producto (${code.slice(-4)})`,
-      quantity: 1,
-      unit: "pcs",
-      category: "Pantry",
-      estimatedDaysUntilExpiry: 30,
-      source: "fallback",
-    });
+    // A missing lookup is not a product detection and must not create a pantry candidate.
+    return res.json({ found: false });
   } catch (err: any) {
     console.error("Barcode lookup error:", err);
     return res.status(500).json({ error: "Failed to lookup barcode" });

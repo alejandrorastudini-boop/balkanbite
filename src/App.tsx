@@ -33,7 +33,6 @@ import {
   INITIAL_PANTRY,
   INITIAL_RECIPES,
   SAMPLE_RECIPES,
-  INITIAL_SHOPPING,
   DEFAULT_PROFILE,
   DEFAULT_MEAL_PLAN,
 } from "./data/initialData";
@@ -83,9 +82,13 @@ export default function App() {
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() => {
     try {
       const saved = localStorage.getItem("balkanbite_shopping");
-      return saved ? JSON.parse(saved) : INITIAL_SHOPPING;
+      // A missing saved list is unknown/empty, not permission to seed fabricated
+      // basket items or prices. Users add or confirm every shopping item.
+      return saved ? JSON.parse(saved) : [];
     } catch {
-      return INITIAL_SHOPPING;
+      // Invalid saved data must not be replaced with an authoritative-looking
+      // sample basket or prices.
+      return [];
     }
   });
 
@@ -432,6 +435,8 @@ export default function App() {
   };
 
   const handleAddPantryItem = (item: Omit<PantryItem, "id" | "addedAt">) => {
+    // Manual pantry persistence requires an explicit, positive quantity and unit.
+    if (!Number.isFinite(item.quantity) || item.quantity <= 0 || !item.unit.trim()) return;
     const newItem: PantryItem = {
       ...item,
       id: `p-${Date.now()}`,
@@ -800,19 +805,49 @@ export default function App() {
         }),
       });
 
+      if (!res.ok) {
+        throw new Error(`Shopping suggestions unavailable (${res.status})`);
+      }
+
       const data = await res.json();
       if (Array.isArray(data.items) && data.items.length > 0) {
-        const newItems: ShoppingItem[] = data.items.map((i: any, idx: number) => ({
-          id: `shop-ai-${Date.now()}-${idx}`,
-          name: i.name,
-          quantity: i.quantity,
-          unit: i.unit,
-          category: i.category || "Produce",
-          estimatedPriceEUR: i.estimatedPriceEUR || 1.3,
-          checked: false,
-          reason: i.reason,
-        }));
-        setShoppingList((prev) => [...prev, ...newItems]);
+        const now = Date.now();
+        const newItems: ShoppingItem[] = data.items.flatMap((item: unknown, idx: number) => {
+          if (!item || typeof item !== "object") return [];
+
+          const candidate = item as Record<string, unknown>;
+          const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
+          const quantity =
+            typeof candidate.quantity === "number" &&
+            Number.isFinite(candidate.quantity) &&
+            candidate.quantity > 0
+              ? candidate.quantity
+              : null;
+          const unit = typeof candidate.unit === "string" ? candidate.unit.trim() : "";
+
+          // An unavailable, empty, or malformed advisor response is not a basket.
+          // Only complete suggestions can enter the reviewable shopping list.
+          if (!name || quantity === null || !unit) return [];
+
+          return [{
+            id: `shop-ai-${now}-${idx}`,
+            name,
+            quantity,
+            unit,
+            // Do not invent a category when the advisor does not provide one.
+            category:
+              typeof candidate.category === "string" ? candidate.category.trim() : "",
+            // Advisor output is not an authoritative purchase price. Keep it unknown
+            // until the user records an actual price during purchase.
+            estimatedPriceEUR: undefined,
+            checked: false,
+            reason: typeof candidate.reason === "string" ? candidate.reason : undefined,
+          }];
+        });
+
+        if (newItems.length > 0) {
+          setShoppingList((prev) => [...prev, ...newItems]);
+        }
       }
     } catch (err) {
       console.error("Failed to suggest shopping list:", err);

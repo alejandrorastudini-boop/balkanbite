@@ -78,7 +78,7 @@ export interface ShoppingItem {
   quantity: number;
   unit: string;
   category: string;
-  estimatedPriceEUR: number;
+  estimatedPriceEUR?: number;
   checked: boolean;
   reason?: string;
 }

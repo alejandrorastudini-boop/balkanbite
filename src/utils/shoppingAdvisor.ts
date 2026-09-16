@@ -152,8 +152,8 @@ function addVerifiedShortfallToCandidateMap(
       quantity: shortfallAmount,
       unit,
       category: "Other",
-      // No verified price source is available in this calculation path.
-      estimatedPriceEUR: 0,
+      // No verified price source is available in this calculation path, so
+      // the optional price stays absent rather than using zero as a price.
       reason,
     });
     return;

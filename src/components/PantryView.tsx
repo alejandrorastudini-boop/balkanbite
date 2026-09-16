@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { PantryItem, Language, Currency } from "../types";
 import { t } from "../utils/translations";
+import { validateManualPantryRequiredFields } from "../utils/manualPantryValidation";
 import { ConfirmModal } from "./ConfirmModal";
 import { ScanModal } from "./ScanModal";
 
@@ -49,11 +50,24 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
   // New item form state
   const [name, setName] = useState("");
-  const [quantity, setQuantity] = useState<number>(1);
-  const [unit, setUnit] = useState<string>("pcs");
-  const [category, setCategory] = useState<PantryItem["category"]>("Produce");
-  const [expiryDays, setExpiryDays] = useState<number>(7);
-  const [cost, setCost] = useState<number>(2.5);
+  const [quantity, setQuantity] = useState<number | "">("");
+  const [unit, setUnit] = useState<string>("");
+  const [category, setCategory] = useState<PantryItem["category"] | "">("");
+  const [expiryDays, setExpiryDays] = useState<number | "">("");
+  const [cost, setCost] = useState<number | "">("");
+  const [formError, setFormError] = useState("");
+  const requiredFieldLabel =
+    language === "bg"
+      ? "задължително поле"
+      : language === "es"
+        ? "campo obligatorio"
+        : "required field";
+  const optionalFieldLabel =
+    language === "bg"
+      ? "поле по избор"
+      : language === "es"
+        ? "campo opcional"
+        : "optional field";
 
   const categories = [
     { id: "All", label: currentText.filterAll },
@@ -77,10 +91,12 @@ export const PantryView: React.FC<PantryViewProps> = ({
     (i) => i.expiryDaysLeft !== undefined && i.expiryDaysLeft <= 3
   ).length;
 
-  const totalValueEUR = pantry.reduce(
-    (acc, curr) => acc + (curr.estimatedCostEUR || 0),
-    0
+  const hasCompleteCostData = pantry.every(
+    (item) => item.estimatedCostEUR !== undefined
   );
+  const totalValueEUR = hasCompleteCostData
+    ? pantry.reduce((acc, curr) => acc + (curr.estimatedCostEUR ?? 0), 0)
+    : null;
 
   const handleClearWithConfirm = () => {
     setShowClearConfirm(true);
@@ -88,19 +104,64 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!name.trim()) return;
+    const requiredFields = validateManualPantryRequiredFields({
+      quantity: String(quantity),
+      unit,
+      expiryDays: String(expiryDays),
+      cost: String(cost),
+    });
+    if (!name.trim()) {
+      setFormError(
+        language === "bg"
+          ? "Въведете име на продукта."
+          : language === "es"
+            ? "Introduce el nombre del producto."
+            : "Enter the item name.",
+      );
+      return;
+    }
+    if (!category) {
+      setFormError(
+        language === "bg"
+          ? "Изберете категория."
+          : language === "es"
+            ? "Selecciona una categoría."
+            : "Select a category.",
+      );
+      return;
+    }
+    if (!requiredFields.valid) {
+      setFormError(
+        language === "bg"
+          ? "Задължителни: име, категория, положително количество и мерна единица. По избор: дни до изтичане и цена; ако са попълнени, трябва да са неотрицателни числа."
+          : language === "es"
+            ? "Obligatorios: nombre, categoría, cantidad positiva y unidad. Opcionales: días hasta caducidad y coste; si se indican, deben ser números no negativos."
+            : "Required: name, category, a positive quantity, and a unit. Optional: expiry days and cost; if provided, they must be non-negative numbers.",
+      );
+      return;
+    }
 
+    setFormError("");
     onAddItem({
       name: name.trim(),
-      quantity: Number(quantity),
-      unit,
+      quantity: requiredFields.quantity,
+      unit: requiredFields.unit,
       category,
-      expiryDaysLeft: Number(expiryDays),
-      estimatedCostEUR: Number(cost),
+      ...(requiredFields.expiryDays !== undefined
+        ? { expiryDaysLeft: requiredFields.expiryDays }
+        : {}),
+      ...(requiredFields.cost !== undefined
+        ? { estimatedCostEUR: requiredFields.cost }
+        : {}),
     });
 
     setName("");
-    setQuantity(1);
+    setQuantity("");
+    setUnit("");
+    setCategory("");
+    setExpiryDays("");
+    setCost("");
+    setFormError("");
     setShowAddModal(false);
   };
 
@@ -151,9 +212,13 @@ export const PantryView: React.FC<PantryViewProps> = ({
           </span>
           <div className="flex items-baseline gap-1 mt-2 relative z-10">
             <span className="text-xl font-extrabold text-emerald-400 font-['Outfit'] tracking-tight">
-              {currency === "EUR"
-                ? `€${totalValueEUR.toFixed(1)}`
-                : `$${(totalValueEUR * 1.1).toFixed(1)}`}
+              {totalValueEUR === null || currency !== "EUR"
+                ? language === "es"
+                  ? "Sin datos"
+                  : language === "bg"
+                  ? "Няма данни"
+                  : "No data"
+                : `€${totalValueEUR.toFixed(1)}`}
             </span>
           </div>
         </div>
@@ -170,16 +235,16 @@ export const PantryView: React.FC<PantryViewProps> = ({
             <span className="text-stone-200 font-bold block tracking-wide">{currentText.savingsRadarTitle || "Radar de Ahorro Anti-Desperdicio"}</span>
             <p className="text-[11px] text-stone-400 mt-0.5">
               {language === "es"
-                ? "Ingredientes aprovechados a tiempo"
+                ? "No hay datos de ahorro verificados"
                 : language === "bg"
-                ? "Спестени продукти навреме"
-                : "Ingredients rescued in time"}
+                ? "Няма потвърдени данни за спестявания"
+                : "No verified savings data"}
             </p>
           </div>
         </div>
         <div className="text-right shrink-0 relative z-10">
           <span className="text-emerald-400 font-extrabold font-['Outfit'] text-base tracking-tight">
-            +{currency === "EUR" ? "€42.50" : "$46.80"}
+            {language === "es" ? "Sin datos" : language === "bg" ? "Няма данни" : "No data"}
           </span>
           <span className="block text-[10px] text-stone-500 font-bold uppercase tracking-wider mt-0.5">{currentText.savingsRadarEstimated || "Ahorrado este mes"}</span>
         </div>
@@ -381,9 +446,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
                   {item.estimatedCostEUR && (
                     <span className="text-sm font-bold text-emerald-400 font-['Outfit'] pr-1">
-                      {currency === "EUR"
-                        ? `~€${item.estimatedCostEUR.toFixed(2)}`
-                        : `~$${(item.estimatedCostEUR * 1.1).toFixed(2)}`}
+                      {`~€${item.estimatedCostEUR.toFixed(2)}`}
                     </span>
                   )}
                 </div>
@@ -411,12 +474,18 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
             <form onSubmit={handleCreateItem} className="space-y-3">
               <div>
-                <label className="block text-[11px] font-semibold text-stone-300 mb-1">
-                  {currentText.pantryFormName}
+                <label
+                  htmlFor="pantry-item-name"
+                  className="block text-[11px] font-semibold text-stone-300 mb-1"
+                >
+                  {currentText.pantryFormName}{" "}
+                  <span className="font-normal text-stone-500">({requiredFieldLabel})</span>
                 </label>
                 <input
+                  id="pantry-item-name"
                   type="text"
                   required
+                  aria-required="true"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={currentText.pantryFormPlaceholder}
@@ -426,15 +495,25 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-semibold text-stone-300 mb-1">
-                    {currentText.qty}
+                  <label
+                    htmlFor="pantry-quantity"
+                    className="block text-[11px] font-semibold text-stone-300 mb-1"
+                  >
+                    {currentText.qty}{" "}
+                    <span className="font-normal text-stone-500">({requiredFieldLabel})</span>
                   </label>
                   <input
+                    id="pantry-quantity"
                     type="number"
                     min="0.1"
                     step="any"
+                    required
+                    aria-required="true"
+                    aria-label={language === "es" ? "Cantidad" : language === "bg" ? "Количество" : "Quantity"}
                     value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    onChange={(e) =>
+                      setQuantity(e.target.value === "" ? "" : Number(e.target.value))
+                    }
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -443,10 +522,16 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     {currentText.unit}
                   </label>
                   <select
+                    required
+                    aria-required="true"
                     value={unit}
+                    aria-label={`${currentText.unit} (${requiredFieldLabel})`}
                     onChange={(e) => setUnit(e.target.value)}
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                   >
+                    <option value="" disabled>
+                      {language === "bg" ? "Изберете" : language === "es" ? "Seleccionar" : "Select"}
+                    </option>
                     <option value="pcs">pcs</option>
                     <option value="g">g</option>
                     <option value="kg">kg</option>
@@ -459,16 +544,25 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-semibold text-stone-300 mb-1">
+                  <label
+                    htmlFor="pantry-category"
+                    className="block text-[11px] font-semibold text-stone-300 mb-1"
+                  >
                     {currentText.pantryFormCategory}
                   </label>
                   <select
+                    id="pantry-category"
+                    required
+                    aria-required="true"
                     value={category}
                     onChange={(e) =>
                       setCategory(e.target.value as PantryItem["category"])
                     }
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                   >
+                    <option value="" disabled>
+                      {language === "bg" ? "Изберете" : language === "es" ? "Seleccionar" : "Select"}
+                    </option>
                     <option value="Produce">{currentText.categoryProduce || "Produce"}</option>
                     <option value="Dairy">{currentText.categoryDairy || "Dairy"}</option>
                     <option value="Meat/Fish">{currentText.categoryMeat || "Meat/Fish"}</option>
@@ -478,30 +572,54 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-stone-300 mb-1">
+                  <label
+                    htmlFor="pantry-expiry-days"
+                    className="block text-[11px] font-semibold text-stone-300 mb-1"
+                  >
                     {currentText.pantryFormShelfLife}
                   </label>
                   <input
+                    id="pantry-expiry-days"
                     type="number"
                     value={expiryDays}
-                    onChange={(e) => setExpiryDays(Number(e.target.value))}
+                    onChange={(e) =>
+                    setExpiryDays(
+                      e.target.value === "" ? "" : Number(e.target.value),
+                    )
+                  }
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-stone-300 mb-1">
+                <label
+                  htmlFor="pantry-cost"
+                  className="block text-[11px] font-semibold text-stone-300 mb-1"
+                >
                   {currentText.pantryFormCost}
                 </label>
                 <input
+                  id="pantry-cost"
                   type="number"
                   step="0.1"
                   value={cost}
-                  onChange={(e) => setCost(Number(e.target.value))}
+                  onChange={(e) =>
+                    setCost(e.target.value === "" ? "" : Number(e.target.value))
+                  }
                   className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
+
+              {formError && (
+                <p
+                  role="alert"
+                  aria-live="polite"
+                  className="text-xs text-red-300"
+                >
+                  {formError}
+                </p>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button

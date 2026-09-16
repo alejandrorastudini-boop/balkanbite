@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Camera,
   Upload,
@@ -16,16 +16,24 @@ import {
 import { Language, Currency, PantryItem } from "../types";
 import { t } from "../utils/translations";
 import {
-  isCandidateReadyForPantry,
   normalizeScanCandidate,
   toPantryPayload,
   type SafeScanCandidate,
 } from "../utils/safeScanCandidate";
+import { admitSuccessfulScanItems } from "../utils/safeScanResult";
+import { isConfirmedScanCandidate } from "../utils/confirmedScanCandidate";
 
 interface ScannedItem extends SafeScanCandidate {
   id: string;
   selected: boolean;
+  /** Capture results are review candidates, never authoritative pantry records. */
+  captureSource: "ai-suggestion" | "barcode-suggestion";
+  quantityConfirmed: boolean;
+  unitConfirmed: boolean;
 }
+
+const isScannedItemConfirmed = (item: ScannedItem) =>
+  isConfirmedScanCandidate(item, item.quantityConfirmed, item.unitConfirmed);
 
 interface ScanModalProps {
   isOpen: boolean;
@@ -50,31 +58,76 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  // Only the latest capture request may publish candidates or failure state.
+  const captureRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    if (isOpen) return;
+
+    // Closing the modal invalidates pending file reads/lookups and removes every
+    // review candidate. A late success or a later reopen must not restore a save
+    // path from an abandoned capture request.
+    ++captureRequestIdRef.current;
+    setScannedItems([]);
+    setImagePreview(null);
+    setIsScanning(false);
+    setErrorMsg(null);
+    setBarcodeInput("");
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
   const confirmationText =
     language === "es"
-      ? "Confirma cantidad y unidad antes de añadir este alimento. Los datos desconocidos no se inventan."
+      ? "Cada campo rellenado es una sugerencia revisable del análisis de imagen con IA o de la consulta de código de barras. El nombre, la categoría, el coste y la caducidad siguen sin estar verificados incluso después de confirmar la cantidad y la unidad; los valores desconocidos permanecen vacíos. Cada confirmación se aplica solo al valor de cantidad o unidad que se muestra en ese momento. Confirma ambos por separado antes de añadir el alimento."
       : language === "bg"
-      ? "Потвърдете количество и мерна единица, преди да добавите продукта. Неизвестните данни не се измислят."
-      : "Confirm quantity and unit before adding this item. Unknown data is not invented.";
+      ? "Всяко попълнено поле е предложение за преглед от анализа на изображението с ИИ или справката по баркод. Името, категорията, цената и срокът на годност остават непроверени дори след потвърждаване на количеството и мерната единица; неизвестните стойности остават празни. Всяко потвърждение важи само за показаната в момента стойност за количество или мерна единица. Потвърдете и двете поотделно, преди да добавите продукта."
+      : "Every populated field is a reviewable suggestion from AI image analysis or barcode lookup. Product name, category, cost, and expiry are unverified suggestions even after quantity and unit are confirmed; unknown values stay blank. Each confirmation applies only to the quantity or unit value currently shown. You must explicitly confirm both before the item can be added to the pantry.";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
 
+    // A new capture invalidates every previous candidate immediately, including while the file is being read.
+    const readRequestId = ++captureRequestIdRef.current;
+    setScannedItems([]);
+    setImagePreview(null);
+    setIsScanning(true);
     setErrorMsg(null);
+
+    const handleReadFailure = () => {
+      if (readRequestId !== captureRequestIdRef.current) return;
+      ++captureRequestIdRef.current;
+      setScannedItems([]);
+      setImagePreview(null);
+      setIsScanning(false);
+      setErrorMsg(
+        language === "es"
+          ? "No se pudo leer la imagen. Selecciona otro archivo e inténtalo de nuevo."
+          : language === "bg"
+          ? "Изображението не можа да бъде прочетено. Изберете друг файл и опитайте отново."
+          : "The image could not be read. Please choose another file and try again."
+      );
+    };
+
     const reader = new FileReader();
     reader.onload = (event) => {
-      const base64 = event.target?.result as string;
+      if (readRequestId !== captureRequestIdRef.current) return;
+      const base64 = event.target?.result;
+      if (typeof base64 !== "string" || !base64) {
+        handleReadFailure();
+        return;
+      }
       setImagePreview(base64);
       runAiScan(base64, file.type);
     };
+    reader.onerror = handleReadFailure;
+    reader.onabort = handleReadFailure;
     reader.readAsDataURL(file);
   };
 
   const runAiScan = async (base64Image: string, mimeType: string) => {
+    const requestId = ++captureRequestIdRef.current;
     setIsScanning(true);
     setErrorMsg(null);
     setScannedItems([]);
@@ -85,22 +138,34 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         body: JSON.stringify({ image: base64Image, mimeType, scanType: scanMode, language }),
       });
 
+      if (requestId !== captureRequestIdRef.current) return;
       if (!res.ok) throw new Error("Failed to analyze image");
 
       const data = await res.json();
-      const detected = (Array.isArray(data.items) ? data.items : [])
-        .map((item: unknown, index: number) => {
+      if (requestId !== captureRequestIdRef.current) return;
+      if (data?.error || data?.success === false || data?.available === false) {
+        throw new Error("Scanner returned a failure result");
+      }
+      // Only an explicitly successful response may publish reviewable candidates.
+      // Missing or malformed status is a no-result state, never a detection.
+      const detected = admitSuccessfulScanItems<unknown>(data, data?.items)
+        .map((item, index) => {
           const candidate = normalizeScanCandidate(item);
           if (!candidate) return null;
           return {
             ...candidate,
             id: `scanned-${Date.now()}-${index}`,
             selected: false,
+            captureSource: "ai-suggestion",
+            quantityConfirmed: false,
+            unitConfirmed: false,
           } satisfies ScannedItem;
         })
         .filter((item: ScannedItem | null): item is ScannedItem => item !== null);
 
       if (detected.length === 0) {
+        // Empty results are not detections and must not leave a saveable candidate behind.
+        setScannedItems([]);
         setErrorMsg(
           language === "es"
             ? "No se han detectado alimentos con claridad. Intenta con una foto más iluminada o introduce los datos manualmente."
@@ -110,9 +175,14 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         );
       } else {
         setScannedItems(detected);
+        // Keep provenance visible from the moment AI suggestions are shown, not only after a blocked save attempt.
+        setErrorMsg(confirmationText);
       }
     } catch (err) {
+      if (requestId !== captureRequestIdRef.current) return;
       console.error(err);
+      // AI unavailability is a failure, not a detection.
+      setScannedItems([]);
       setErrorMsg(
         language === "es"
           ? "Error de conexión con el escáner de IA. Inténtalo de nuevo."
@@ -121,44 +191,86 @@ export const ScanModal: React.FC<ScanModalProps> = ({
           : "Error connecting to AI vision scanner. Please try again."
       );
     } finally {
-      setIsScanning(false);
+      if (requestId === captureRequestIdRef.current) setIsScanning(false);
     }
   };
 
   const handleBarcodeSearch = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!barcodeInput.trim()) return;
+    // A new lookup immediately invalidates any prior suggestion so validation,
+    // not-found responses, and request failures can never leave a stale save path.
+    // Every lookup attempt, including an empty submission, invalidates an older in-flight result.
+    const requestId = ++captureRequestIdRef.current;
+    setScannedItems([]);
+    if (!barcodeInput.trim()) {
+      setIsScanning(false);
+      setErrorMsg(
+        language === "es"
+          ? "Introduce un código de barras para buscar. No hay ningún candidato disponible para añadir."
+          : language === "bg"
+          ? "Въведете баркод за търсене. Няма налично предложение за добавяне."
+          : "Enter a barcode to search. No pantry candidate is available to add."
+      );
+      return;
+    }
 
     setIsScanning(true);
     setErrorMsg(null);
     setScannedItems([]);
     try {
       const res = await fetch(`/api/barcode/${encodeURIComponent(barcodeInput.trim())}?lang=${language}`);
-      if (!res.ok) throw new Error("Barcode not found");
+      if (requestId !== captureRequestIdRef.current) return;
+      if (!res.ok) {
+        setScannedItems([]);
+        throw new Error("Barcode not found. No pantry candidate is available to review or add, and nothing can be saved.");
+      }
 
       const data = await res.json();
-      const candidate = normalizeScanCandidate({ ...data, confidence: data?.confidence ?? "low" });
-      if (!candidate) throw new Error("Barcode result has no product name");
+      if (requestId !== captureRequestIdRef.current) return;
+      // A barcode candidate requires an explicit `found: true` lookup marker.
+      // HTTP success or a generic `success` flag does not establish that a product
+      // exists, so missing/malformed/not-found statuses remain authoritative no-result states.
+      if (
+        !data ||
+        typeof data !== "object" ||
+        data.error ||
+        data.available === false ||
+        data.found !== true
+      ) {
+        throw new Error("Barcode not found. No pantry candidate is available to review or add, and nothing can be saved.");
+      }
+      const candidate = normalizeScanCandidate(data);
+      if (!candidate) {
+        throw new Error("Barcode result has no product name. No pantry candidate is available to review or add.");
+      }
 
       const newItem: ScannedItem = {
         ...candidate,
         id: `barcode-${Date.now()}`,
         selected: false,
+        captureSource: "barcode-suggestion",
+        quantityConfirmed: false,
+        unitConfirmed: false,
       };
 
       setScannedItems([newItem]);
+      // Barcode lookup fields are candidates too; keep their unverified provenance visible during review.
+      setErrorMsg(confirmationText);
       setBarcodeInput("");
     } catch (err) {
+      if (requestId !== captureRequestIdRef.current) return;
       console.error(err);
+      // Failure and not-found states must never expose an authoritative candidate or save path.
+      setScannedItems([]);
       setErrorMsg(
         language === "es"
-          ? "Error buscando el código de barras."
+          ? "No se pudo encontrar el código de barras. No hay ningún candidato de despensa disponible para revisar o añadir."
           : language === "bg"
-          ? "Грешка при търсене на баркода."
-          : "Error looking up barcode."
+          ? "Баркодът не можа да бъде намерен. Няма налично предложение за преглед или добавяне в килера."
+          : "The barcode could not be found. No pantry candidate is available to review or add."
       );
     } finally {
-      setIsScanning(false);
+      if (requestId === captureRequestIdRef.current) setIsScanning(false);
     }
   };
 
@@ -166,7 +278,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     setScannedItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
-        if (!item.selected && !isCandidateReadyForPantry(item)) {
+        if (!item.selected && !isScannedItemConfirmed(item)) {
           setErrorMsg(confirmationText);
           return item;
         }
@@ -191,7 +303,13 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                     : undefined,
               }
             : { ...item, unit: rawValue.trim() || undefined };
-        return { ...next, selected: item.selected && isCandidateReadyForPantry(next) };
+        const confirmed = {
+          ...next,
+          quantityConfirmed:
+            field === "quantity" ? typeof next.quantity === "number" : item.quantityConfirmed,
+          unitConfirmed: field === "unit" ? Boolean(next.unit) : item.unitConfirmed,
+        };
+        return { ...confirmed, selected: item.selected && isScannedItemConfirmed(confirmed) };
       })
     );
   };
@@ -216,14 +334,18 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   };
 
   const handleResetModal = () => {
+    // Resetting or changing capture mode abandons every pending read/lookup.
+    // A late response must not recreate candidates after the user cleared them.
+    ++captureRequestIdRef.current;
     setImagePreview(null);
     setScannedItems([]);
+    setIsScanning(false);
     setErrorMsg(null);
     setBarcodeInput("");
   };
 
   const selectedCount = scannedItems.filter((item) => item.selected).length;
-  const pendingConfirmationCount = scannedItems.filter((item) => !isCandidateReadyForPantry(item)).length;
+  const pendingConfirmationCount = scannedItems.filter((item) => !isScannedItemConfirmed(item)).length;
 
   return (
     <div id="scan-modal-overlay" className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/80 backdrop-blur-sm animate-in fade-in duration-200">
@@ -305,7 +427,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                 <div className="relative rounded-2xl overflow-hidden border border-stone-750 bg-stone-950">
                   <img src={imagePreview} alt="Preview" className="w-full max-h-48 object-cover opacity-80" />
                   {isScanning && <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center gap-2"><Loader2 className="w-8 h-8 text-emerald-400 animate-spin" /><span className="text-xs font-bold text-white font-['Outfit'] animate-pulse">{currentText.scanAnalyzing || (language === "es" ? "Analizando alimentos con IA..." : language === "bg" ? "Анализиране на храни с AI..." : "Analyzing items with AI...")}</span></div>}
-                  <button type="button" onClick={() => { setImagePreview(null); setScannedItems([]); }} className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-white text-[11px] font-semibold backdrop-blur-sm transition-colors cursor-pointer">{language === "es" ? "Cambiar foto" : language === "bg" ? "Смени снимката" : "Change photo"}</button>
+                  <button type="button" onClick={handleResetModal} className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-white text-[11px] font-semibold backdrop-blur-sm transition-colors cursor-pointer">{language === "es" ? "Cambiar foto" : language === "bg" ? "Смени снимката" : "Change photo"}</button>
                 </div>
               )}
               <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
@@ -328,7 +450,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
               <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
                 {scannedItems.map((item) => {
-                  const ready = isCandidateReadyForPantry(item);
+                  const ready = isScannedItemConfirmed(item);
                   return (
                     <div key={item.id} className={`p-3 rounded-xl border transition-all ${item.selected ? "bg-emerald-950/20 border-emerald-500/40 text-white" : ready ? "bg-stone-850/50 border-stone-700 text-stone-300" : "bg-amber-950/10 border-amber-500/30 text-stone-300"}`}>
                       <div className="flex items-start justify-between gap-2.5">

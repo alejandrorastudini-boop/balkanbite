@@ -409,13 +409,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         {[
                           {
                             title: language === "es" ? "Ensalada Shopska" : language === "bg" ? "Шопска салата" : "Shopska Salad",
-                            price: "1,20 €",
+                            price: language === "es" ? "Precio al comprar" : language === "bg" ? "Цена при покупка" : "Price at purchase",
                             time: "10 min",
                             cal: "210 kcal"
                           },
                           {
                             title: language === "es" ? "Tortilla con Feta" : language === "bg" ? "Омлет със сирене" : "Feta Cheese Omelette",
-                            price: "1,65 €",
+                            price: language === "es" ? "Precio al comprar" : language === "bg" ? "Цена при покупка" : "Price at purchase",
                             time: "15 min",
                             cal: "340 kcal"
                           }
@@ -528,10 +528,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         </div>
                         <div className="text-[8px] text-stone-400 pt-1 border-t border-stone-100 italic">
                           {language === "es"
-                            ? "✓ Escaneado con IA • Cero Desperdicio"
+                            ? "✓ Escaneado asistido por IA"
                             : language === "bg"
-                            ? "✓ AI Сканиране • Нулев отпадък"
-                            : "✓ AI Scanned • Zero Waste"}
+                            ? "✓ AI-асистирано сканиране"
+                            : "✓ AI-assisted scanning"}
                         </div>
                       </div>
                     </div>
@@ -734,6 +734,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+            <p className="mb-6 text-center text-sm text-slate-400">
+              Illustrative profiles — not verified customer testimonials.
+            </p>
             {LANDING_DATA.testimonials.map((t, idx) => (
               <div key={idx} className="bg-stone-900 border border-stone-800 rounded-3xl p-6 flex flex-col justify-between space-y-4 shadow-lg">
                 <div className="space-y-3">
