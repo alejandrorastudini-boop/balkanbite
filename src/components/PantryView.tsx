@@ -101,10 +101,10 @@ export const PantryView: React.FC<PantryViewProps> = ({
     if (!name.trim() || !requiredFields.valid || !category) {
       setFormError(
         language === "bg"
-          ? "Въведете валидно количество и мерна единица. Незадължителните дни и цена не могат да са отрицателни."
+          ? "Въведете име, категория, валидно количество и мерна единица. Незадължителните дни и цена не могат да са отрицателни."
           : language === "es"
-            ? "Introduce una cantidad y unidad válidas. Los días y el coste opcionales no pueden ser negativos."
-            : "Enter a valid quantity and unit. Optional days and cost cannot be negative.",
+            ? "Introduce un nombre, una categoría, una cantidad y una unidad válidas. Los días y el coste opcionales no pueden ser negativos."
+            : "Enter a name, category, valid quantity, and unit. Optional days and cost cannot be negative.",
       );
       return;
     }
@@ -552,6 +552,16 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
+
+              {formError && (
+                <p
+                  role="alert"
+                  aria-live="polite"
+                  className="text-xs text-red-300"
+                >
+                  {formError}
+                </p>
+              )}
 
               <div className="flex justify-end gap-2 pt-2">
                 <button
