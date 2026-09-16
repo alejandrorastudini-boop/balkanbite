@@ -15,5 +15,8 @@ export function admitSuccessfulScanItems<T>(
     return [];
   }
 
-  return items.filter((item): item is T => item !== null && typeof item === "object");
+  return items.filter(
+    (item): item is T =>
+      item !== null && typeof item === "object" && !Array.isArray(item),
+  );
 }

@@ -14,7 +14,12 @@ test("scanner failures and empty or malformed results produce zero candidates", 
 
 test("only explicit successful results admit object candidates", () => {
   assert.deepEqual(
-    admitSuccessfulScanItems<{ name: string }>({ success: true }, [null, "Yogurt", candidate]),
+    admitSuccessfulScanItems<{ name: string }>({ success: true }, [
+      null,
+      "Yogurt",
+      [candidate],
+      candidate,
+    ]),
     [candidate],
   );
 });
