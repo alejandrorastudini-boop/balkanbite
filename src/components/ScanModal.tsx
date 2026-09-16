@@ -206,10 +206,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       setIsScanning(false);
       setErrorMsg(
         language === "es"
-          ? "Introduce un código de barras para buscar. No hay ningún candidato disponible para añadir."
+          ? "Introduce un código de barras para buscar. No hay ningún candidato de despensa para revisar o añadir y no se puede guardar nada."
           : language === "bg"
-          ? "Въведете баркод за търсене. Няма налично предложение за добавяне."
-          : "Enter a barcode to search. No pantry candidate is available to add."
+          ? "Въведете баркод за търсене. Няма предложение за преглед или добавяне в килера и нищо не може да бъде запазено."
+          : "Enter a barcode to search. No pantry candidate is available to review or add, and nothing can be saved."
       );
       return;
     }
@@ -264,10 +264,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       setScannedItems([]);
       setErrorMsg(
         language === "es"
-          ? "No se pudo encontrar el código de barras. No hay ningún candidato de despensa disponible para revisar o añadir."
+          ? "La consulta del código de barras falló o no encontró el producto. No hay ningún candidato de despensa para revisar o añadir y no se puede guardar nada."
           : language === "bg"
-          ? "Баркодът не можа да бъде намерен. Няма налично предложение за преглед или добавяне в килера."
-          : "The barcode could not be found. No pantry candidate is available to review or add."
+          ? "Справката по баркод беше неуспешна или продуктът не беше намерен. Няма предложение за преглед или добавяне в килера и нищо не може да бъде запазено."
+          : "The barcode lookup failed or did not find the product. No pantry candidate is available to review or add, and nothing can be saved."
       );
     } finally {
       if (requestId === captureRequestIdRef.current) setIsScanning(false);
