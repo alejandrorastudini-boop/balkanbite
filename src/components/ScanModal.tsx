@@ -536,7 +536,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
         <div className="p-3.5 border-t border-stone-800 bg-stone-850/80 flex items-center justify-between gap-3">
           <button type="button" onClick={() => { handleResetModal(); onClose(); }} className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold transition-colors cursor-pointer">{currentText.cancel || "Cancel"}</button>
-          <button type="button" disabled={selectedCount === 0} onClick={handleSaveToPantry} className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 flex items-center gap-1.5 cursor-pointer">
+          <button type="button" disabled={selectedCount === 0} onClick={() => { if (selectedCount > 0) handleSaveToPantry(); }} className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 flex items-center gap-1.5 cursor-pointer">
             <Plus className="w-3.5 h-3.5" />
             <span>{currentText.addScannedToPantry || (language === "es" ? "Añadir a mi despensa" : language === "bg" ? "Добави към килера" : "Add to pantry")} ({selectedCount})</span>
           </button>
