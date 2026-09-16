@@ -190,7 +190,13 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     setScannedItems([]);
     if (!barcodeInput.trim()) {
       setIsScanning(false);
-      setErrorMsg(null);
+      setErrorMsg(
+        language === "es"
+          ? "Introduce un código de barras para buscar. No hay ningún candidato disponible para añadir."
+          : language === "bg"
+          ? "Въведете баркод за търсене. Няма налично предложение за добавяне."
+          : "Enter a barcode to search. No pantry candidate is available to add."
+      );
       return;
     }
 
