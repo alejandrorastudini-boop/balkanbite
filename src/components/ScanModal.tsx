@@ -131,7 +131,9 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       if (data?.error || data?.success === false || data?.available === false) {
         throw new Error("Scanner returned a failure result");
       }
-      const detected = (Array.isArray(data.items) ? data.items : [])
+      // Only an explicitly successful response may publish reviewable candidates.
+      // Missing or malformed status is a no-result state, never a detection.
+      const detected = (data?.success === true && Array.isArray(data.items) ? data.items : [])
         .map((item: unknown, index: number) => {
           const candidate = normalizeScanCandidate(item);
           if (!candidate) return null;
@@ -208,7 +210,9 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         throw new Error("Barcode not found. No pantry candidate is available to review or add.");
       }
       const candidate = normalizeScanCandidate(data);
-      if (!candidate) throw new Error("Barcode result has no product name");
+      if (!candidate) {
+        throw new Error("Barcode result has no product name. No pantry candidate is available to review or add.");
+      }
 
       const newItem: ScannedItem = {
         ...candidate,
