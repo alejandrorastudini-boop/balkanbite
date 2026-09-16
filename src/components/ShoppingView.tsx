@@ -98,6 +98,12 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
       : language === "bg"
       ? "Междинна сума с известни цени"
       : "Known-price subtotal";
+  const priceSummaryLabel =
+    language === "es"
+      ? "Información de precios"
+      : language === "bg"
+      ? "Информация за цените"
+      : "Price information";
   const totalCostDisplay =
     pricedItems.length === 0 && hasUnknownPrices
       ? unknownPriceLabel
@@ -139,7 +145,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
         return `${item.checked ? "✅" : "▫️"} ${displayName} (${item.quantity} ${displayUnit})`;
       })
       .join("\n");
-    const footer = `\n💰 Total est: ${totalCostDisplay}`;
+    const footer = `\n💰 ${priceSummaryLabel}: ${totalCostDisplay}`;
     return `${header}\n${items}\n${footer}`;
   };
 
