@@ -8,12 +8,25 @@ import {
   createUserWithEmailAndPassword,
   updateProfile
 } from "firebase/auth";
-import { getFirestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+} from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Persist Firestore locally so returning users can hydrate profile/inventory from
+// IndexedDB immediately while the SDK refreshes from the server in background.
+// Multi-tab coordination avoids the old single-tab persistence limitation.
+export const db = initializeFirestore(app, {
+  localCache: persistentLocalCache({
+    tabManager: persistentMultipleTabManager(),
+  }),
+});
+
 export const googleProvider = new GoogleAuthProvider();
 
 export const signInWithGoogle = async () => {
