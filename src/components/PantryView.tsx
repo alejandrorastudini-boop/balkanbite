@@ -523,6 +523,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     required
                     aria-required="true"
                     value={unit}
+                    aria-label={`${currentText.unit} (${requiredFieldLabel})`}
                     onChange={(e) => setUnit(e.target.value)}
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                   >
