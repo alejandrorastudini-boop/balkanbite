@@ -21,6 +21,7 @@ import {
   toPantryPayload,
   type SafeScanCandidate,
 } from "../utils/safeScanCandidate";
+import { admitSuccessfulScanItems } from "../utils/safeScanResult";
 
 interface ScannedItem extends SafeScanCandidate {
   id: string;
@@ -133,8 +134,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       }
       // Only an explicitly successful response may publish reviewable candidates.
       // Missing or malformed status is a no-result state, never a detection.
-      const detected = (data?.success === true && Array.isArray(data.items) ? data.items : [])
-        .map((item: unknown, index: number) => {
+      const detected = admitSuccessfulScanItems<unknown>(data, data?.items)
+        .map((item, index) => {
           const candidate = normalizeScanCandidate(item);
           if (!candidate) return null;
           return {
@@ -201,13 +202,13 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       if (requestId !== captureRequestIdRef.current) return;
       if (!res.ok) {
         setScannedItems([]);
-        throw new Error("Barcode not found. No pantry candidate is available to review or add.");
+        throw new Error("Barcode not found. No pantry candidate is available to review or add, and nothing can be saved.");
       }
 
       const data = await res.json();
       if (requestId !== captureRequestIdRef.current) return;
       if (data?.error || data?.found === false || data?.success === false) {
-        throw new Error("Barcode not found. No pantry candidate is available to review or add.");
+        throw new Error("Barcode not found. No pantry candidate is available to review or add, and nothing can be saved.");
       }
       const candidate = normalizeScanCandidate(data);
       if (!candidate) {
