@@ -175,15 +175,13 @@ export const PantryView: React.FC<PantryViewProps> = ({
           </span>
           <div className="flex items-baseline gap-1 mt-2 relative z-10">
             <span className="text-xl font-extrabold text-emerald-400 font-['Outfit'] tracking-tight">
-              {totalValueEUR === null
+              {totalValueEUR === null || currency !== "EUR"
                 ? language === "es"
                   ? "Sin datos"
                   : language === "bg"
                   ? "Няма данни"
                   : "No data"
-                : currency === "EUR"
-                ? `€${totalValueEUR.toFixed(1)}`
-                : "$" + (totalValueEUR * 1.1).toFixed(1)}
+                : `€${totalValueEUR.toFixed(1)}`}
             </span>
           </div>
         </div>
