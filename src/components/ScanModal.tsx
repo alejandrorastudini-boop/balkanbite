@@ -493,7 +493,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                     <div key={item.id} className={`p-3 rounded-xl border transition-all ${item.selected ? "bg-emerald-950/20 border-emerald-500/40 text-white" : ready ? "bg-stone-850/50 border-stone-700 text-stone-300" : "bg-amber-950/10 border-amber-500/30 text-stone-300"}`}>
                       <div className="flex items-start justify-between gap-2.5">
                         <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                          <button type="button" onClick={() => handleToggleItem(item.id)} aria-label={ready ? "Toggle item" : "Complete quantity and unit first"} className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 ${ready ? "cursor-pointer" : "cursor-not-allowed opacity-50"} ${item.selected ? "bg-emerald-600 border-emerald-500 text-white" : "border-stone-600"}`}>
+                          <button type="button" disabled={!ready} onClick={() => handleToggleItem(item.id)} aria-label={ready ? "Toggle item" : "Complete quantity and unit first"} className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 ${ready ? "cursor-pointer" : "cursor-not-allowed opacity-50"} ${item.selected ? "bg-emerald-600 border-emerald-500 text-white" : "border-stone-600"}`}>
                             {item.selected && <Check className="w-3.5 h-3.5" />}
                           </button>
                           <div className="min-w-0 flex-1">
