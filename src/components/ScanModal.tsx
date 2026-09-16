@@ -40,12 +40,21 @@ const updateCandidateReviewField = <K extends keyof ScannedItem>(
   item: ScannedItem,
   field: K,
   value: ScannedItem[K]
-): ScannedItem => ({
-  ...item,
-  [field]: value,
-  ...(field === "quantity" && value !== item.quantity ? { quantityConfirmed: false } : {}),
-  ...(field === "unit" && value !== item.unit ? { unitConfirmed: false } : {}),
-});
+): ScannedItem => {
+  const requiredValueChanged =
+    (field === "quantity" && value !== item.quantity) ||
+    (field === "unit" && value !== item.unit);
+
+  return {
+    ...item,
+    [field]: value,
+    // Editing either required value revokes both the field-specific review and
+    // any prior selection, so a stale confirmation can never remain saveable.
+    ...(requiredValueChanged ? { selected: false } : {}),
+    ...(field === "quantity" && value !== item.quantity ? { quantityConfirmed: false } : {}),
+    ...(field === "unit" && value !== item.unit ? { unitConfirmed: false } : {}),
+  };
+};
 
 interface ScanModalProps {
   isOpen: boolean;
@@ -311,9 +320,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
               ? Number(rawValue)
               : undefined
             : rawValue.trim() || undefined;
-        const changed = value !== item[field];
-        const next = updateCandidateReviewField(item, field, value);
-        return { ...next, selected: changed ? false : item.selected };
+        return updateCandidateReviewField(item, field, value);
       })
     );
   };
