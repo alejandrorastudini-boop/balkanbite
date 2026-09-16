@@ -414,9 +414,9 @@ export const LANDING_DATA = {
         bg: "Наистина ли мога да спестя пари с това приложение?",
       },
       answer: {
-        es: "Sí. El hogar medio desperdicia entre un 20% y un 30% de la comida que compra al año (unos 1.000 € a 1.400 €). Al avisarte antes de que los alimentos caduquen y planificar las comidas con lo que ya tienes, dejas de tirar comida y compras solo lo necesario.",
-        en: "Yes. The average family throws away 20% to 30% of bought food annually (€1,000 to €1,400). By warning you before ingredients expire and meal-planning with existing stock, food waste drops by up to 65%.",
-        bg: "Да. Средното домакинство изхвърля между 20% и 30% от храната годишно. Чрез навременните известия за годност и готвене с наличното, спестявате значителна част от бюджета си за храна.",
+        es: "La aplicación puede ayudarte a controlar las existencias y las fechas y a planificar con lo que ya tienes. El ahorro real depende de las compras y el uso de cada hogar y no está garantizado.",
+        en: "The app can help you track stock and dates and plan with what you already have. Actual savings depend on each household's purchases and usage and are not guaranteed.",
+        bg: "Приложението може да помогне да следите наличностите и сроковете и да планирате с това, което имате. Реалните спестявания зависят от покупките и употребата на всяко домакинство и не са гарантирани.",
       },
     },
     {
