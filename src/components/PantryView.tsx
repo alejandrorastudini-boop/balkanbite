@@ -476,11 +476,15 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
             <form onSubmit={handleCreateItem} className="space-y-3">
               <div>
-                <label className="block text-[11px] font-semibold text-stone-300 mb-1">
+                <label
+                  htmlFor="pantry-item-name"
+                  className="block text-[11px] font-semibold text-stone-300 mb-1"
+                >
                   {currentText.pantryFormName}{" "}
                   <span className="font-normal text-stone-500">({requiredFieldLabel})</span>
                 </label>
                 <input
+                  id="pantry-item-name"
                   type="text"
                   required
                   aria-required="true"
