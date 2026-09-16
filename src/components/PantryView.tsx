@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { PantryItem, Language, Currency } from "../types";
 import { t } from "../utils/translations";
+import { validateManualPantryRequiredFields } from "../utils/manualPantryValidation";
 import { ConfirmModal } from "./ConfirmModal";
 import { ScanModal } from "./ScanModal";
 
@@ -88,12 +89,13 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
   const handleCreateItem = (e: React.FormEvent) => {
     e.preventDefault();
+    const requiredFields = validateManualPantryRequiredFields({
+      quantity: String(quantity),
+      unit,
+    });
     if (
       !name.trim() ||
-      quantity === "" ||
-      !Number.isFinite(quantity) ||
-      quantity <= 0 ||
-      !unit.trim() ||
+      !requiredFields.valid ||
       !category ||
       (expiryDays !== "" &&
         (!Number.isFinite(expiryDays) || expiryDays < 0)) ||
@@ -104,8 +106,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
     onAddItem({
       name: name.trim(),
-      quantity,
-      unit,
+      quantity: requiredFields.quantity,
+      unit: requiredFields.unit,
       category,
       ...(expiryDays !== "" && Number.isFinite(expiryDays)
         ? { expiryDaysLeft: expiryDays }
@@ -466,10 +468,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     {currentText.unit}
                   </label>
                   <select
+                    required
                     value={unit}
                     onChange={(e) => setUnit(e.target.value)}
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                   >
+                    <option value="" disabled>
+                      {language === "bg" ? "Изберете" : language === "es" ? "Seleccionar" : "Select"}
+                    </option>
                     <option value="pcs">pcs</option>
                     <option value="g">g</option>
                     <option value="kg">kg</option>
@@ -486,12 +492,16 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     {currentText.pantryFormCategory}
                   </label>
                   <select
+                    required
                     value={category}
                     onChange={(e) =>
                       setCategory(e.target.value as PantryItem["category"])
                     }
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                   >
+                    <option value="" disabled>
+                      {language === "bg" ? "Изберете" : language === "es" ? "Seleccionar" : "Select"}
+                    </option>
                     <option value="Produce">{currentText.categoryProduce || "Produce"}</option>
                     <option value="Dairy">{currentText.categoryDairy || "Dairy"}</option>
                     <option value="Meat/Fish">{currentText.categoryMeat || "Meat/Fish"}</option>
