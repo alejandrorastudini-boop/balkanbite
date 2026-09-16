@@ -98,13 +98,33 @@ export const PantryView: React.FC<PantryViewProps> = ({
       expiryDays: String(expiryDays),
       cost: String(cost),
     });
-    if (!name.trim() || !requiredFields.valid || !category) {
+    if (!name.trim()) {
       setFormError(
         language === "bg"
-          ? "Въведете име, категория, валидно количество и мерна единица. Незадължителните дни и цена не могат да са отрицателни."
+          ? "Въведете име на продукта."
           : language === "es"
-            ? "Introduce un nombre, una categoría, una cantidad y una unidad válidas. Los días y el coste opcionales no pueden ser negativos."
-            : "Enter a name, category, valid quantity, and unit. Optional days and cost cannot be negative.",
+            ? "Introduce el nombre del producto."
+            : "Enter the item name.",
+      );
+      return;
+    }
+    if (!category) {
+      setFormError(
+        language === "bg"
+          ? "Изберете категория."
+          : language === "es"
+            ? "Selecciona una categoría."
+            : "Select a category.",
+      );
+      return;
+    }
+    if (!requiredFields.valid) {
+      setFormError(
+        language === "bg"
+          ? "Въведете положително количество и мерна единица. Ако добавите дни или цена, използвайте неотрицателно число."
+          : language === "es"
+            ? "Introduce una cantidad positiva y una unidad. Si añades días o coste, usa un número no negativo."
+            : "Enter a positive quantity and a unit. If provided, days and cost must be non-negative numbers.",
       );
       return;
     }
