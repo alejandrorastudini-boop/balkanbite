@@ -383,7 +383,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 />
                 <div className="flex justify-between text-[10px] text-stone-500 font-medium">
                   <span>150 €</span>
-                  <span>800 € (Flexibilidad total)</span>
+                  <span>800 €</span>
                 </div>
               </div>
             </div>
