@@ -37,14 +37,14 @@ export const LANDING_DATA = {
       bg: "Вашата интелигентна кухня.",
     },
     titleHighlight: {
-      es: "Menos desperdicio, más ahorro.",
-      en: "Zero waste, maximum savings.",
-      bg: "По-малко отпадък, максимално спестяване.",
+      es: "Planifica con lo que ya tienes.",
+      en: "Plan with what you already have.",
+      bg: "Планирайте с това, което вече имате.",
     },
     subtitle: {
-      es: "Escanea tu nevera con IA, planifica comidas equilibradas con lo que ya tienes y ahorra hasta 140 € al mes en el supermercado.",
-      en: "Scan your fridge with AI, plan balanced meals from ingredients you already have, and save up to €140 every month.",
-      bg: "Сканирайте хладилника с AI, планирайте балансирани ястия от наличните продукти и пестете до 140 € месечно.",
+      es: "Escanea tu nevera, revisa los ingredientes detectados y planifica comidas con los productos confirmados.",
+      en: "Scan your fridge, review detected ingredients, and plan meals using confirmed items.",
+      bg: "Сканирайте хладилника, прегледайте разпознатите продукти и планирайте ястия с потвърдените продукти.",
     },
     ctaPrimary: {
       es: "Abrir BalkanBite Gratis",
