@@ -69,7 +69,7 @@ export const ProModal: React.FC<ProModalProps> = ({
       tagline: "Неограничен кулинарен AI и радар за хранителни стоки",
       subtitle: "Гответе балансирано, пестете до 120€ месечно и намалете изхвърлянето на храна.",
       monthly: "Месечен",
-      annual: "Годишен (Спестете 37%)",
+      annual: "Годишен",
       perMonth: "/ месец",
       perYear: "/ година",
       billedAnnually: `Таксува се годишно ${annualPrice} (${monthlyEquivalentInAnnual}/месец)`,
