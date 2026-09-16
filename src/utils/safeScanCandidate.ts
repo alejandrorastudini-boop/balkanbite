@@ -74,16 +74,13 @@ export function toPantryPayload(
 ): Omit<PantryItem, "id" | "addedAt"> | null {
   if (!isCandidateReadyForPantry(candidate)) return null;
 
+  // Price and expiry values produced by image/barcode analysis remain review-only
+  // suggestions. They must not cross the authoritative pantry persistence boundary
+  // until BalkanBite has separate field-level confirmation/provenance for them.
   return {
     name: candidate.name.trim(),
     quantity: candidate.quantity,
     unit: candidate.unit.trim(),
     category: candidate.category,
-    ...(candidate.estimatedDaysUntilExpiry !== undefined
-      ? { expiryDaysLeft: candidate.estimatedDaysUntilExpiry }
-      : {}),
-    ...(candidate.approximateCostEUR !== undefined
-      ? { estimatedCostEUR: candidate.approximateCostEUR }
-      : {}),
   };
 }
