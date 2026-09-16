@@ -57,9 +57,17 @@ export const PantryView: React.FC<PantryViewProps> = ({
   const [cost, setCost] = useState<number | "">("");
   const [formError, setFormError] = useState("");
   const requiredFieldLabel =
-    language === "bg" ? "задължително" : language === "es" ? "obligatorio" : "required";
+    language === "bg"
+      ? "задължително поле"
+      : language === "es"
+        ? "campo obligatorio"
+        : "required field";
   const optionalFieldLabel =
-    language === "bg" ? "по избор" : language === "es" ? "opcional" : "optional";
+    language === "bg"
+      ? "поле по избор"
+      : language === "es"
+        ? "campo opcional"
+        : "optional field";
 
   const categories = [
     { id: "All", label: currentText.filterAll },
