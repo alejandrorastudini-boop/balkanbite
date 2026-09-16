@@ -525,7 +525,11 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   <input
                     type="number"
                     value={expiryDays}
-                    onChange={(e) => setExpiryDays(Number(e.target.value))}
+                    onChange={(e) =>
+                    setExpiryDays(
+                      e.target.value === "" ? "" : Number(e.target.value),
+                    )
+                  }
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                   />
                 </div>
@@ -539,7 +543,9 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   type="number"
                   step="0.1"
                   value={cost}
-                  onChange={(e) => setCost(Number(e.target.value))}
+                  onChange={(e) =>
+                    setCost(e.target.value === "" ? "" : Number(e.target.value))
+                  }
                   className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
                 />
               </div>
