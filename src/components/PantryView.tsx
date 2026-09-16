@@ -560,10 +560,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   </select>
                 </div>
                 <div>
-                  <label className="block text-[11px] font-semibold text-stone-300 mb-1">
+                  <label
+                    htmlFor="pantry-expiry-days"
+                    className="block text-[11px] font-semibold text-stone-300 mb-1"
+                  >
                     {currentText.pantryFormShelfLife}
                   </label>
                   <input
+                    id="pantry-expiry-days"
                     type="number"
                     value={expiryDays}
                     onChange={(e) =>
@@ -577,10 +581,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
               </div>
 
               <div>
-                <label className="block text-[11px] font-semibold text-stone-300 mb-1">
+                <label
+                  htmlFor="pantry-cost"
+                  className="block text-[11px] font-semibold text-stone-300 mb-1"
+                >
                   {currentText.pantryFormCost}
                 </label>
                 <input
+                  id="pantry-cost"
                   type="number"
                   step="0.1"
                   value={cost}
