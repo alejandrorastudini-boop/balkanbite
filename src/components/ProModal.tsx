@@ -60,7 +60,7 @@ export const ProModal: React.FC<ProModalProps> = ({
           desc: "Añade tickets y compras enteras con manos libres mientras guardas la compra.",
         },
       ],
-      activeProText: "Suscripción Pro Activa",
+      activeProText: "Estado de la suscripción Pro no disponible",
       keepActive: "Mantener Suscripción Activa",
       activateBtn: `Activar BalkanBite Pro (${billingCycle === "annual" ? annualPrice : monthlyPrice})`,
       guarantee: "Cancela en 1 clic en cualquier momento. Sin compromisos ni letra pequeña.",
