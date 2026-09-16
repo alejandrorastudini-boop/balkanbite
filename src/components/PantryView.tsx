@@ -56,6 +56,10 @@ export const PantryView: React.FC<PantryViewProps> = ({
   const [expiryDays, setExpiryDays] = useState<number | "">("");
   const [cost, setCost] = useState<number | "">("");
   const [formError, setFormError] = useState("");
+  const requiredFieldLabel =
+    language === "bg" ? "задължително" : language === "es" ? "obligatorio" : "required";
+  const optionalFieldLabel =
+    language === "bg" ? "по избор" : language === "es" ? "opcional" : "optional";
 
   const categories = [
     { id: "All", label: currentText.filterAll },
@@ -124,7 +128,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
           ? "Въведете положително количество и мерна единица. Ако добавите дни или цена, използвайте неотрицателно число."
           : language === "es"
             ? "Introduce una cantidad positiva y una unidad. Si añades días o coste, usa un número no negativo."
-            : "Enter a positive quantity and a unit. If provided, days and cost must be non-negative numbers.",
+            : "Required: name, category, a positive quantity, and a unit. Optional: expiry days and cost; if provided, they must be non-negative numbers.",
       );
       return;
     }
@@ -465,7 +469,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
             <form onSubmit={handleCreateItem} className="space-y-3">
               <div>
                 <label className="block text-[11px] font-semibold text-stone-300 mb-1">
-                  {currentText.pantryFormName}
+                  {currentText.pantryFormName}{" "}
+                  <span className="font-normal text-stone-500">({requiredFieldLabel})</span>
                 </label>
                 <input
                   type="text"
@@ -480,7 +485,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
               <div className="grid grid-cols-2 gap-2">
                 <div>
                   <label className="block text-[11px] font-semibold text-stone-300 mb-1">
-                    {currentText.qty}
+                    {currentText.qty}{" "}
+                    <span className="font-normal text-stone-500">({requiredFieldLabel})</span>
                   </label>
                   <input
                     type="number"
