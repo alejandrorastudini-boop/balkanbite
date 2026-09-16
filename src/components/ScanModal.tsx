@@ -197,7 +197,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     try {
       const res = await fetch(`/api/barcode/${encodeURIComponent(barcodeInput.trim())}?lang=${language}`);
       if (requestId !== captureRequestIdRef.current) return;
-      if (!res.ok) throw new Error("Barcode not found");
+      if (!res.ok) {
+        setDetectedItems([]);
+        throw new Error("Barcode not found. No pantry candidate is available to review or add.");
+      }
 
       const data = await res.json();
       if (requestId !== captureRequestIdRef.current) return;
