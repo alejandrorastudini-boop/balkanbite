@@ -507,6 +507,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     step="any"
                     required
                     aria-required="true"
+                    aria-label={language === "es" ? "Cantidad" : language === "bg" ? "Количество" : "Quantity"}
                     value={quantity}
                     onChange={(e) =>
                       setQuantity(e.target.value === "" ? "" : Number(e.target.value))
