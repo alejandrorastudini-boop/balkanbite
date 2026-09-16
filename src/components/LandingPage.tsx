@@ -528,9 +528,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                         </div>
                         <div className="text-[8px] text-stone-400 pt-1 border-t border-stone-100 italic">
                           {language === "es"
-                            ? "✓ Escaneado con IA • Cero Desperdicio"
+                            ? "✓ Escaneado asistido por IA"
                             : language === "bg"
-                            ? "✓ AI Сканиране • Нулев отпадък"
+                            ? "✓ AI-асистирано сканиране"
                             : "✓ AI-assisted scanning"}
                         </div>
                       </div>
