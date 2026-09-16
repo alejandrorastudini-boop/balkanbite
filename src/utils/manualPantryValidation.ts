@@ -1,30 +1,33 @@
-export interface ManualPantryRequiredInput {
+export interface ManualPantryQuantityInput {
   quantity: string;
   unit: string;
 }
 
-export type ManualPantryValidationResult =
-  | { valid: false; error: "quantity-required" | "quantity-invalid" | "unit-required" }
+type ManualPantryValidationResult =
+  | { valid: false }
   | { valid: true; quantity: number; unit: string };
 
 /**
- * Validates the two authoritative fields required for a manual pantry entry.
- * This deliberately supplies no fallback quantity or unit: missing values must
- * be confirmed by the user before the item can be persisted.
+ * Manual pantry entries must have an explicitly entered, positive quantity and
+ * a unit before they can become authoritative inventory. The returned values
+ * are normalized only after both user-provided fields pass validation.
  */
-export function validateManualPantryRequiredFields(
-  input: ManualPantryRequiredInput,
-): ManualPantryValidationResult {
-  const rawQuantity = input.quantity.trim();
-  if (!rawQuantity) return { valid: false, error: "quantity-required" };
+export function validateManualPantryRequiredFields({
+  quantity,
+  unit,
+}: ManualPantryQuantityInput): ManualPantryValidationResult {
+  const trimmedQuantity = quantity.trim();
+  const trimmedUnit = unit.trim();
+  if (!trimmedQuantity || !trimmedUnit) return { valid: false };
 
-  const quantity = Number(rawQuantity);
-  if (!Number.isFinite(quantity) || quantity <= 0) {
-    return { valid: false, error: "quantity-invalid" };
+  const parsedQuantity = Number(trimmedQuantity);
+  if (!Number.isFinite(parsedQuantity) || parsedQuantity <= 0) {
+    return { valid: false };
   }
 
-  const unit = input.unit.trim();
-  if (!unit) return { valid: false, error: "unit-required" };
-
-  return { valid: true, quantity, unit };
+  return {
+    valid: true,
+    quantity: parsedQuantity,
+    unit: trimmedUnit,
+  };
 }
