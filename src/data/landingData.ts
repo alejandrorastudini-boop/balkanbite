@@ -235,11 +235,11 @@ export const LANDING_DATA = {
       location: "Madrid, España",
       avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=80",
       rating: 5,
-      savings: "135 €/mes ahorrados",
+      savings: "Resultado no verificado",
       comment: {
-        es: "Antes tirábamos yogures caducados y verduras mustias todas las semanas. Con el escaneo visual y las recetas de aprovechamiento, nuestro gasto del súper bajó más de 130 € al mes.",
-        en: "We used to throw away expired dairy and forgotten vegetables every single week. BalkanBite reduced our monthly grocery spend by more than €130!",
-        bg: "Преди всяка седмица изхвърляхме развалени зеленчуци и млека. С визуалния скенер и менютата спестяваме над 130 € месечно.",
+        es: "Testimonio pendiente de verificación.",
+        en: "Testimonial pending verification.",
+        bg: "Отзивът очаква потвърждение.",
       },
     },
     {
