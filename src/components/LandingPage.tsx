@@ -611,14 +611,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-4xl mx-auto space-y-10">
           <div className="text-center space-y-2">
             <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-              {language === "es" ? "Simulador de Ahorro en Vivo" : language === "bg" ? "Калкулатор за спестявания на живо" : "Live Savings Simulator"}
+              {language === "es" ? "Escenario ilustrativo de ahorro" : language === "bg" ? "Илюстративен сценарий за спестяване" : "Illustrative Savings Scenario"}
             </span>
             <h2 className="text-2xl sm:text-4xl font-extrabold text-white font-['Outfit'] tracking-tight">
               {language === "es"
-                ? "¿Cuánto puedes ahorrar con BalkanBite?"
+                ? "Explora un escenario ilustrativo de planificación"
                 : language === "bg"
-                ? "Колко можете да спестите с BalkanBite?"
-                : "How much can you save with BalkanBite?"}
+                ? "Разгледайте илюстративен сценарий за планиране"
+                : "Explore an Illustrative Planning Scenario"}
             </h2>
           </div>
 
@@ -648,27 +648,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="bg-gradient-to-br from-stone-950 to-stone-900 border border-emerald-500/30 rounded-2xl p-6 flex flex-col justify-between text-center relative overflow-hidden shadow-inner">
                 <div className="space-y-2">
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">
-                    {language === "es" ? "Tu Ahorro Estimado" : language === "bg" ? "Вашето очаквано спестяване" : "Your Estimated Savings"}
+                    {language === "es" ? "Proyección según tus datos" : language === "bg" ? "Прогноза според въведените данни" : "Projection Based on Your Inputs"}
                   </span>
                   <div className="pt-2">
                     <div className="text-4xl sm:text-5xl font-black text-white font-['Outfit'] tracking-tight">
-                      +{Math.round(monthlySavings * currRatio)} {currSymbol}
+                      {Math.round(monthlySavings * currRatio)} {currSymbol}
                       <span className="text-base font-bold text-stone-400 ml-1">
                         / {language === "es" ? "mes" : language === "bg" ? "месец" : "mo"}
                       </span>
                     </div>
                     <p className="text-sm font-bold text-emerald-400 mt-1">
-                      ≈ +{Math.round(annualSavings * currRatio)} {currSymbol} {language === "es" ? "al año ahorrados" : language === "bg" ? "спестени годишно" : "saved per year"}
+                      ≈ {Math.round(annualSavings * currRatio)} {currSymbol} {language === "es" ? "de proyección anual ilustrativa" : language === "bg" ? "илюстративна годишна прогноза" : "illustrative annual projection"}
                     </p>
                   </div>
                 </div>
                 <div className="pt-6">
                   <button onClick={onOpenApp} className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl shadow-lg transition-all cursor-pointer">
-                    {language === "es" ? "Empezar a Ahorrar" : language === "bg" ? "Започнете да спестявате" : "Start Saving Today"}
+                    {language === "es" ? "Explorar la planificación" : language === "bg" ? "Разгледайте планирането" : "Explore Planning"}
                   </button>
                 </div>
               </div>
             </div>
+            <p className="text-center text-xs text-stone-500">
+              {language === "es"
+                ? "Ejemplo ilustrativo basado en los controles elegidos; no es un ahorro verificado ni garantizado."
+                : language === "bg"
+                ? "Илюстративен пример според избраните настройки; това не е потвърдено или гарантирано спестяване."
+                : "Illustrative example based on the selected controls; this is not verified or guaranteed savings."}
+            </p>
           </div>
         </div>
       </section>
