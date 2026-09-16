@@ -444,7 +444,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     </button>
                   </div>
 
-                  {item.estimatedCostEUR && (
+                  {item.estimatedCostEUR !== undefined && (
                     <span className="text-sm font-bold text-emerald-400 font-['Outfit'] pr-1">
                       {`~€${item.estimatedCostEUR.toFixed(2)}`}
                     </span>
@@ -519,7 +519,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-stone-300 mb-1">
-                    {currentText.unit}
+                    {currentText.unit}{" "}
+                    <span className="font-normal text-stone-500">({requiredFieldLabel})</span>
                   </label>
                   <select
                     required
@@ -548,7 +549,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     htmlFor="pantry-category"
                     className="block text-[11px] font-semibold text-stone-300 mb-1"
                   >
-                    {currentText.pantryFormCategory}
+                    {currentText.pantryFormCategory}{" "}
+                    <span className="font-normal text-stone-500">({requiredFieldLabel})</span>
                   </label>
                   <select
                     id="pantry-category"
@@ -576,11 +578,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     htmlFor="pantry-expiry-days"
                     className="block text-[11px] font-semibold text-stone-300 mb-1"
                   >
-                    {currentText.pantryFormShelfLife}
+                    {currentText.pantryFormShelfLife}{" "}
+                    <span className="font-normal text-stone-500">({optionalFieldLabel})</span>
                   </label>
                   <input
                     id="pantry-expiry-days"
                     type="number"
+                    min="0"
+                    step="any"
                     value={expiryDays}
                     onChange={(e) =>
                     setExpiryDays(
@@ -597,12 +602,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   htmlFor="pantry-cost"
                   className="block text-[11px] font-semibold text-stone-300 mb-1"
                 >
-                  {currentText.pantryFormCost}
+                  {currentText.pantryFormCost}{" "}
+                  <span className="font-normal text-stone-500">({optionalFieldLabel})</span>
                 </label>
                 <input
                   id="pantry-cost"
                   type="number"
-                  step="0.1"
+                  min="0"
+                  step="any"
                   value={cost}
                   onChange={(e) =>
                     setCost(e.target.value === "" ? "" : Number(e.target.value))
