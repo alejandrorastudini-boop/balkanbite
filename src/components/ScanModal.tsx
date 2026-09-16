@@ -423,7 +423,21 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             <div className="space-y-3">
               <form onSubmit={handleBarcodeSearch} className="flex gap-2">
                 <div className="relative flex-1">
-                  <input type="text" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} placeholder={language === "es" ? "Introduce código EAN..." : language === "bg" ? "Въведете EAN баркод..." : "Enter EAN barcode..."} className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-stone-400 focus:outline-none focus:border-emerald-500" />
+                  <input
+                    type="text"
+                    value={barcodeInput}
+                    onChange={(e) => {
+                      // Editing the barcode abandons both the displayed candidate and any lookup
+                      // still in flight, so an old response cannot restore a stale save path.
+                      ++captureRequestIdRef.current;
+                      setBarcodeInput(e.target.value);
+                      setScannedItems([]);
+                      setIsScanning(false);
+                      setErrorMsg(null);
+                    }}
+                    placeholder={language === "es" ? "Introduce código EAN..." : language === "bg" ? "Въведете EAN баркод..." : "Enter EAN barcode..."}
+                    className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-stone-400 focus:outline-none focus:border-emerald-500"
+                  />
                 </div>
                 <button type="submit" disabled={isScanning || !barcodeInput.trim()} className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0">
                   {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Barcode className="w-4 h-4" />}
