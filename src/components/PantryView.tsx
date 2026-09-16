@@ -94,15 +94,10 @@ export const PantryView: React.FC<PantryViewProps> = ({
     const requiredFields = validateManualPantryRequiredFields({
       quantity: String(quantity),
       unit,
+      expiryDays: String(expiryDays),
+      cost: String(cost),
     });
-    if (
-      !name.trim() ||
-      !requiredFields.valid ||
-      !category ||
-      (expiryDays !== "" &&
-        (!Number.isFinite(expiryDays) || expiryDays < 0)) ||
-      (cost !== "" && (!Number.isFinite(cost) || cost < 0))
-    ) {
+    if (!name.trim() || !requiredFields.valid || !category) {
       return;
     }
 
@@ -111,11 +106,11 @@ export const PantryView: React.FC<PantryViewProps> = ({
       quantity: requiredFields.quantity,
       unit: requiredFields.unit,
       category,
-      ...(expiryDays !== "" && Number.isFinite(expiryDays)
-        ? { expiryDaysLeft: expiryDays }
+      ...(requiredFields.expiryDays !== undefined
+        ? { expiryDaysLeft: requiredFields.expiryDays }
         : {}),
-      ...(cost !== "" && Number.isFinite(cost)
-        ? { estimatedCostEUR: cost }
+      ...(requiredFields.cost !== undefined
+        ? { estimatedCostEUR: requiredFields.cost }
         : {}),
     });
 
