@@ -92,10 +92,16 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
       : language === "bg"
       ? "неизвестни цени"
       : "unknown prices";
+  const knownPriceSubtotalLabel =
+    language === "es"
+      ? "Subtotal con precios conocidos"
+      : language === "bg"
+      ? "Междинна сума с известни цени"
+      : "Known-price subtotal";
   const totalCostDisplay =
     pricedItems.length === 0 && hasUnknownPrices
       ? unknownPriceLabel
-      : `€${knownTotalEUR.toFixed(2)}${
+      : `${knownPriceSubtotalLabel}: €${knownTotalEUR.toFixed(2)}${
           hasUnknownPrices ? ` + ${unknownPriceLabel}` : ""
         }`;
 
