@@ -78,10 +78,12 @@ export const PantryView: React.FC<PantryViewProps> = ({
     (i) => i.expiryDaysLeft !== undefined && i.expiryDaysLeft <= 3
   ).length;
 
-  const totalValueEUR = pantry.reduce(
-    (acc, curr) => acc + (curr.estimatedCostEUR || 0),
-    0
+  const hasCompleteCostData = pantry.every(
+    (item) => item.estimatedCostEUR !== undefined
   );
+  const totalValueEUR = hasCompleteCostData
+    ? pantry.reduce((acc, curr) => acc + (curr.estimatedCostEUR ?? 0), 0)
+    : null;
 
   const handleClearWithConfirm = () => {
     setShowClearConfirm(true);
@@ -173,9 +175,15 @@ export const PantryView: React.FC<PantryViewProps> = ({
           </span>
           <div className="flex items-baseline gap-1 mt-2 relative z-10">
             <span className="text-xl font-extrabold text-emerald-400 font-['Outfit'] tracking-tight">
-              {currency === "EUR"
+              {totalValueEUR === null
+                ? language === "es"
+                  ? "Sin datos"
+                  : language === "bg"
+                  ? "Няма данни"
+                  : "No data"
+                : currency === "EUR"
                 ? `€${totalValueEUR.toFixed(1)}`
-                : `$${(totalValueEUR * 1.1).toFixed(1)}`}
+                : "$" + (totalValueEUR * 1.1).toFixed(1)}
             </span>
           </div>
         </div>
