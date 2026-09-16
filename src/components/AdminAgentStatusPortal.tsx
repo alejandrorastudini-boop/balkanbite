@@ -81,6 +81,19 @@ function statusPresentation(status: string, reviewRequired: boolean) {
   return { label: status || "Desconocido", dot: "bg-stone-400", badge: "text-stone-300 border-white/10 bg-white/[0.04]" };
 }
 
+function hasProviderBillingInterruption(agent: AgentStatusPayload["agent"] | null | undefined) {
+  if (!agent) return false;
+  const detail = `${agent.reason || ""}\n${agent.nextAction || ""}`.toLowerCase();
+  return [
+    "no credits remaining",
+    "spend limit",
+    "usage limit",
+    "insufficient_quota",
+    "quota exceeded",
+    "billing limit",
+  ].some((marker) => detail.includes(marker));
+}
+
 function AgentStatusCard({ user }: { user: User }) {
   const [payload, setPayload] = useState<AgentStatusPayload | null>(null);
   const [loading, setLoading] = useState(true);
@@ -123,7 +136,16 @@ function AgentStatusCard({ user }: { user: User }) {
 
   const agent = payload?.agent;
   const windowInfo = agent?.autonomyWindow;
-  const presentation = statusPresentation(agent?.status || "UNKNOWN", windowInfo?.reviewRequired === true);
+  const providerBillingInterruption = hasProviderBillingInterruption(agent);
+  const presentation = providerBillingInterruption
+    ? { label: "Interrumpido", dot: "bg-rose-400", badge: "text-rose-300 border-rose-500/30 bg-rose-500/10" }
+    : statusPresentation(agent?.status || "UNKNOWN", windowInfo?.reviewRequired === true);
+  const displayedReason = providerBillingInterruption
+    ? "OpenAI API rechazó nuevas llamadas por límite/cuota de gasto"
+    : agent?.reason || "—";
+  const displayedNextAction = providerBillingInterruption
+    ? "Revisar o aumentar el límite de gasto de OpenAI y reanudar la ventana vigente."
+    : agent?.nextAction;
   const elapsedMs = useMemo(() => {
     if (!windowInfo?.startedAt) return null;
     const started = Date.parse(windowInfo.startedAt);
@@ -205,13 +227,13 @@ function AgentStatusCard({ user }: { user: User }) {
             <div className="flex items-center justify-between gap-3"><span className="text-stone-500">Microhito</span><span className="text-stone-200 font-semibold text-right break-all">{agent.currentMilestone || "—"}</span></div>
             <div className="flex items-center justify-between gap-3"><span className="text-stone-500">Última actividad</span><span className="text-stone-200">{formatDate(agent.latestActionAt || agent.lastCompletedAt)}</span></div>
             <div className="flex items-center justify-between gap-3"><span className="text-stone-500">Checkpoint</span><span className="text-stone-200 font-mono text-xs">{agent.lastCheckpointSha?.slice(0, 8) || "—"}</span></div>
-            <div className="flex items-center justify-between gap-3"><span className="text-stone-500">Motivo</span><span className="text-stone-200 text-right break-all">{agent.reason || "—"}</span></div>
+            <div className="flex items-center justify-between gap-3"><span className="text-stone-500">Motivo</span><span className="text-stone-200 text-right break-all">{displayedReason}</span></div>
           </div>
 
-          {agent.nextAction && (
-            <div className="rounded-2xl border border-cyan-500/15 bg-cyan-500/[0.06] p-4">
-              <div className="flex items-center gap-2 text-xs font-bold uppercase tracking-widest text-cyan-300 mb-2"><ShieldCheck className="w-4 h-4" />Siguiente acción registrada</div>
-              <p className="text-sm text-stone-300 leading-relaxed">{agent.nextAction}</p>
+          {displayedNextAction && (
+            <div className={`rounded-2xl border p-4 ${providerBillingInterruption ? "border-rose-500/20 bg-rose-500/[0.07]" : "border-cyan-500/15 bg-cyan-500/[0.06]"}`}>
+              <div className={`flex items-center gap-2 text-xs font-bold uppercase tracking-widest mb-2 ${providerBillingInterruption ? "text-rose-300" : "text-cyan-300"}`}><ShieldCheck className="w-4 h-4" />Siguiente acción registrada</div>
+              <p className="text-sm text-stone-300 leading-relaxed">{displayedNextAction}</p>
             </div>
           )}
 
