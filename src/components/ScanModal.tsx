@@ -227,15 +227,15 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
       const data = await res.json();
       if (requestId !== captureRequestIdRef.current) return;
-      // A barcode candidate requires an explicit positive lookup marker. A 2xx response
-      // with missing/malformed status is not evidence that a product was found.
+      // A barcode candidate requires an explicit `found: true` lookup marker.
+      // HTTP success or a generic `success` flag does not establish that a product
+      // exists, so missing/malformed/not-found statuses remain authoritative no-result states.
       if (
         !data ||
         typeof data !== "object" ||
         data.error ||
-        data.found === false ||
         data.available === false ||
-        (data.found !== true && data.success !== true)
+        data.found !== true
       ) {
         throw new Error("Barcode not found. No pantry candidate is available to review or add, and nothing can be saved.");
       }
