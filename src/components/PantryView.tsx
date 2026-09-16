@@ -536,10 +536,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-semibold text-stone-300 mb-1">
+                  <label
+                    htmlFor="pantry-category"
+                    className="block text-[11px] font-semibold text-stone-300 mb-1"
+                  >
                     {currentText.pantryFormCategory}
                   </label>
                   <select
+                    id="pantry-category"
                     required
                     aria-required="true"
                     value={category}
