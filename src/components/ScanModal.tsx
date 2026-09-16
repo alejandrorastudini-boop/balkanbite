@@ -16,12 +16,12 @@ import {
 import { Language, Currency, PantryItem } from "../types";
 import { t } from "../utils/translations";
 import {
-  isCandidateReadyForPantry,
   normalizeScanCandidate,
   toPantryPayload,
   type SafeScanCandidate,
 } from "../utils/safeScanCandidate";
 import { admitSuccessfulScanItems } from "../utils/safeScanResult";
+import { isConfirmedScanCandidate } from "../utils/confirmedScanCandidate";
 
 interface ScannedItem extends SafeScanCandidate {
   id: string;
@@ -33,7 +33,7 @@ interface ScannedItem extends SafeScanCandidate {
 }
 
 const isScannedItemConfirmed = (item: ScannedItem) =>
-  item.quantityConfirmed && item.unitConfirmed && isCandidateReadyForPantry(item);
+  isConfirmedScanCandidate(item, item.quantityConfirmed, item.unitConfirmed);
 
 interface ScanModalProps {
   isOpen: boolean;
