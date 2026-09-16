@@ -483,6 +483,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                 <input
                   type="text"
                   required
+                  aria-required="true"
                   value={name}
                   onChange={(e) => setName(e.target.value)}
                   placeholder={currentText.pantryFormPlaceholder}
@@ -501,6 +502,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     min="0.1"
                     step="any"
                     required
+                    aria-required="true"
                     value={quantity}
                     onChange={(e) =>
                       setQuantity(e.target.value === "" ? "" : Number(e.target.value))
@@ -514,6 +516,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   </label>
                   <select
                     required
+                    aria-required="true"
                     value={unit}
                     onChange={(e) => setUnit(e.target.value)}
                     className="w-full px-3 py-2 bg-stone-900 border border-stone-700 rounded-lg text-xs text-white focus:outline-none focus:border-emerald-500"
@@ -538,6 +541,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   </label>
                   <select
                     required
+                    aria-required="true"
                     value={category}
                     onChange={(e) =>
                       setCategory(e.target.value as PantryItem["category"])
