@@ -446,9 +446,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
                   {item.estimatedCostEUR && (
                     <span className="text-sm font-bold text-emerald-400 font-['Outfit'] pr-1">
-                      {currency === "EUR"
-                        ? `~€${item.estimatedCostEUR.toFixed(2)}`
-                        : `~$${(item.estimatedCostEUR * 1.1).toFixed(2)}`}
+                      {`~€${item.estimatedCostEUR.toFixed(2)}`}
                     </span>
                   )}
                 </div>
