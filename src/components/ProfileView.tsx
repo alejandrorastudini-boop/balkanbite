@@ -7,7 +7,6 @@ import {
   Utensils,
   Globe,
   Coins,
-  ShieldCheck,
   CheckCircle2,
   Heart,
   RotateCcw,
@@ -215,7 +214,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-4">
             <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center font-bold shadow-inner shrink-0"><Sparkles className="w-6 h-6" /></div>
-            <div><h2 className="text-lg font-bold text-white font-['Outfit'] tracking-wide">{currentText.activePro}</h2><span className="text-[10px] font-bold uppercase tracking-widest text-emerald-400 flex items-center gap-1.5 mt-0.5"><ShieldCheck className="w-3.5 h-3.5" />{currentText.activeSubscription}</span></div>
+            <div><h2 className="text-lg font-bold text-white font-['Outfit'] tracking-wide">BalkanBite Pro</h2><span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 flex items-center gap-1.5 mt-0.5">Subscription status unavailable</span></div>
           </div>
           <button onClick={onOpenProModal} className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/[0.04] text-amber-400 text-sm font-bold border border-white/[0.08] hover:bg-white/[0.08] hover:border-amber-500/30 transition-all cursor-pointer text-center">{currentText.manageSub}</button>
         </div>
