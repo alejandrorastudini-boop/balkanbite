@@ -31,7 +31,7 @@ export const ProModal: React.FC<ProModalProps> = ({
   const texts = {
     es: {
       tagline: "Chef Nutricionista IA Personal y Radar de Supermercados",
-      subtitle: "Cocina saludable, ahorra hasta 120€ al mes en comida y nunca tires alimentos.",
+      subtitle: "Planifica tus comidas, aprovecha tu despensa y reduce el desperdicio de alimentos.",
       monthly: "Mensual",
       annual: "Anual (Ahorra 37%)",
       perMonth: "/ mes",
@@ -67,7 +67,7 @@ export const ProModal: React.FC<ProModalProps> = ({
     },
     bg: {
       tagline: "Неограничен кулинарен AI и радар за хранителни стоки",
-      subtitle: "Гответе балансирано, пестете до 120€ месечно и намалете изхвърлянето на храна.",
+      subtitle: "Планирайте храненията си, използвайте наличното в килера и намалете хранителните отпадъци.",
       monthly: "Месечен",
       annual: "Годишен",
       perMonth: "/ месец",
@@ -103,7 +103,7 @@ export const ProModal: React.FC<ProModalProps> = ({
     },
     en: {
       tagline: "Personal AI Nutrition Chef & Grocery Radar",
-      subtitle: "Cook healthy, save up to €120/month on groceries, and eliminate food waste.",
+      subtitle: "Plan meals, make use of your pantry, and reduce food waste.",
       monthly: "Monthly",
       annual: "Annual (Save 37%)",
       perMonth: "/ month",
