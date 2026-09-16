@@ -497,11 +497,15 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
               <div className="grid grid-cols-2 gap-2">
                 <div>
-                  <label className="block text-[11px] font-semibold text-stone-300 mb-1">
+                  <label
+                    htmlFor="pantry-quantity"
+                    className="block text-[11px] font-semibold text-stone-300 mb-1"
+                  >
                     {currentText.qty}{" "}
                     <span className="font-normal text-stone-500">({requiredFieldLabel})</span>
                   </label>
                   <input
+                    id="pantry-quantity"
                     type="number"
                     min="0.1"
                     step="any"
