@@ -16,6 +16,7 @@ import {
   Cloud,
   LogIn,
   LogOut,
+  ShieldCheck,
 } from "lucide-react";
 import { UserProfile, Language, Currency } from "../types";
 import { t } from "../utils/translations";
