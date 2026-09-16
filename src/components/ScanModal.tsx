@@ -35,6 +35,18 @@ interface ScannedItem extends SafeScanCandidate {
 const isScannedItemConfirmed = (item: ScannedItem) =>
   isConfirmedScanCandidate(item, item.quantityConfirmed, item.unitConfirmed);
 
+/** A confirmation belongs only to the exact quantity or unit value reviewed. */
+const updateCandidateReviewField = <K extends keyof ScannedItem>(
+  item: ScannedItem,
+  field: K,
+  value: ScannedItem[K]
+): ScannedItem => ({
+  ...item,
+  [field]: value,
+  ...(field === "quantity" && value !== item.quantity ? { quantityConfirmed: false } : {}),
+  ...(field === "unit" && value !== item.unit ? { unitConfirmed: false } : {}),
+});
+
 interface ScanModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -289,27 +301,32 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   };
 
   const updateRequiredField = (id: string, field: "quantity" | "unit", rawValue: string) => {
-    setErrorMsg(null);
+    setErrorMsg(confirmationText);
     setScannedItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
-        const next =
+        const value =
           field === "quantity"
-            ? {
-                ...item,
-                quantity:
-                  rawValue.trim() && Number.isFinite(Number(rawValue)) && Number(rawValue) > 0
-                    ? Number(rawValue)
-                    : undefined,
-              }
-            : { ...item, unit: rawValue.trim() || undefined };
-        const confirmed = {
-          ...next,
-          quantityConfirmed:
-            field === "quantity" ? typeof next.quantity === "number" : item.quantityConfirmed,
-          unitConfirmed: field === "unit" ? Boolean(next.unit) : item.unitConfirmed,
-        };
-        return { ...confirmed, selected: item.selected && isScannedItemConfirmed(confirmed) };
+            ? rawValue.trim() && Number.isFinite(Number(rawValue)) && Number(rawValue) > 0
+              ? Number(rawValue)
+              : undefined
+            : rawValue.trim() || undefined;
+        const changed = value !== item[field];
+        const next = updateCandidateReviewField(item, field, value);
+        return { ...next, selected: changed ? false : item.selected };
+      })
+    );
+  };
+
+  const confirmRequiredField = (id: string, field: "quantity" | "unit") => {
+    setScannedItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        if (field === "quantity" && typeof item.quantity === "number") {
+          return { ...item, quantityConfirmed: true };
+        }
+        if (field === "unit" && item.unit) return { ...item, unitConfirmed: true };
+        return item;
       })
     );
   };
@@ -461,14 +478,20 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                           <div className="min-w-0 flex-1">
                             <span className="text-xs font-semibold block truncate">{item.name}</span>
                             <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] gap-2">
-                              <label className="space-y-1">
+                              <div className="space-y-1">
                                 <span className="text-[10px] text-stone-400">{language === "es" ? "Cantidad" : language === "bg" ? "Количество" : "Quantity"}</span>
-                                <input type="number" min="0" step="any" inputMode="decimal" value={item.quantity ?? ""} onChange={(e) => updateRequiredField(item.id, "quantity", e.target.value)} placeholder="?" className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
-                              </label>
-                              <label className="space-y-1">
+                                <input aria-label={language === "es" ? "Cantidad" : language === "bg" ? "Количество" : "Quantity"} type="number" min="0" step="any" inputMode="decimal" value={item.quantity ?? ""} onChange={(e) => updateRequiredField(item.id, "quantity", e.target.value)} placeholder="?" className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
+                                <button type="button" disabled={typeof item.quantity !== "number" || item.quantityConfirmed} onClick={() => confirmRequiredField(item.id, "quantity")} className="w-full rounded-lg border border-emerald-500/40 px-2 py-1 text-[10px] text-emerald-300 disabled:border-stone-700 disabled:text-stone-500">
+                                  {item.quantityConfirmed ? (language === "es" ? "Confirmada" : language === "bg" ? "Потвърдено" : "Confirmed") : (language === "es" ? "Confirmar cantidad" : language === "bg" ? "Потвърди количество" : "Confirm quantity")}
+                                </button>
+                              </div>
+                              <div className="space-y-1">
                                 <span className="text-[10px] text-stone-400">{language === "es" ? "Unidad" : language === "bg" ? "Единица" : "Unit"}</span>
-                                <input type="text" value={item.unit ?? ""} onChange={(e) => updateRequiredField(item.id, "unit", e.target.value)} placeholder={language === "es" ? "kg, g, uds..." : language === "bg" ? "кг, г, бр..." : "kg, g, pcs..."} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
-                              </label>
+                                <input aria-label={language === "es" ? "Unidad" : language === "bg" ? "Единица" : "Unit"} type="text" value={item.unit ?? ""} onChange={(e) => updateRequiredField(item.id, "unit", e.target.value)} placeholder={language === "es" ? "kg, g, uds..." : language === "bg" ? "кг, г, бр..." : "kg, g, pcs..."} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
+                                <button type="button" disabled={!item.unit || item.unitConfirmed} onClick={() => confirmRequiredField(item.id, "unit")} className="w-full rounded-lg border border-emerald-500/40 px-2 py-1 text-[10px] text-emerald-300 disabled:border-stone-700 disabled:text-stone-500">
+                                  {item.unitConfirmed ? (language === "es" ? "Confirmada" : language === "bg" ? "Потвърдено" : "Confirmed") : (language === "es" ? "Confirmar unidad" : language === "bg" ? "Потвърди единица" : "Confirm unit")}
+                                </button>
+                              </div>
                             </div>
                             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-stone-400">
                               <span className="text-emerald-400">{item.category}</span>
