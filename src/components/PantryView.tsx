@@ -125,9 +125,9 @@ export const PantryView: React.FC<PantryViewProps> = ({
     if (!requiredFields.valid) {
       setFormError(
         language === "bg"
-          ? "Въведете положително количество и мерна единица. Ако добавите дни или цена, използвайте неотрицателно число."
+          ? "Задължителни: име, категория, положително количество и мерна единица. По избор: дни до изтичане и цена; ако са попълнени, трябва да са неотрицателни числа."
           : language === "es"
-            ? "Introduce una cantidad positiva y una unidad. Si añades días o coste, usa un número no negativo."
+            ? "Obligatorios: nombre, categoría, cantidad positiva y unidad. Opcionales: días hasta caducidad y coste; si se indican, deben ser números no negativos."
             : "Required: name, category, a positive quantity, and a unit. Optional: expiry days and cost; if provided, they must be non-negative numbers.",
       );
       return;
