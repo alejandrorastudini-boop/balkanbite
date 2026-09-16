@@ -811,19 +811,43 @@ export default function App() {
 
       const data = await res.json();
       if (Array.isArray(data.items) && data.items.length > 0) {
-        const newItems: ShoppingItem[] = data.items.map((i: any, idx: number) => ({
-          id: `shop-ai-${Date.now()}-${idx}`,
-          name: i.name,
-          quantity: i.quantity,
-          unit: i.unit,
-          category: i.category || "Produce",
-          // Advisor output is not an authoritative purchase price. Keep it unknown
-          // until the user records an actual price during purchase.
-          estimatedPriceEUR: undefined,
-          checked: false,
-          reason: i.reason,
-        }));
-        setShoppingList((prev) => [...prev, ...newItems]);
+        const now = Date.now();
+        const newItems: ShoppingItem[] = data.items.flatMap((item: unknown, idx: number) => {
+          if (!item || typeof item !== "object") return [];
+
+          const candidate = item as Record<string, unknown>;
+          const name = typeof candidate.name === "string" ? candidate.name.trim() : "";
+          const quantity =
+            typeof candidate.quantity === "number" &&
+            Number.isFinite(candidate.quantity) &&
+            candidate.quantity > 0
+              ? candidate.quantity
+              : null;
+          const unit = typeof candidate.unit === "string" ? candidate.unit.trim() : "";
+
+          // An unavailable, empty, or malformed advisor response is not a basket.
+          // Only complete suggestions can enter the reviewable shopping list.
+          if (!name || quantity === null || !unit) return [];
+
+          return [{
+            id: `shop-ai-${now}-${idx}`,
+            name,
+            quantity,
+            unit,
+            // Do not invent a category when the advisor does not provide one.
+            category:
+              typeof candidate.category === "string" ? candidate.category.trim() : "",
+            // Advisor output is not an authoritative purchase price. Keep it unknown
+            // until the user records an actual price during purchase.
+            estimatedPriceEUR: undefined,
+            checked: false,
+            reason: typeof candidate.reason === "string" ? candidate.reason : undefined,
+          }];
+        });
+
+        if (newItems.length > 0) {
+          setShoppingList((prev) => [...prev, ...newItems]);
+        }
       }
     } catch (err) {
       console.error("Failed to suggest shopping list:", err);
