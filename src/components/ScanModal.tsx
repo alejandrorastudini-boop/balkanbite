@@ -185,10 +185,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       setScannedItems([]);
       setErrorMsg(
         language === "es"
-          ? "Error de conexión con el escáner de IA. Inténtalo de nuevo."
+          ? "El escaneo con IA falló. No hay ningún candidato de despensa para revisar o añadir y no se puede guardar nada. Inténtalo de nuevo."
           : language === "bg"
-          ? "Грешка при връзка с AI скенера. Моля, опитайте отново."
-          : "Error connecting to AI vision scanner. Please try again."
+          ? "AI сканирането беше неуспешно. Няма предложение за преглед или добавяне в килера и нищо не може да бъде запазено. Моля, опитайте отново."
+          : "AI vision scan failed. No pantry candidate is available to review or add, and nothing can be saved. Please try again."
       );
     } finally {
       if (requestId === captureRequestIdRef.current) setIsScanning(false);
