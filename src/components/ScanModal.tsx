@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useEffect, useState, useRef } from "react";
 import {
   Camera,
   Upload,
@@ -60,6 +60,20 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   // Only the latest capture request may publish candidates or failure state.
   const captureRequestIdRef = useRef(0);
+
+  useEffect(() => {
+    if (isOpen) return;
+
+    // Closing the modal invalidates pending file reads/lookups and removes every
+    // review candidate. A late success or a later reopen must not restore a save
+    // path from an abandoned capture request.
+    ++captureRequestIdRef.current;
+    setScannedItems([]);
+    setImagePreview(null);
+    setIsScanning(false);
+    setErrorMsg(null);
+    setBarcodeInput("");
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
