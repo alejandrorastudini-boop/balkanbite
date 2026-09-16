@@ -334,8 +334,12 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   };
 
   const handleResetModal = () => {
+    // Resetting or changing capture mode abandons every pending read/lookup.
+    // A late response must not recreate candidates after the user cleared them.
+    ++captureRequestIdRef.current;
     setImagePreview(null);
     setScannedItems([]);
+    setIsScanning(false);
     setErrorMsg(null);
     setBarcodeInput("");
   };
@@ -423,7 +427,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                 <div className="relative rounded-2xl overflow-hidden border border-stone-750 bg-stone-950">
                   <img src={imagePreview} alt="Preview" className="w-full max-h-48 object-cover opacity-80" />
                   {isScanning && <div className="absolute inset-0 bg-black/60 backdrop-blur-xs flex flex-col items-center justify-center gap-2"><Loader2 className="w-8 h-8 text-emerald-400 animate-spin" /><span className="text-xs font-bold text-white font-['Outfit'] animate-pulse">{currentText.scanAnalyzing || (language === "es" ? "Analizando alimentos con IA..." : language === "bg" ? "Анализиране на храни с AI..." : "Analyzing items with AI...")}</span></div>}
-                  <button type="button" onClick={() => { setImagePreview(null); setScannedItems([]); }} className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-white text-[11px] font-semibold backdrop-blur-sm transition-colors cursor-pointer">{language === "es" ? "Cambiar foto" : language === "bg" ? "Смени снимката" : "Change photo"}</button>
+                  <button type="button" onClick={handleResetModal} className="absolute top-2 right-2 px-2.5 py-1 rounded-lg bg-black/70 hover:bg-black/90 text-white text-[11px] font-semibold backdrop-blur-sm transition-colors cursor-pointer">{language === "es" ? "Cambiar foto" : language === "bg" ? "Смени снимката" : "Change photo"}</button>
                 </div>
               )}
               <input ref={fileInputRef} type="file" accept="image/*" capture="environment" onChange={handleFileChange} className="hidden" />
