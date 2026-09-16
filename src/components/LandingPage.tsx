@@ -756,7 +756,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <div className="space-y-3">
                   <div className="flex justify-between items-center">
                     <p className="text-xs text-slate-500">Illustrative profile</p>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">{t.savings}</span>
                   </div>
                   <p className="text-xs sm:text-sm text-stone-300 italic leading-relaxed">"{t.comment[language]}"</p>
                 </div>
