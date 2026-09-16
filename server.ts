@@ -1535,17 +1535,8 @@ app.get("/api/barcode/:code", async (req, res) => {
       }
     }
 
-    // Fallback if not in Open Food Facts: AI prediction based on barcode or fallback
-    return res.json({
-      found: false,
-      barcode: code,
-      name: `Producto (${code.slice(-4)})`,
-      quantity: 1,
-      unit: "pcs",
-      category: "Pantry",
-      estimatedDaysUntilExpiry: 30,
-      source: "fallback",
-    });
+    // A missing lookup is not a product detection and must not create a pantry candidate.
+    return res.json({ found: false });
   } catch (err: any) {
     console.error("Barcode lookup error:", err);
     return res.status(500).json({ error: "Failed to lookup barcode" });
