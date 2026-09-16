@@ -71,7 +71,7 @@ export const PrintMenuModal: React.FC<PrintMenuModalProps> = ({
         const date = new Date(day.date + "T00:00:00").toLocaleDateString(language === "es" ? "es-ES" : language === "bg" ? "bg-BG" : "en-US", { weekday: 'short' });
         return `📅 ${date}: ${day.lunch?.title[language] || day.lunch?.title.es || day.lunch?.title.en || '-'}`;
       }).join("\n") +
-      (language === "es" ? `\n\n💰 Ahorro garantizado con IA.` : language === "bg" ? `\n\n💰 Гарантирани спестявания с AI.` : `\n\n💰 Smart savings with AI.`);
+      (language === "es" ? `\n\n🍽️ Planifica tu menú con BalkanBite.` : language === "bg" ? `\n\n🍽️ Планирайте менюто си с BalkanBite.` : `\n\n🍽️ Plan your menu with BalkanBite.`);
     
     window.open(`https://api.whatsapp.com/send?text=${encodeURIComponent(text)}`, "_blank");
   };
