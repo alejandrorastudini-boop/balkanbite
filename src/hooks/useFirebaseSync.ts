@@ -13,6 +13,7 @@ import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile } from "../types";
 import { INITIAL_PANTRY } from "../data/initialData";
+import { getStartupCloudSyncState } from "../utils/startupCloudSync";
 
 const DEMO_PANTRY_ITEM_IDS = new Set(INITIAL_PANTRY.map(item => item.id));
 
@@ -253,11 +254,19 @@ export function useFirebaseSync(
   syncCollection("mealPlans", mealPlan, setMealPlan);
   syncCollection("shoppingList", shoppingList, setShoppingList);
 
-  const inventoryHydrated = !currentUser || inventoryHydratedUser === currentUser.uid;
+  const startupSyncState = getStartupCloudSyncState(
+    authReady,
+    currentUser?.uid ?? null,
+    inventoryHydratedUser
+  );
+  const inventoryHydrated = !startupSyncState.inventoryIsProvisional;
 
   return {
     currentUser,
-    loading: !authReady || !inventoryHydrated,
+    // Only unresolved Auth blocks the application shell. Inventory authority is
+    // surfaced separately so a delayed first snapshot cannot freeze the UI.
+    loading: !startupSyncState.canRenderApp,
     inventoryHydrated,
+    inventoryIsProvisional: startupSyncState.inventoryIsProvisional,
   };
 }

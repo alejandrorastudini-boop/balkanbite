@@ -132,6 +132,7 @@ export default function App() {
     currentUser,
     loading: firebaseLoading,
     inventoryHydrated,
+    inventoryIsProvisional,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -1107,16 +1108,29 @@ export default function App() {
           language={profile.language}
         />
 
+        {inventoryIsProvisional && (
+          <div
+            role="status"
+            className="fixed left-4 right-4 top-20 z-[90] rounded-xl border border-amber-500/40 bg-stone-950/95 px-4 py-3 text-center text-sm font-semibold text-amber-200 shadow-lg"
+          >
+            {profile.language === "es"
+              ? "El inventario en este dispositivo es provisional mientras llega la primera sincronización. Los cambios no se guardarán en la nube todavía."
+              : profile.language === "bg"
+              ? "Наличностите на това устройство са временни до първото синхронизиране. Промените все още няма да се запазват в облака."
+              : "Inventory on this device is provisional until the first sync arrives. Changes will not be saved to the cloud yet."}
+          </div>
+        )}
+
         {firebaseLoading && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-3">
               <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
               <p className="text-stone-400 font-bold text-sm">
                 {profile.language === "es"
-                  ? "Sincronizando con la nube..."
+                  ? "Cargando cuenta..."
                   : profile.language === "bg"
-                  ? "Синхронизиране с облака..."
-                  : "Syncing with cloud..."}
+                  ? "Зареждане на профила..."
+                  : "Loading account..."}
               </p>
             </div>
           </div>
