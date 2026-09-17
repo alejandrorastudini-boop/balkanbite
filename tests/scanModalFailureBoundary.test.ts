@@ -27,9 +27,9 @@ test("AI error and empty-result transitions remove every pantry candidate", () =
 });
 
 test("barcode not-found and error transitions remove every pantry candidate", () => {
-  const barcodeSearch = section("const handleBarcodeSearch", "const updateItem");
+  const barcodeSearch = section("const handleBarcodeSearch", "const handleToggleItem");
 
-  assert.match(barcodeSearch, /if \(!product\)[\s\S]*?setScannedItems\(\[\]\)/);
+  assert.match(barcodeSearch, /if \(!res\.ok\)[\s\S]*?setScannedItems\(\[\]\)/);
   assert.match(barcodeSearch, /catch \(err\) \{[\s\S]*?setScannedItems\(\[\]\)/);
   assert.ok(
     clearCount(barcodeSearch) >= 3,
@@ -38,13 +38,13 @@ test("barcode not-found and error transitions remove every pantry candidate", ()
 });
 
 test("an empty failure boundary has no invokable pantry persistence path", () => {
-  const addSelected = section("const handleAddSelected", "return (");
+  const saveToPantry = section("const handleSaveToPantry", "const handleResetModal");
 
-  assert.match(addSelected, /scannedItems\.filter/);
-  assert.match(addSelected, /if \(itemsToAdd\.length === 0\)[\s\S]*?return;/);
-  assert.match(addSelected, /onAddItems\(itemsToAdd\)/);
+  assert.match(saveToPantry, /scannedItems\.filter/);
+  assert.match(saveToPantry, /if \(selected\.length === 0\) return;/);
+  assert.match(saveToPantry, /onAddItems\(payload/);
   assert.ok(
-    addSelected.indexOf("if (itemsToAdd.length === 0)") < addSelected.indexOf("onAddItems(itemsToAdd)"),
+    saveToPantry.indexOf("if (selected.length === 0) return;") < saveToPantry.indexOf("onAddItems(payload"),
     "the zero-candidate guard must run before pantry persistence"
   );
 });
