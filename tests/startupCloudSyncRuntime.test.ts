@@ -9,7 +9,30 @@ const firebaseSyncSource = readFileSync(
   "utf8"
 );
 
-test("delayed first inventory snapshot keeps the startup state usable and write-safe", async () => {
+type AppSyncBoundary = ReturnType<typeof getStartupCloudSyncState> & {
+  loading: boolean;
+  inventoryHydrated: boolean;
+};
+
+function runAppSyncBoundary(sync: AppSyncBoundary) {
+  let cloudWrites = 0;
+
+  return {
+    // Mirrors the App boundary: the root mounts independently of inventory
+    // hydration, while only the full startup overlay follows canRenderApp.
+    appRootMounted: true,
+    hookReportsLoading: sync.loading,
+    startupOverlayVisible: !sync.canRenderApp,
+    provisionalInventoryNoticeVisible: sync.inventoryIsProvisional,
+    inventoryHydrated: sync.inventoryHydrated,
+    attemptInventoryWrite() {
+      if (sync.cloudInventoryWritesAllowed) cloudWrites += 1;
+      return cloudWrites;
+    },
+  };
+}
+
+test("delayed first inventory snapshot crosses the hook/App boundary without gating the shell", async () => {
   let resolveFirstSnapshot!: (ownerId: string) => void;
   const firstSnapshot = new Promise<string>((resolve) => {
     resolveFirstSnapshot = resolve;
@@ -17,35 +40,56 @@ test("delayed first inventory snapshot keeps the startup state usable and write-
 
   let snapshotOwnerId: string | null = null;
   let startupState = getStartupCloudSyncState(true, "user-1", snapshotOwnerId);
-  let cloudWrites = 0;
-  const attemptCloudWrite = () => {
-    if (startupState.cloudInventoryWritesAllowed) cloudWrites += 1;
-  };
+  let appBoundary = runAppSyncBoundary({
+    ...startupState,
+    loading: !startupState.canRenderApp,
+    inventoryHydrated: false,
+  });
 
   // Enter startup while the listener is deliberately unresolved. This is the
-  // reported failure window: the shell must be available without presenting local
-  // inventory as authoritative or permitting it to overwrite cloud inventory.
+  // reported failure window: the hook result must let App mount immediately,
+  // label local inventory provisional, and reject an attempted cloud overwrite.
   assert.deepEqual(startupState, {
     canRenderApp: true,
     inventoryIsProvisional: true,
     cloudInventoryWritesAllowed: false,
   });
-  attemptCloudWrite();
-  assert.equal(cloudWrites, 0);
+  assert.deepEqual(
+    {
+      appRootMounted: appBoundary.appRootMounted,
+      startupOverlayVisible: appBoundary.startupOverlayVisible,
+      provisionalInventoryNoticeVisible:
+        appBoundary.provisionalInventoryNoticeVisible,
+      inventoryHydrated: appBoundary.inventoryHydrated,
+    },
+    {
+      appRootMounted: true,
+      startupOverlayVisible: false,
+      provisionalInventoryNoticeVisible: true,
+      inventoryHydrated: false,
+    }
+  );
+  assert.equal(appBoundary.attemptInventoryWrite(), 0);
 
   snapshotOwnerId = await (async () => {
     resolveFirstSnapshot("user-1");
     return firstSnapshot;
   })();
   startupState = getStartupCloudSyncState(true, "user-1", snapshotOwnerId);
+  appBoundary = runAppSyncBoundary({
+    ...startupState,
+    loading: !startupState.canRenderApp,
+    inventoryHydrated: true,
+  });
 
   assert.deepEqual(startupState, {
     canRenderApp: true,
     inventoryIsProvisional: false,
     cloudInventoryWritesAllowed: true,
   });
-  attemptCloudWrite();
-  assert.equal(cloudWrites, 1);
+  assert.equal(appBoundary.provisionalInventoryNoticeVisible, false);
+  assert.equal(appBoundary.inventoryHydrated, true);
+  assert.equal(appBoundary.attemptInventoryWrite(), 1);
 });
 
 test("the matching first inventory snapshot makes inventory authoritative", () => {
