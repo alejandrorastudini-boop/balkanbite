@@ -39,16 +39,25 @@ test("delayed first inventory snapshot crosses the hook/App boundary without gat
   });
 
   let snapshotOwnerId: string | null = null;
-  let startupState = getStartupCloudSyncState(true, "user-1", snapshotOwnerId);
+  let startupState = getStartupCloudSyncState(false, null, snapshotOwnerId);
   let appBoundary = runAppSyncBoundary({
     ...startupState,
     loading: !startupState.canRenderApp,
     inventoryHydrated: false,
   });
 
-  // Enter startup while the listener is deliberately unresolved. This is the
-  // reported failure window: the hook result must let App mount immediately,
-  // label local inventory provisional, and reject an attempted cloud overwrite.
+  // The full-screen startup gate is allowed only while auth itself is unresolved.
+  assert.equal(appBoundary.startupOverlayVisible, true);
+
+  // Auth resolves while the inventory listener remains deliberately unresolved.
+  // This is the reported failure window: the hook result must let App mount
+  // immediately, label local inventory provisional, and reject a cloud overwrite.
+  startupState = getStartupCloudSyncState(true, "user-1", snapshotOwnerId);
+  appBoundary = runAppSyncBoundary({
+    ...startupState,
+    loading: !startupState.canRenderApp,
+    inventoryHydrated: false,
+  });
   assert.deepEqual(startupState, {
     canRenderApp: true,
     inventoryIsProvisional: true,
