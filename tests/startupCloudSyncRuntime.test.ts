@@ -1,6 +1,13 @@
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import test from "node:test";
 import { getStartupCloudSyncState } from "../src/utils/startupCloudSync";
+
+const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+const firebaseSyncSource = readFileSync(
+  new URL("../src/hooks/useFirebaseSync.ts", import.meta.url),
+  "utf8"
+);
 
 test("delayed first inventory snapshot does not hold the whole application", () => {
   const beforeAuth = getStartupCloudSyncState(false, null, null);
@@ -39,4 +46,27 @@ test("guest startup is usable without claiming cloud inventory authority", () =>
     inventoryIsProvisional: false,
     cloudInventoryWritesAllowed: false,
   });
+});
+
+test("App wiring keeps the shell independent from delayed inventory and gates cloud writes", () => {
+  // This is deliberately a wiring contract rather than another isolated state-helper
+  // assertion: a future App/hook refactor must keep all three runtime connections.
+  assert.match(
+    appSource,
+    /loading:\s*firebaseLoading,\s*inventoryHydrated,\s*inventoryIsProvisional,/
+  );
+  assert.match(appSource, /id="app-root"/);
+  assert.match(appSource, /\{firebaseLoading\s*&&\s*\(/);
+  assert.doesNotMatch(
+    appSource,
+    /if\s*\([^)]*!?inventoryHydrated[^)]*\)\s*\{?\s*return\s*\(/
+  );
+  assert.match(appSource, /\{inventoryIsProvisional\s*&&\s*\(/);
+
+  assert.match(firebaseSyncSource, /getStartupCloudSyncState\(/);
+  assert.match(firebaseSyncSource, /cloudInventoryWritesAllowed/);
+  assert.match(
+    firebaseSyncSource,
+    /if\s*\([^)]*!cloudInventoryWritesAllowed[^)]*\)\s*return/
+  );
 });
