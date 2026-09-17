@@ -133,6 +133,7 @@ export default function App() {
     loading: firebaseLoading,
     inventoryHydrated,
     inventoryIsProvisional,
+    canRenderApp,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -1121,7 +1122,7 @@ export default function App() {
           </div>
         )}
 
-        {firebaseLoading && (
+        {!canRenderApp && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-3">
               <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />

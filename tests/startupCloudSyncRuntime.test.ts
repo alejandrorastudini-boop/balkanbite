@@ -53,10 +53,11 @@ test("App wiring keeps the shell independent from delayed inventory and gates cl
   // assertion: a future App/hook refactor must keep all three runtime connections.
   assert.match(
     appSource,
-    /loading:\s*firebaseLoading,\s*inventoryHydrated,\s*inventoryIsProvisional,/
+    /loading:\s*firebaseLoading,\s*inventoryHydrated,\s*inventoryIsProvisional,\s*canRenderApp,/
   );
   assert.match(appSource, /id="app-root"/);
-  assert.match(appSource, /\{firebaseLoading\s*&&\s*\(/);
+  assert.match(appSource, /\{!canRenderApp\s*&&\s*\(/);
+  assert.match(firebaseSyncSource, /return\s*\{[\s\S]*canRenderApp,[\s\S]*loading:\s*!canRenderApp,/);
   assert.doesNotMatch(
     appSource,
     /if\s*\([^)]*!?inventoryHydrated[^)]*\)\s*\{?\s*return\s*\(/

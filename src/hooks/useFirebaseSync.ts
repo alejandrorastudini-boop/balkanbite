@@ -269,6 +269,9 @@ export function useFirebaseSync(
   // surfaced separately so a delayed first snapshot cannot freeze the UI.
   return {
     currentUser,
+    // Keep the explicit shell-readiness signal available to App so the startup
+    // overlay cannot accidentally be coupled back to inventory hydration.
+    canRenderApp,
     loading: !canRenderApp,
     inventoryHydrated,
     inventoryIsProvisional,
