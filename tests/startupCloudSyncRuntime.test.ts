@@ -9,25 +9,43 @@ const firebaseSyncSource = readFileSync(
   "utf8"
 );
 
-test("delayed first inventory snapshot lifecycle keeps the shell usable and inventory write-safe", () => {
-  const lifecycle = [
-    getStartupCloudSyncState(false, null, null),
-    // Auth resolves before the inventory listener returns its first snapshot.
-    getStartupCloudSyncState(true, "user-1", null),
-    getStartupCloudSyncState(true, "user-1", "user-1"),
-  ];
+test("delayed first inventory snapshot keeps the startup state usable and write-safe", async () => {
+  let resolveFirstSnapshot!: (ownerId: string) => void;
+  const firstSnapshot = new Promise<string>((resolve) => {
+    resolveFirstSnapshot = resolve;
+  });
 
-  assert.equal(lifecycle[0].canRenderApp, false);
-  assert.deepEqual(lifecycle[1], {
+  let snapshotOwnerId: string | null = null;
+  let startupState = getStartupCloudSyncState(true, "user-1", snapshotOwnerId);
+  let cloudWrites = 0;
+  const attemptCloudWrite = () => {
+    if (startupState.cloudInventoryWritesAllowed) cloudWrites += 1;
+  };
+
+  // Enter startup while the listener is deliberately unresolved. This is the
+  // reported failure window: the shell must be available without presenting local
+  // inventory as authoritative or permitting it to overwrite cloud inventory.
+  assert.deepEqual(startupState, {
     canRenderApp: true,
     inventoryIsProvisional: true,
     cloudInventoryWritesAllowed: false,
   });
-  assert.deepEqual(lifecycle[2], {
+  attemptCloudWrite();
+  assert.equal(cloudWrites, 0);
+
+  snapshotOwnerId = await (async () => {
+    resolveFirstSnapshot("user-1");
+    return firstSnapshot;
+  })();
+  startupState = getStartupCloudSyncState(true, "user-1", snapshotOwnerId);
+
+  assert.deepEqual(startupState, {
     canRenderApp: true,
     inventoryIsProvisional: false,
     cloudInventoryWritesAllowed: true,
   });
+  attemptCloudWrite();
+  assert.equal(cloudWrites, 1);
 });
 
 test("the matching first inventory snapshot makes inventory authoritative", () => {
