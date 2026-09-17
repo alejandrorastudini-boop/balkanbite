@@ -23,6 +23,15 @@ test("the matching first inventory snapshot makes inventory authoritative", () =
   });
 });
 
+test("a previous session's inventory snapshot cannot authorize the current session", () => {
+  const staleSnapshot = getStartupCloudSyncState(true, "user-2", "user-1");
+  assert.deepEqual(staleSnapshot, {
+    canRenderApp: true,
+    inventoryIsProvisional: true,
+    cloudInventoryWritesAllowed: false,
+  });
+});
+
 test("guest startup is usable without claiming cloud inventory authority", () => {
   const guest = getStartupCloudSyncState(true, null, null);
   assert.deepEqual(guest, {
