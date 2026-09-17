@@ -110,6 +110,32 @@ test("a previous session's inventory snapshot cannot authorize the current sessi
   });
 });
 
+test("an account switch remains usable but provisional until its own first snapshot", () => {
+  const previousAccount = getStartupCloudSyncState(true, "user-1", "user-1");
+  assert.equal(previousAccount.cloudInventoryWritesAllowed, true);
+
+  const switchedAccountBeforeSnapshot = getStartupCloudSyncState(
+    true,
+    "user-2",
+    "user-1"
+  );
+  const appBoundary = runAppSyncBoundary({
+    ...switchedAccountBeforeSnapshot,
+    loading: !switchedAccountBeforeSnapshot.canRenderApp,
+    inventoryHydrated: false,
+  });
+
+  assert.deepEqual(switchedAccountBeforeSnapshot, {
+    canRenderApp: true,
+    inventoryIsProvisional: true,
+    cloudInventoryWritesAllowed: false,
+  });
+  assert.equal(appBoundary.appRootMounted, true);
+  assert.equal(appBoundary.startupOverlayVisible, false);
+  assert.equal(appBoundary.provisionalInventoryNoticeVisible, true);
+  assert.equal(appBoundary.attemptInventoryWrite(), 0);
+});
+
 test("guest startup is usable without claiming cloud inventory authority", () => {
   const guest = getStartupCloudSyncState(true, null, null);
   assert.deepEqual(guest, {
