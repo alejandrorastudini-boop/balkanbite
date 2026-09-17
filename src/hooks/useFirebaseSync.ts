@@ -261,10 +261,10 @@ export function useFirebaseSync(
   );
   const inventoryHydrated = !startupSyncState.inventoryIsProvisional;
 
+  // Only unresolved Auth blocks the application shell. Inventory authority is
+  // surfaced separately so a delayed first snapshot cannot freeze the UI.
   return {
     currentUser,
-    // Only unresolved Auth blocks the application shell. Inventory authority is
-    // surfaced separately so a delayed first snapshot cannot freeze the UI.
     loading: !startupSyncState.canRenderApp,
     inventoryHydrated,
     inventoryIsProvisional: startupSyncState.inventoryIsProvisional,
