@@ -4,6 +4,7 @@ import path from "node:path";
 import { chromium } from "playwright";
 
 const previewUrl = process.env.QA_PREVIEW_URL;
+const trustedOidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN || "";
 const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || "";
 const shareUrl = process.env.QA_SHARE_URL || "";
 const artifactDir = process.env.QA_ARTIFACT_DIR || "artifacts/runtime-qa";
@@ -13,20 +14,24 @@ const shellDeadlineMs = 10_000;
 if (!previewUrl) {
   throw new Error("QA_PREVIEW_URL is required");
 }
-if (!bypassSecret && !shareUrl) {
+if (!trustedOidcToken && !bypassSecret && !shareUrl) {
   throw new Error(
-    "Protected preview access requires VERCEL_AUTOMATION_BYPASS_SECRET or QA_SHARE_URL"
+    "Protected preview access requires VERCEL_TRUSTED_OIDC_TOKEN, VERCEL_AUTOMATION_BYPASS_SECRET, or QA_SHARE_URL"
   );
 }
 
 await fs.mkdir(artifactDir, { recursive: true });
 
-const extraHTTPHeaders = bypassSecret
+const extraHTTPHeaders = trustedOidcToken
   ? {
-      "x-vercel-protection-bypass": bypassSecret,
-      "x-vercel-set-bypass-cookie": "true",
+      "x-vercel-trusted-oidc-idp-token": trustedOidcToken,
     }
-  : undefined;
+  : bypassSecret
+    ? {
+        "x-vercel-protection-bypass": bypassSecret,
+        "x-vercel-set-bypass-cookie": "true",
+      }
+    : undefined;
 
 const shareToken = shareUrl
   ? new URL(shareUrl).searchParams.get("_vercel_share")
@@ -248,7 +253,11 @@ const summary = {
   previewUrl,
   delayMs,
   shellDeadlineMs,
-  authMethod: bypassSecret ? "vercel-automation-bypass" : "vercel-share-link",
+  authMethod: trustedOidcToken
+    ? "vercel-trusted-source-oidc"
+    : bypassSecret
+      ? "vercel-automation-bypass"
+      : "vercel-share-link",
   results,
   status: failure ? "fail" : "pass",
 };
