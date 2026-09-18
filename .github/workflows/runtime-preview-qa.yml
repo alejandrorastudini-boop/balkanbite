@@ -67,6 +67,7 @@ jobs:
           VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           QA_ARTIFACT_DIR: artifacts/runtime-qa
+          QA_EXPECTED_SHA: ${{ github.event.deployment.sha || github.sha }}
         run: node qa/runtime/startup-cloud-sync.mjs
 
       - name: Upload runtime evidence
