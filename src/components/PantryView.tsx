@@ -28,6 +28,7 @@ interface PantryViewProps {
   onOpenVoiceTab: () => void;
   language: Language;
   currency: Currency;
+  inventoryIsProvisional?: boolean;
 }
 
 export const PantryView: React.FC<PantryViewProps> = ({
@@ -40,6 +41,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
   onOpenVoiceTab,
   language,
   currency,
+  inventoryIsProvisional = false,
 }) => {
   const currentText = t[language];
   const [search, setSearch] = useState("");
@@ -175,7 +177,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
           </span>
           <div className="flex items-baseline gap-1 mt-2">
             <span className="text-2xl font-extrabold text-white font-['Outfit'] tracking-tight">
-              {pantry.length}
+              {inventoryIsProvisional ? "—" : pantry.length}
             </span>
             <span className="text-[11px] font-medium text-stone-500">
               {currentText.pantryStatsStock}
@@ -197,7 +199,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                 expiringCount > 0 ? "text-amber-400" : "text-emerald-400"
               }`}
             >
-              {expiringCount}
+              {inventoryIsProvisional ? "—" : expiringCount}
             </span>
             <span className="text-[11px] font-medium text-stone-500">
               {currentText.pantryStatsSoon}
@@ -212,7 +214,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
           </span>
           <div className="flex items-baseline gap-1 mt-2 relative z-10">
             <span className="text-xl font-extrabold text-emerald-400 font-['Outfit'] tracking-tight">
-              {totalValueEUR === null || currency !== "EUR"
+              {inventoryIsProvisional || totalValueEUR === null || currency !== "EUR"
                 ? language === "es"
                   ? "Sin datos"
                   : language === "bg"
@@ -288,7 +290,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
           id="pantry-scan-camera-btn"
           type="button"
           onClick={() => setShowScanModal(true)}
-          className="px-4 py-2.5 bg-stone-800/80 hover:bg-stone-700/80 backdrop-blur-md border border-white/[0.08] text-white text-sm font-bold rounded-xl flex items-center gap-2 transition-all shadow-sm cursor-pointer shrink-0"
+          disabled={inventoryIsProvisional}
+          className="px-4 py-2.5 bg-stone-800/80 hover:bg-stone-700/80 backdrop-blur-md border border-white/[0.08] text-white text-sm font-bold rounded-xl flex items-center gap-2 transition-all shadow-sm cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
           title={currentText.scanCameraBtn || "Escanear Nevera / Ticket"}
         >
           <Camera className="w-4 h-4 text-stone-300" />
@@ -298,7 +301,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
         <button
           id="pantry-add-item-btn"
           onClick={() => setShowAddModal(true)}
-          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-sm font-bold rounded-xl flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] cursor-pointer shrink-0"
+          disabled={inventoryIsProvisional}
+          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-sm font-bold rounded-xl flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">{currentText.addItem}</span>
@@ -309,7 +313,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
             id="pantry-clear-all-btn"
             type="button"
             onClick={handleClearWithConfirm}
-            className="p-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 hover:border-rose-500/40 rounded-xl transition-all cursor-pointer shrink-0"
+            disabled={inventoryIsProvisional}
+            className="p-2.5 bg-rose-500/10 hover:bg-rose-500/20 text-rose-400 border border-rose-500/20 hover:border-rose-500/40 rounded-xl transition-all cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
             title={currentText.pantryClearAll}
           >
             <Trash2 className="w-4 h-4" />
@@ -405,7 +410,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
                   <button
                     onClick={() => onDeleteItem(item.id)}
-                    className="text-stone-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all opacity-60 group-hover:opacity-100"
+                    disabled={inventoryIsProvisional}
+                    className="text-stone-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all opacity-60 group-hover:opacity-100 disabled:opacity-30 disabled:cursor-not-allowed"
                     title={currentText.delete}
                   >
                     <Trash2 className="w-4 h-4" />
@@ -416,13 +422,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
                 <div className="flex items-center justify-between border-t border-white/[0.04] pt-2.5 mt-1 text-xs relative z-10">
                   <div className="flex items-center gap-1 bg-black/40 rounded-xl p-1 border border-white/[0.04] shadow-inner">
                     <button
+                      disabled={inventoryIsProvisional}
                       onClick={() =>
                         onUpdateQuantity(
                           item.id,
                           Math.max(0, item.quantity - (item.unit === "g" ? 50 : 1))
                         )
                       }
-                      className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       title={language === "es" ? "Reducir cantidad" : language === "bg" ? "Намали количеството" : "Decrease quantity"}
                     >
                       <Minus className="w-3.5 h-3.5" />
@@ -431,20 +438,21 @@ export const PantryView: React.FC<PantryViewProps> = ({
                       {item.quantity} <span className="text-stone-400 text-xs">{item.unit}</span>
                     </span>
                     <button
+                      disabled={inventoryIsProvisional}
                       onClick={() =>
                         onUpdateQuantity(
                           item.id,
                           item.quantity + (item.unit === "g" ? 50 : 1)
                         )
                       }
-                      className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer"
+                      className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
                       title={language === "es" ? "Aumentar cantidad" : language === "bg" ? "Увеличи количеството" : "Increase quantity"}
                     >
                       <Plus className="w-3.5 h-3.5" />
                     </button>
                   </div>
 
-                  {item.estimatedCostEUR && (
+                  {item.estimatedCostEUR !== undefined && (
                     <span className="text-sm font-bold text-emerald-400 font-['Outfit'] pr-1">
                       {`~€${item.estimatedCostEUR.toFixed(2)}`}
                     </span>
@@ -519,7 +527,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
                 </div>
                 <div>
                   <label className="block text-[11px] font-semibold text-stone-300 mb-1">
-                    {currentText.unit}
+                    {currentText.unit}{" "}
+                    <span className="font-normal text-stone-500">({requiredFieldLabel})</span>
                   </label>
                   <select
                     required
@@ -548,7 +557,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     htmlFor="pantry-category"
                     className="block text-[11px] font-semibold text-stone-300 mb-1"
                   >
-                    {currentText.pantryFormCategory}
+                    {currentText.pantryFormCategory}{" "}
+                    <span className="font-normal text-stone-500">({requiredFieldLabel})</span>
                   </label>
                   <select
                     id="pantry-category"
@@ -576,11 +586,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     htmlFor="pantry-expiry-days"
                     className="block text-[11px] font-semibold text-stone-300 mb-1"
                   >
-                    {currentText.pantryFormShelfLife}
+                    {currentText.pantryFormShelfLife}{" "}
+                    <span className="font-normal text-stone-500">({optionalFieldLabel})</span>
                   </label>
                   <input
                     id="pantry-expiry-days"
                     type="number"
+                    min="0"
+                    step="any"
                     value={expiryDays}
                     onChange={(e) =>
                     setExpiryDays(
@@ -597,12 +610,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   htmlFor="pantry-cost"
                   className="block text-[11px] font-semibold text-stone-300 mb-1"
                 >
-                  {currentText.pantryFormCost}
+                  {currentText.pantryFormCost}{" "}
+                  <span className="font-normal text-stone-500">({optionalFieldLabel})</span>
                 </label>
                 <input
                   id="pantry-cost"
                   type="number"
-                  step="0.1"
+                  min="0"
+                  step="any"
                   value={cost}
                   onChange={(e) =>
                     setCost(e.target.value === "" ? "" : Number(e.target.value))

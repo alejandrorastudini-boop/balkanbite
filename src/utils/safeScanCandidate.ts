@@ -7,7 +7,8 @@ export interface SafeScanCandidate {
   name: string;
   quantity?: number;
   unit?: string;
-  category: ScanCategory;
+  /** Scanner-supplied categories are review suggestions; absent values stay unknown. */
+  category?: ScanCategory;
   estimatedDaysUntilExpiry?: number;
   approximateCostEUR?: number;
   confidence?: ScanConfidence;
@@ -23,14 +24,17 @@ function finitePositive(value: unknown): number | undefined {
   return typeof value === "number" && Number.isFinite(value) && value > 0 ? value : undefined;
 }
 
-export function normalizeScanCategory(value: unknown): ScanCategory {
-  const raw = typeof value === "string" ? value.toLowerCase() : "";
+export function normalizeScanCategory(value: unknown): ScanCategory | undefined {
+  const raw = typeof value === "string" ? value.trim().toLowerCase() : "";
+  if (!raw) return undefined;
   if (raw.includes("produce") || raw.includes("fruit") || raw.includes("veg")) return "Produce";
   if (raw.includes("dairy") || raw.includes("cheese") || raw.includes("milk")) return "Dairy";
   if (raw.includes("meat") || raw.includes("fish")) return "Meat/Fish";
   if (raw.includes("spice") || raw.includes("herb")) return "Spices";
   if (raw.includes("pantry") || raw.includes("grain") || raw.includes("bake")) return "Pantry/Grains";
-  return "Other";
+  if (raw === "other") return "Other";
+  // An absent or unrecognized scanner category is unknown, not "Other".
+  return undefined;
 }
 
 export function normalizeScanCandidate(value: unknown): SafeScanCandidate | null {
@@ -57,7 +61,7 @@ export function normalizeScanCandidate(value: unknown): SafeScanCandidate | null
 
 export function isCandidateReadyForPantry(
   candidate: SafeScanCandidate,
-): candidate is SafeScanCandidate & { quantity: number; unit: string } {
+): candidate is SafeScanCandidate & { quantity: number; unit: string; category: ScanCategory } {
   return Boolean(
     candidate.name.trim() &&
       typeof candidate.quantity === "number" &&

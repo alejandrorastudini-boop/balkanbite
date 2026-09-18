@@ -13,6 +13,7 @@ import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile } from "../types";
 import { INITIAL_PANTRY } from "../data/initialData";
+import { getStartupCloudSyncState } from "../utils/startupCloudSync";
 
 const DEMO_PANTRY_ITEM_IDS = new Set(INITIAL_PANTRY.map(item => item.id));
 
@@ -92,6 +93,13 @@ export function useFirebaseSync(
     }, { merge: true });
   }, [profile, currentUser]);
 
+  const { canRenderApp, inventoryIsProvisional, cloudInventoryWritesAllowed } =
+    getStartupCloudSyncState(
+      authReady,
+      currentUser?.uid ?? null,
+      inventoryHydratedUser
+    );
+
   // Sync Collection Helper
   const syncCollection = (
     collectionName: string,
@@ -167,9 +175,11 @@ export function useFirebaseSync(
       ) {
         return;
       }
+      const isInventory = collectionName === "inventory";
+      if (isInventory && !cloudInventoryWritesAllowed) return;
+
       const save = async () => {
         const itemsToPersist = localState.filter(shouldPersistItem);
-        const isInventory = collectionName === "inventory";
         const currentInventoryIds: Set<string> = isInventory
           ? new Set<string>(itemsToPersist.map(item => String(item.id)))
           : new Set<string>();
@@ -236,7 +246,7 @@ export function useFirebaseSync(
         await batch.commit();
       };
       save();
-    }, [localState, currentUser]);
+    }, [localState, currentUser, loading, cloudInventoryWritesAllowed]);
   };
 
   const isRealPantryItem = (item: PantryItem) => !DEMO_PANTRY_ITEM_IDS.has(item.id);
@@ -253,11 +263,17 @@ export function useFirebaseSync(
   syncCollection("mealPlans", mealPlan, setMealPlan);
   syncCollection("shoppingList", shoppingList, setShoppingList);
 
-  const inventoryHydrated = !currentUser || inventoryHydratedUser === currentUser.uid;
+  const inventoryHydrated = !inventoryIsProvisional;
 
+  // Only unresolved Auth blocks the application shell. Inventory authority is
+  // surfaced separately so a delayed first snapshot cannot freeze the UI.
   return {
     currentUser,
-    loading: !authReady || !inventoryHydrated,
+    // Keep the explicit shell-readiness signal available to App so the startup
+    // overlay cannot accidentally be coupled back to inventory hydration.
+    canRenderApp,
+    loading: !canRenderApp,
     inventoryHydrated,
+    inventoryIsProvisional,
   };
 }

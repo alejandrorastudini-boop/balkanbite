@@ -44,7 +44,7 @@ test("missing or invalid uncertain values stay unknown", () => {
     name: "Tomato",
     quantity: undefined,
     unit: undefined,
-    category: "Other",
+    category: undefined,
     estimatedDaysUntilExpiry: undefined,
     approximateCostEUR: undefined,
     confidence: undefined,
@@ -53,9 +53,9 @@ test("missing or invalid uncertain values stay unknown", () => {
   assert.equal(toPantryPayload(candidate!), null);
 });
 
-test("blank names are rejected and unknown categories use explicit Other bucket", () => {
+test("blank names are rejected and absent categories remain unknown", () => {
   assert.equal(normalizeScanCandidate({ name: "   " }), null);
-  assert.equal(normalizeScanCategory(undefined), "Other");
+  assert.equal(normalizeScanCategory(undefined), undefined);
   assert.equal(normalizeScanCategory("fresh herbs"), "Spices");
 });
 

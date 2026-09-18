@@ -51,6 +51,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [speechSynthesisEnabled, setSpeechSynthesisEnabled] = useState(true);
   const [pendingPantryItems, setPendingPantryItems] = useState<any[] | null>(null);
+  const [pendingPantryAction, setPendingPantryAction] = useState<"add" | "remove" | null>(null);
 
   // Initialize welcome message when language changes if no messages exist
   useEffect(() => {
@@ -210,21 +211,39 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   );
 
   const confirmPendingPantryItems = () => {
-    if (!pendingPantryItems || !pendingPantryItemsAreComplete) return;
+    if (
+      !pendingPantryItems ||
+      !pendingPantryItemsAreComplete ||
+      !pendingPantryAction
+    ) return;
+
     const confirmedItems = pendingPantryItems;
+    const action = pendingPantryAction;
     const summary = confirmedItems
       .map((item) => `${item.quantity} ${item.unit} ${item.nameEn || item.name}`)
       .join(", ");
 
     setPendingPantryItems(null);
-    onAddItemsToPantry(confirmedItems);
+    setPendingPantryAction(null);
+
+    if (action === "add") {
+      onAddItemsToPantry(confirmedItems);
+    } else {
+      onDeductItemsFromPantry(confirmedItems);
+    }
 
     const confirmationText =
-      language === "bg"
-        ? `Потвърдено. Добавих в килера: ${summary}.`
+      action === "add"
+        ? language === "bg"
+          ? `Потвърдено. Добавих в килера: ${summary}.`
+          : language === "es"
+          ? `Confirmado. Añadí a la despensa: ${summary}.`
+          : `Confirmed. Added to the pantry: ${summary}.`
+        : language === "bg"
+        ? `Потвърдено. Приспаднах от килера: ${summary}.`
         : language === "es"
-        ? `Confirmado. Añadí a la despensa: ${summary}.`
-        : `Confirmed. Added to the pantry: ${summary}.`;
+        ? `Confirmado. He descontado de la despensa: ${summary}.`
+        : `Confirmed. Deducted from the pantry: ${summary}.`;
 
     onUpdateChatMessages((prev) => [
       ...prev,
@@ -239,9 +258,17 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   };
 
   const cancelPendingPantryItems = () => {
+    const action = pendingPantryAction;
     setPendingPantryItems(null);
+    setPendingPantryAction(null);
     const cancellationText =
-      language === "bg"
+      action === "remove"
+        ? language === "bg"
+          ? "Отменено. Не промених количествата в килера."
+          : language === "es"
+          ? "Cancelado. No he descontado nada de la despensa."
+          : "Cancelled. I did not deduct anything from the pantry."
+        : language === "bg"
         ? "Отменено. Не записах тези продукти в килера."
         : language === "es"
         ? "Cancelado. No guardé esos productos en la despensa."
@@ -263,6 +290,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
 
     // A new message supersedes any unconfirmed extraction. Nothing pending is persisted.
     setPendingPantryItems(null);
+    setPendingPantryAction(null);
 
     // Add user message
     const userMsg: ChatMessage = {
@@ -318,33 +346,49 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             : `Got it. Deducted from your pantry: ${summary}.`;
       }
 
-      // ADD_ITEMS is staged for explicit user confirmation. AI extraction is never
-      // promoted directly into authoritative pantry inventory.
-      const isPendingPantryAdd =
-        effectiveActionType === "ADD_ITEMS" &&
+      // Both additions and deductions are staged for explicit user confirmation.
+      // AI interpretation is never promoted directly into authoritative inventory.
+      const isPendingPantryMutation =
+        (effectiveActionType === "ADD_ITEMS" || effectiveActionType === "REMOVE_ITEMS") &&
         Array.isArray(effectiveItems) &&
         effectiveItems.length > 0;
 
-      if (isPendingPantryAdd) {
+      if (isPendingPantryMutation) {
+        const action = effectiveActionType === "REMOVE_ITEMS" ? "remove" : "add";
         setPendingPantryItems(effectiveItems);
+        setPendingPantryAction(action);
         replyText =
-          language === "bg"
+          action === "remove"
+            ? language === "bg"
+              ? "Разпознах продуктите за приспадане. Проверете количеството и мерната единица и потвърдете, преди да променя килера."
+              : language === "es"
+              ? "He detectado los productos que quieres descontar. Revisa cantidad y unidad y confirma antes de modificar la despensa."
+              : "I detected the items to deduct. Review quantity and unit, then confirm before I change the pantry."
+            : language === "bg"
             ? "Разпознах продуктите по-долу. Проверете количеството и мерната единица и потвърдете, преди да ги запиша в килера."
             : language === "es"
             ? "He detectado los productos de abajo. Revisa la cantidad y la unidad y confirma antes de guardarlos en la despensa."
             : "I detected the items below. Review the quantity and unit, then confirm before I save them to the pantry.";
-      } else if (effectiveActionType === "REMOVE_ITEMS" && Array.isArray(effectiveItems) && effectiveItems.length > 0) {
-        onDeductItemsFromPantry(effectiveItems);
-      } else if (effectiveActionType === "MEAL_LOG" && data.mealLog) {
+      } else if (
+        effectiveActionType === "MEAL_LOG" &&
+        data.mealLog?.nutritionVerified === true
+      ) {
         onLogMeal(data.mealLog);
+      } else if (effectiveActionType === "MEAL_LOG") {
+        replyText =
+          language === "bg"
+            ? `${replyText} Не записах хранителни стойности, защото все още няма проверен източник за това изчисление.`
+            : language === "es"
+            ? `${replyText} No he guardado valores nutricionales porque todavía no hay una fuente verificada para ese cálculo.`
+            : `${replyText} I did not save nutrition values because there is not yet a verified source for that calculation.`;
       }
 
       const aiMsg: ChatMessage = {
         id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         sender: "assistant",
         text: replyText,
-        actionType: isPendingPantryAdd ? undefined : effectiveActionType,
-        itemsAffected: isPendingPantryAdd ? undefined : effectiveItems,
+        actionType: isPendingPantryMutation ? undefined : effectiveActionType,
+        itemsAffected: isPendingPantryMutation ? undefined : effectiveItems,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
 
@@ -521,17 +565,23 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             <div>
               <p className="text-xs font-bold text-amber-300">
                 {language === "bg"
-                  ? "Потвърдете преди запис"
+                  ? pendingPantryAction === "remove" ? "Потвърдете преди приспадане" : "Потвърдете преди запис"
                   : language === "es"
-                  ? "Confirma antes de guardar"
-                  : "Confirm before saving"}
+                  ? pendingPantryAction === "remove" ? "Confirma antes de descontar" : "Confirma antes de guardar"
+                  : pendingPantryAction === "remove" ? "Confirm before deducting" : "Confirm before saving"}
               </p>
               <p className="text-[11px] text-stone-400 mt-1">
                 {language === "bg"
-                  ? "Това са данни, извлечени от AI. Нищо още не е записано в килера."
+                  ? pendingPantryAction === "remove"
+                    ? "Това са данни, извлечени от AI. Количествата в килера още не са променени."
+                    : "Това са данни, извлечени от AI. Нищо още не е записано в килера."
                   : language === "es"
-                  ? "Estos datos han sido extraídos por IA. Todavía no se ha guardado nada en la despensa."
-                  : "These values were extracted by AI. Nothing has been saved to the pantry yet."}
+                  ? pendingPantryAction === "remove"
+                    ? "Estos datos han sido extraídos por IA. Todavía no se ha descontado nada de la despensa."
+                    : "Estos datos han sido extraídos por IA. Todavía no se ha guardado nada en la despensa."
+                  : pendingPantryAction === "remove"
+                    ? "These values were extracted by AI. Nothing has been deducted from the pantry yet."
+                    : "These values were extracted by AI. Nothing has been saved to the pantry yet."}
               </p>
             </div>
 

@@ -50,6 +50,10 @@ import {
   type RawReconciliationExtraItem,
 } from "./utils/purchasePantryMerge";
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
+import {
+  getUserPantryCacheKey,
+  parseUserPantryCache,
+} from "./utils/startupPantryCache";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() => {
@@ -132,6 +136,8 @@ export default function App() {
     currentUser,
     loading: firebaseLoading,
     inventoryHydrated,
+    inventoryIsProvisional,
+    canRenderApp,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -148,6 +154,9 @@ export default function App() {
   const [pantryScope, setPantryScope] = useState<string>("guest");
   const [activeTab, setActiveTab] = useState<TabType>("pantry");
   const [showProModal, setShowProModal] = useState<boolean>(false);
+  // Commercial entitlement is not implemented yet. Never trust the legacy
+  // profile flag as proof of payment or subscription status.
+  const hasVerifiedProEntitlement = false;
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
   const [voiceSearchQuery, setVoiceSearchQuery] = useState<string>("");
   const [isResetting, setIsResetting] = useState(false);
@@ -214,6 +223,22 @@ export default function App() {
     if (isResetting) return;
 
     if (currentUser) {
+      if (!inventoryHydrated && pantryScope !== currentUser.uid) {
+        // Never carry the guest or a previous user's pantry into a signed-in
+        // session. A user-scoped local cache is provisional only: Firestore
+        // remains authoritative and cloud writes stay closed until hydration.
+        try {
+          const cachedUserPantry = parseUserPantryCache(
+            localStorage.getItem(getUserPantryCacheKey(currentUser.uid))
+          );
+          setPantry(cachedUserPantry ?? []);
+        } catch {
+          setPantry([]);
+        }
+        setPantryScope(currentUser.uid);
+        return;
+      }
+
       if (inventoryHydrated && pantryScope !== currentUser.uid) {
         setPantryScope(currentUser.uid);
       }
@@ -243,7 +268,7 @@ export default function App() {
       if (currentUser) {
         if (!inventoryHydrated || pantryScope !== currentUser.uid) return;
         localStorage.setItem(
-          `balkanbite_pantry_user_${currentUser.uid}`,
+          getUserPantryCacheKey(currentUser.uid),
           JSON.stringify(pantry)
         );
         return;
@@ -310,10 +335,30 @@ export default function App() {
     }
   }, [chatMessages, isResetting]);
 
+  const requireAuthoritativeInventory = () => {
+    if (!inventoryIsProvisional) return true;
+
+    alert(
+      profile.language === "bg"
+        ? "Изчакайте първото синхронизиране на наличностите, преди да ги променяте или да създавате препоръки от тях."
+        : profile.language === "es"
+        ? "Espera a la primera sincronización de la despensa antes de modificarla o generar recomendaciones basadas en ella."
+        : "Wait for the first pantry sync before editing it or generating pantry-based recommendations."
+    );
+    return false;
+  };
+
+  const handleOpenShoppingAdvisor = () => {
+    if (!requireAuthoritativeInventory()) return;
+    setShowShoppingAdvisorModal(true);
+  };
+
   const updatePantryAndReconcileMenu = (
     newPantryItemsToAdd: PantryItem[],
     showToast = true
   ) => {
+    if (!requireAuthoritativeInventory()) return;
+
     setPantry((prevPantry) => {
       const updatedPantry = [...newPantryItemsToAdd, ...prevPantry];
       const syncedRecipes = syncRecipesWithPantry(recipes, updatedPantry);
@@ -372,6 +417,8 @@ export default function App() {
   };
 
   useEffect(() => {
+    if (inventoryIsProvisional) return;
+
     if (
       hasNotificationPermission &&
       shoppingDiagnostic.urgencyLevel === "urgent" &&
@@ -405,7 +452,7 @@ export default function App() {
         }
       }
     }
-  }, [shoppingDiagnostic, hasNotificationPermission, profile.language]);
+  }, [shoppingDiagnostic, hasNotificationPermission, profile.language, inventoryIsProvisional]);
 
   const handleAddMultipleShoppingItems = (
     items: Array<Omit<ShoppingItem, "id" | "checked">>
@@ -419,6 +466,7 @@ export default function App() {
   };
 
   const handleAdaptMenuToPantry = () => {
+    if (!requireAuthoritativeInventory()) return;
     const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
     setRecipes(syncedRecipes);
     const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
@@ -455,6 +503,7 @@ export default function App() {
   };
 
   const handleUpdatePantryQuantity = (id: string, newQty: number) => {
+    if (!requireAuthoritativeInventory()) return;
     if (newQty <= 0) {
       handleDeletePantryItem(id);
       return;
@@ -465,10 +514,12 @@ export default function App() {
   };
 
   const handleDeletePantryItem = (id: string) => {
+    if (!requireAuthoritativeInventory()) return;
     setPantry((prev) => prev.filter((item) => item.id !== id));
   };
 
   const handleClearPantry = () => {
+    if (!requireAuthoritativeInventory()) return;
     setPantry([]);
   };
 
@@ -484,7 +535,8 @@ export default function App() {
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
 
   const handleGenerateAiWeekPlan = async () => {
-    if (!profile.isProSubscriber) {
+    if (!requireAuthoritativeInventory()) return;
+    if (!hasVerifiedProEntitlement) {
       setShowProModal(true);
       return;
     }
@@ -502,58 +554,19 @@ export default function App() {
         }),
       });
       const data = await res.json();
-      if (Array.isArray(data.mealPlan) && data.mealPlan.length > 0) {
-        setMealPlan(data.mealPlan);
-      } else {
-        const today = new Date();
-        const newPlan: MealPlanDay[] = [];
-        const pool = recipes.length > 0 ? recipes : [...INITIAL_RECIPES, ...SAMPLE_RECIPES];
-        const bPool = pool.filter((r) => r.tags.includes("Desayuno") || r.tags.includes("breakfast") || r.tags.includes("quick") || r.tags.includes("Saludable"));
-        const mPool = pool.filter((r) => !r.tags.includes("Desayuno") && !r.tags.includes("breakfast"));
-
-        for (let d = 0; d < 7; d++) {
-          const dObj = new Date(today);
-          dObj.setDate(today.getDate() + d);
-          const dateStr = dObj.toISOString().split("T")[0];
-
-          const bRecipe = bPool.length > 0 ? bPool[d % bPool.length] : pool[d % pool.length];
-          const lRecipe = mPool.length > 0 ? mPool[(d * 2) % mPool.length] : pool[(d + 1) % pool.length];
-          const dRecipe = mPool.length > 0 ? mPool[(d * 2 + 1) % mPool.length] : pool[(d + 2) % pool.length];
-
-          newPlan.push({
-            date: dateStr,
-            breakfast: bRecipe,
-            lunch: lRecipe,
-            dinner: dRecipe,
-          });
-        }
-        setMealPlan(newPlan);
+      if (!res.ok || !Array.isArray(data.mealPlan) || data.mealPlan.length === 0) {
+        throw new Error(data?.error || "Weekly meal-plan generation returned no usable plan");
       }
+      setMealPlan(data.mealPlan);
     } catch (err) {
-      console.error("Failed to generate AI weekly menu, applying local fallback:", err);
-      const today = new Date();
-      const newPlan: MealPlanDay[] = [];
-      const pool = recipes.length > 0 ? recipes : [...INITIAL_RECIPES, ...SAMPLE_RECIPES];
-      const bPool = pool.filter((r) => r.tags.includes("Desayuno") || r.tags.includes("breakfast") || r.tags.includes("quick") || r.tags.includes("Saludable"));
-      const mPool = pool.filter((r) => !r.tags.includes("Desayuno") && !r.tags.includes("breakfast"));
-
-      for (let d = 0; d < 7; d++) {
-        const dObj = new Date(today);
-        dObj.setDate(today.getDate() + d);
-        const dateStr = dObj.toISOString().split("T")[0];
-
-        const bRecipe = bPool.length > 0 ? bPool[d % bPool.length] : pool[d % pool.length];
-        const lRecipe = mPool.length > 0 ? mPool[(d * 2) % mPool.length] : pool[(d + 1) % pool.length];
-        const dRecipe = mPool.length > 0 ? mPool[(d * 2 + 1) % mPool.length] : pool[(d + 2) % pool.length];
-
-        newPlan.push({
-          date: dateStr,
-          breakfast: bRecipe,
-          lunch: lRecipe,
-          dinner: dRecipe,
-        });
-      }
-      setMealPlan(newPlan);
+      console.error("Failed to generate AI weekly menu; existing plan left unchanged:", err);
+      alert(
+        profile.language === "bg"
+          ? "Не успях да генерирам нов седмичен план. Текущият план не е променен."
+          : profile.language === "es"
+          ? "No se pudo generar un nuevo plan semanal. El plan actual no se ha modificado."
+          : "A new weekly plan could not be generated. Your current plan was left unchanged."
+      );
     } finally {
       setIsGeneratingPlan(false);
     }
@@ -578,6 +591,7 @@ export default function App() {
   };
 
   const handleCookRecipe = (recipe: Recipe) => {
+    if (!requireAuthoritativeInventory()) return;
     setPantry((currentPantry) => {
       const result = deductRecipeIngredientsFromPantry(
         currentPantry,
@@ -596,6 +610,7 @@ export default function App() {
   };
 
   const handleAddMissingToShopping = (recipe: Recipe) => {
+    if (!requireAuthoritativeInventory()) return;
     const { items, unverified } = buildRecipeShoppingNeeds(
       recipe,
       pantry,
@@ -657,6 +672,7 @@ export default function App() {
   };
 
   const handleGenerateAiRecipes = async (queryText?: string) => {
+    if (!requireAuthoritativeInventory()) return;
     setIsLoadingAi(true);
     try {
       const res = await fetch("/api/ai/generate-recipes", {
@@ -671,6 +687,9 @@ export default function App() {
       });
 
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Recipe generation failed");
+      }
       if (Array.isArray(data.recipes) && data.recipes.length > 0) {
         const synced = syncRecipesWithPantry(data.recipes, pantry);
         const enriched = synced.map((r: Recipe) => ({
@@ -706,6 +725,7 @@ export default function App() {
   };
 
   const handleTransferToPantry = () => {
+    if (!requireAuthoritativeInventory()) return;
     const checkedItems = shoppingList.filter((i) => i.checked);
     if (checkedItems.length === 0) return;
 
@@ -741,6 +761,8 @@ export default function App() {
     itemsToAddToPantry: RawReconciliationExtraItem[];
     reconciliationId?: string;
   }) => {
+    if (!requireAuthoritativeInventory()) return;
+
     const result = reconcileConfirmedShoppingPurchases(
       pantry,
       shoppingList,
@@ -793,6 +815,7 @@ export default function App() {
   };
 
   const handleGenerateAiShopping = async () => {
+    if (!requireAuthoritativeInventory()) return;
     setIsLoadingAi(true);
     try {
       const res = await fetch("/api/ai/suggest-shopping", {
@@ -882,6 +905,7 @@ export default function App() {
   };
 
   const handleVoiceDeductItems = (items: any[]) => {
+    if (!requireAuthoritativeInventory()) return;
     setPantry((currentPantry) => {
       const result = deductVoiceItemsFromPantry(currentPantry, items || []);
 
@@ -923,10 +947,6 @@ export default function App() {
           setShowLanding(false);
           setShowAuthModal(true);
         }}
-        onOpenPro={() => {
-          setShowLanding(false);
-          setShowProModal(true);
-        }}
       />
     );
   }
@@ -951,24 +971,30 @@ export default function App() {
           onGoToLanding={() => setShowLanding(true)}
           currentUser={currentUser}
           onOpenAuthModal={() => setShowAuthModal(true)}
-          onOpenShoppingAdvisor={() => setShowShoppingAdvisorModal(true)}
-          shoppingUrgencyLevel={shoppingDiagnostic.urgencyLevel}
+          onOpenShoppingAdvisor={handleOpenShoppingAdvisor}
+          shoppingUrgencyLevel={
+            inventoryIsProvisional ? undefined : shoppingDiagnostic.urgencyLevel
+          }
           shoppingBadgeCount={
-            shoppingDiagnostic.missingMealIngredients.length +
-            shoppingDiagnostic.pendingShoppingItemsCount
+            inventoryIsProvisional
+              ? 0
+              : shoppingDiagnostic.missingMealIngredients.length +
+                shoppingDiagnostic.pendingShoppingItemsCount
           }
         />
 
         <main className="px-4 py-3">
-          <SmartShoppingBanner
+          {!inventoryIsProvisional && (
+            <SmartShoppingBanner
             diagnostic={shoppingDiagnostic}
             language={profile.language}
             currency={profile.currency}
-            onOpenAdvisorModal={() => setShowShoppingAdvisorModal(true)}
+            onOpenAdvisorModal={handleOpenShoppingAdvisor}
             onAddMissingToShoppingList={handleAddMultipleShoppingItems}
             onGoToShoppingTab={() => setActiveTab("shopping")}
             theme={theme}
-          />
+            />
+          )}
 
           {activeTab === "pantry" && (
             <PantryView
@@ -981,6 +1007,7 @@ export default function App() {
               onOpenVoiceTab={() => setShowChefIaModal(true)}
               language={profile.language}
               currency={profile.currency}
+              inventoryIsProvisional={inventoryIsProvisional}
               theme={theme}
             />
           )}
@@ -997,7 +1024,7 @@ export default function App() {
               userName={profile.name}
               onClearMealPlan={handleClearMealPlan}
               onNavigateToVoice={() => setShowChefIaModal(true)}
-              isPro={profile.isProSubscriber}
+              isPro={hasVerifiedProEntitlement}
               onOpenProModal={() => setShowProModal(true)}
               onGenerateAiWeekPlan={handleGenerateAiWeekPlan}
               onAdaptToPantry={handleAdaptMenuToPantry}
@@ -1020,9 +1047,9 @@ export default function App() {
               isLoadingAi={isLoadingAi}
               language={profile.language}
               currency={profile.currency}
-              isPro={profile.isProSubscriber}
+              isPro={hasVerifiedProEntitlement}
               onOpenProModal={() => setShowProModal(true)}
-              onOpenShoppingAdvisor={() => setShowShoppingAdvisorModal(true)}
+              onOpenShoppingAdvisor={handleOpenShoppingAdvisor}
               theme={theme}
             />
           )}
@@ -1107,16 +1134,29 @@ export default function App() {
           language={profile.language}
         />
 
-        {firebaseLoading && (
+        {inventoryIsProvisional && (
+          <div
+            role="status"
+            className="fixed left-4 right-4 top-20 z-[90] rounded-xl border border-amber-500/40 bg-stone-950/95 px-4 py-3 text-center text-sm font-semibold text-amber-200 shadow-lg"
+          >
+            {profile.language === "es"
+              ? "El inventario en este dispositivo es provisional mientras llega la primera sincronización. Los cambios no se guardarán en la nube todavía."
+              : profile.language === "bg"
+              ? "Наличностите на това устройство са временни до първото синхронизиране. Промените все още няма да се запазват в облака."
+              : "Inventory on this device is provisional until the first sync arrives. Changes will not be saved to the cloud yet."}
+          </div>
+        )}
+
+        {!canRenderApp && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 backdrop-blur-sm">
             <div className="flex flex-col items-center gap-3">
               <div className="w-10 h-10 border-4 border-emerald-600 border-t-transparent rounded-full animate-spin" />
               <p className="text-stone-400 font-bold text-sm">
                 {profile.language === "es"
-                  ? "Sincronizando con la nube..."
+                  ? "Cargando cuenta..."
                   : profile.language === "bg"
-                  ? "Синхронизиране с облака..."
-                  : "Syncing with cloud..."}
+                  ? "Зареждане на профила..."
+                  : "Loading account..."}
               </p>
             </div>
           </div>
@@ -1126,14 +1166,6 @@ export default function App() {
           isOpen={showProModal}
           onClose={() => setShowProModal(false)}
           language={profile.language}
-          currency={profile.currency}
-          isPro={profile.isProSubscriber}
-          onTogglePro={() =>
-            setProfile((prev) => ({
-              ...prev,
-              isProSubscriber: !prev.isProSubscriber,
-            }))
-          }
         />
 
         <OnboardingModal
@@ -1162,7 +1194,7 @@ export default function App() {
         />
 
         <SmartShoppingModal
-          isOpen={showShoppingAdvisorModal}
+          isOpen={showShoppingAdvisorModal && !inventoryIsProvisional}
           onClose={() => setShowShoppingAdvisorModal(false)}
           diagnostic={shoppingDiagnostic}
           language={profile.language}

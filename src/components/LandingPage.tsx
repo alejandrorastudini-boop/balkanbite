@@ -30,7 +30,6 @@ interface LandingPageProps {
   currency: Currency;
   onCurrencyChange: (curr: Currency) => void;
   onOpenApp: () => void;
-  onOpenPro: () => void;
   onOpenAuth?: () => void;
 }
 
@@ -40,7 +39,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   currency,
   onCurrencyChange,
   onOpenApp,
-  onOpenPro,
   onOpenAuth,
 }) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
@@ -52,10 +50,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const currSymbol = currency === "EUR" ? "€" : "$";
   const currRatio = currency === "EUR" ? 1 : 1.08;
 
-  // Real-time savings calculation
-  const calculatedWaste = Math.round(monthlySpend * 0.22); 
-  const monthlySavings = Math.round(monthlySpend * 0.28); 
-  const annualSavings = monthlySavings * 12;
+  // Budget figures below are deterministic transforms of the visitor's own inputs.
+  // They are planning context, not savings estimates.
+  const monthlyPerPerson = monthlySpend / Math.max(1, familyMembers);
+  const annualBudget = monthlySpend * 12;
 
   const hero = LANDING_DATA.hero;
 
@@ -91,7 +89,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {language === "es" ? "Funcionalidades" : language === "bg" ? "Функции" : "Features"}
             </a>
             <a href="#calculator" className="hover:text-white transition-colors">
-              {language === "es" ? "Calculadora de Ahorro" : language === "bg" ? "Калкулатор" : "Savings Calculator"}
+              {language === "es" ? "Planificador de presupuesto" : language === "bg" ? "Бюджетен план" : "Budget Planner"}
             </a>
             <a href="#pricing" className="hover:text-white transition-colors">
               {language === "es" ? "Precios" : language === "bg" ? "Цени" : "Pricing"}
@@ -308,10 +306,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                             <Camera className="w-4 h-4 text-emerald-400" />
                             <span>
                               {language === "es"
-                                ? "Detección Visual en Vivo (Gemini 3.8 Flash Vision)"
+                                ? "Revisión visual asistida por IA"
                                 : language === "bg"
-                                ? "Визуално разпознаване на живо (Gemini 3.8 Flash Vision)"
-                                : "Live Visual Detection (Gemini 3.8 Flash Vision)"}
+                                ? "Визуален преглед с помощта на AI"
+                                : "AI-assisted visual review"}
                             </span>
                           </h3>
                           <p className="text-xs text-stone-400">
@@ -322,7 +320,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                               : "AI analyzing shelves..."}
                           </p>
                         </div>
-                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Auto-Tag</span>
+                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          {language === "es" ? "Revisar antes de guardar" : language === "bg" ? "Преглед преди запазване" : "Review before saving"}
+                        </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                         <div className="p-3 rounded-xl bg-stone-900 border border-stone-800 flex items-center justify-between">
@@ -402,7 +402,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           </span>
                         </h3>
                         <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded-full border border-amber-500/20">
-                          {language === "es" ? "Ahorro Máximo" : language === "bg" ? "Максимално спестяване" : "Max Savings"}
+                          {language === "es" ? "Aprovechar lo disponible" : language === "bg" ? "Използвайте наличното" : "Use what is available"}
                         </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -544,6 +544,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       </section>
 
       {/* METRICS COUNTER BAR */}
+      <p className="px-6 pt-10 text-center text-sm font-semibold text-slate-500">
+        {language === "es"
+          ? "Resumen de capacidades del producto; no son métricas de usuarios ni resultados prometidos."
+          : language === "bg"
+            ? "Обобщение на възможностите на продукта; това не са потребителски метрики или обещани резултати."
+            : "Product capability summary; these are not user metrics or promised outcomes."}
+      </p>
       <section className="py-12 bg-stone-900/60 border-y border-stone-850 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
           {LANDING_DATA.metrics.map((m, idx) => (
@@ -611,14 +618,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-4xl mx-auto space-y-10">
           <div className="text-center space-y-2">
             <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-              {language === "es" ? "Simulador de Ahorro en Vivo" : language === "bg" ? "Калкулатор за спестявания на живо" : "Live Savings Simulator"}
+              {language === "es" ? "Escenario de presupuesto" : language === "bg" ? "Сценарий за бюджет" : "Budget Planning Scenario"}
             </span>
             <h2 className="text-2xl sm:text-4xl font-extrabold text-white font-['Outfit'] tracking-tight">
               {language === "es"
-                ? "¿Cuánto puedes ahorrar con BalkanBite?"
+                ? "Organiza un presupuesto a partir de tus propios datos"
                 : language === "bg"
-                ? "Колко можете да спестите с BalkanBite?"
-                : "How much can you save with BalkanBite?"}
+                ? "Организирайте бюджет според собствените си данни"
+                : "Plan a budget from your own inputs"}
             </h2>
           </div>
 
@@ -648,27 +655,34 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="bg-gradient-to-br from-stone-950 to-stone-900 border border-emerald-500/30 rounded-2xl p-6 flex flex-col justify-between text-center relative overflow-hidden shadow-inner">
                 <div className="space-y-2">
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">
-                    {language === "es" ? "Tu Ahorro Estimado" : language === "bg" ? "Вашето очаквано спестяване" : "Your Estimated Savings"}
+                    {language === "es" ? "Gasto mensual por persona" : language === "bg" ? "Месечен разход на човек" : "Monthly spend per person"}
                   </span>
                   <div className="pt-2">
                     <div className="text-4xl sm:text-5xl font-black text-white font-['Outfit'] tracking-tight">
-                      +{Math.round(monthlySavings * currRatio)} {currSymbol}
+                      {Math.round(monthlyPerPerson * currRatio)} {currSymbol}
                       <span className="text-base font-bold text-stone-400 ml-1">
                         / {language === "es" ? "mes" : language === "bg" ? "месец" : "mo"}
                       </span>
                     </div>
                     <p className="text-sm font-bold text-emerald-400 mt-1">
-                      ≈ +{Math.round(annualSavings * currRatio)} {currSymbol} {language === "es" ? "al año ahorrados" : language === "bg" ? "спестени годишно" : "saved per year"}
+                      {Math.round(annualBudget * currRatio)} {currSymbol} {language === "es" ? "de presupuesto anual equivalente" : language === "bg" ? "еквивалентен годишен бюджет" : "equivalent annual budget"}
                     </p>
                   </div>
                 </div>
                 <div className="pt-6">
                   <button onClick={onOpenApp} className="w-full py-3 bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-sm rounded-xl shadow-lg transition-all cursor-pointer">
-                    {language === "es" ? "Empezar a Ahorrar" : language === "bg" ? "Започнете да спестявате" : "Start Saving Today"}
+                    {language === "es" ? "Explorar la planificación" : language === "bg" ? "Разгледайте планирането" : "Explore Planning"}
                   </button>
                 </div>
               </div>
             </div>
+            <p className="text-center text-xs text-stone-500">
+              {language === "es"
+                ? "Cálculo matemático a partir del gasto y tamaño del hogar que introduces; no estima ni garantiza ahorro."
+                : language === "bg"
+                ? "Математическо изчисление от въведения разход и размер на домакинството; не оценява и не гарантира спестяване."
+                : "A mathematical breakdown of the spend and household size you enter; it does not estimate or guarantee savings."}
+            </p>
           </div>
         </div>
       </section>
@@ -694,18 +708,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               ? [
                   { aspect: "Inventario", old: "Olvidos y desperdicio", new: "Escaneo Visual IA" },
                   { aspect: "Menú Semanal", old: "Improvisación diaria", new: "Plan de 7 días" },
-                  { aspect: "Lista de la Compra", old: "Notas de papel dispersas", new: "WhatsApp Sync" }
+                  { aspect: "Lista de la Compra", old: "Notas de papel dispersas", new: "Compartir por WhatsApp" }
                 ]
               : language === "bg"
               ? [
                   { aspect: "Инвентар", old: "Забравени храни и отпадък", new: "AI Визуален скенер" },
                   { aspect: "Седмично меню", old: "Ежедневен стрес и импровизация", new: "7-дневен смарт план" },
-                  { aspect: "Списък за пазаруване", old: "Разпилени хвърчащи бележки", new: "WhatsApp синхронизация" }
+                  { aspect: "Списък за пазаруване", old: "Разпилени хвърчащи бележки", new: "Споделяне в WhatsApp" }
                 ]
               : [
                   { aspect: "Inventory", old: "Forgotten items & food waste", new: "Visual AI Scanning" },
                   { aspect: "Weekly Menu", old: "Daily improvisation stress", new: "7-Day Smart Plan" },
-                  { aspect: "Grocery List", old: "Scattered paper notes", new: "WhatsApp Sync" }
+                  { aspect: "Grocery List", old: "Scattered paper notes", new: "Share to WhatsApp" }
                 ]
             ).map((row, i) => (
               <div key={i} className="grid grid-cols-3 p-4 items-center border-b border-stone-800/80">
@@ -718,50 +732,12 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         </div>
       </section>
 
-      {/* TESTIMONIALS */}
-      <section className="py-20 bg-stone-900/40 border-y border-stone-850 px-4 sm:px-6">
-        <div className="max-w-5xl mx-auto space-y-12">
-          <div className="text-center space-y-2">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-              {language === "es" ? "Historias Reales" : language === "bg" ? "Реални отзиви" : "Real Stories"}
-            </span>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-white font-['Outfit']">
-              {language === "es"
-                ? "+8.500 hogares cocinando mejor"
-                : language === "bg"
-                ? "+8 500 домакинства готвят по-добре"
-                : "8,500+ homes cooking smarter"}
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <p className="mb-6 text-center text-sm text-slate-400">
-              Illustrative profiles — not verified customer testimonials.
-            </p>
-            {LANDING_DATA.testimonials.map((t, idx) => (
-              <div key={idx} className="bg-stone-900 border border-stone-800 rounded-3xl p-6 flex flex-col justify-between space-y-4 shadow-lg">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <div className="flex text-amber-400">{[...Array(t.rating)].map((_, i) => <Star key={i} className="w-4 h-4 fill-amber-400" />)}</div>
-                    <span className="text-[10px] font-extrabold px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300">{t.savings}</span>
-                  </div>
-                  <p className="text-xs sm:text-sm text-stone-300 italic leading-relaxed">"{t.comment[language]}"</p>
-                </div>
-                <div className="flex items-center gap-3 pt-3 border-t border-stone-800">
-                  <img src={t.avatar} className="w-10 h-10 rounded-full object-cover" referrerPolicy="no-referrer" />
-                  <div><h4 className="text-xs sm:text-sm font-bold text-white">{t.name}</h4><p className="text-[11px] text-stone-400">{t.role[language]}</p></div>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
       {/* PRICING */}
       <section id="pricing" className="py-20 px-4 sm:px-6">
         <div className="max-w-4xl mx-auto space-y-12">
           <div className="text-center space-y-2">
             <h2 className="text-2xl sm:text-4xl font-extrabold text-white font-['Outfit']">
-              {language === "es" ? "Planes Transparentes" : language === "bg" ? "Прозрачни планове" : "Simple Pricing"}
+              {language === "es" ? "Acceso actual y concepto Pro" : language === "bg" ? "Текущ достъп и Pro концепция" : "Current Access and Pro Concept"}
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
@@ -786,8 +762,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   {LANDING_DATA.pricing.pro.features[language].map((f, i) => <div key={i} className="flex items-center gap-2"><Check className="w-3 h-3 text-emerald-400" /><span>{f}</span></div>)}
                 </div>
               </div>
-              <button onClick={() => { onOpenApp(); onOpenPro(); }} className="mt-6 w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg cursor-pointer">
-                {language === "es" ? "Probar 7 Días Gratis" : language === "bg" ? "Пробвай 7 дни безплатно" : "Try 7 Days Free"}
+              <button disabled className="mt-6 w-full py-3 rounded-xl bg-stone-800 text-stone-400 font-bold text-xs cursor-not-allowed">
+                {LANDING_DATA.pricing.pro.cta[language]}
               </button>
             </div>
           </div>

@@ -591,141 +591,6 @@ function resolveRecipeImageUrl(recipe: any): string {
   return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80";
 }
 
-function fallbackParseIntent(transcript: string, language: string, currentPantry: any[] = [], mealLogs: any[] = []) {
-  const lower = transcript.toLowerCase();
-  const items: any[] = [];
-  let actionType = "ANSWER";
-  let mealLog: any = null;
-
-  const pantryNames = Array.isArray(currentPantry) && currentPantry.length > 0
-    ? currentPantry.map((p: any) => p.name).join(", ")
-    : "";
-
-  // Check for meal logging (breakfast/lunch/dinner/ate)
-  const isMealLog =
-    lower.includes("desayuné") ||
-    lower.includes("desayuno") ||
-    lower.includes("comí") ||
-    lower.includes("comida") ||
-    lower.includes("almorcé") ||
-    lower.includes("almuerzo") ||
-    lower.includes("cené") ||
-    lower.includes("ate") ||
-    lower.includes("had") ||
-    lower.includes("breakfast") ||
-    lower.includes("lunch");
-
-  // Check for dinner/recipe query
-  const isDinnerQuery =
-    lower.includes("cenar") ||
-    lower.includes("cena") ||
-    lower.includes("que voy a cenar") ||
-    lower.includes("qué voy a cenar") ||
-    lower.includes("dinner") ||
-    lower.includes("receta") ||
-    lower.includes("qué cocino");
-
-  if (
-    lower.includes("tengo") ||
-    lower.includes("compré") ||
-    lower.includes("compre") ||
-    lower.includes("add") ||
-    lower.includes("bought") ||
-    lower.includes("купих") ||
-    lower.includes("добави")
-  ) {
-    actionType = "ADD_ITEMS";
-
-    if (lower.includes("huevos") || lower.includes("huevo")) {
-      items.push({ name: "Huevos frescos", quantity: 6, unit: "uds", category: "Lácteos/Proteína" });
-    }
-    if (lower.includes("filadelfia") || lower.includes("queso")) {
-      items.push({ name: "Queso crema estilo Filadelfia", quantity: 1, unit: "tarrina", category: "Lácteos" });
-    }
-    if (lower.includes("leche")) {
-      items.push({ name: "Leche", quantity: 1, unit: "litro", category: "Lácteos" });
-    }
-    if (lower.includes("tomate") || lower.includes("tomates")) {
-      items.push({ name: "Tomates", quantity: 1, unit: "kg", category: "Verduras" });
-    }
-    if (lower.includes("yogur") || lower.includes("kiselo")) {
-      items.push({ name: "Yogur", quantity: 2, unit: "uds", category: "Lácteos" });
-    }
-
-    if (items.length === 0) {
-      const cleanName = transcript
-        .replace(/no tengo|tengo|compré|compre|add|bought|купих|добави/gi, "")
-        .trim();
-      if (cleanName) {
-        items.push({ name: cleanName, quantity: 1, unit: "unidad", category: "Otros" });
-      }
-    }
-  } else if (isMealLog) {
-    actionType = "MEAL_LOG";
-    let mealType: "breakfast" | "lunch" | "dinner" | "snack" = "lunch";
-    if (lower.includes("desayun") || lower.includes("breakfast")) mealType = "breakfast";
-    if (lower.includes("cen") || lower.includes("dinner")) mealType = "dinner";
-
-    mealLog = {
-      mealType,
-      manualName: transcript,
-      calories: 450,
-      proteinG: 25,
-      carbsG: 35,
-      fatG: 18,
-    };
-  } else if (isDinnerQuery) {
-    actionType = "RECIPE_RECOMMENDATION";
-  }
-
-  let spokenFeedback = "";
-  if (actionType === "ADD_ITEMS") {
-    spokenFeedback = language === "es"
-      ? `Entendido. He añadido a tu despensa: ${items.map(i => i.name).join(", ")}.`
-      : language === "bg"
-      ? `Добавих към килера: ${items.map(i => i.name).join(", ")}.`
-      : `Added to pantry: ${items.map(i => i.name).join(", ")}.`;
-  } else if (actionType === "MEAL_LOG" || (isMealLog && isDinnerQuery)) {
-    let suggestion = "";
-    if (pantryNames) {
-      suggestion = language === "es"
-        ? ` Teniendo en cuenta tu despensa (${pantryNames}), puedes hacer algo rápido con lo que tienes, o bien comprar un par de ingredientes frescos (como verduras o proteína) para una cena completa.`
-        : ` Considering your pantry (${pantryNames}), you can cook using what you have or buy 1-2 extra fresh ingredients for a complete meal.`;
-    } else {
-      suggestion = language === "es"
-        ? " Te sugiero algunas opciones deliciosas para cenar con lo que tienes o añadiendo algún ingrediente fresco."
-        : " For dinner, I suggest tasty options using pantry items or adding fresh groceries.";
-    }
-
-    spokenFeedback = language === "es"
-      ? `¡Perfecto! He registrado lo que has comido y desayunado hoy.` + suggestion
-      : `Logged your meals!` + suggestion;
-  } else if (actionType === "RECIPE_RECOMMENDATION") {
-    if (pantryNames) {
-      spokenFeedback = language === "es"
-        ? `Te sugiero varias opciones para cenar: algunas aprovechan lo que tienes en tu despensa (${pantryNames}), y otras proponen comprar algún ingrediente extra para darte más variedad. Puedes ver las recetas completas en la sección Recetas.`
-        : `I suggest dinner options combining your pantry ingredients (${pantryNames}) and a few recommended extra items for variety. Check out full step-by-step recipes!`;
-    } else {
-      spokenFeedback = language === "es"
-        ? "Te recomiendo opciones para cenar: tanto platos sencillos con tu despensa como recetas recomendadas añadiendo ingredientes frescos."
-        : "For dinner I suggest options using your pantry or adding fresh complementary ingredients.";
-    }
-  } else {
-    spokenFeedback = language === "es"
-      ? `Entendido: "${transcript}". He anotado tu mensaje.`
-      : language === "bg"
-      ? `Чух ви: "${transcript}".`
-      : `Heard: "${transcript}".`;
-  }
-
-  return {
-    actionType,
-    spokenFeedback,
-    items,
-    mealLog,
-  };
-}
-
 // Fallback reconciliation parser when offline or Gemini API is not available
 function fallbackReconcileShopping(transcript: string, currentShoppingList: any[] = [], language: string = "es") {
   const lower = transcript.toLowerCase();
@@ -860,10 +725,16 @@ app.post("/api/ai/parse-intent", async (req, res) => {
     const ai = getGeminiClient();
 
     if (!ai) {
-      return res.json(fallbackParseIntent(transcript, language, currentPantry, mealLogs));
+      return res.status(503).json({
+        success: false,
+        error: "Voice interpretation is temporarily unavailable",
+        actionType: "ANSWER",
+        items: [],
+        mealLog: null,
+      });
     }
 
-    const systemPrompt = `You are a warm, expert Medical Nutritionist and AI Chef (BalkanBite).
+    const systemPrompt = `You are a food-planning assistant and cooking helper for BalkanBite.
 User Language: ${language === "bg" ? "Bulgarian" : language === "es" ? "Spanish" : "English"}.
 
 User's Current Pantry Ingredients: ${JSON.stringify(currentPantry)}
@@ -884,14 +755,15 @@ IMPORTANT RULES:
 - Provide a warm, helpful, complete "spokenFeedback" in ${language === "bg" ? "Bulgarian" : language === "es" ? "Spanish" : "English"}.
 - NEVER use generic placeholders like "estoy procesando tus ingredientes".
 - IF user asks what to eat/cook for dinner or lunch: Offer a mix of options. Some recipes can rely on ingredients they already have in their pantry (${JSON.stringify(currentPantry.map((p: any) => p.name))}), and others can suggest purchasing 1-2 complementary fresh ingredients to complete a delicious meal. Always take into account what they've already eaten today!
-- IF user reports meals, calculate reasonable calorie & protein estimates into "mealLog".
+- IF user reports meals, do not calculate or invent calories, protein, carbs, fat, or other nutrition values. Set "mealLog" to null and explain that nutrition logging needs verified data before it can be saved.
+- Never claim that a meal, pantry item, or nutrition value was saved unless the client explicitly confirms that action.
 
 Return strictly JSON format:
 {
   "actionType": "MEAL_LOG" | "RECIPE_RECOMMENDATION" | "ADD_ITEMS" | "REMOVE_ITEMS" | "ADD_SHOPPING" | "ANSWER",
   "spokenFeedback": "Complete, friendly nutritionist response addressing all user points in ${language}.",
   "items": [{ "name": "string", "quantity": number, "unit": "string", "category": "Produce"|"Dairy"|"Meat/Fish"|"Pantry/Grains"|"Spices"|"Other" }],
-  "mealLog": { "mealType": "breakfast"|"lunch"|"dinner"|"snack", "manualName": "string", "calories": number, "proteinG": number, "carbsG": number, "fatG": number }
+  "mealLog": null
 }`;
 
     const response = await generateWithRetry(ai, {
@@ -904,15 +776,29 @@ Return strictly JSON format:
     });
 
     const parsed = JSON.parse(response.text || "{}");
-    if (!parsed.spokenFeedback) {
-      parsed.spokenFeedback = fallbackParseIntent(transcript, language, currentPantry, mealLogs).spokenFeedback;
+    // Nutrition from free-form voice text is not authoritative. Until BalkanBite
+    // has a verified deterministic nutrition path, meal logs cannot be persisted here.
+    if (parsed.actionType === "MEAL_LOG") {
+      parsed.mealLog = null;
     }
-    return res.json(parsed);
+    if (!parsed.spokenFeedback) {
+      parsed.spokenFeedback =
+        language === "bg"
+          ? "Разбрах заявката. Няма да записвам непотвърдени хранителни стойности."
+          : language === "es"
+          ? "He entendido la solicitud. No guardaré valores nutricionales no verificados."
+          : "I understood the request. I will not save unverified nutrition values.";
+    }
+    return res.json({ success: true, ...parsed });
   } catch (err: any) {
-    console.warn("Gemini API error during voice intent parse, using fallback parser:", err.message || err);
-    // Graceful fallback response instead of 500 error
-    const fallbackResult = fallbackParseIntent(transcript, language, currentPantry, mealLogs);
-    return res.json(fallbackResult);
+    console.warn("Gemini API error during voice intent parse:", err.message || err);
+    return res.status(503).json({
+      success: false,
+      error: "Voice interpretation failed",
+      actionType: "ANSWER",
+      items: [],
+      mealLog: null,
+    });
   }
 });
 
@@ -1005,15 +891,9 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
     const ai = getGeminiClient();
 
     if (!ai) {
-      // Return rich seed recipes if no API key
-      const fallbackWithImages = FALLBACK_RECIPES.map((rec) => ({
-        ...rec,
-        imageUrl: resolveRecipeImageUrl(rec),
-      }));
-      return res.json({
-        recipes: fallbackWithImages,
-        source: "curated_fallback",
-        note: "Add Gemini API Key in Settings > Secrets for endless dynamic recipes from your specific pantry!",
+      return res.status(503).json({
+        error: "Recipe generation is temporarily unavailable",
+        recipes: [],
       });
     }
 
@@ -1034,9 +914,10 @@ CRITICAL GOALS & RULES:
 2. MISSING INGREDIENTS DETECTION: For any ingredient not currently in the user's pantry, set "inPantry": false clearly so the user can see what's missing and add them to their shopping list with 1 click.
 3. IN-PANTRY INGREDIENTS: For ingredients that ARE in the user's pantry, set "inPantry": true.
 4. Balance macros: Ensure good protein, high fiber, healthy fats, reasonable carbs.
-5. Calculate realistic cost per serving in EUR (€) and USD ($) based on actual market pricing.
-6. Emphasize wholesome Balkan/Mediterranean simplicity (savory herbs like chubritsa/dill, fresh produce, fermented probiotics like yogurt, legumes).
-7. Always provide high-quality localized translations for 'es' (Spanish), 'bg' (Bulgarian), and 'en' (English) in title, description, instructions, and nutrition highlights.
+5. Estimate cost per serving for planning only. It is NOT live, exact, or verified market pricing.
+6. Calories, protein, carbs, fat, fiber and any nutrition highlights are estimates only; do not describe them as measured, verified, medical, or exact.
+7. Emphasize wholesome Balkan/Mediterranean simplicity (savory herbs like chubritsa/dill, fresh produce, fermented probiotics like yogurt, legumes).
+8. Always provide high-quality localized translations for 'es' (Spanish), 'bg' (Bulgarian), and 'en' (English) in title, description, instructions, and nutrition highlights.
 
 Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
 [
@@ -1054,7 +935,6 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
     "carbsG": number,
     "fatG": number,
     "fiberG": number,
-    "healthScore": number (80-100),
     "tags": ["string"],
     "ingredients": [
       {
@@ -1086,9 +966,24 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
     });
 
     const parsed = JSON.parse(response.text || "[]");
-    const rawList: any[] = Array.isArray(parsed) ? parsed : (parsed.recipes || FALLBACK_RECIPES);
+    const rawList: any[] = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.recipes)
+      ? parsed.recipes
+      : [];
+    if (rawList.length === 0) {
+      return res.status(502).json({
+        error: "Recipe generation returned no usable recipes",
+        recipes: [],
+      });
+    }
     const enrichedRecipes = rawList.map((rec: any, idx: number) => ({
       ...rec,
+      // LLM-produced nutrition and price figures are planning estimates, never
+      // authoritative calculations. Arbitrary health scores are discarded.
+      healthScore: undefined,
+      nutritionDataStatus: "estimated",
+      costDataStatus: "estimated",
       id: rec.id || `ai-rec-${Date.now()}-${idx}`,
       imageUrl: resolveRecipeImageUrl(rec),
     }));
@@ -1099,14 +994,9 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
     });
   } catch (err: any) {
     console.error("Error generating recipes:", err);
-    const fallbackWithImages = FALLBACK_RECIPES.map((rec) => ({
-      ...rec,
-      imageUrl: resolveRecipeImageUrl(rec),
-    }));
-    return res.json({
-      recipes: fallbackWithImages,
-      source: "fallback_error",
-      error: err.message,
+    return res.status(503).json({
+      error: "Recipe generation failed",
+      recipes: [],
     });
   }
 });
@@ -1170,28 +1060,11 @@ CRITICAL RULES:
 
     return res.json({ mealPlan, source: "gemini" });
   } catch (err: any) {
-    console.warn("Error generating weekly meal plan with Gemini (quota/rate-limit), falling back to local smart plan:", err?.message);
-    const today = new Date();
-    const fallbackPlan: any[] = [];
-    const pool = Array.isArray(recipes) && recipes.length > 0 ? recipes : [];
-    
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const dateStr = d.toISOString().split("T")[0];
-      const bRecipe = pool[i % pool.length] || { id: `b-${i}`, title: { es: "Desayuno saludable", en: "Healthy Breakfast" }, calories: 350, ingredients: [{ name: "Yogurt", quantity: "1 cup" }], imageUrl: "https://images.unsplash.com/photo-1525351484163-7529414344d8?w=600" };
-      const lRecipe = pool[(i + 1) % pool.length] || { id: `l-${i}`, title: { es: "Comida balcánica", en: "Balkan Lunch" }, calories: 600, ingredients: [{ name: "Meat", quantity: "200g" }], imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600" };
-      const dRecipe = pool[(i + 2) % pool.length] || { id: `d-${i}`, title: { es: "Cena ligera", en: "Light Dinner" }, calories: 450, ingredients: [{ name: "Vegetables", quantity: "150g" }], imageUrl: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=600" };
-      
-      fallbackPlan.push({
-        date: dateStr,
-        breakfast: { ...bRecipe, imageUrl: resolveRecipeImageUrl(bRecipe) },
-        lunch: { ...lRecipe, imageUrl: resolveRecipeImageUrl(lRecipe) },
-        dinner: { ...dRecipe, imageUrl: resolveRecipeImageUrl(dRecipe) },
-      });
-    }
-
-    return res.json({ mealPlan: fallbackPlan, source: "fallback" });
+    console.warn("Error generating weekly meal plan with Gemini:", err?.message || err);
+    return res.status(503).json({
+      error: "Weekly meal-plan generation failed",
+      mealPlan: [],
+    });
   }
 });
 
@@ -1226,9 +1099,9 @@ CRITICAL LANGUAGE REQUIREMENT:
 All text including "title", every item "name", item "unit", item "reason", and "aiReasoning" MUST BE WRITTEN 100% IN ${targetLangName.toUpperCase()}.
 If Target Language is Spanish, write every ingredient name in Spanish (e.g. "Yogur natural", "Tomates maduros", "Huevos camperos", "Pepinos", "Ajo fresco", "Queso Feta"). NEVER return English ingredient names when target language is Spanish.
 
-Identify the critical missing nutritional gaps (e.g. need lean protein, fermented dairy, fresh vitamin C vegetables, fiber legumes).
-Suggest 7 to 10 high-value staple items that keep the total weekly basket under 20€ / $22.
-Include accurate prices in EUR/USD.
+Identify possible nutritional gaps as recommendations, not medical or authoritative findings.
+Suggest 7 to 10 budget-conscious staple items.
+If you include estimatedPriceEUR, it is an unverified planning estimate only; never describe it as live, exact, or verified.
 
 Return strictly JSON with this schema:
 {
@@ -1263,26 +1136,6 @@ Return strictly JSON with this schema:
       error: "Shopping suggestions are temporarily unavailable",
       items: [],
     });
-
-    return res.json({
-      title: language === "bg" ? "Седмичен балансиран списък (Икономичен)" : language === "es" ? "Cesta Semanal Inteligente (Económica)" : "Weekly Balanced Smart Basket (Budget-Friendly)",
-      totalEstimatedEUR: 12.5,
-      items: [
-        { name: language === "bg" ? "Българско кисело мляко 3.6%" : language === "es" ? "Yogur natural o griego" : "Natural Yogurt 3.6%", quantity: 2, unit: language === "es" ? "packs" : "pack", category: "Dairy", estimatedPriceEUR: 1.6 },
-        { name: language === "bg" ? "Пресни краставици" : language === "es" ? "Pepinos frescos" : "Fresh Cucumbers", quantity: 1, unit: "kg", category: "Produce", estimatedPriceEUR: 1.4 },
-        { name: language === "bg" ? "Розови домати" : language === "es" ? "Tomates frescos" : "Fresh Tomatoes", quantity: 1.5, unit: "kg", category: "Produce", estimatedPriceEUR: 2.3 },
-        { name: language === "bg" ? "Бяло сирене (сирене/фета)" : language === "es" ? "Queso Feta / Sirene" : "Sirene / Feta Cheese", quantity: 400, unit: "g", category: "Dairy", estimatedPriceEUR: 3.0 },
-        { name: language === "bg" ? "Яйца (размер L)" : language === "es" ? "Huevos camperos L" : "Fresh Eggs L", quantity: 10, unit: language === "es" ? "uds" : "pcs", category: "Dairy", estimatedPriceEUR: 2.1 },
-        { name: language === "bg" ? "Пресен копър и магданоз" : language === "es" ? "Eneldo y perejil fresco" : "Fresh Dill & Parsley", quantity: 2, unit: language === "es" ? "manojos" : "bunch", category: "Produce", estimatedPriceEUR: 0.9 },
-        { name: language === "bg" ? "Орехови ядки" : language === "es" ? "Nueces peladas" : "Walnut Halves", quantity: 100, unit: "g", category: "Pantry", estimatedPriceEUR: 1.2 },
-      ],
-      aiReasoning: language === "bg"
-        ? "Този базов списък струва под 12.5€ и ви позволява да приготвите поне 6 питателни, богати на протеин и пробиотици хранения."
-        : language === "es"
-        ? "Esta cesta básica cuesta menos de 12.5€ y permite preparar al menos 6 platos ricos en proteínas y probióticos (Tarator, ensaladas y revueltos)."
-        : "This core basket costs under 12.5€ and enables at least 6 balanced, probiotic and protein-rich meals.",
-      source: "resilient_fallback",
-    });
   }
 });
 
@@ -1299,37 +1152,12 @@ app.post("/api/ai/scan-image", async (req, res) => {
     const ai = getGeminiClient();
 
     if (!ai) {
-      // Return smart fallback items in case API key is not configured
-      const fallbackItems = [
-        {
-          name: language === "es" ? "Yogur natural" : (language === "bg" ? "Кисело мляко" : "Plain Yogurt"),
-          quantity: 2,
-          unit: "uds",
-          category: "Dairy",
-          estimatedDaysUntilExpiry: 7,
-          approximateCostEUR: 1.4,
-          confidence: "high"
-        },
-        {
-          name: language === "es" ? "Huevos frescos" : (language === "bg" ? "Яйца" : "Fresh Eggs"),
-          quantity: 6,
-          unit: "pcs",
-          category: "Dairy",
-          estimatedDaysUntilExpiry: 14,
-          approximateCostEUR: 1.6,
-          confidence: "high"
-        },
-        {
-          name: language === "es" ? "Tomates frescos" : (language === "bg" ? "Пресни домати" : "Fresh Tomatoes"),
-          quantity: 4,
-          unit: "pcs",
-          category: "Produce",
-          estimatedDaysUntilExpiry: 5,
-          approximateCostEUR: 1.2,
-          confidence: "medium"
-        }
-      ];
-      return res.json({ items: fallbackItems, source: "mock_fallback" });
+      // AI unavailability is not a detection. Preserve the no-result boundary.
+      return res.status(503).json({
+        success: false,
+        error: "AI vision scanner is temporarily unavailable",
+        items: [],
+      });
     }
 
     const promptText = `You are BalkanBite AI Computer Vision. You are analyzing an image of a ${scanType} (fridge, pantry shelf, groceries, or receipt).
@@ -1382,21 +1210,18 @@ Return strictly a JSON array conforming to this schema, with no markdown code fe
       items = [];
     }
 
-    return res.json({ items: Array.isArray(items) ? items : [], source: "gemini_vision" });
+    return res.json({
+      success: true,
+      items: Array.isArray(items) ? items : [],
+      source: "gemini_vision",
+    });
   } catch (err: any) {
-    console.warn("Gemini Vision transient/quota error, using resilient visual fallback:", err.message || err);
-    const fallbackItems = [
-      {
-        name: req.body?.language === "es" ? "Alimento detectado" : (req.body?.language === "bg" ? "Открита храна" : "Detected Grocery"),
-        quantity: 1,
-        unit: "pack",
-        category: "Produce",
-        estimatedDaysUntilExpiry: 5,
-        approximateCostEUR: 1.5,
-        confidence: "medium"
-      }
-    ];
-    return res.json({ items: fallbackItems, source: "resilient_fallback", error: err.message });
+    console.warn("Gemini Vision scan failed:", err.message || err);
+    return res.status(503).json({
+      success: false,
+      error: "AI vision scan failed",
+      items: [],
+    });
   }
 });
 

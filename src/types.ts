@@ -56,7 +56,11 @@ export interface Recipe {
   carbsG: number;
   fatG: number;
   fiberG: number;
-  healthScore: number;
+  healthScore?: number;
+  /** Numeric recipe nutrition is provisional unless a deterministic verified source is attached. */
+  nutritionDataStatus?: "verified" | "estimated" | "unknown";
+  /** Recipe cost is provisional unless backed by verified price inputs. */
+  costDataStatus?: "verified" | "estimated" | "unknown";
   tags: string[];
   ingredients: RecipeIngredient[];
   instructions: {

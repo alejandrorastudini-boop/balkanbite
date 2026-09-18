@@ -1,3 +1,5 @@
+import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
@@ -64,9 +66,61 @@ function aistudioMediaPlugin(): Plugin {
 }
 // LINT.ThenChange(//depot/google3/java/com/google/alkali/boq/makersuite/applet_dev_service/templates/initializers/react_theme/vite.config.ts:aistudio_media_plugin)
 
+function resolveBuildGitSha(): string {
+  const viteVercelSha = process.env.VITE_VERCEL_GIT_COMMIT_SHA?.trim();
+  if (viteVercelSha) return viteVercelSha;
+
+  const vercelSha = process.env.VERCEL_GIT_COMMIT_SHA?.trim();
+  if (vercelSha) return vercelSha;
+
+  try {
+    return execFileSync('git', ['rev-parse', 'HEAD'], {
+      encoding: 'utf8',
+      stdio: ['ignore', 'pipe', 'ignore'],
+    }).trim();
+  } catch {
+    return '';
+  }
+}
+
+function runtimeQaFingerprintFiles(): string[] {
+  const manifestPath = path.resolve(
+    __dirname,
+    'qa',
+    'runtime',
+    'fingerprint-files.json',
+  );
+  const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  if (!Array.isArray(parsed) || parsed.some((value) => typeof value !== 'string')) {
+    throw new Error('Invalid runtime QA fingerprint manifest');
+  }
+  return parsed;
+}
+
+function runtimeQaSourceFingerprint(): string {
+  const hash = createHash('sha256');
+  for (const relativePath of runtimeQaFingerprintFiles()) {
+    hash.update(relativePath);
+    hash.update('\0');
+    hash.update(fs.readFileSync(path.resolve(__dirname, relativePath)));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss(), aistudioMediaPlugin()],
+    define: {
+      __BALKANBITE_VERCEL_ENV__: JSON.stringify(process.env.VERCEL_ENV || ""),
+      __BALKANBITE_VERCEL_GIT_SHA__: JSON.stringify(resolveBuildGitSha()),
+      __BALKANBITE_VERCEL_DEPLOYMENT_ID__: JSON.stringify(
+        process.env.VERCEL_DEPLOYMENT_ID || ""
+      ),
+      __BALKANBITE_RUNTIME_QA_FINGERPRINT__: JSON.stringify(
+        runtimeQaSourceFingerprint()
+      ),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),

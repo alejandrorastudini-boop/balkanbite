@@ -35,6 +35,27 @@ interface ScannedItem extends SafeScanCandidate {
 const isScannedItemConfirmed = (item: ScannedItem) =>
   isConfirmedScanCandidate(item, item.quantityConfirmed, item.unitConfirmed);
 
+/** A confirmation belongs only to the exact quantity or unit value reviewed. */
+const updateCandidateReviewField = <K extends keyof ScannedItem>(
+  item: ScannedItem,
+  field: K,
+  value: ScannedItem[K]
+): ScannedItem => {
+  const requiredValueChanged =
+    (field === "quantity" && value !== item.quantity) ||
+    (field === "unit" && value !== item.unit);
+
+  return {
+    ...item,
+    [field]: value,
+    // Editing either required value revokes both the field-specific review and
+    // any prior selection, so a stale confirmation can never remain saveable.
+    ...(requiredValueChanged ? { selected: false } : {}),
+    ...(field === "quantity" && value !== item.quantity ? { quantityConfirmed: false } : {}),
+    ...(field === "unit" && value !== item.unit ? { unitConfirmed: false } : {}),
+  };
+};
+
 interface ScanModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -185,10 +206,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       setScannedItems([]);
       setErrorMsg(
         language === "es"
-          ? "Error de conexión con el escáner de IA. Inténtalo de nuevo."
+          ? "El escaneo con IA falló. No hay ningún candidato de despensa para revisar o añadir y no se puede guardar nada. Inténtalo de nuevo."
           : language === "bg"
-          ? "Грешка при връзка с AI скенера. Моля, опитайте отново."
-          : "Error connecting to AI vision scanner. Please try again."
+          ? "AI сканирането беше неуспешно. Няма предложение за преглед или добавяне в килера и нищо не може да бъде запазено. Моля, опитайте отново."
+          : "AI vision scan failed. No pantry candidate is available to review or add, and nothing can be saved. Please try again."
       );
     } finally {
       if (requestId === captureRequestIdRef.current) setIsScanning(false);
@@ -206,10 +227,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       setIsScanning(false);
       setErrorMsg(
         language === "es"
-          ? "Introduce un código de barras para buscar. No hay ningún candidato disponible para añadir."
+          ? "Introduce un código de barras para buscar. No hay ningún candidato de despensa para revisar o añadir y no se puede guardar nada."
           : language === "bg"
-          ? "Въведете баркод за търсене. Няма налично предложение за добавяне."
-          : "Enter a barcode to search. No pantry candidate is available to add."
+          ? "Въведете баркод за търсене. Няма предложение за преглед или добавяне в килера и нищо не може да бъде запазено."
+          : "Enter a barcode to search. No pantry candidate is available to review or add, and nothing can be saved."
       );
       return;
     }
@@ -264,10 +285,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       setScannedItems([]);
       setErrorMsg(
         language === "es"
-          ? "No se pudo encontrar el código de barras. No hay ningún candidato de despensa disponible para revisar o añadir."
+          ? "La consulta del código de barras falló o no encontró el producto. No hay ningún candidato de despensa para revisar o añadir y no se puede guardar nada."
           : language === "bg"
-          ? "Баркодът не можа да бъде намерен. Няма налично предложение за преглед или добавяне в килера."
-          : "The barcode could not be found. No pantry candidate is available to review or add."
+          ? "Справката по баркод беше неуспешна или продуктът не беше намерен. Няма предложение за преглед или добавяне в килера и нищо не може да бъде запазено."
+          : "The barcode lookup failed or did not find the product. No pantry candidate is available to review or add, and nothing can be saved."
       );
     } finally {
       if (requestId === captureRequestIdRef.current) setIsScanning(false);
@@ -289,27 +310,30 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   };
 
   const updateRequiredField = (id: string, field: "quantity" | "unit", rawValue: string) => {
-    setErrorMsg(null);
+    setErrorMsg(confirmationText);
     setScannedItems((prev) =>
       prev.map((item) => {
         if (item.id !== id) return item;
-        const next =
+        const value =
           field === "quantity"
-            ? {
-                ...item,
-                quantity:
-                  rawValue.trim() && Number.isFinite(Number(rawValue)) && Number(rawValue) > 0
-                    ? Number(rawValue)
-                    : undefined,
-              }
-            : { ...item, unit: rawValue.trim() || undefined };
-        const confirmed = {
-          ...next,
-          quantityConfirmed:
-            field === "quantity" ? typeof next.quantity === "number" : item.quantityConfirmed,
-          unitConfirmed: field === "unit" ? Boolean(next.unit) : item.unitConfirmed,
-        };
-        return { ...confirmed, selected: item.selected && isScannedItemConfirmed(confirmed) };
+            ? rawValue.trim() && Number.isFinite(Number(rawValue)) && Number(rawValue) > 0
+              ? Number(rawValue)
+              : undefined
+            : rawValue.trim() || undefined;
+        return updateCandidateReviewField(item, field, value);
+      })
+    );
+  };
+
+  const confirmRequiredField = (id: string, field: "quantity" | "unit") => {
+    setScannedItems((prev) =>
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        if (field === "quantity" && typeof item.quantity === "number") {
+          return { ...item, quantityConfirmed: true };
+        }
+        if (field === "unit" && item.unit) return { ...item, unitConfirmed: true };
+        return item;
       })
     );
   };
@@ -399,7 +423,21 @@ export const ScanModal: React.FC<ScanModalProps> = ({
             <div className="space-y-3">
               <form onSubmit={handleBarcodeSearch} className="flex gap-2">
                 <div className="relative flex-1">
-                  <input type="text" value={barcodeInput} onChange={(e) => setBarcodeInput(e.target.value)} placeholder={language === "es" ? "Introduce código EAN..." : language === "bg" ? "Въведете EAN баркод..." : "Enter EAN barcode..."} className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-stone-400 focus:outline-none focus:border-emerald-500" />
+                  <input
+                    type="text"
+                    value={barcodeInput}
+                    onChange={(e) => {
+                      // Editing the barcode abandons both the displayed candidate and any lookup
+                      // still in flight, so an old response cannot restore a stale save path.
+                      ++captureRequestIdRef.current;
+                      setBarcodeInput(e.target.value);
+                      setScannedItems([]);
+                      setIsScanning(false);
+                      setErrorMsg(null);
+                    }}
+                    placeholder={language === "es" ? "Introduce código EAN..." : language === "bg" ? "Въведете EAN баркод..." : "Enter EAN barcode..."}
+                    className="w-full bg-stone-800 border border-stone-700 rounded-xl px-3.5 py-2.5 text-xs text-white placeholder-stone-400 focus:outline-none focus:border-emerald-500"
+                  />
                 </div>
                 <button type="submit" disabled={isScanning || !barcodeInput.trim()} className="px-4 py-2.5 rounded-xl bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-xs font-bold transition-all cursor-pointer flex items-center gap-1.5 shrink-0">
                   {isScanning ? <Loader2 className="w-4 h-4 animate-spin" /> : <Barcode className="w-4 h-4" />}
@@ -455,20 +493,26 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                     <div key={item.id} className={`p-3 rounded-xl border transition-all ${item.selected ? "bg-emerald-950/20 border-emerald-500/40 text-white" : ready ? "bg-stone-850/50 border-stone-700 text-stone-300" : "bg-amber-950/10 border-amber-500/30 text-stone-300"}`}>
                       <div className="flex items-start justify-between gap-2.5">
                         <div className="flex items-start gap-2.5 min-w-0 flex-1">
-                          <button type="button" onClick={() => handleToggleItem(item.id)} aria-label={ready ? "Toggle item" : "Complete quantity and unit first"} className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 ${ready ? "cursor-pointer" : "cursor-not-allowed opacity-50"} ${item.selected ? "bg-emerald-600 border-emerald-500 text-white" : "border-stone-600"}`}>
+                          <button type="button" disabled={!ready} onClick={() => handleToggleItem(item.id)} aria-label={ready ? "Toggle item" : "Complete quantity and unit first"} className={`mt-0.5 w-5 h-5 rounded-md border flex items-center justify-center transition-all shrink-0 ${ready ? "cursor-pointer" : "cursor-not-allowed opacity-50"} ${item.selected ? "bg-emerald-600 border-emerald-500 text-white" : "border-stone-600"}`}>
                             {item.selected && <Check className="w-3.5 h-3.5" />}
                           </button>
                           <div className="min-w-0 flex-1">
                             <span className="text-xs font-semibold block truncate">{item.name}</span>
                             <div className="mt-2 grid grid-cols-[minmax(0,1fr)_minmax(0,1.25fr)] gap-2">
-                              <label className="space-y-1">
+                              <div className="space-y-1">
                                 <span className="text-[10px] text-stone-400">{language === "es" ? "Cantidad" : language === "bg" ? "Количество" : "Quantity"}</span>
-                                <input type="number" min="0" step="any" inputMode="decimal" value={item.quantity ?? ""} onChange={(e) => updateRequiredField(item.id, "quantity", e.target.value)} placeholder="?" className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
-                              </label>
-                              <label className="space-y-1">
+                                <input aria-label={language === "es" ? "Cantidad" : language === "bg" ? "Количество" : "Quantity"} type="number" min="0" step="any" inputMode="decimal" value={item.quantity ?? ""} onChange={(e) => updateRequiredField(item.id, "quantity", e.target.value)} placeholder="?" className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
+                                <button type="button" disabled={typeof item.quantity !== "number" || item.quantityConfirmed} onClick={() => confirmRequiredField(item.id, "quantity")} className="w-full rounded-lg border border-emerald-500/40 px-2 py-1 text-[10px] text-emerald-300 disabled:border-stone-700 disabled:text-stone-500">
+                                  {item.quantityConfirmed ? (language === "es" ? "Confirmada" : language === "bg" ? "Потвърдено" : "Confirmed") : (language === "es" ? "Confirmar cantidad" : language === "bg" ? "Потвърди количество" : "Confirm quantity")}
+                                </button>
+                              </div>
+                              <div className="space-y-1">
                                 <span className="text-[10px] text-stone-400">{language === "es" ? "Unidad" : language === "bg" ? "Единица" : "Unit"}</span>
-                                <input type="text" value={item.unit ?? ""} onChange={(e) => updateRequiredField(item.id, "unit", e.target.value)} placeholder={language === "es" ? "kg, g, uds..." : language === "bg" ? "кг, г, бр..." : "kg, g, pcs..."} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
-                              </label>
+                                <input aria-label={language === "es" ? "Unidad" : language === "bg" ? "Единица" : "Unit"} type="text" value={item.unit ?? ""} onChange={(e) => updateRequiredField(item.id, "unit", e.target.value)} placeholder={language === "es" ? "kg, g, uds..." : language === "bg" ? "кг, г, бр..." : "kg, g, pcs..."} className="w-full bg-stone-900 border border-stone-700 rounded-lg px-2 py-1.5 text-xs text-white focus:outline-none focus:border-emerald-500" />
+                                <button type="button" disabled={!item.unit || item.unitConfirmed} onClick={() => confirmRequiredField(item.id, "unit")} className="w-full rounded-lg border border-emerald-500/40 px-2 py-1 text-[10px] text-emerald-300 disabled:border-stone-700 disabled:text-stone-500">
+                                  {item.unitConfirmed ? (language === "es" ? "Confirmada" : language === "bg" ? "Потвърдено" : "Confirmed") : (language === "es" ? "Confirmar unidad" : language === "bg" ? "Потвърди единица" : "Confirm unit")}
+                                </button>
+                              </div>
                             </div>
                             <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-stone-400">
                               <span className="text-emerald-400">{item.category}</span>
@@ -492,7 +536,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
         <div className="p-3.5 border-t border-stone-800 bg-stone-850/80 flex items-center justify-between gap-3">
           <button type="button" onClick={() => { handleResetModal(); onClose(); }} className="px-4 py-2 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold transition-colors cursor-pointer">{currentText.cancel || "Cancel"}</button>
-          <button type="button" disabled={selectedCount === 0} onClick={handleSaveToPantry} className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 flex items-center gap-1.5 cursor-pointer">
+          <button type="button" disabled={selectedCount === 0} onClick={() => { if (selectedCount > 0) handleSaveToPantry(); }} className="px-5 py-2 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 disabled:opacity-40 text-white text-xs font-bold transition-all shadow-md shadow-emerald-950/40 flex items-center gap-1.5 cursor-pointer">
             <Plus className="w-3.5 h-3.5" />
             <span>{currentText.addScannedToPantry || (language === "es" ? "Añadir a mi despensa" : language === "bg" ? "Добави към килера" : "Add to pantry")} ({selectedCount})</span>
           </button>
