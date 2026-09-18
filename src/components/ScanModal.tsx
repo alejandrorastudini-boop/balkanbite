@@ -343,8 +343,16 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   };
 
   const handleSaveToPantry = () => {
-    const selected = scannedItems.filter((item) => item.selected);
-    if (selected.length === 0) return;
+    // Treat selection as presentation state only. Recheck both confirmations at
+    // the persistence boundary so no stale or future UI path can save a candidate
+    // whose quantity and unit were not explicitly reviewed.
+    const selected = scannedItems.filter(
+      (item) => item.selected && isScannedItemConfirmed(item)
+    );
+    if (selected.length === 0) {
+      setErrorMsg(confirmationText);
+      return;
+    }
 
     const payload = selected.map(toPantryPayload);
     if (payload.some((item) => item === null)) {
