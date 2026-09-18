@@ -433,6 +433,6 @@ export const DEFAULT_PROFILE: UserProfile = {
   dietStyle: "mediterranean",
   disliked: [],
   budgetTier: "balanced",
-  isProSubscriber: true,
+  isProSubscriber: false,
   onboardingCompleted: true,
 };
