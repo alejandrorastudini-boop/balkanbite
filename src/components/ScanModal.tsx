@@ -349,10 +349,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     const selected = scannedItems.filter(
       (item) => item.selected && isScannedItemConfirmed(item)
     );
-    if (selected.length === 0) {
-      setErrorMsg(confirmationText);
-      return;
-    }
+    if (selected.length === 0) return;
 
     const payload = selected.map(toPantryPayload);
     if (payload.some((item) => item === null)) {
