@@ -9,7 +9,6 @@ const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || "";
 const shareUrl = process.env.QA_SHARE_URL || "";
 const artifactDir = process.env.QA_ARTIFACT_DIR || "artifacts/runtime-qa";
 const expectedSha = process.env.QA_EXPECTED_SHA || "";
-const remoteVerifiedSha = process.env.QA_REMOTE_VERIFIED_SHA || "";
 const requestedLocalBypass = process.env.QA_ALLOW_UNPROTECTED_LOCAL === "true";
 const delayMs = 30_000;
 const shellDeadlineMs = 10_000;
@@ -80,23 +79,6 @@ async function waitForExpectedDeployment(page) {
       expectedSha,
       `local preview must serve the exact checked-out build SHA; expected ${expectedSha}, got ${localSha || "none"}`
     );
-    return;
-  }
-
-  if (remoteVerifiedSha) {
-    assert.equal(
-      remoteVerifiedSha,
-      expectedSha,
-      `externally verified remote deployment SHA must equal expected SHA; expected ${expectedSha}, got ${remoteVerifiedSha}`
-    );
-    await page.goto(scenarioUrl("present"), {
-      waitUntil: "domcontentloaded",
-      timeout: 30_000,
-    });
-    await page.getByTestId("qa-runtime-root").waitFor({
-      state: "visible",
-      timeout: 30_000,
-    });
     return;
   }
 
@@ -330,11 +312,6 @@ const summary = {
       : shareUrl
         ? "vercel-share-link"
         : "local-unprotected",
-  shaVerificationMethod: allowUnprotectedLocal
-    ? "local-build-marker"
-    : remoteVerifiedSha
-      ? "external-deployment-metadata"
-      : "deployed-dom-marker",
   results,
   status: failure ? "fail" : "pass",
 };
