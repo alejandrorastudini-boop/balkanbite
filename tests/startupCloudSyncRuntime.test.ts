@@ -16,6 +16,10 @@ const pantryViewSource = readFileSync(
   new URL("../src/components/PantryView.tsx", import.meta.url),
   "utf8"
 );
+const runtimeQaRunnerSource = readFileSync(
+  new URL("../qa/runtime/startup-cloud-sync.mjs", import.meta.url),
+  "utf8"
+);
 
 type AppSyncBoundary = ReturnType<typeof getStartupCloudSyncState> & {
   loading: boolean;
@@ -302,3 +306,27 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
     /disabled=\{inventoryIsProvisional\}/
   );
 });
+
+test("remote runtime QA keeps exact SHA verification when build metadata is external", () => {
+  assert.match(
+    runtimeQaRunnerSource,
+    /const remoteVerifiedSha = process\.env\.QA_REMOTE_VERIFIED_SHA \|\| ""/
+  );
+  assert.match(
+    runtimeQaRunnerSource,
+    /assert\.equal\(\s*remoteVerifiedSha,\s*expectedSha,/
+  );
+  assert.match(
+    runtimeQaRunnerSource,
+    /shaVerificationMethod:[\s\S]*external-deployment-metadata/
+  );
+  assert.match(
+    runtimeQaRunnerSource,
+    /QA_ALLOW_UNPROTECTED_LOCAL is restricted to localhost\/127\.0\.0\.1/
+  );
+  assert.match(
+    runtimeQaRunnerSource,
+    /Preview alias did not reach expected SHA/
+  );
+});
+
