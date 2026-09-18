@@ -34,14 +34,14 @@ if (!trustedOidcToken && !bypassSecret && !shareUrl && !allowUnprotectedLocal) {
 
 await fs.mkdir(artifactDir, { recursive: true });
 
-const extraHTTPHeaders = trustedOidcToken
+const extraHTTPHeaders = bypassSecret
   ? {
-      "x-vercel-trusted-oidc-idp-token": trustedOidcToken,
+      "x-vercel-protection-bypass": bypassSecret,
+      "x-vercel-set-bypass-cookie": "true",
     }
-  : bypassSecret
+  : trustedOidcToken
     ? {
-        "x-vercel-protection-bypass": bypassSecret,
-        "x-vercel-set-bypass-cookie": "true",
+        "x-vercel-trusted-oidc-idp-token": trustedOidcToken,
       }
     : undefined;
 
@@ -305,10 +305,10 @@ const summary = {
   expectedSha,
   delayMs,
   shellDeadlineMs,
-  authMethod: trustedOidcToken
-    ? "vercel-trusted-source-oidc"
-    : bypassSecret
-      ? "vercel-automation-bypass"
+  authMethod: bypassSecret
+    ? "vercel-automation-bypass"
+    : trustedOidcToken
+      ? "vercel-trusted-source-oidc"
       : shareUrl
         ? "vercel-share-link"
         : "local-unprotected",
