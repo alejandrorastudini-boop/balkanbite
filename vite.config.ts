@@ -1,4 +1,5 @@
 import {execFileSync} from 'node:child_process';
+import {createHash} from 'node:crypto';
 import tailwindcss from '@tailwindcss/vite';
 import react from '@vitejs/plugin-react';
 import fs from 'fs';
@@ -82,6 +83,29 @@ function resolveBuildGitSha(): string {
   }
 }
 
+const RUNTIME_QA_FINGERPRINT_FILES = [
+  'vite.config.ts',
+  'src/main.tsx',
+  'src/qa/runtimeQaGate.ts',
+  'src/qa/StartupCloudSyncQaHarness.tsx',
+  'src/utils/startupCloudSync.ts',
+  'src/hooks/useFirebaseSync.ts',
+  'src/App.tsx',
+  'src/components/PantryView.tsx',
+  'qa/runtime/startup-cloud-sync.mjs',
+] as const;
+
+function runtimeQaSourceFingerprint(): string {
+  const hash = createHash('sha256');
+  for (const relativePath of RUNTIME_QA_FINGERPRINT_FILES) {
+    hash.update(relativePath);
+    hash.update('\0');
+    hash.update(fs.readFileSync(path.resolve(__dirname, relativePath)));
+    hash.update('\0');
+  }
+  return hash.digest('hex');
+}
+
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss(), aistudioMediaPlugin()],
@@ -90,6 +114,9 @@ export default defineConfig(() => {
       __BALKANBITE_VERCEL_GIT_SHA__: JSON.stringify(resolveBuildGitSha()),
       __BALKANBITE_VERCEL_DEPLOYMENT_ID__: JSON.stringify(
         process.env.VERCEL_DEPLOYMENT_ID || ""
+      ),
+      __BALKANBITE_RUNTIME_QA_FINGERPRINT__: JSON.stringify(
+        runtimeQaSourceFingerprint()
       ),
     },
     resolve: {
