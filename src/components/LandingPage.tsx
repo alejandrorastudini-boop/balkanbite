@@ -708,18 +708,18 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               ? [
                   { aspect: "Inventario", old: "Olvidos y desperdicio", new: "Escaneo Visual IA" },
                   { aspect: "Menú Semanal", old: "Improvisación diaria", new: "Plan de 7 días" },
-                  { aspect: "Lista de la Compra", old: "Notas de papel dispersas", new: "WhatsApp Sync" }
+                  { aspect: "Lista de la Compra", old: "Notas de papel dispersas", new: "Compartir por WhatsApp" }
                 ]
               : language === "bg"
               ? [
                   { aspect: "Инвентар", old: "Забравени храни и отпадък", new: "AI Визуален скенер" },
                   { aspect: "Седмично меню", old: "Ежедневен стрес и импровизация", new: "7-дневен смарт план" },
-                  { aspect: "Списък за пазаруване", old: "Разпилени хвърчащи бележки", new: "WhatsApp синхронизация" }
+                  { aspect: "Списък за пазаруване", old: "Разпилени хвърчащи бележки", new: "Споделяне в WhatsApp" }
                 ]
               : [
                   { aspect: "Inventory", old: "Forgotten items & food waste", new: "Visual AI Scanning" },
                   { aspect: "Weekly Menu", old: "Daily improvisation stress", new: "7-Day Smart Plan" },
-                  { aspect: "Grocery List", old: "Scattered paper notes", new: "WhatsApp Sync" }
+                  { aspect: "Grocery List", old: "Scattered paper notes", new: "Compartir por WhatsApp" }
                 ]
             ).map((row, i) => (
               <div key={i} className="grid grid-cols-3 p-4 items-center border-b border-stone-800/80">
