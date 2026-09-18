@@ -591,141 +591,6 @@ function resolveRecipeImageUrl(recipe: any): string {
   return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80";
 }
 
-function fallbackParseIntent(transcript: string, language: string, currentPantry: any[] = [], mealLogs: any[] = []) {
-  const lower = transcript.toLowerCase();
-  const items: any[] = [];
-  let actionType = "ANSWER";
-  let mealLog: any = null;
-
-  const pantryNames = Array.isArray(currentPantry) && currentPantry.length > 0
-    ? currentPantry.map((p: any) => p.name).join(", ")
-    : "";
-
-  // Check for meal logging (breakfast/lunch/dinner/ate)
-  const isMealLog =
-    lower.includes("desayuné") ||
-    lower.includes("desayuno") ||
-    lower.includes("comí") ||
-    lower.includes("comida") ||
-    lower.includes("almorcé") ||
-    lower.includes("almuerzo") ||
-    lower.includes("cené") ||
-    lower.includes("ate") ||
-    lower.includes("had") ||
-    lower.includes("breakfast") ||
-    lower.includes("lunch");
-
-  // Check for dinner/recipe query
-  const isDinnerQuery =
-    lower.includes("cenar") ||
-    lower.includes("cena") ||
-    lower.includes("que voy a cenar") ||
-    lower.includes("qué voy a cenar") ||
-    lower.includes("dinner") ||
-    lower.includes("receta") ||
-    lower.includes("qué cocino");
-
-  if (
-    lower.includes("tengo") ||
-    lower.includes("compré") ||
-    lower.includes("compre") ||
-    lower.includes("add") ||
-    lower.includes("bought") ||
-    lower.includes("купих") ||
-    lower.includes("добави")
-  ) {
-    actionType = "ADD_ITEMS";
-
-    if (lower.includes("huevos") || lower.includes("huevo")) {
-      items.push({ name: "Huevos frescos", quantity: 6, unit: "uds", category: "Lácteos/Proteína" });
-    }
-    if (lower.includes("filadelfia") || lower.includes("queso")) {
-      items.push({ name: "Queso crema estilo Filadelfia", quantity: 1, unit: "tarrina", category: "Lácteos" });
-    }
-    if (lower.includes("leche")) {
-      items.push({ name: "Leche", quantity: 1, unit: "litro", category: "Lácteos" });
-    }
-    if (lower.includes("tomate") || lower.includes("tomates")) {
-      items.push({ name: "Tomates", quantity: 1, unit: "kg", category: "Verduras" });
-    }
-    if (lower.includes("yogur") || lower.includes("kiselo")) {
-      items.push({ name: "Yogur", quantity: 2, unit: "uds", category: "Lácteos" });
-    }
-
-    if (items.length === 0) {
-      const cleanName = transcript
-        .replace(/no tengo|tengo|compré|compre|add|bought|купих|добави/gi, "")
-        .trim();
-      if (cleanName) {
-        items.push({ name: cleanName, quantity: 1, unit: "unidad", category: "Otros" });
-      }
-    }
-  } else if (isMealLog) {
-    actionType = "MEAL_LOG";
-    let mealType: "breakfast" | "lunch" | "dinner" | "snack" = "lunch";
-    if (lower.includes("desayun") || lower.includes("breakfast")) mealType = "breakfast";
-    if (lower.includes("cen") || lower.includes("dinner")) mealType = "dinner";
-
-    mealLog = {
-      mealType,
-      manualName: transcript,
-      calories: 450,
-      proteinG: 25,
-      carbsG: 35,
-      fatG: 18,
-    };
-  } else if (isDinnerQuery) {
-    actionType = "RECIPE_RECOMMENDATION";
-  }
-
-  let spokenFeedback = "";
-  if (actionType === "ADD_ITEMS") {
-    spokenFeedback = language === "es"
-      ? `Entendido. He añadido a tu despensa: ${items.map(i => i.name).join(", ")}.`
-      : language === "bg"
-      ? `Добавих към килера: ${items.map(i => i.name).join(", ")}.`
-      : `Added to pantry: ${items.map(i => i.name).join(", ")}.`;
-  } else if (actionType === "MEAL_LOG" || (isMealLog && isDinnerQuery)) {
-    let suggestion = "";
-    if (pantryNames) {
-      suggestion = language === "es"
-        ? ` Teniendo en cuenta tu despensa (${pantryNames}), puedes hacer algo rápido con lo que tienes, o bien comprar un par de ingredientes frescos (como verduras o proteína) para una cena completa.`
-        : ` Considering your pantry (${pantryNames}), you can cook using what you have or buy 1-2 extra fresh ingredients for a complete meal.`;
-    } else {
-      suggestion = language === "es"
-        ? " Te sugiero algunas opciones deliciosas para cenar con lo que tienes o añadiendo algún ingrediente fresco."
-        : " For dinner, I suggest tasty options using pantry items or adding fresh groceries.";
-    }
-
-    spokenFeedback = language === "es"
-      ? `¡Perfecto! He registrado lo que has comido y desayunado hoy.` + suggestion
-      : `Logged your meals!` + suggestion;
-  } else if (actionType === "RECIPE_RECOMMENDATION") {
-    if (pantryNames) {
-      spokenFeedback = language === "es"
-        ? `Te sugiero varias opciones para cenar: algunas aprovechan lo que tienes en tu despensa (${pantryNames}), y otras proponen comprar algún ingrediente extra para darte más variedad. Puedes ver las recetas completas en la sección Recetas.`
-        : `I suggest dinner options combining your pantry ingredients (${pantryNames}) and a few recommended extra items for variety. Check out full step-by-step recipes!`;
-    } else {
-      spokenFeedback = language === "es"
-        ? "Te recomiendo opciones para cenar: tanto platos sencillos con tu despensa como recetas recomendadas añadiendo ingredientes frescos."
-        : "For dinner I suggest options using your pantry or adding fresh complementary ingredients.";
-    }
-  } else {
-    spokenFeedback = language === "es"
-      ? `Entendido: "${transcript}". He anotado tu mensaje.`
-      : language === "bg"
-      ? `Чух ви: "${transcript}".`
-      : `Heard: "${transcript}".`;
-  }
-
-  return {
-    actionType,
-    spokenFeedback,
-    items,
-    mealLog,
-  };
-}
-
 // Fallback reconciliation parser when offline or Gemini API is not available
 function fallbackReconcileShopping(transcript: string, currentShoppingList: any[] = [], language: string = "es") {
   const lower = transcript.toLowerCase();
@@ -860,10 +725,16 @@ app.post("/api/ai/parse-intent", async (req, res) => {
     const ai = getGeminiClient();
 
     if (!ai) {
-      return res.json(fallbackParseIntent(transcript, language, currentPantry, mealLogs));
+      return res.status(503).json({
+        success: false,
+        error: "Voice interpretation is temporarily unavailable",
+        actionType: "ANSWER",
+        items: [],
+        mealLog: null,
+      });
     }
 
-    const systemPrompt = `You are a warm, expert Medical Nutritionist and AI Chef (BalkanBite).
+    const systemPrompt = `You are a food-planning assistant and cooking helper for BalkanBite.
 User Language: ${language === "bg" ? "Bulgarian" : language === "es" ? "Spanish" : "English"}.
 
 User's Current Pantry Ingredients: ${JSON.stringify(currentPantry)}
@@ -884,14 +755,15 @@ IMPORTANT RULES:
 - Provide a warm, helpful, complete "spokenFeedback" in ${language === "bg" ? "Bulgarian" : language === "es" ? "Spanish" : "English"}.
 - NEVER use generic placeholders like "estoy procesando tus ingredientes".
 - IF user asks what to eat/cook for dinner or lunch: Offer a mix of options. Some recipes can rely on ingredients they already have in their pantry (${JSON.stringify(currentPantry.map((p: any) => p.name))}), and others can suggest purchasing 1-2 complementary fresh ingredients to complete a delicious meal. Always take into account what they've already eaten today!
-- IF user reports meals, calculate reasonable calorie & protein estimates into "mealLog".
+- IF user reports meals, do not calculate or invent calories, protein, carbs, fat, or other nutrition values. Set "mealLog" to null and explain that nutrition logging needs verified data before it can be saved.
+- Never claim that a meal, pantry item, or nutrition value was saved unless the client explicitly confirms that action.
 
 Return strictly JSON format:
 {
   "actionType": "MEAL_LOG" | "RECIPE_RECOMMENDATION" | "ADD_ITEMS" | "REMOVE_ITEMS" | "ADD_SHOPPING" | "ANSWER",
   "spokenFeedback": "Complete, friendly nutritionist response addressing all user points in ${language}.",
   "items": [{ "name": "string", "quantity": number, "unit": "string", "category": "Produce"|"Dairy"|"Meat/Fish"|"Pantry/Grains"|"Spices"|"Other" }],
-  "mealLog": { "mealType": "breakfast"|"lunch"|"dinner"|"snack", "manualName": "string", "calories": number, "proteinG": number, "carbsG": number, "fatG": number }
+  "mealLog": null
 }`;
 
     const response = await generateWithRetry(ai, {
@@ -904,15 +776,29 @@ Return strictly JSON format:
     });
 
     const parsed = JSON.parse(response.text || "{}");
-    if (!parsed.spokenFeedback) {
-      parsed.spokenFeedback = fallbackParseIntent(transcript, language, currentPantry, mealLogs).spokenFeedback;
+    // Nutrition from free-form voice text is not authoritative. Until BalkanBite
+    // has a verified deterministic nutrition path, meal logs cannot be persisted here.
+    if (parsed.actionType === "MEAL_LOG") {
+      parsed.mealLog = null;
     }
-    return res.json(parsed);
+    if (!parsed.spokenFeedback) {
+      parsed.spokenFeedback =
+        language === "bg"
+          ? "Разбрах заявката. Няма да записвам непотвърдени хранителни стойности."
+          : language === "es"
+          ? "He entendido la solicitud. No guardaré valores nutricionales no verificados."
+          : "I understood the request. I will not save unverified nutrition values.";
+    }
+    return res.json({ success: true, ...parsed });
   } catch (err: any) {
-    console.warn("Gemini API error during voice intent parse, using fallback parser:", err.message || err);
-    // Graceful fallback response instead of 500 error
-    const fallbackResult = fallbackParseIntent(transcript, language, currentPantry, mealLogs);
-    return res.json(fallbackResult);
+    console.warn("Gemini API error during voice intent parse:", err.message || err);
+    return res.status(503).json({
+      success: false,
+      error: "Voice interpretation failed",
+      actionType: "ANSWER",
+      items: [],
+      mealLog: null,
+    });
   }
 });
 
