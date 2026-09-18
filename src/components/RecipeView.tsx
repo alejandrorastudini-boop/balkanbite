@@ -55,8 +55,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const filters = [
     { id: "all", label: language === "es" ? "Todos" : language === "bg" ? "Всички" : "All" },
     { id: "fast", label: "⚡ <20m" },
-    { id: "cheap", label: currency === "EUR" ? "💰 <3€" : "💰 <$3" },
-    { id: "protein", label: language === "es" ? "💪 Proteína" : language === "bg" ? "💪 Протеин" : "💪 Protein" },
+    { id: "cheap", label: currency === "EUR" ? "💰 ≈<3€" : "💰 ≈<$3" },
+    { id: "protein", label: language === "es" ? "💪 Proteína ≈" : language === "bg" ? "💪 Протеин ≈" : "💪 Protein ≈" },
   ];
 
   const filteredRecipes = recipes.filter((r) => {
@@ -65,6 +65,12 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
     if (activeFilter === "protein") return r.proteinG >= 18;
     return true;
   });
+
+  const isNutritionVerified = (recipe: Recipe) =>
+    recipe.nutritionDataStatus === "verified";
+  const isCostVerified = (recipe: Recipe) => recipe.costDataStatus === "verified";
+  const estimateLabel =
+    language === "es" ? "Estimación" : language === "bg" ? "Приблизително" : "Estimate";
 
   const getRecipeTitle = (recipe: Recipe) => {
     if (language === "es" && recipe.title.es) return recipe.title.es;
@@ -275,10 +281,16 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                         {tag}
                       </span>
                     ))}
-                    <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
-                      <HeartPulse className="w-2.5 h-2.5" />
-                      Score {recipe.healthScore}/100
-                    </span>
+                    {isNutritionVerified(recipe) && typeof recipe.healthScore === "number" ? (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 flex items-center gap-1 shadow-[0_0_10px_rgba(16,185,129,0.1)]">
+                        <HeartPulse className="w-2.5 h-2.5" />
+                        Score {recipe.healthScore}/100
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/10 text-amber-300 border border-amber-500/20">
+                        {estimateLabel}
+                      </span>
+                    )}
                   </div>
 
                   <h2 className="text-xl font-bold text-white font-['Outfit'] leading-tight tracking-wide">
@@ -291,9 +303,10 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                     {currentText.costServing}
                   </span>
                   <span className="text-lg font-extrabold text-emerald-400 font-['Outfit'] tracking-tight">
+                    {isCostVerified(recipe) ? "" : "≈"}
                     {currency === "EUR"
                       ? `€${recipe.costPerServingEUR.toFixed(2)}`
-                      : `$${(recipe.costPerServingEUR * 1.1).toFixed(2)}`}
+                      : `${(recipe.costPerServingEUR * 1.1).toFixed(2)}`}
                   </span>
                 </div>
               </div>
@@ -308,26 +321,26 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                   <span className="text-stone-500 block text-[9px] font-bold uppercase tracking-widest mb-1">
                     {currentText.calories}
                   </span>
-                  <span className="font-extrabold text-white font-['Outfit'] text-sm">{recipe.calories}</span>
+                  <span className="font-extrabold text-white font-['Outfit'] text-sm">{isNutritionVerified(recipe) ? "" : "≈"}{recipe.calories}</span>
                 </div>
                 <div>
                   <span className="text-stone-500 block text-[9px] font-bold uppercase tracking-widest mb-1">
                     {currentText.protein}</span>
                   <span className="font-extrabold text-emerald-400 font-['Outfit'] text-sm">
-                    {recipe.proteinG}g
+                    {isNutritionVerified(recipe) ? "" : "≈"}{recipe.proteinG}g
                   </span>
                 </div>
                 <div>
                   <span className="text-stone-500 block text-[9px] font-bold uppercase tracking-widest mb-1">
                     {currentText.carbs}</span>
                   <span className="font-extrabold text-amber-400 font-['Outfit'] text-sm">
-                    {recipe.carbsG}g
+                    {isNutritionVerified(recipe) ? "" : "≈"}{recipe.carbsG}g
                   </span>
                 </div>
                 <div>
                   <span className="text-stone-500 block text-[9px] font-bold uppercase tracking-widest mb-1">
                     {currentText.fat}</span>
-                  <span className="font-extrabold text-stone-300 font-['Outfit'] text-sm">{recipe.fatG}g</span>
+                  <span className="font-extrabold text-stone-300 font-['Outfit'] text-sm">{isNutritionVerified(recipe) ? "" : "≈"}{recipe.fatG}g</span>
                 </div>
                 <div>
                   <span className="text-stone-500 block text-[9px] font-bold uppercase tracking-widest mb-1">
@@ -425,9 +438,10 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                   </h2>
                   <div className="flex items-center gap-3 mt-2">
                     <span className="text-sm text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
+                      {isCostVerified(selectedRecipe) ? "" : "≈"}
                       {currency === "EUR"
                         ? `€${selectedRecipe.costPerServingEUR.toFixed(2)}`
-                        : `$${(selectedRecipe.costPerServingEUR * 1.1).toFixed(2)}`} / {language === "es" ? "ración" : language === "bg" ? "порция" : "serving"}
+                        : `${(selectedRecipe.costPerServingEUR * 1.1).toFixed(2)}`} / {language === "es" ? "ración" : language === "bg" ? "порция" : "serving"}
                     </span>
                     <span className="text-sm text-stone-400 font-medium flex items-center gap-1.5 bg-white/[0.04] px-2.5 py-1 rounded-lg border border-white/[0.08]">
                       <Clock className="w-3.5 h-3.5" />
@@ -436,6 +450,16 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                   </div>
                 </div>
               </div>
+
+              {!isNutritionVerified(selectedRecipe) && (
+                <p className="text-[11px] text-amber-300/90">
+                  {language === "es"
+                    ? "Nutrición y coste mostrados como estimaciones; no son cálculos verificados."
+                    : language === "bg"
+                    ? "Хранителните стойности и цената са приблизителни; не са проверени изчисления."
+                    : "Nutrition and cost are shown as estimates; they are not verified calculations."}
+                </p>
+              )}
 
               {/* Nutrition highlight callout */}
               {getRecipeNutrition(selectedRecipe) && (
