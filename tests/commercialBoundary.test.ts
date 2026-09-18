@@ -15,12 +15,17 @@ const proModalSource = readFileSync(
   new URL("../src/components/ProModal.tsx", import.meta.url),
   "utf8"
 );
+const initialDataSource = readFileSync(
+  new URL("../src/data/initialData.ts", import.meta.url),
+  "utf8"
+);
 
 test("legacy profile Pro flag is not accepted as a verified commercial entitlement", () => {
   assert.match(appSource, /const hasVerifiedProEntitlement = false;/);
   assert.doesNotMatch(appSource, /if \(!profile\.isProSubscriber\)/);
   assert.doesNotMatch(appSource, /isPro=\{profile\.isProSubscriber\}/);
   assert.doesNotMatch(appSource, /isProSubscriber:\s*!prev\.isProSubscriber/);
+  assert.match(initialDataSource, /isProSubscriber:\s*false/);
 });
 
 test("Pro UI cannot activate a fake subscription or billing state", () => {
