@@ -18,3 +18,17 @@ test("voice pantry persistence exists only behind explicit confirmation", () => 
   assert.match(source, /disabled=\{!pendingPantryItemsAreComplete\}/);
   assert.match(source, /Nothing has been saved to the pantry yet\./);
 });
+
+test("voice REMOVE_ITEMS are staged instead of deducted directly", () => {
+  assert.match(
+    source,
+    /effectiveActionType === "ADD_ITEMS" \|\| effectiveActionType === "REMOVE_ITEMS"/
+  );
+  assert.match(source, /setPendingPantryAction\(action\)/);
+  assert.doesNotMatch(source, /onDeductItemsFromPantry\(effectiveItems\)/);
+});
+
+test("confirmed voice mutation dispatches only the reviewed pending action", () => {
+  assert.match(source, /if \(action === "add"\)[\s\S]*onAddItemsToPantry\(confirmedItems\)[\s\S]*else \{\s*onDeductItemsFromPantry\(confirmedItems\)/);
+  assert.match(source, /Nothing has been deducted from the pantry yet\./);
+});
