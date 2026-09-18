@@ -1,0 +1,78 @@
+name: BalkanBite Runtime Preview QA
+
+on:
+  deployment_status:
+  workflow_dispatch:
+    inputs:
+      preview_url:
+        description: "Protected Vercel preview URL to validate"
+        required: true
+        type: string
+
+permissions:
+  contents: read
+  deployments: read
+
+concurrency:
+  group: runtime-preview-qa-${{ github.event.deployment.sha || github.sha }}
+  cancel-in-progress: true
+
+jobs:
+  startup-cloud-sync:
+    if: >-
+      github.event_name == 'workflow_dispatch' ||
+      (
+        github.event_name == 'deployment_status' &&
+        github.event.deployment_status.state == 'success' &&
+        startsWith(github.event.deployment.ref, 'preview/qa-')
+      )
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+
+    steps:
+      - name: Checkout deployment commit
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.deployment.sha || github.sha }}
+
+      - name: Resolve preview URL
+        env:
+          DISPATCH_URL: ${{ inputs.preview_url }}
+          DEPLOYMENT_URL: ${{ github.event.deployment_status.target_url }}
+        run: |
+          URL="${DISPATCH_URL:-$DEPLOYMENT_URL}"
+          if [ -z "$URL" ]; then
+            echo "No Vercel preview URL was supplied by the deployment event." >&2
+            exit 1
+          fi
+          echo "QA_PREVIEW_URL=$URL" >> "$GITHUB_ENV"
+
+      - name: Require protected-preview automation credential
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+        run: |
+          if [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
+            echo "VERCEL_AUTOMATION_BYPASS_SECRET is not configured." >&2
+            echo "Keep Vercel Authentication enabled; configure Protection Bypass for Automation instead." >&2
+            exit 1
+          fi
+
+      - name: Install Playwright runner
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run startup cloud-sync runtime acceptance
+        env:
+          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+          QA_ARTIFACT_DIR: artifacts/runtime-qa
+        run: node qa/runtime/startup-cloud-sync.mjs
+
+      - name: Upload runtime evidence
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: startup-cloud-sync-runtime-${{ github.run_id }}
+          path: artifacts/runtime-qa
+          if-no-files-found: warn
+          retention-days: 14

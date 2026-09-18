@@ -67,6 +67,9 @@ function aistudioMediaPlugin(): Plugin {
 export default defineConfig(() => {
   return {
     plugins: [react(), tailwindcss(), aistudioMediaPlugin()],
+    define: {
+      __BALKANBITE_VERCEL_ENV__: JSON.stringify(process.env.VERCEL_ENV || ""),
+    },
     resolve: {
       alias: {
         '@': path.resolve(__dirname, '.'),
