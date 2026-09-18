@@ -8,11 +8,15 @@ const trustedOidcToken = process.env.VERCEL_TRUSTED_OIDC_TOKEN || "";
 const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || "";
 const shareUrl = process.env.QA_SHARE_URL || "";
 const artifactDir = process.env.QA_ARTIFACT_DIR || "artifacts/runtime-qa";
+const expectedSha = process.env.QA_EXPECTED_SHA || "";
 const delayMs = 30_000;
 const shellDeadlineMs = 10_000;
 
 if (!previewUrl) {
   throw new Error("QA_PREVIEW_URL is required");
+}
+if (!expectedSha) {
+  throw new Error("QA_EXPECTED_SHA is required");
 }
 if (!trustedOidcToken && !bypassSecret && !shareUrl) {
   throw new Error(
@@ -53,6 +57,28 @@ async function textNumber(page, testId) {
   return number;
 }
 
+async function waitForExpectedDeployment(page) {
+  const deadline = Date.now() + 180_000;
+  let lastSeen = "";
+
+  while (Date.now() < deadline) {
+    await page.goto(scenarioUrl("present"), {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+    const shaNode = page.getByTestId("qa-deployment-sha");
+    if (await shaNode.count()) {
+      lastSeen = ((await shaNode.textContent()) || "").trim();
+      if (lastSeen === expectedSha) return;
+    }
+    await page.waitForTimeout(5_000);
+  }
+
+  throw new Error(
+    `Preview alias did not reach expected SHA ${expectedSha}; last seen ${lastSeen || "none"}`
+  );
+}
+
 async function runScenario(context, cacheMode) {
   const page = await context.newPage();
   const startedAt = Date.now();
@@ -68,6 +94,7 @@ async function runScenario(context, cacheMode) {
   };
 
   try {
+    await waitForExpectedDeployment(page);
     await page.goto(scenarioUrl(cacheMode), {
       waitUntil: "domcontentloaded",
       timeout: 30_000,
@@ -251,6 +278,7 @@ try {
 const summary = {
   generatedAt: new Date().toISOString(),
   previewUrl,
+  expectedSha,
   delayMs,
   shellDeadlineMs,
   authMethod: trustedOidcToken
