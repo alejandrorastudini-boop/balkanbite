@@ -76,4 +76,7 @@ test("landing scanner copy preserves the human-review authority boundary", () =>
     /suggested price and expiry are not saved as authoritative data/
   );
   assert.doesNotMatch(landingDataSource, /Gemini 3\.8 Flash Vision/);
+  assert.doesNotMatch(landingDataSource, /exact grocery list|lista de compras exacta/i);
+  assert.doesNotMatch(landingDataSource, /zero lag/i);
+  assert.doesNotMatch(landingDataSource, /desde 0,85|under €1\.00/i);
 });
