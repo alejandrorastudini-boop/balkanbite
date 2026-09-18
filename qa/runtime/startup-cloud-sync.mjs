@@ -73,9 +73,9 @@ async function waitForExpectedDeployment(page) {
       waitUntil: "domcontentloaded",
       timeout: 30_000,
     });
-    const localSha = (
-      (await page.getByTestId("qa-deployment-sha").textContent()) || ""
-    ).trim();
+    const root = page.getByTestId("qa-runtime-root");
+    await root.waitFor({ state: "attached", timeout: 10_000 });
+    const localSha = ((await root.getAttribute("data-deployment-sha")) || "").trim();
     assert.equal(
       localSha,
       expectedSha,
@@ -94,17 +94,20 @@ async function waitForExpectedDeployment(page) {
       waitUntil: "domcontentloaded",
       timeout: 30_000,
     });
-    const shaNode = page.getByTestId("qa-deployment-sha");
-    if (await shaNode.count()) {
-      lastSeenSha = ((await shaNode.textContent()) || "").trim();
-    }
-    const deploymentIdNode = page.getByTestId("qa-deployment-id");
-    if (await deploymentIdNode.count()) {
-      lastSeenDeploymentId = ((await deploymentIdNode.textContent()) || "").trim();
-    }
-    const fingerprintNode = page.getByTestId("qa-source-fingerprint");
-    if (await fingerprintNode.count()) {
-      lastSeenFingerprint = ((await fingerprintNode.textContent()) || "").trim();
+    const root = page.getByTestId("qa-runtime-root");
+    try {
+      await root.waitFor({ state: "attached", timeout: 10_000 });
+      lastSeenSha = ((await root.getAttribute("data-deployment-sha")) || "").trim();
+      lastSeenDeploymentId = (
+        (await root.getAttribute("data-deployment-id")) || ""
+      ).trim();
+      lastSeenFingerprint = (
+        (await root.getAttribute("data-source-fingerprint")) || ""
+      ).trim();
+    } catch {
+      lastSeenSha = "";
+      lastSeenDeploymentId = "";
+      lastSeenFingerprint = "";
     }
     if (expectedFingerprint) {
       if (lastSeenFingerprint === expectedFingerprint) return;
