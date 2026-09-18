@@ -20,6 +20,18 @@ const viteConfigSource = readFileSync(
   new URL("../vite.config.ts", import.meta.url),
   "utf8"
 );
+const runtimeQaGateSource = readFileSync(
+  new URL("../src/qa/runtimeQaGate.ts", import.meta.url),
+  "utf8"
+);
+const runtimeQaHarnessSource = readFileSync(
+  new URL("../src/qa/StartupCloudSyncQaHarness.tsx", import.meta.url),
+  "utf8"
+);
+const runtimeQaRunnerSource = readFileSync(
+  new URL("../qa/runtime/startup-cloud-sync.mjs", import.meta.url),
+  "utf8"
+);
 
 type AppSyncBoundary = ReturnType<typeof getStartupCloudSyncState> & {
   loading: boolean;
@@ -317,6 +329,21 @@ test("runtime QA build marker uses Vercel SHA sources before git HEAD fallback",
   assert.match(
     viteConfigSource,
     /__BALKANBITE_VERCEL_GIT_SHA__:\s*JSON\.stringify\(resolveBuildGitSha\(\)\)/
+  );
+});
+
+test("hosted runtime QA can bind the browser to Vercel deployment identity", () => {
+  assert.match(
+    viteConfigSource,
+    /__BALKANBITE_VERCEL_DEPLOYMENT_ID__:\s*JSON\.stringify\([\s\S]*VERCEL_DEPLOYMENT_ID/
+  );
+  assert.match(runtimeQaGateSource, /runtimeQaDeploymentId/);
+  assert.match(runtimeQaHarnessSource, /data-testid="qa-deployment-id"/);
+  assert.match(runtimeQaRunnerSource, /QA_EXPECTED_DEPLOYMENT_ID/);
+  assert.match(runtimeQaRunnerSource, /lastSeenDeploymentId === expectedDeploymentId/);
+  assert.match(
+    runtimeQaRunnerSource,
+    /QA_ALLOW_UNPROTECTED_LOCAL is restricted to localhost\/127\.0\.0\.1/
   );
 });
 
