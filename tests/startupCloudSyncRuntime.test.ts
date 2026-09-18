@@ -332,15 +332,25 @@ test("runtime QA build marker uses Vercel SHA sources before git HEAD fallback",
   );
 });
 
-test("hosted runtime QA can bind the browser to Vercel deployment identity", () => {
+test("hosted runtime QA binds the protected preview by fixed host and source fingerprint", () => {
+  assert.match(
+    runtimeQaGateSource,
+    /balkanbite-git-preview-qa-agent-runtime-alejandrorastudini-6993\.vercel\.app/
+  );
+  assert.match(
+    runtimeQaGateSource,
+    /window\.location\.hostname === RUNTIME_QA_PREVIEW_HOST/
+  );
+  assert.match(viteConfigSource, /function runtimeQaSourceFingerprint\(\)/);
+  assert.match(viteConfigSource, /createHash\('sha256'\)/);
   assert.match(
     viteConfigSource,
-    /__BALKANBITE_VERCEL_DEPLOYMENT_ID__:\s*JSON\.stringify\([\s\S]*VERCEL_DEPLOYMENT_ID/
+    /__BALKANBITE_RUNTIME_QA_FINGERPRINT__:\s*JSON\.stringify\(/
   );
-  assert.match(runtimeQaGateSource, /runtimeQaDeploymentId/);
-  assert.match(runtimeQaHarnessSource, /data-testid="qa-deployment-id"/);
-  assert.match(runtimeQaRunnerSource, /QA_EXPECTED_DEPLOYMENT_ID/);
-  assert.match(runtimeQaRunnerSource, /lastSeenDeploymentId === expectedDeploymentId/);
+  assert.match(runtimeQaGateSource, /runtimeQaSourceFingerprint/);
+  assert.match(runtimeQaHarnessSource, /data-testid="qa-source-fingerprint"/);
+  assert.match(runtimeQaRunnerSource, /QA_EXPECTED_FINGERPRINT/);
+  assert.match(runtimeQaRunnerSource, /lastSeenFingerprint === expectedFingerprint/);
   assert.match(
     runtimeQaRunnerSource,
     /QA_ALLOW_UNPROTECTED_LOCAL is restricted to localhost\/127\.0\.0\.1/
