@@ -306,7 +306,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                     {isCostVerified(recipe) ? "" : "≈"}
                     {currency === "EUR"
                       ? `€${recipe.costPerServingEUR.toFixed(2)}`
-                      : `${(recipe.costPerServingEUR * 1.1).toFixed(2)}`}
+                      : `$${(recipe.costPerServingEUR * 1.1).toFixed(2)}`}
                   </span>
                 </div>
               </div>
@@ -441,7 +441,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                       {isCostVerified(selectedRecipe) ? "" : "≈"}
                       {currency === "EUR"
                         ? `€${selectedRecipe.costPerServingEUR.toFixed(2)}`
-                        : `${(selectedRecipe.costPerServingEUR * 1.1).toFixed(2)}`} / {language === "es" ? "ración" : language === "bg" ? "порция" : "serving"}
+                        : `$${(selectedRecipe.costPerServingEUR * 1.1).toFixed(2)}`} / {language === "es" ? "ración" : language === "bg" ? "порция" : "serving"}
                     </span>
                     <span className="text-sm text-stone-400 font-medium flex items-center gap-1.5 bg-white/[0.04] px-2.5 py-1 rounded-lg border border-white/[0.08]">
                       <Clock className="w-3.5 h-3.5" />
