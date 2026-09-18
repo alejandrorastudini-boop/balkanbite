@@ -83,21 +83,23 @@ function resolveBuildGitSha(): string {
   }
 }
 
-const RUNTIME_QA_FINGERPRINT_FILES = [
-  'vite.config.ts',
-  'src/main.tsx',
-  'src/qa/runtimeQaGate.ts',
-  'src/qa/StartupCloudSyncQaHarness.tsx',
-  'src/utils/startupCloudSync.ts',
-  'src/hooks/useFirebaseSync.ts',
-  'src/App.tsx',
-  'src/components/PantryView.tsx',
-  'qa/runtime/startup-cloud-sync.mjs',
-] as const;
+function runtimeQaFingerprintFiles(): string[] {
+  const manifestPath = path.resolve(
+    __dirname,
+    'qa',
+    'runtime',
+    'fingerprint-files.json',
+  );
+  const parsed = JSON.parse(fs.readFileSync(manifestPath, 'utf8'));
+  if (!Array.isArray(parsed) || parsed.some((value) => typeof value !== 'string')) {
+    throw new Error('Invalid runtime QA fingerprint manifest');
+  }
+  return parsed;
+}
 
 function runtimeQaSourceFingerprint(): string {
   const hash = createHash('sha256');
-  for (const relativePath of RUNTIME_QA_FINGERPRINT_FILES) {
+  for (const relativePath of runtimeQaFingerprintFiles()) {
     hash.update(relativePath);
     hash.update('\0');
     hash.update(fs.readFileSync(path.resolve(__dirname, relativePath)));
