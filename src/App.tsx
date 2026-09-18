@@ -554,58 +554,19 @@ export default function App() {
         }),
       });
       const data = await res.json();
-      if (Array.isArray(data.mealPlan) && data.mealPlan.length > 0) {
-        setMealPlan(data.mealPlan);
-      } else {
-        const today = new Date();
-        const newPlan: MealPlanDay[] = [];
-        const pool = recipes.length > 0 ? recipes : [...INITIAL_RECIPES, ...SAMPLE_RECIPES];
-        const bPool = pool.filter((r) => r.tags.includes("Desayuno") || r.tags.includes("breakfast") || r.tags.includes("quick") || r.tags.includes("Saludable"));
-        const mPool = pool.filter((r) => !r.tags.includes("Desayuno") && !r.tags.includes("breakfast"));
-
-        for (let d = 0; d < 7; d++) {
-          const dObj = new Date(today);
-          dObj.setDate(today.getDate() + d);
-          const dateStr = dObj.toISOString().split("T")[0];
-
-          const bRecipe = bPool.length > 0 ? bPool[d % bPool.length] : pool[d % pool.length];
-          const lRecipe = mPool.length > 0 ? mPool[(d * 2) % mPool.length] : pool[(d + 1) % pool.length];
-          const dRecipe = mPool.length > 0 ? mPool[(d * 2 + 1) % mPool.length] : pool[(d + 2) % pool.length];
-
-          newPlan.push({
-            date: dateStr,
-            breakfast: bRecipe,
-            lunch: lRecipe,
-            dinner: dRecipe,
-          });
-        }
-        setMealPlan(newPlan);
+      if (!res.ok || !Array.isArray(data.mealPlan) || data.mealPlan.length === 0) {
+        throw new Error(data?.error || "Weekly meal-plan generation returned no usable plan");
       }
+      setMealPlan(data.mealPlan);
     } catch (err) {
-      console.error("Failed to generate AI weekly menu, applying local fallback:", err);
-      const today = new Date();
-      const newPlan: MealPlanDay[] = [];
-      const pool = recipes.length > 0 ? recipes : [...INITIAL_RECIPES, ...SAMPLE_RECIPES];
-      const bPool = pool.filter((r) => r.tags.includes("Desayuno") || r.tags.includes("breakfast") || r.tags.includes("quick") || r.tags.includes("Saludable"));
-      const mPool = pool.filter((r) => !r.tags.includes("Desayuno") && !r.tags.includes("breakfast"));
-
-      for (let d = 0; d < 7; d++) {
-        const dObj = new Date(today);
-        dObj.setDate(today.getDate() + d);
-        const dateStr = dObj.toISOString().split("T")[0];
-
-        const bRecipe = bPool.length > 0 ? bPool[d % bPool.length] : pool[d % pool.length];
-        const lRecipe = mPool.length > 0 ? mPool[(d * 2) % mPool.length] : pool[(d + 1) % pool.length];
-        const dRecipe = mPool.length > 0 ? mPool[(d * 2 + 1) % mPool.length] : pool[(d + 2) % pool.length];
-
-        newPlan.push({
-          date: dateStr,
-          breakfast: bRecipe,
-          lunch: lRecipe,
-          dinner: dRecipe,
-        });
-      }
-      setMealPlan(newPlan);
+      console.error("Failed to generate AI weekly menu; existing plan left unchanged:", err);
+      alert(
+        profile.language === "bg"
+          ? "Не успях да генерирам нов седмичен план. Текущият план не е променен."
+          : profile.language === "es"
+          ? "No se pudo generar un nuevo plan semanal. El plan actual no se ha modificado."
+          : "A new weekly plan could not be generated. Your current plan was left unchanged."
+      );
     } finally {
       setIsGeneratingPlan(false);
     }
@@ -726,6 +687,9 @@ export default function App() {
       });
 
       const data = await res.json();
+      if (!res.ok) {
+        throw new Error(data?.error || "Recipe generation failed");
+      }
       if (Array.isArray(data.recipes) && data.recipes.length > 0) {
         const synced = syncRecipesWithPantry(data.recipes, pantry);
         const enriched = synced.map((r: Recipe) => ({
