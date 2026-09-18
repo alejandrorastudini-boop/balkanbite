@@ -1009,10 +1009,14 @@ export default function App() {
           currentUser={currentUser}
           onOpenAuthModal={() => setShowAuthModal(true)}
           onOpenShoppingAdvisor={handleOpenShoppingAdvisor}
-          shoppingUrgencyLevel={shoppingDiagnostic.urgencyLevel}
+          shoppingUrgencyLevel={
+            inventoryIsProvisional ? undefined : shoppingDiagnostic.urgencyLevel
+          }
           shoppingBadgeCount={
-            shoppingDiagnostic.missingMealIngredients.length +
-            shoppingDiagnostic.pendingShoppingItemsCount
+            inventoryIsProvisional
+              ? 0
+              : shoppingDiagnostic.missingMealIngredients.length +
+                shoppingDiagnostic.pendingShoppingItemsCount
           }
         />
 
@@ -1040,6 +1044,7 @@ export default function App() {
               onOpenVoiceTab={() => setShowChefIaModal(true)}
               language={profile.language}
               currency={profile.currency}
+              inventoryIsProvisional={inventoryIsProvisional}
               theme={theme}
             />
           )}
