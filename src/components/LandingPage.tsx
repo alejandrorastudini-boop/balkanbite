@@ -30,7 +30,6 @@ interface LandingPageProps {
   currency: Currency;
   onCurrencyChange: (curr: Currency) => void;
   onOpenApp: () => void;
-  onOpenPro: () => void;
   onOpenAuth?: () => void;
 }
 
@@ -40,7 +39,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   currency,
   onCurrencyChange,
   onOpenApp,
-  onOpenPro,
   onOpenAuth,
 }) => {
   const [openFaqIndex, setOpenFaqIndex] = useState<number | null>(0);
@@ -764,8 +762,8 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   {LANDING_DATA.pricing.pro.features[language].map((f, i) => <div key={i} className="flex items-center gap-2"><Check className="w-3 h-3 text-emerald-400" /><span>{f}</span></div>)}
                 </div>
               </div>
-              <button onClick={() => { onOpenApp(); onOpenPro(); }} className="mt-6 w-full py-3 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white font-bold text-xs shadow-lg cursor-pointer">
-                {language === "es" ? "Probar 7 Días Gratis" : language === "bg" ? "Пробвай 7 дни безплатно" : "Try 7 Days Free"}
+              <button disabled className="mt-6 w-full py-3 rounded-xl bg-stone-800 text-stone-400 font-bold text-xs cursor-not-allowed">
+                {LANDING_DATA.pricing.pro.cta[language]}
               </button>
             </div>
           </div>
