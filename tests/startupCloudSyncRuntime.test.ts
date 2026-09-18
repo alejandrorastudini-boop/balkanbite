@@ -339,7 +339,13 @@ test("hosted runtime QA binds the protected preview by fixed host and source fin
   );
   assert.match(
     runtimeQaGateSource,
-    /window\.location\.hostname === RUNTIME_QA_PREVIEW_HOST/
+    /host === RUNTIME_QA_PREVIEW_HOST/
+  );
+  assert.match(runtimeQaGateSource, /host === "localhost"/);
+  assert.match(runtimeQaGateSource, /host === "127\.0\.0\.1"/);
+  assert.doesNotMatch(
+    runtimeQaGateSource,
+    /__BALKANBITE_VERCEL_ENV__ === "preview"/
   );
   assert.match(viteConfigSource, /function runtimeQaSourceFingerprint\(\)/);
   assert.match(viteConfigSource, /createHash\('sha256'\)/);
