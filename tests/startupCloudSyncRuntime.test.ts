@@ -353,6 +353,14 @@ test("hosted runtime QA binds the protected preview by fixed host and source fin
   assert.match(runtimeQaRunnerSource, /lastSeenFingerprint === expectedFingerprint/);
   assert.match(
     runtimeQaRunnerSource,
+    /getByTestId\("qa-runtime-root"\)[\s\S]*waitFor\(\{ state: "attached", timeout: 10_000 \}\)/
+  );
+  assert.match(
+    runtimeQaRunnerSource,
+    /getAttribute\("data-source-fingerprint"\)/
+  );
+  assert.match(
+    runtimeQaRunnerSource,
     /QA_ALLOW_UNPROTECTED_LOCAL is restricted to localhost\/127\.0\.0\.1/
   );
 });
