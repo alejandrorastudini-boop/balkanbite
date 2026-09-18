@@ -1,17 +1,24 @@
 declare const __BALKANBITE_VERCEL_ENV__: string;
 declare const __BALKANBITE_VERCEL_GIT_SHA__: string;
 declare const __BALKANBITE_VERCEL_DEPLOYMENT_ID__: string;
+declare const __BALKANBITE_RUNTIME_QA_FINGERPRINT__: string;
 
 const QA_PREFIX = "/__qa/";
 const STARTUP_CLOUD_SYNC_QA_PATH = "/__qa/startup-cloud-sync";
+const RUNTIME_QA_PREVIEW_HOST =
+  "balkanbite-git-preview-qa-agent-runtime-alejandrorastudini-6993.vercel.app";
 
 export function isRuntimeQaRoute(): boolean {
   return window.location.pathname.startsWith(QA_PREFIX);
 }
 
 export function isStartupCloudSyncQaRoute(): boolean {
+  const previewBoundary =
+    __BALKANBITE_VERCEL_ENV__ === "preview" ||
+    window.location.hostname === RUNTIME_QA_PREVIEW_HOST;
+
   return (
-    __BALKANBITE_VERCEL_ENV__ === "preview" &&
+    previewBoundary &&
     window.location.pathname === STARTUP_CLOUD_SYNC_QA_PATH
   );
 }
@@ -22,4 +29,8 @@ export function runtimeQaDeploymentSha(): string {
 
 export function runtimeQaDeploymentId(): string {
   return __BALKANBITE_VERCEL_DEPLOYMENT_ID__;
+}
+
+export function runtimeQaSourceFingerprint(): string {
+  return __BALKANBITE_RUNTIME_QA_FINGERPRINT__;
 }
