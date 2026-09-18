@@ -335,8 +335,18 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             : "I detected the items below. Review the quantity and unit, then confirm before I save them to the pantry.";
       } else if (effectiveActionType === "REMOVE_ITEMS" && Array.isArray(effectiveItems) && effectiveItems.length > 0) {
         onDeductItemsFromPantry(effectiveItems);
-      } else if (effectiveActionType === "MEAL_LOG" && data.mealLog) {
+      } else if (
+        effectiveActionType === "MEAL_LOG" &&
+        data.mealLog?.nutritionVerified === true
+      ) {
         onLogMeal(data.mealLog);
+      } else if (effectiveActionType === "MEAL_LOG") {
+        replyText =
+          language === "bg"
+            ? `${replyText} Не записах хранителни стойности, защото все още няма проверен източник за това изчисление.`
+            : language === "es"
+            ? `${replyText} No he guardado valores nutricionales porque todavía no hay una fuente verificada para ese cálculo.`
+            : `${replyText} I did not save nutrition values because there is not yet a verified source for that calculation.`;
       }
 
       const aiMsg: ChatMessage = {
