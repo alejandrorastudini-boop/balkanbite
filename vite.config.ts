@@ -88,6 +88,9 @@ export default defineConfig(() => {
     define: {
       __BALKANBITE_VERCEL_ENV__: JSON.stringify(process.env.VERCEL_ENV || ""),
       __BALKANBITE_VERCEL_GIT_SHA__: JSON.stringify(resolveBuildGitSha()),
+      __BALKANBITE_VERCEL_DEPLOYMENT_ID__: JSON.stringify(
+        process.env.VERCEL_DEPLOYMENT_ID || ""
+      ),
     },
     resolve: {
       alias: {
