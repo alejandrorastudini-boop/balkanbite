@@ -914,9 +914,10 @@ CRITICAL GOALS & RULES:
 2. MISSING INGREDIENTS DETECTION: For any ingredient not currently in the user's pantry, set "inPantry": false clearly so the user can see what's missing and add them to their shopping list with 1 click.
 3. IN-PANTRY INGREDIENTS: For ingredients that ARE in the user's pantry, set "inPantry": true.
 4. Balance macros: Ensure good protein, high fiber, healthy fats, reasonable carbs.
-5. Calculate realistic cost per serving in EUR (€) and USD ($) based on actual market pricing.
-6. Emphasize wholesome Balkan/Mediterranean simplicity (savory herbs like chubritsa/dill, fresh produce, fermented probiotics like yogurt, legumes).
-7. Always provide high-quality localized translations for 'es' (Spanish), 'bg' (Bulgarian), and 'en' (English) in title, description, instructions, and nutrition highlights.
+5. Estimate cost per serving for planning only. It is NOT live, exact, or verified market pricing.
+6. Calories, protein, carbs, fat, fiber and any nutrition highlights are estimates only; do not describe them as measured, verified, medical, or exact.
+7. Emphasize wholesome Balkan/Mediterranean simplicity (savory herbs like chubritsa/dill, fresh produce, fermented probiotics like yogurt, legumes).
+8. Always provide high-quality localized translations for 'es' (Spanish), 'bg' (Bulgarian), and 'en' (English) in title, description, instructions, and nutrition highlights.
 
 Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
 [
@@ -934,7 +935,6 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
     "carbsG": number,
     "fatG": number,
     "fiberG": number,
-    "healthScore": number (80-100),
     "tags": ["string"],
     "ingredients": [
       {
@@ -979,6 +979,11 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
     }
     const enrichedRecipes = rawList.map((rec: any, idx: number) => ({
       ...rec,
+      // LLM-produced nutrition and price figures are planning estimates, never
+      // authoritative calculations. Arbitrary health scores are discarded.
+      healthScore: undefined,
+      nutritionDataStatus: "estimated",
+      costDataStatus: "estimated",
       id: rec.id || `ai-rec-${Date.now()}-${idx}`,
       imageUrl: resolveRecipeImageUrl(rec),
     }));
