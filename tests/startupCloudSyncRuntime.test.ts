@@ -12,6 +12,10 @@ const firebaseSyncSource = readFileSync(
   new URL("../src/hooks/useFirebaseSync.ts", import.meta.url),
   "utf8"
 );
+const pantryViewSource = readFileSync(
+  new URL("../src/components/PantryView.tsx", import.meta.url),
+  "utf8"
+);
 
 type AppSyncBoundary = ReturnType<typeof getStartupCloudSyncState> & {
   loading: boolean;
@@ -247,5 +251,54 @@ test("App swaps guest state for only the current user's provisional cache", () =
   assert.match(
     appSource,
     /setPantry\(cachedUserPantry\s*\?\?\s*\[\]\)/
+  );
+});
+
+
+test("provisional inventory stays read-only and non-authoritative in the UI", () => {
+  assert.match(
+    appSource,
+    /const requireAuthoritativeInventory = \(\) => \{[\s\S]*if \(!inventoryIsProvisional\) return true;/
+  );
+
+  for (const handlerName of [
+    "handleCookRecipe",
+    "handleTransferToPantry",
+    "handleGenerateAiRecipes",
+    "handleGenerateAiShopping",
+    "handleVoiceDeductItems",
+  ]) {
+    assert.match(
+      appSource,
+      new RegExp(
+        `const ${handlerName} = [^\\n]*=> \\{\\n\\s*if \\(!requireAuthoritativeInventory\\(\\)\\) return;`
+      )
+    );
+  }
+
+  assert.match(
+    appSource,
+    /shoppingUrgencyLevel=\{[\s\S]*inventoryIsProvisional \? undefined : shoppingDiagnostic\.urgencyLevel/
+  );
+  assert.match(
+    appSource,
+    /inventoryIsProvisional=\{inventoryIsProvisional\}/
+  );
+  assert.match(
+    appSource,
+    /\{!inventoryIsProvisional && \(\s*<SmartShoppingBanner/
+  );
+
+  assert.match(
+    pantryViewSource,
+    /inventoryIsProvisional \? "—" : pantry\.length/
+  );
+  assert.match(
+    pantryViewSource,
+    /inventoryIsProvisional \? "—" : expiringCount/
+  );
+  assert.match(
+    pantryViewSource,
+    /disabled=\{inventoryIsProvisional\}/
   );
 });
