@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from "react";
 import { PantryView } from "../components/PantryView";
 import { PantryItem } from "../types";
 import { getStartupCloudSyncState } from "../utils/startupCloudSync";
-import { runtimeQaDeploymentSha } from "./runtimeQaGate";
+import { runtimeQaDeploymentId, runtimeQaDeploymentSha } from "./runtimeQaGate";
 
 const QA_USER_ID = "qa-runtime-user";
 
@@ -137,6 +137,7 @@ export function StartupCloudSyncQaHarness() {
       data-delay-ms={delayMs}
       data-cache-mode={cacheMode}
       data-deployment-sha={runtimeQaDeploymentSha()}
+      data-deployment-id={runtimeQaDeploymentId()}
       className="min-h-screen bg-[#0B0F12] text-stone-100 p-4"
     >
       <div data-testid="qa-app-shell" className="max-w-4xl mx-auto space-y-4">
@@ -208,6 +209,7 @@ export function StartupCloudSyncQaHarness() {
           </span>
           <span data-testid="qa-cache-mode">{cacheMode}</span>
           <span data-testid="qa-deployment-sha">{runtimeQaDeploymentSha()}</span>
+          <span data-testid="qa-deployment-id">{runtimeQaDeploymentId()}</span>
         </div>
 
         <PantryView
