@@ -307,7 +307,8 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
   );
 });
 
-test("runtime QA build marker falls back to git HEAD when Vercel SHA env is unavailable", () => {
+test("runtime QA build marker uses Vercel SHA sources before git HEAD fallback", () => {
+  assert.match(viteConfigSource, /VITE_VERCEL_GIT_COMMIT_SHA\?\.trim\(\)/);
   assert.match(viteConfigSource, /VERCEL_GIT_COMMIT_SHA\?\.trim\(\)/);
   assert.match(
     viteConfigSource,
