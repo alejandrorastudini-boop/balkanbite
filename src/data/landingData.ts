@@ -9,16 +9,6 @@ export interface LandingFeature {
   highlights: Record<Language, string[]>;
 }
 
-export interface LandingTestimonial {
-  name: string;
-  role: Record<Language, string>;
-  location: string;
-  avatar: string;
-  rating: number;
-  savings: string;
-  comment: Record<Language, string>;
-}
-
 export interface LandingFaq {
   question: Record<Language, string>;
   answer: Record<Language, string>;
@@ -57,9 +47,9 @@ export const LANDING_DATA = {
       bg: "Интерактивно демо",
     },
     badge1: {
-      es: "Gemini 3.8 Flash Vision",
-      en: "Gemini 3.8 Flash Vision",
-      bg: "Gemini 3.8 Flash Vision",
+      es: "AI-assisted visual review",
+      en: "AI-assisted visual review",
+      bg: "AI-assisted visual review",
     },
     badge2: {
       es: "PWA Instalable en Móvil",
@@ -74,55 +64,55 @@ export const LANDING_DATA = {
   },
   metrics: [
     {
-      value: "+120 €",
+      value: "Despensa",
       label: {
-        es: "Ahorro medio al mes por hogar",
-        en: "Average monthly savings per home",
-        bg: "Средно месечно спестяване на дом",
+        es: "Inventario revisable",
+        en: "Reviewable inventory",
+        bg: "Преглеждан инвентар",
       },
       sub: {
-        es: "Comprobado en más de 8.500 despensas",
-        en: "Verified across 8,500+ pantries",
-        bg: "Проверено в над 8 500 кухни",
+        es: "Los datos dudosos permanecen pendientes",
+        en: "Uncertain data stays pending",
+        bg: "Несигурните данни остават непотвърдени",
       },
     },
     {
-      value: "-65%",
+      value: "Menús",
       label: {
-        es: "Menos comida tirada a la basura",
-        en: "Reduction in household food waste",
-        bg: "По-малко изхвърлена храна",
+        es: "Planificación conectada",
+        en: "Connected meal planning",
+        bg: "Свързано планиране на меню",
       },
       sub: {
-        es: "Alertas tempranas de caducidad",
-        en: "Smart early expiration alerts",
-        bg: "Известия за изтичащ срок",
+        es: "Basada en alimentos confirmados",
+        en: "Based on confirmed food data",
+        bg: "На база потвърдени хранителни данни",
       },
     },
     {
-      value: "3 min",
+      value: "Compra",
       label: {
-        es: "Para armar tu menú de 7 días",
-        en: "To create your full 7-day meal plan",
-        bg: "За пълно 7-дневно меню",
+        es: "Faltantes visibles",
+        en: "Visible missing items",
+        bg: "Видими липсващи продукти",
       },
       sub: {
-        es: "Desayunos, comidas y cenas equilibradas",
-        en: "Nutritionally balanced meals",
-        bg: "Балансирани закуски, обеди и вечери",
+        es: "Lista vinculada a necesidades conocidas",
+        en: "Shopping list tied to known needs",
+        bg: "Списък според известните нужди",
       },
     },
     {
-      value: "4.9 / 5",
+      value: "BG · ES · EN",
       label: {
-        es: "Valoración de usuarios",
-        en: "User satisfaction rating",
-        bg: "Оценка от потребителите",
+        es: "Interfaz multilingüe",
+        en: "Multilingual interface",
+        bg: "Многоезичен интерфейс",
       },
       sub: {
-        es: "Basado en más de 1.200 reseñas",
-        en: "Based on 1,200+ reviews",
-        bg: "Базирано на 1 200+ отзива",
+        es: "Bulgaria-first con español e inglés",
+        en: "Bulgaria-first with Spanish and English",
+        bg: "Фокус върху България с испански и английски",
       },
     },
   ],
@@ -221,59 +211,6 @@ export const LANDING_DATA = {
           "Готов лист за принтиране и закачане с магнит",
           "Мигновено споделяне на списъка в WhatsApp с един бутон",
         ],
-      },
-    },
-  ],
-  testimonials: [
-    {
-      name: "Elena Martín",
-      role: {
-        es: "Madre de familia y freelance",
-        en: "Mother & Freelance Designer",
-        bg: "Майка на две деца и дизайнер",
-      },
-      location: "Madrid, España",
-      avatar: "https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=160&q=80",
-      rating: 5,
-      savings: "Resultado no verificado",
-      comment: {
-        es: "Testimonio pendiente de verificación.",
-        en: "Testimonial pending verification.",
-        bg: "Отзивът очаква потвърждение.",
-      },
-    },
-    {
-      name: "Carlos Vega",
-      role: {
-        es: "Ingeniero de Software",
-        en: "Software Engineer",
-        bg: "Софтуерен инженер",
-      },
-      location: "Valencia, España",
-      avatar: "https://images.unsplash.com/photo-1507003211169-0a1dd7228f2d?auto=format&fit=crop&w=160&q=80",
-      rating: 5,
-      savings: "95 €/mes ahorrados",
-      comment: {
-        es: "Vivir solo hacía que comprar comida fuese caro e ineficiente. La función de imprimir el menú y colgarlo con imán en la nevera me ha organizado las cenas por completo.",
-        en: "Living alone meant grocery shopping was wasteful. The printable fridge sheet and instant WhatsApp shopping list completely solved my weeknights.",
-        bg: "Да живееш сам често означава скъпо и неефективно пазаруване. Готовият лист за хладилника напълно ми реши въпроса с вечерите.",
-      },
-    },
-    {
-      name: "Mariya Georgieva",
-      role: {
-        es: "Nutricionista & Deportista",
-        en: "Nutrition Coach & Runner",
-        bg: "Треньор по хранене и бегач",
-      },
-      location: "Sofia, Bulgaria",
-      avatar: "https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=160&q=80",
-      rating: 5,
-      savings: "110 €/mes ahorrados",
-      comment: {
-        es: "La combinación de platos mediterráneos y recetas tradicionales de los Balcanes con desglose de proteínas y calorías es una maravilla. Rápido, limpio y muy intuitivo.",
-        en: "The blend of Mediterranean cooking and Balkan wholesome recipes with accurate macro calculations is exceptional. Clean, lightning-fast, and deeply practical.",
-        bg: "Комбинацията от средиземноморски и балкански ястия с точни хранителни стойности е страхотна. Бързо, чисто и изключително полезно.",
       },
     },
   ],
@@ -390,9 +327,9 @@ export const LANDING_DATA = {
         bg: "Как изкуственият интелект разпознава храната в хладилника?",
       },
       answer: {
-        es: "Utilizamos el modelo multimodal Gemini 3.8 Flash Vision. Al hacer una foto con tu cámara, analiza los objetos visibles, identifica qué ingredientes son, estima cuántos días les quedan antes de estropearse y los clasifica automáticamente.",
-        en: "We leverage Gemini 3.8 Flash Vision. When you take a photo, it analyzes visible items, identifies ingredients, estimates shelf-life days remaining, and categorizes them automatically.",
-        bg: "Използваме модела Gemini 3.8 Flash Vision. При снимка моделът анализира видимите продукти, разпознава съставките, изчислява дните до изтичане и ги подрежда по категории.",
+        es: "Utilizamos el modelo multimodal AI-assisted visual review. Al hacer una foto con tu cámara, analiza los objetos visibles, identifica qué ingredientes son, estima cuántos días les quedan antes de estropearse y los clasifica automáticamente.",
+        en: "We leverage AI-assisted visual review. When you take a photo, it analyzes visible items, identifies ingredients, estimates shelf-life days remaining, and categorizes them automatically.",
+        bg: "Използваме модела AI-assisted visual review. При снимка моделът анализира видимите продукти, разпознава съставките, изчислява дните до изтичане и ги подрежда по категории.",
       },
     },
     {
