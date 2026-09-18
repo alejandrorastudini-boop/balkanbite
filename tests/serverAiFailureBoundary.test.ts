@@ -39,3 +39,23 @@ test("shopping AI failure has no fabricated basket fallback", () => {
   assert.doesNotMatch(shopping, /Include accurate prices/);
   assert.match(shopping, /unverified planning estimate only/);
 });
+
+
+test("recipe and weekly-plan AI failures cannot become fallback content", () => {
+  const recipes = endpointSection(
+    'app.post("/api/ai/generate-recipes"',
+    '// Endpoint: AI Smart 7-Day Weekly Meal Plan'
+  );
+  const weekly = endpointSection(
+    'app.post("/api/ai/generate-weekly-plan"',
+    '// Endpoint: AI Smart Weekly Shopping List Proposal'
+  );
+
+  assert.match(recipes, /Recipe generation is temporarily unavailable[\s\S]*recipes:\s*\[\]/);
+  assert.match(recipes, /Recipe generation failed[\s\S]*recipes:\s*\[\]/);
+  assert.doesNotMatch(recipes, /curated_fallback|fallback_error/);
+  assert.doesNotMatch(recipes, /rawList[\s\S]*FALLBACK_RECIPES/);
+
+  assert.match(weekly, /Weekly meal-plan generation failed[\s\S]*mealPlan:\s*\[\]/);
+  assert.doesNotMatch(weekly, /fallbackPlan|Healthy Breakfast|Desayuno saludable/);
+});
