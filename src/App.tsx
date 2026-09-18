@@ -50,6 +50,10 @@ import {
   type RawReconciliationExtraItem,
 } from "./utils/purchasePantryMerge";
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
+import {
+  getUserPantryCacheKey,
+  parseUserPantryCache,
+} from "./utils/startupPantryCache";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() => {
@@ -216,6 +220,22 @@ export default function App() {
     if (isResetting) return;
 
     if (currentUser) {
+      if (!inventoryHydrated && pantryScope !== currentUser.uid) {
+        // Never carry the guest or a previous user's pantry into a signed-in
+        // session. A user-scoped local cache is provisional only: Firestore
+        // remains authoritative and cloud writes stay closed until hydration.
+        try {
+          const cachedUserPantry = parseUserPantryCache(
+            localStorage.getItem(getUserPantryCacheKey(currentUser.uid))
+          );
+          setPantry(cachedUserPantry ?? []);
+        } catch {
+          setPantry([]);
+        }
+        setPantryScope(currentUser.uid);
+        return;
+      }
+
       if (inventoryHydrated && pantryScope !== currentUser.uid) {
         setPantryScope(currentUser.uid);
       }
@@ -245,7 +265,7 @@ export default function App() {
       if (currentUser) {
         if (!inventoryHydrated || pantryScope !== currentUser.uid) return;
         localStorage.setItem(
-          `balkanbite_pantry_user_${currentUser.uid}`,
+          getUserPantryCacheKey(currentUser.uid),
           JSON.stringify(pantry)
         );
         return;
