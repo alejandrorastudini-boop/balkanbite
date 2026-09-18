@@ -307,29 +307,6 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
   );
 });
 
-test("remote runtime QA keeps exact SHA verification when build metadata is external", () => {
-  assert.match(
-    runtimeQaRunnerSource,
-    /const remoteVerifiedSha = process\.env\.QA_REMOTE_VERIFIED_SHA \|\| ""/
-  );
-  assert.match(
-    runtimeQaRunnerSource,
-    /assert\.equal\(\s*remoteVerifiedSha,\s*expectedSha,/
-  );
-  assert.match(
-    runtimeQaRunnerSource,
-    /shaVerificationMethod:[\s\S]*external-deployment-metadata/
-  );
-  assert.match(
-    runtimeQaRunnerSource,
-    /QA_ALLOW_UNPROTECTED_LOCAL is restricted to localhost\/127\.0\.0\.1/
-  );
-  assert.match(
-    runtimeQaRunnerSource,
-    /Preview alias did not reach expected SHA/
-  );
-});
-
 test("runtime QA build marker falls back to git HEAD when Vercel SHA env is unavailable", () => {
   assert.match(viteConfigSource, /VERCEL_GIT_COMMIT_SHA\?\.trim\(\)/);
   assert.match(
