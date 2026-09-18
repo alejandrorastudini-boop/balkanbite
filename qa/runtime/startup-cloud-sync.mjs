@@ -9,6 +9,7 @@ const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || "";
 const shareUrl = process.env.QA_SHARE_URL || "";
 const artifactDir = process.env.QA_ARTIFACT_DIR || "artifacts/runtime-qa";
 const expectedSha = process.env.QA_EXPECTED_SHA || "";
+const expectedDeploymentId = process.env.QA_EXPECTED_DEPLOYMENT_ID || "";
 const requestedLocalBypass = process.env.QA_ALLOW_UNPROTECTED_LOCAL === "true";
 const delayMs = 30_000;
 const shellDeadlineMs = 10_000;
@@ -83,7 +84,8 @@ async function waitForExpectedDeployment(page) {
   }
 
   const deadline = Date.now() + 180_000;
-  let lastSeen = "";
+  let lastSeenSha = "";
+  let lastSeenDeploymentId = "";
 
   while (Date.now() < deadline) {
     await page.goto(scenarioUrl("present"), {
@@ -92,14 +94,22 @@ async function waitForExpectedDeployment(page) {
     });
     const shaNode = page.getByTestId("qa-deployment-sha");
     if (await shaNode.count()) {
-      lastSeen = ((await shaNode.textContent()) || "").trim();
-      if (lastSeen === expectedSha) return;
+      lastSeenSha = ((await shaNode.textContent()) || "").trim();
+    }
+    const deploymentIdNode = page.getByTestId("qa-deployment-id");
+    if (await deploymentIdNode.count()) {
+      lastSeenDeploymentId = ((await deploymentIdNode.textContent()) || "").trim();
+    }
+    if (expectedDeploymentId) {
+      if (lastSeenDeploymentId === expectedDeploymentId) return;
+    } else if (lastSeenSha === expectedSha) {
+      return;
     }
     await page.waitForTimeout(5_000);
   }
 
   throw new Error(
-    `Preview alias did not reach expected SHA ${expectedSha}; last seen ${lastSeen || "none"}`
+    `Preview alias did not reach expected deployment identity; expected SHA ${expectedSha}${expectedDeploymentId ? `, deployment ${expectedDeploymentId}` : ""}; last seen SHA ${lastSeenSha || "none"}, deployment ${lastSeenDeploymentId || "none"}`
   );
 }
 
@@ -303,6 +313,7 @@ const summary = {
   generatedAt: new Date().toISOString(),
   previewUrl,
   expectedSha,
+  expectedDeploymentId: expectedDeploymentId || null,
   delayMs,
   shellDeadlineMs,
   authMethod: bypassSecret
