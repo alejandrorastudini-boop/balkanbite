@@ -16,8 +16,8 @@ const pantryViewSource = readFileSync(
   new URL("../src/components/PantryView.tsx", import.meta.url),
   "utf8"
 );
-const runtimeQaRunnerSource = readFileSync(
-  new URL("../qa/runtime/startup-cloud-sync.mjs", import.meta.url),
+const viteConfigSource = readFileSync(
+  new URL("../vite.config.ts", import.meta.url),
   "utf8"
 );
 
@@ -327,6 +327,18 @@ test("remote runtime QA keeps exact SHA verification when build metadata is exte
   assert.match(
     runtimeQaRunnerSource,
     /Preview alias did not reach expected SHA/
+  );
+});
+
+test("runtime QA build marker falls back to git HEAD when Vercel SHA env is unavailable", () => {
+  assert.match(viteConfigSource, /VERCEL_GIT_COMMIT_SHA\?\.trim\(\)/);
+  assert.match(
+    viteConfigSource,
+    /execFileSync\('git', \['rev-parse', 'HEAD'\]/
+  );
+  assert.match(
+    viteConfigSource,
+    /__BALKANBITE_VERCEL_GIT_SHA__:\s*JSON\.stringify\(resolveBuildGitSha\(\)\)/
   );
 });
 
