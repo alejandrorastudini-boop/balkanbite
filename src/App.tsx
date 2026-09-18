@@ -154,6 +154,9 @@ export default function App() {
   const [pantryScope, setPantryScope] = useState<string>("guest");
   const [activeTab, setActiveTab] = useState<TabType>("pantry");
   const [showProModal, setShowProModal] = useState<boolean>(false);
+  // Commercial entitlement is not implemented yet. Never trust the legacy
+  // profile flag as proof of payment or subscription status.
+  const hasVerifiedProEntitlement = false;
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
   const [voiceSearchQuery, setVoiceSearchQuery] = useState<string>("");
   const [isResetting, setIsResetting] = useState(false);
@@ -533,7 +536,7 @@ export default function App() {
 
   const handleGenerateAiWeekPlan = async () => {
     if (!requireAuthoritativeInventory()) return;
-    if (!profile.isProSubscriber) {
+    if (!hasVerifiedProEntitlement) {
       setShowProModal(true);
       return;
     }
@@ -980,10 +983,6 @@ export default function App() {
           setShowLanding(false);
           setShowAuthModal(true);
         }}
-        onOpenPro={() => {
-          setShowLanding(false);
-          setShowProModal(true);
-        }}
       />
     );
   }
@@ -1061,7 +1060,7 @@ export default function App() {
               userName={profile.name}
               onClearMealPlan={handleClearMealPlan}
               onNavigateToVoice={() => setShowChefIaModal(true)}
-              isPro={profile.isProSubscriber}
+              isPro={hasVerifiedProEntitlement}
               onOpenProModal={() => setShowProModal(true)}
               onGenerateAiWeekPlan={handleGenerateAiWeekPlan}
               onAdaptToPantry={handleAdaptMenuToPantry}
@@ -1084,7 +1083,7 @@ export default function App() {
               isLoadingAi={isLoadingAi}
               language={profile.language}
               currency={profile.currency}
-              isPro={profile.isProSubscriber}
+              isPro={hasVerifiedProEntitlement}
               onOpenProModal={() => setShowProModal(true)}
               onOpenShoppingAdvisor={handleOpenShoppingAdvisor}
               theme={theme}
@@ -1203,14 +1202,6 @@ export default function App() {
           isOpen={showProModal}
           onClose={() => setShowProModal(false)}
           language={profile.language}
-          currency={profile.currency}
-          isPro={profile.isProSubscriber}
-          onTogglePro={() =>
-            setProfile((prev) => ({
-              ...prev,
-              isProSubscriber: !prev.isProSubscriber,
-            }))
-          }
         />
 
         <OnboardingModal
