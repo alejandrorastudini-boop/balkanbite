@@ -2,6 +2,10 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import test from "node:test";
 import { getStartupCloudSyncState } from "../src/utils/startupCloudSync";
+import {
+  getUserPantryCacheKey,
+  parseUserPantryCache,
+} from "../src/utils/startupPantryCache";
 
 const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 const firebaseSyncSource = readFileSync(
@@ -175,5 +179,73 @@ test("App wiring keeps the shell independent from delayed inventory and gates cl
   assert.match(
     firebaseSyncSource,
     /if\s*\([^)]*!cloudInventoryWritesAllowed[^)]*\)\s*return/
+  );
+});
+
+
+test("signed-in startup cache is scoped to the authenticated uid", () => {
+  assert.equal(
+    getUserPantryCacheKey("user-1"),
+    "balkanbite_pantry_user_user-1"
+  );
+  assert.notEqual(
+    getUserPantryCacheKey("user-1"),
+    getUserPantryCacheKey("user-2")
+  );
+});
+
+test("missing or malformed signed-in pantry cache stays unknown", () => {
+  assert.equal(parseUserPantryCache(null), null);
+  assert.equal(parseUserPantryCache("not-json"), null);
+  assert.equal(parseUserPantryCache('{"id":"wrong-shape"}'), null);
+});
+
+test("valid user pantry cache is provisional data without invented fields", () => {
+  const cached = [{
+    id: "milk-1",
+    name: "Milk",
+    quantity: 1,
+    unit: "L",
+    category: "Dairy",
+    addedAt: "2026-09-18",
+  }];
+
+  assert.deepEqual(parseUserPantryCache(JSON.stringify(cached)), cached);
+  assert.deepEqual(parseUserPantryCache("[]"), []);
+});
+
+test("one invalid cached item invalidates the provisional cache", () => {
+  const mixed = [
+    {
+      id: "rice-1",
+      name: "Rice",
+      quantity: 1,
+      unit: "kg",
+      category: "Pantry/Grains",
+      addedAt: "2026-09-18",
+    },
+    {
+      id: "broken",
+      name: "Broken",
+      quantity: 0,
+      unit: "",
+    },
+  ];
+
+  assert.equal(parseUserPantryCache(JSON.stringify(mixed)), null);
+});
+
+test("App swaps guest state for only the current user's provisional cache", () => {
+  assert.match(
+    appSource,
+    /!inventoryHydrated\s*&&\s*pantryScope\s*!==\s*currentUser\.uid/
+  );
+  assert.match(
+    appSource,
+    /localStorage\.getItem\(getUserPantryCacheKey\(currentUser\.uid\)\)/
+  );
+  assert.match(
+    appSource,
+    /setPantry\(cachedUserPantry\s*\?\?\s*\[\]\)/
   );
 });
