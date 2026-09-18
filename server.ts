@@ -891,15 +891,9 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
     const ai = getGeminiClient();
 
     if (!ai) {
-      // Return rich seed recipes if no API key
-      const fallbackWithImages = FALLBACK_RECIPES.map((rec) => ({
-        ...rec,
-        imageUrl: resolveRecipeImageUrl(rec),
-      }));
-      return res.json({
-        recipes: fallbackWithImages,
-        source: "curated_fallback",
-        note: "Add Gemini API Key in Settings > Secrets for endless dynamic recipes from your specific pantry!",
+      return res.status(503).json({
+        error: "Recipe generation is temporarily unavailable",
+        recipes: [],
       });
     }
 
@@ -972,7 +966,17 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
     });
 
     const parsed = JSON.parse(response.text || "[]");
-    const rawList: any[] = Array.isArray(parsed) ? parsed : (parsed.recipes || FALLBACK_RECIPES);
+    const rawList: any[] = Array.isArray(parsed)
+      ? parsed
+      : Array.isArray(parsed?.recipes)
+      ? parsed.recipes
+      : [];
+    if (rawList.length === 0) {
+      return res.status(502).json({
+        error: "Recipe generation returned no usable recipes",
+        recipes: [],
+      });
+    }
     const enrichedRecipes = rawList.map((rec: any, idx: number) => ({
       ...rec,
       id: rec.id || `ai-rec-${Date.now()}-${idx}`,
@@ -985,14 +989,9 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
     });
   } catch (err: any) {
     console.error("Error generating recipes:", err);
-    const fallbackWithImages = FALLBACK_RECIPES.map((rec) => ({
-      ...rec,
-      imageUrl: resolveRecipeImageUrl(rec),
-    }));
-    return res.json({
-      recipes: fallbackWithImages,
-      source: "fallback_error",
-      error: err.message,
+    return res.status(503).json({
+      error: "Recipe generation failed",
+      recipes: [],
     });
   }
 });
@@ -1056,28 +1055,11 @@ CRITICAL RULES:
 
     return res.json({ mealPlan, source: "gemini" });
   } catch (err: any) {
-    console.warn("Error generating weekly meal plan with Gemini (quota/rate-limit), falling back to local smart plan:", err?.message);
-    const today = new Date();
-    const fallbackPlan: any[] = [];
-    const pool = Array.isArray(recipes) && recipes.length > 0 ? recipes : [];
-    
-    for (let i = 0; i < 7; i++) {
-      const d = new Date(today);
-      d.setDate(today.getDate() + i);
-      const dateStr = d.toISOString().split("T")[0];
-      const bRecipe = pool[i % pool.length] || { id: `b-${i}`, title: { es: "Desayuno saludable", en: "Healthy Breakfast" }, calories: 350, ingredients: [{ name: "Yogurt", quantity: "1 cup" }], imageUrl: "https://images.unsplash.com/photo-1525351484163-7529414344d8?w=600" };
-      const lRecipe = pool[(i + 1) % pool.length] || { id: `l-${i}`, title: { es: "Comida balcánica", en: "Balkan Lunch" }, calories: 600, ingredients: [{ name: "Meat", quantity: "200g" }], imageUrl: "https://images.unsplash.com/photo-1544025162-d76694265947?w=600" };
-      const dRecipe = pool[(i + 2) % pool.length] || { id: `d-${i}`, title: { es: "Cena ligera", en: "Light Dinner" }, calories: 450, ingredients: [{ name: "Vegetables", quantity: "150g" }], imageUrl: "https://images.unsplash.com/photo-1540420773420-3366772f4999?w=600" };
-      
-      fallbackPlan.push({
-        date: dateStr,
-        breakfast: { ...bRecipe, imageUrl: resolveRecipeImageUrl(bRecipe) },
-        lunch: { ...lRecipe, imageUrl: resolveRecipeImageUrl(lRecipe) },
-        dinner: { ...dRecipe, imageUrl: resolveRecipeImageUrl(dRecipe) },
-      });
-    }
-
-    return res.json({ mealPlan: fallbackPlan, source: "fallback" });
+    console.warn("Error generating weekly meal plan with Gemini:", err?.message || err);
+    return res.status(503).json({
+      error: "Weekly meal-plan generation failed",
+      mealPlan: [],
+    });
   }
 });
 
