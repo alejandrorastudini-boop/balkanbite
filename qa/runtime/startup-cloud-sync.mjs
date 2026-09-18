@@ -9,6 +9,7 @@ const bypassSecret = process.env.VERCEL_AUTOMATION_BYPASS_SECRET || "";
 const shareUrl = process.env.QA_SHARE_URL || "";
 const artifactDir = process.env.QA_ARTIFACT_DIR || "artifacts/runtime-qa";
 const expectedSha = process.env.QA_EXPECTED_SHA || "";
+const requestedLocalBypass = process.env.QA_ALLOW_UNPROTECTED_LOCAL === "true";
 const delayMs = 30_000;
 const shellDeadlineMs = 10_000;
 
@@ -18,7 +19,14 @@ if (!previewUrl) {
 if (!expectedSha) {
   throw new Error("QA_EXPECTED_SHA is required");
 }
-if (!trustedOidcToken && !bypassSecret && !shareUrl) {
+const previewHost = new URL(previewUrl).hostname;
+const allowUnprotectedLocal =
+  requestedLocalBypass && ["127.0.0.1", "localhost"].includes(previewHost);
+
+if (requestedLocalBypass && !allowUnprotectedLocal) {
+  throw new Error("QA_ALLOW_UNPROTECTED_LOCAL is restricted to localhost/127.0.0.1");
+}
+if (!trustedOidcToken && !bypassSecret && !shareUrl && !allowUnprotectedLocal) {
   throw new Error(
     "Protected preview access requires VERCEL_TRUSTED_OIDC_TOKEN, VERCEL_AUTOMATION_BYPASS_SECRET, or QA_SHARE_URL"
   );
@@ -285,7 +293,9 @@ const summary = {
     ? "vercel-trusted-source-oidc"
     : bypassSecret
       ? "vercel-automation-bypass"
-      : "vercel-share-link",
+      : shareUrl
+        ? "vercel-share-link"
+        : "local-unprotected",
   results,
   status: failure ? "fail" : "pass",
 };
