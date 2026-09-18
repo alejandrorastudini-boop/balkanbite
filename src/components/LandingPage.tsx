@@ -91,7 +91,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               {language === "es" ? "Funcionalidades" : language === "bg" ? "Функции" : "Features"}
             </a>
             <a href="#calculator" className="hover:text-white transition-colors">
-              {language === "es" ? "Calculadora de Ahorro" : language === "bg" ? "Калкулатор" : "Savings Calculator"}
+              {language === "es" ? "Planificador de presupuesto" : language === "bg" ? "Бюджетен план" : "Budget Planner"}
             </a>
             <a href="#pricing" className="hover:text-white transition-colors">
               {language === "es" ? "Precios" : language === "bg" ? "Цени" : "Pricing"}
@@ -404,7 +404,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                           </span>
                         </h3>
                         <span className="text-xs font-bold text-amber-400 bg-amber-500/10 px-2 py-1 rounded-full border border-amber-500/20">
-                          {language === "es" ? "Ahorro Máximo" : language === "bg" ? "Максимално спестяване" : "Max Savings"}
+                          {language === "es" ? "Aprovechar lo disponible" : language === "bg" ? "Използвайте наличното" : "Use what is available"}
                         </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
@@ -739,7 +739,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-4xl mx-auto space-y-12">
           <div className="text-center space-y-2">
             <h2 className="text-2xl sm:text-4xl font-extrabold text-white font-['Outfit']">
-              {language === "es" ? "Planes Transparentes" : language === "bg" ? "Прозрачни планове" : "Simple Pricing"}
+              {language === "es" ? "Acceso actual y concepto Pro" : language === "bg" ? "Текущ достъп и Pro концепция" : "Current Access and Pro Concept"}
             </h2>
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-6 items-stretch">
