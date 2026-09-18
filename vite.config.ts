@@ -69,6 +69,7 @@ export default defineConfig(() => {
     plugins: [react(), tailwindcss(), aistudioMediaPlugin()],
     define: {
       __BALKANBITE_VERCEL_ENV__: JSON.stringify(process.env.VERCEL_ENV || ""),
+      __BALKANBITE_VERCEL_GIT_SHA__: JSON.stringify(process.env.VERCEL_GIT_COMMIT_SHA || ""),
     },
     resolve: {
       alias: {
