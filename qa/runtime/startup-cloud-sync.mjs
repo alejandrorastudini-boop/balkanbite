@@ -66,6 +66,22 @@ async function textNumber(page, testId) {
 }
 
 async function waitForExpectedDeployment(page) {
+  if (allowUnprotectedLocal) {
+    await page.goto(scenarioUrl("present"), {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+    const localSha = (
+      (await page.getByTestId("qa-deployment-sha").textContent()) || ""
+    ).trim();
+    assert.equal(
+      localSha,
+      expectedSha,
+      `local preview must serve the exact checked-out build SHA; expected ${expectedSha}, got ${localSha || "none"}`
+    );
+    return;
+  }
+
   const deadline = Date.now() + 180_000;
   let lastSeen = "";
 
