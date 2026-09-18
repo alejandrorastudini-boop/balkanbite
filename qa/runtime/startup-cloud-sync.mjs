@@ -10,6 +10,7 @@ const shareUrl = process.env.QA_SHARE_URL || "";
 const artifactDir = process.env.QA_ARTIFACT_DIR || "artifacts/runtime-qa";
 const expectedSha = process.env.QA_EXPECTED_SHA || "";
 const expectedDeploymentId = process.env.QA_EXPECTED_DEPLOYMENT_ID || "";
+const expectedFingerprint = process.env.QA_EXPECTED_FINGERPRINT || "";
 const requestedLocalBypass = process.env.QA_ALLOW_UNPROTECTED_LOCAL === "true";
 const delayMs = 30_000;
 const shellDeadlineMs = 10_000;
@@ -86,6 +87,7 @@ async function waitForExpectedDeployment(page) {
   const deadline = Date.now() + 180_000;
   let lastSeenSha = "";
   let lastSeenDeploymentId = "";
+  let lastSeenFingerprint = "";
 
   while (Date.now() < deadline) {
     await page.goto(scenarioUrl("present"), {
@@ -100,7 +102,13 @@ async function waitForExpectedDeployment(page) {
     if (await deploymentIdNode.count()) {
       lastSeenDeploymentId = ((await deploymentIdNode.textContent()) || "").trim();
     }
-    if (expectedDeploymentId) {
+    const fingerprintNode = page.getByTestId("qa-source-fingerprint");
+    if (await fingerprintNode.count()) {
+      lastSeenFingerprint = ((await fingerprintNode.textContent()) || "").trim();
+    }
+    if (expectedFingerprint) {
+      if (lastSeenFingerprint === expectedFingerprint) return;
+    } else if (expectedDeploymentId) {
       if (lastSeenDeploymentId === expectedDeploymentId) return;
     } else if (lastSeenSha === expectedSha) {
       return;
@@ -109,7 +117,7 @@ async function waitForExpectedDeployment(page) {
   }
 
   throw new Error(
-    `Preview alias did not reach expected deployment identity; expected SHA ${expectedSha}${expectedDeploymentId ? `, deployment ${expectedDeploymentId}` : ""}; last seen SHA ${lastSeenSha || "none"}, deployment ${lastSeenDeploymentId || "none"}`
+    `Preview alias did not reach expected deployment identity; expected SHA ${expectedSha}${expectedDeploymentId ? `, deployment ${expectedDeploymentId}` : ""}${expectedFingerprint ? `, fingerprint ${expectedFingerprint}` : ""}; last seen SHA ${lastSeenSha || "none"}, deployment ${lastSeenDeploymentId || "none"}, fingerprint ${lastSeenFingerprint || "none"}`
   );
 }
 
@@ -314,6 +322,7 @@ const summary = {
   previewUrl,
   expectedSha,
   expectedDeploymentId: expectedDeploymentId || null,
+  expectedFingerprint: expectedFingerprint || null,
   delayMs,
   shellDeadlineMs,
   authMethod: bypassSecret
