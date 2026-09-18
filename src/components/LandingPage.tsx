@@ -719,7 +719,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               : [
                   { aspect: "Inventory", old: "Forgotten items & food waste", new: "Visual AI Scanning" },
                   { aspect: "Weekly Menu", old: "Daily improvisation stress", new: "7-Day Smart Plan" },
-                  { aspect: "Grocery List", old: "Scattered paper notes", new: "Compartir por WhatsApp" }
+                  { aspect: "Grocery List", old: "Scattered paper notes", new: "Share to WhatsApp" }
                 ]
             ).map((row, i) => (
               <div key={i} className="grid grid-cols-3 p-4 items-center border-b border-stone-800/80">
