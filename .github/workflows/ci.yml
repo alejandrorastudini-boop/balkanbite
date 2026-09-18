@@ -21,12 +21,13 @@ jobs:
     timeout-minutes: 15
     steps:
       - name: Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
 
       - name: Configure Node
-        uses: actions/setup-node@v4
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
         with:
           node-version: "22"
+          package-manager-cache: false
 
       - name: Install dependencies
         run: npm install --no-audit --no-fund
@@ -39,3 +40,61 @@ jobs:
 
       - name: Build
         run: npm run build
+
+  runtime-harness:
+    needs: validate
+    runs-on: ubuntu-24.04
+    timeout-minutes: 12
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configure Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Install application dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Install isolated Playwright runtime
+        run: |
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Build preview-only QA harness
+        env:
+          VERCEL_ENV: preview
+          VERCEL_GIT_COMMIT_SHA: ${{ github.sha }}
+        run: npm run build
+
+      - name: Start local preview server
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/balkanbite-preview.log 2>&1 &
+          echo $! > /tmp/balkanbite-preview.pid
+          for attempt in $(seq 1 30); do
+            if curl --fail --silent --show-error http://127.0.0.1:4173/ >/dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/balkanbite-preview.log >&2
+          exit 1
+
+      - name: Run browser startup regression acceptance
+        env:
+          QA_PREVIEW_URL: http://127.0.0.1:4173
+          QA_EXPECTED_SHA: ${{ github.sha }}
+          QA_ALLOW_UNPROTECTED_LOCAL: "true"
+          QA_ARTIFACT_DIR: artifacts/runtime-qa-local
+        run: node qa/runtime/startup-cloud-sync.mjs
+
+      - name: Upload local browser evidence
+        if: always()
+        uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
+        with:
+          name: startup-cloud-sync-local-browser-${{ github.run_id }}
+          path: artifacts/runtime-qa-local
+          if-no-files-found: warn
+          retention-days: 14
