@@ -12,6 +12,7 @@ on:
 permissions:
   contents: read
   deployments: read
+  id-token: write
 
 concurrency:
   group: runtime-preview-qa-${{ github.event.deployment.sha || github.sha }}
@@ -47,15 +48,14 @@ jobs:
           fi
           echo "QA_PREVIEW_URL=$URL" >> "$GITHUB_ENV"
 
-      - name: Require protected-preview automation credential
-        env:
-          VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
-        run: |
-          if [ -z "$VERCEL_AUTOMATION_BYPASS_SECRET" ]; then
-            echo "VERCEL_AUTOMATION_BYPASS_SECRET is not configured." >&2
-            echo "Keep Vercel Authentication enabled; configure Protection Bypass for Automation instead." >&2
-            exit 1
-          fi
+      - name: Mint GitHub Actions OIDC token
+        id: oidc
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const token = await core.getIDToken();
+            core.setSecret(token);
+            core.setOutput("token", token);
 
       - name: Install Playwright runner
         run: |
@@ -64,6 +64,7 @@ jobs:
 
       - name: Run startup cloud-sync runtime acceptance
         env:
+          VERCEL_TRUSTED_OIDC_TOKEN: ${{ steps.oidc.outputs.token }}
           VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
           QA_ARTIFACT_DIR: artifacts/runtime-qa
         run: node qa/runtime/startup-cloud-sync.mjs
