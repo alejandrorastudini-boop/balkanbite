@@ -13,14 +13,13 @@ export function isRuntimeQaRoute(): boolean {
 }
 
 export function isStartupCloudSyncQaRoute(): boolean {
-  const previewBoundary =
-    __BALKANBITE_VERCEL_ENV__ === "preview" ||
-    window.location.hostname === RUNTIME_QA_PREVIEW_HOST;
+  const host = window.location.hostname;
+  const qaHostAllowed =
+    host === RUNTIME_QA_PREVIEW_HOST ||
+    host === "localhost" ||
+    host === "127.0.0.1";
 
-  return (
-    previewBoundary &&
-    window.location.pathname === STARTUP_CLOUD_SYNC_QA_PATH
-  );
+  return qaHostAllowed && window.location.pathname === STARTUP_CLOUD_SYNC_QA_PATH;
 }
 
 export function runtimeQaDeploymentSha(): string {
