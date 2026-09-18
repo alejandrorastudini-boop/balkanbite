@@ -1,0 +1,11 @@
+[
+  "vite.config.ts",
+  "src/main.tsx",
+  "src/qa/runtimeQaGate.ts",
+  "src/qa/StartupCloudSyncQaHarness.tsx",
+  "src/utils/startupCloudSync.ts",
+  "src/hooks/useFirebaseSync.ts",
+  "src/App.tsx",
+  "src/components/PantryView.tsx",
+  "qa/runtime/startup-cloud-sync.mjs"
+]
