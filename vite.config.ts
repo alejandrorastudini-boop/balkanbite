@@ -66,6 +66,9 @@ function aistudioMediaPlugin(): Plugin {
 // LINT.ThenChange(//depot/google3/java/com/google/alkali/boq/makersuite/applet_dev_service/templates/initializers/react_theme/vite.config.ts:aistudio_media_plugin)
 
 function resolveBuildGitSha(): string {
+  const viteVercelSha = process.env.VITE_VERCEL_GIT_COMMIT_SHA?.trim();
+  if (viteVercelSha) return viteVercelSha;
+
   const vercelSha = process.env.VERCEL_GIT_COMMIT_SHA?.trim();
   if (vercelSha) return vercelSha;
 
