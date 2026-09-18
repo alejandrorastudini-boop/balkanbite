@@ -52,10 +52,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const currSymbol = currency === "EUR" ? "€" : "$";
   const currRatio = currency === "EUR" ? 1 : 1.08;
 
-  // Real-time savings calculation
-  const calculatedWaste = Math.round(monthlySpend * 0.22); 
-  const monthlySavings = Math.round(monthlySpend * 0.28); 
-  const annualSavings = monthlySavings * 12;
+  // Budget figures below are deterministic transforms of the visitor's own inputs.
+  // They are planning context, not savings estimates.
+  const monthlyPerPerson = monthlySpend / Math.max(1, familyMembers);
+  const annualBudget = monthlySpend * 12;
 
   const hero = LANDING_DATA.hero;
 
@@ -308,10 +308,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                             <Camera className="w-4 h-4 text-emerald-400" />
                             <span>
                               {language === "es"
-                                ? "Detección Visual en Vivo (Gemini 3.8 Flash Vision)"
+                                ? "Revisión visual asistida por IA"
                                 : language === "bg"
-                                ? "Визуално разпознаване на живо (Gemini 3.8 Flash Vision)"
-                                : "Live Visual Detection (Gemini 3.8 Flash Vision)"}
+                                ? "Визуален преглед с помощта на AI"
+                                : "AI-assisted visual review"}
                             </span>
                           </h3>
                           <p className="text-xs text-stone-400">
@@ -322,7 +322,9 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                               : "AI analyzing shelves..."}
                           </p>
                         </div>
-                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">Auto-Tag</span>
+                        <span className="text-[11px] font-bold px-2.5 py-1 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30">
+                          {language === "es" ? "Revisar antes de guardar" : language === "bg" ? "Преглед преди запазване" : "Review before saving"}
+                        </span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 text-xs">
                         <div className="p-3 rounded-xl bg-stone-900 border border-stone-800 flex items-center justify-between">
@@ -546,10 +548,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
       {/* METRICS COUNTER BAR */}
       <p className="px-6 pt-10 text-center text-sm font-semibold text-slate-500">
         {language === "es"
-          ? "Objetivos ilustrativos del producto; no son resultados medidos ni garantizados."
+          ? "Resumen de capacidades del producto; no son métricas de usuarios ni resultados prometidos."
           : language === "bg"
-            ? "Илюстративни продуктови цели, а не измерени или гарантирани резултати."
-            : "Illustrative product goals, not measured or guaranteed results."}
+            ? "Обобщение на възможностите на продукта; това не са потребителски метрики или обещани резултати."
+            : "Product capability summary; these are not user metrics or promised outcomes."}
       </p>
       <section className="py-12 bg-stone-900/60 border-y border-stone-850 px-4 sm:px-6">
         <div className="max-w-5xl mx-auto grid grid-cols-2 md:grid-cols-4 gap-6 text-center">
@@ -618,14 +620,14 @@ export const LandingPage: React.FC<LandingPageProps> = ({
         <div className="max-w-4xl mx-auto space-y-10">
           <div className="text-center space-y-2">
             <span className="text-xs font-extrabold uppercase tracking-wider text-amber-400 bg-amber-500/10 px-3 py-1 rounded-full border border-amber-500/20">
-              {language === "es" ? "Escenario ilustrativo de ahorro" : language === "bg" ? "Илюстративен сценарий за спестяване" : "Illustrative Savings Scenario"}
+              {language === "es" ? "Escenario de presupuesto" : language === "bg" ? "Сценарий за бюджет" : "Budget Planning Scenario"}
             </span>
             <h2 className="text-2xl sm:text-4xl font-extrabold text-white font-['Outfit'] tracking-tight">
               {language === "es"
-                ? "Explora un escenario ilustrativo de planificación"
+                ? "Organiza un presupuesto a partir de tus propios datos"
                 : language === "bg"
-                ? "Разгледайте илюстративен сценарий за планиране"
-                : "Explore an Illustrative Planning Scenario"}
+                ? "Организирайте бюджет според собствените си данни"
+                : "Plan a budget from your own inputs"}
             </h2>
           </div>
 
@@ -655,17 +657,17 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="bg-gradient-to-br from-stone-950 to-stone-900 border border-emerald-500/30 rounded-2xl p-6 flex flex-col justify-between text-center relative overflow-hidden shadow-inner">
                 <div className="space-y-2">
                   <span className="text-[11px] font-extrabold uppercase tracking-wider text-emerald-400">
-                    {language === "es" ? "Proyección según tus datos" : language === "bg" ? "Прогноза според въведените данни" : "Projection Based on Your Inputs"}
+                    {language === "es" ? "Gasto mensual por persona" : language === "bg" ? "Месечен разход на човек" : "Monthly spend per person"}
                   </span>
                   <div className="pt-2">
                     <div className="text-4xl sm:text-5xl font-black text-white font-['Outfit'] tracking-tight">
-                      {Math.round(monthlySavings * currRatio)} {currSymbol}
+                      {Math.round(monthlyPerPerson * currRatio)} {currSymbol}
                       <span className="text-base font-bold text-stone-400 ml-1">
                         / {language === "es" ? "mes" : language === "bg" ? "месец" : "mo"}
                       </span>
                     </div>
                     <p className="text-sm font-bold text-emerald-400 mt-1">
-                      ≈ {Math.round(annualSavings * currRatio)} {currSymbol} {language === "es" ? "de proyección anual ilustrativa" : language === "bg" ? "илюстративна годишна прогноза" : "illustrative annual projection"}
+                      {Math.round(annualBudget * currRatio)} {currSymbol} {language === "es" ? "de presupuesto anual equivalente" : language === "bg" ? "еквивалентен годишен бюджет" : "equivalent annual budget"}
                     </p>
                   </div>
                 </div>
@@ -678,10 +680,10 @@ export const LandingPage: React.FC<LandingPageProps> = ({
             </div>
             <p className="text-center text-xs text-stone-500">
               {language === "es"
-                ? "Ejemplo ilustrativo basado en los controles elegidos; no es un ahorro verificado ni garantizado."
+                ? "Cálculo matemático a partir del gasto y tamaño del hogar que introduces; no estima ni garantiza ahorro."
                 : language === "bg"
-                ? "Илюстративен пример според избраните настройки; това не е потвърдено или гарантирано спестяване."
-                : "Illustrative example based on the selected controls; this is not verified or guaranteed savings."}
+                ? "Математическо изчисление от въведения разход и размер на домакинството; не оценява и не гарантира спестяване."
+                : "A mathematical breakdown of the spend and household size you enter; it does not estimate or guarantee savings."}
             </p>
           </div>
         </div>
@@ -726,43 +728,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 <span className="font-semibold text-stone-200">{row.aspect}</span>
                 <span className="text-stone-400 text-center">{row.old}</span>
                 <span className="text-emerald-400 text-center font-bold">{row.new}</span>
-              </div>
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* TESTIMONIALS */}
-      <section className="py-20 bg-stone-900/40 border-y border-stone-850 px-4 sm:px-6">
-        <div className="max-w-5xl mx-auto space-y-12">
-          <div className="text-center space-y-2">
-            <span className="text-xs font-extrabold uppercase tracking-wider text-emerald-400 bg-emerald-500/10 px-3 py-1 rounded-full border border-emerald-500/20">
-              {language === "es" ? "Historias Reales" : language === "bg" ? "Реални отзиви" : "Real Stories"}
-            </span>
-            <h2 className="text-2xl sm:text-4xl font-extrabold text-white font-['Outfit']">
-              {language === "es"
-                ? "+8.500 hogares cocinando mejor"
-                : language === "bg"
-                ? "+8 500 домакинства готвят по-добре"
-                : "8,500+ homes cooking smarter"}
-            </h2>
-          </div>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
-            <p className="mb-6 text-center text-sm text-slate-400">
-              Illustrative profiles — not verified customer testimonials.
-            </p>
-            {LANDING_DATA.testimonials.map((t, idx) => (
-              <div key={idx} className="bg-stone-900 border border-stone-800 rounded-3xl p-6 flex flex-col justify-between space-y-4 shadow-lg">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <p className="text-xs text-slate-500">Illustrative profile</p>
-                  </div>
-                  <p className="text-xs sm:text-sm text-stone-300 italic leading-relaxed">"{t.comment[language]}"</p>
-                </div>
-                <div className="flex items-center gap-3 pt-3 border-t border-stone-800">
-                  <img src={t.avatar} className="w-10 h-10 rounded-full object-cover" referrerPolicy="no-referrer" />
-                  <div><h4 className="text-xs sm:text-sm font-bold text-white">{t.name}</h4><p className="text-[11px] text-stone-400">{t.role[language]}</p></div>
-                </div>
               </div>
             ))}
           </div>
