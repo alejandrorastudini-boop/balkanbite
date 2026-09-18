@@ -1226,9 +1226,9 @@ CRITICAL LANGUAGE REQUIREMENT:
 All text including "title", every item "name", item "unit", item "reason", and "aiReasoning" MUST BE WRITTEN 100% IN ${targetLangName.toUpperCase()}.
 If Target Language is Spanish, write every ingredient name in Spanish (e.g. "Yogur natural", "Tomates maduros", "Huevos camperos", "Pepinos", "Ajo fresco", "Queso Feta"). NEVER return English ingredient names when target language is Spanish.
 
-Identify the critical missing nutritional gaps (e.g. need lean protein, fermented dairy, fresh vitamin C vegetables, fiber legumes).
-Suggest 7 to 10 high-value staple items that keep the total weekly basket under 20€ / $22.
-Include accurate prices in EUR/USD.
+Identify possible nutritional gaps as recommendations, not medical or authoritative findings.
+Suggest 7 to 10 budget-conscious staple items.
+If you include estimatedPriceEUR, it is an unverified planning estimate only; never describe it as live, exact, or verified.
 
 Return strictly JSON with this schema:
 {
@@ -1263,26 +1263,6 @@ Return strictly JSON with this schema:
       error: "Shopping suggestions are temporarily unavailable",
       items: [],
     });
-
-    return res.json({
-      title: language === "bg" ? "Седмичен балансиран списък (Икономичен)" : language === "es" ? "Cesta Semanal Inteligente (Económica)" : "Weekly Balanced Smart Basket (Budget-Friendly)",
-      totalEstimatedEUR: 12.5,
-      items: [
-        { name: language === "bg" ? "Българско кисело мляко 3.6%" : language === "es" ? "Yogur natural o griego" : "Natural Yogurt 3.6%", quantity: 2, unit: language === "es" ? "packs" : "pack", category: "Dairy", estimatedPriceEUR: 1.6 },
-        { name: language === "bg" ? "Пресни краставици" : language === "es" ? "Pepinos frescos" : "Fresh Cucumbers", quantity: 1, unit: "kg", category: "Produce", estimatedPriceEUR: 1.4 },
-        { name: language === "bg" ? "Розови домати" : language === "es" ? "Tomates frescos" : "Fresh Tomatoes", quantity: 1.5, unit: "kg", category: "Produce", estimatedPriceEUR: 2.3 },
-        { name: language === "bg" ? "Бяло сирене (сирене/фета)" : language === "es" ? "Queso Feta / Sirene" : "Sirene / Feta Cheese", quantity: 400, unit: "g", category: "Dairy", estimatedPriceEUR: 3.0 },
-        { name: language === "bg" ? "Яйца (размер L)" : language === "es" ? "Huevos camperos L" : "Fresh Eggs L", quantity: 10, unit: language === "es" ? "uds" : "pcs", category: "Dairy", estimatedPriceEUR: 2.1 },
-        { name: language === "bg" ? "Пресен копър и магданоз" : language === "es" ? "Eneldo y perejil fresco" : "Fresh Dill & Parsley", quantity: 2, unit: language === "es" ? "manojos" : "bunch", category: "Produce", estimatedPriceEUR: 0.9 },
-        { name: language === "bg" ? "Орехови ядки" : language === "es" ? "Nueces peladas" : "Walnut Halves", quantity: 100, unit: "g", category: "Pantry", estimatedPriceEUR: 1.2 },
-      ],
-      aiReasoning: language === "bg"
-        ? "Този базов списък струва под 12.5€ и ви позволява да приготвите поне 6 питателни, богати на протеин и пробиотици хранения."
-        : language === "es"
-        ? "Esta cesta básica cuesta menos de 12.5€ y permite preparar al menos 6 platos ricos en proteínas y probióticos (Tarator, ensaladas y revueltos)."
-        : "This core basket costs under 12.5€ and enables at least 6 balanced, probiotic and protein-rich meals.",
-      source: "resilient_fallback",
-    });
   }
 });
 
@@ -1299,37 +1279,12 @@ app.post("/api/ai/scan-image", async (req, res) => {
     const ai = getGeminiClient();
 
     if (!ai) {
-      // Return smart fallback items in case API key is not configured
-      const fallbackItems = [
-        {
-          name: language === "es" ? "Yogur natural" : (language === "bg" ? "Кисело мляко" : "Plain Yogurt"),
-          quantity: 2,
-          unit: "uds",
-          category: "Dairy",
-          estimatedDaysUntilExpiry: 7,
-          approximateCostEUR: 1.4,
-          confidence: "high"
-        },
-        {
-          name: language === "es" ? "Huevos frescos" : (language === "bg" ? "Яйца" : "Fresh Eggs"),
-          quantity: 6,
-          unit: "pcs",
-          category: "Dairy",
-          estimatedDaysUntilExpiry: 14,
-          approximateCostEUR: 1.6,
-          confidence: "high"
-        },
-        {
-          name: language === "es" ? "Tomates frescos" : (language === "bg" ? "Пресни домати" : "Fresh Tomatoes"),
-          quantity: 4,
-          unit: "pcs",
-          category: "Produce",
-          estimatedDaysUntilExpiry: 5,
-          approximateCostEUR: 1.2,
-          confidence: "medium"
-        }
-      ];
-      return res.json({ items: fallbackItems, source: "mock_fallback" });
+      // AI unavailability is not a detection. Preserve the no-result boundary.
+      return res.status(503).json({
+        success: false,
+        error: "AI vision scanner is temporarily unavailable",
+        items: [],
+      });
     }
 
     const promptText = `You are BalkanBite AI Computer Vision. You are analyzing an image of a ${scanType} (fridge, pantry shelf, groceries, or receipt).
@@ -1382,21 +1337,18 @@ Return strictly a JSON array conforming to this schema, with no markdown code fe
       items = [];
     }
 
-    return res.json({ items: Array.isArray(items) ? items : [], source: "gemini_vision" });
+    return res.json({
+      success: true,
+      items: Array.isArray(items) ? items : [],
+      source: "gemini_vision",
+    });
   } catch (err: any) {
-    console.warn("Gemini Vision transient/quota error, using resilient visual fallback:", err.message || err);
-    const fallbackItems = [
-      {
-        name: req.body?.language === "es" ? "Alimento detectado" : (req.body?.language === "bg" ? "Открита храна" : "Detected Grocery"),
-        quantity: 1,
-        unit: "pack",
-        category: "Produce",
-        estimatedDaysUntilExpiry: 5,
-        approximateCostEUR: 1.5,
-        confidence: "medium"
-      }
-    ];
-    return res.json({ items: fallbackItems, source: "resilient_fallback", error: err.message });
+    console.warn("Gemini Vision scan failed:", err.message || err);
+    return res.status(503).json({
+      success: false,
+      error: "AI vision scan failed",
+      items: [],
+    });
   }
 });
 
