@@ -48,3 +48,38 @@ export function findRemovedDocumentIds(
     (documentId) => !current.has(documentId),
   );
 }
+
+
+export interface RemoteCollectionEntry<T = Record<string, unknown>> {
+  documentId: string;
+  item: T;
+}
+
+export function selectCanonicalRemoteEntries<T>(
+  collectionName: string,
+  remoteEntries: readonly RemoteCollectionEntry<T>[],
+): {
+  entries: RemoteCollectionEntry<T>[];
+  trackedDocumentIds: string[];
+} {
+  const validEntries = remoteEntries.filter(({ item }) =>
+    Boolean(getSyncedItemKey(collectionName, item))
+  );
+
+  const byLogicalKey = new Map<string, RemoteCollectionEntry<T>>();
+  for (const entry of validEntries) {
+    const logicalKey = getSyncedItemKey(collectionName, entry.item)!;
+    const existing = byLogicalKey.get(logicalKey);
+    const entryIsCanonical = entry.documentId === logicalKey;
+    const existingIsCanonical = existing?.documentId === logicalKey;
+
+    if (!existing || (entryIsCanonical && !existingIsCanonical)) {
+      byLogicalKey.set(logicalKey, entry);
+    }
+  }
+
+  return {
+    entries: Array.from(byLogicalKey.values()),
+    trackedDocumentIds: validEntries.map(({ documentId }) => documentId),
+  };
+}
