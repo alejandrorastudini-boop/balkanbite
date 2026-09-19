@@ -293,7 +293,7 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
 
   assert.match(
     appSource,
-    /const handleCookRecipe = [^\\n]*=> \\{\\n\\s*if \\(!requireAuthoritativeInventory\\(\\)\\) \\{[\\s\\S]*return \\{ success: false, issueCount: 1 \\};/
+    /const handleCookRecipe = [^\n]*=> \{\n\s*if \(!requireAuthoritativeInventory\(\)\) \{[\s\S]*return \{ success: false, issueCount: 1 \};/
   );
 
   assert.match(
