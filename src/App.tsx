@@ -483,8 +483,14 @@ export default function App() {
   };
 
   const handleAddPantryItem = (item: Omit<PantryItem, "id" | "addedAt">) => {
-    // Manual pantry persistence requires an explicit, positive quantity and unit.
-    if (!Number.isFinite(item.quantity) || item.quantity <= 0 || !item.unit.trim()) return;
+    // Manual pantry persistence requires an explicit name, positive quantity, and unit.
+    // Optional category, cost, and expiry remain unknown when blank.
+    if (
+      !item.name.trim() ||
+      !Number.isFinite(item.quantity) ||
+      item.quantity <= 0 ||
+      !item.unit.trim()
+    ) return;
     const newItem: PantryItem = {
       ...item,
       id: `p-${Date.now()}`,
