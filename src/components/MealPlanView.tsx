@@ -21,11 +21,11 @@ import { PrintMenuModal } from "./PrintMenuModal";
 import { useGoogleCalendarSync } from "../hooks/useGoogleCalendarSync";
 import { calculateRecipePantryScore } from "../utils/menuAutoPlanner";
 import { evaluateShoppingNeeds } from "../utils/shoppingAdvisor";
+import { findPlannedMealForDate } from "../utils/mealPlanLookup";
 
 interface MealPlanViewProps {
   mealPlan: MealPlanDay[];
   mealLogs: MealLog[];
-  recipes: Recipe[];
   pantry?: PantryItem[];
   language: Language;
   currency?: Currency;
@@ -44,7 +44,6 @@ interface MealPlanViewProps {
 export const MealPlanView: React.FC<MealPlanViewProps> = ({
   mealPlan,
   mealLogs,
-  recipes,
   pantry = [],
   language,
   currency = "EUR",
@@ -107,28 +106,8 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
 
   const calendarDays = getDaysInMonth(new Date());
 
-  const getMealForDay = (date: Date): MealPlanDay | null => {
-    const dateStr = date.toISOString().split("T")[0];
-    const fixedPlan = mealPlan.find((d) => d.date === dateStr);
-    if (fixedPlan) return fixedPlan;
-
-    if (!recipes || recipes.length === 0) {
-      return null;
-    }
-
-    // Generative fallback: Use date as seed for variety
-    const seed = date.getDate() + date.getMonth() * 31;
-    const breakfast = recipes[seed % recipes.length];
-    const lunch = recipes[(seed + 1) % recipes.length];
-    const dinner = recipes[(seed + 2) % recipes.length];
-
-    return {
-      date: dateStr,
-      breakfast,
-      lunch,
-      dinner,
-    };
-  };
+  const getMealForDay = (date: Date): MealPlanDay | null =>
+    findPlannedMealForDate(mealPlan, date.toISOString().split("T")[0]);
 
   const selectedMeal = getMealForDay(selectedDate);
 
