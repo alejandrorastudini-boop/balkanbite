@@ -13,9 +13,11 @@ test("recipe costs remain in their declared EUR source currency", () => {
   assert.equal(formatRecipeCostEUR(2.5, false, "USD"), "≈€2.50 (EUR)");
 });
 
-test("invalid recipe cost does not become a numeric display", () => {
+test("invalid or unverified zero recipe cost does not become a numeric display", () => {
   assert.equal(formatRecipeCostEUR(Number.NaN, false, "EUR"), "—");
   assert.equal(formatRecipeCostEUR(-1, false, "USD"), "—");
+  assert.equal(formatRecipeCostEUR(0, false, "EUR"), "—");
+  assert.equal(formatRecipeCostEUR(0, true, "EUR"), "€0.00");
 });
 
 test("cheap filter truthfully states its EUR threshold", () => {
