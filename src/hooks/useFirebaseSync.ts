@@ -14,7 +14,7 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile } from "../types";
 import { INITIAL_PANTRY } from "../data/initialData";
 import { getStartupCloudSyncState } from "../utils/startupCloudSync";
-import { findRemovedDocumentIds, getSyncedItemKey } from "../utils/cloudCollectionSync";
+import { findRemovedDocumentIds, getSyncedItemKey, selectCanonicalRemoteEntries } from "../utils/cloudCollectionSync";
 
 const DEMO_PANTRY_ITEM_IDS = new Set(INITIAL_PANTRY.map(item => item.id));
 
@@ -132,33 +132,18 @@ export function useFirebaseSync(
         let itemsWithoutUserId = remoteEntries.map(({ item }) => item);
 
         if (collectionName !== "inventory") {
-          const validRemoteEntries = remoteEntries.filter(({ item }) =>
-            Boolean(getSyncedItemKey(collectionName, item))
+          const selected = selectCanonicalRemoteEntries(
+            collectionName,
+            remoteEntries
           );
           hydratedCollectionDocumentIds.current[collectionName] = new Set(
-            validRemoteEntries.map(({ documentId }) => documentId)
+            selected.trackedDocumentIds
           );
-
-          const byLogicalKey = new Map<
-            string,
-            { documentId: string; item: any }
-          >();
-          validRemoteEntries.forEach((entry) => {
-            const logicalKey = getSyncedItemKey(collectionName, entry.item)!;
-            const existing = byLogicalKey.get(logicalKey);
-            const entryIsCanonical = entry.documentId === logicalKey;
-            const existingIsCanonical = existing?.documentId === logicalKey;
-            if (!existing || (entryIsCanonical && !existingIsCanonical)) {
-              byLogicalKey.set(logicalKey, entry);
-            }
-          });
 
           // Invalid remote rows stay unresolved instead of being assigned an
           // invented identity or being silently deleted by a later local save.
           // If both a legacy and canonical row exist, the canonical row wins.
-          itemsWithoutUserId = Array.from(byLogicalKey.values()).map(
-            ({ item }) => item
-          );
+          itemsWithoutUserId = selected.entries.map(({ item }) => item);
         }
 
         if (collectionName === "inventory") {
