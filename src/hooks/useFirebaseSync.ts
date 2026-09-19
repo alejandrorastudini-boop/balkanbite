@@ -43,6 +43,7 @@ export function useFirebaseSync(
   const [authReady, setAuthReady] = useState(false);
   const [inventoryHydratedUser, setInventoryHydratedUser] = useState<string | null>(null);
   const [profileHydratedUser, setProfileHydratedUser] = useState<string | null>(null);
+  const authSessionUserId = useRef<string | null | undefined>(undefined);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
   const lastHydratedCollectionJson = useRef<Record<string, string>>({});
   const hydratedCollectionDocumentIds = useRef<Record<string, Set<string>>>({});
@@ -50,13 +51,29 @@ export function useFirebaseSync(
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
-      // A new auth session must hydrate the remote state before any cloud writes are allowed.
+      const nextUserId = user?.uid ?? null;
+      const previousUserId = authSessionUserId.current;
+      const shouldClearCloudBackedLocalState =
+        nextUserId !== null ||
+        (previousUserId !== undefined && previousUserId !== nextUserId);
+
+      // A new auth session must hydrate remote state before any cloud writes.
+      // Clear cloud-backed UI state in the same auth transition so guest or
+      // previous-account rows cannot flash as the new account's data.
       hydratedCollectionUser.current = {};
       lastHydratedCollectionJson.current = {};
       hydratedCollectionDocumentIds.current = {};
       hydratedInventoryActiveIds.current = new Set();
       setInventoryHydratedUser(null);
       setProfileHydratedUser(null);
+
+      if (shouldClearCloudBackedLocalState) {
+        setRecipes([]);
+        setMealPlan([]);
+        setShoppingList([]);
+      }
+
+      authSessionUserId.current = nextUserId;
       setLoading(user !== null);
       setCurrentUser(user);
       setAuthReady(true);
