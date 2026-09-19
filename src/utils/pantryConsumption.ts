@@ -158,6 +158,14 @@ export function deductRecipeIngredientsFromPantry(
     }
   }
 
+  if (issues.length > 0) {
+    return {
+      pantry: pantry.map((item) => ({ ...item })),
+      deductions: [],
+      issues,
+    };
+  }
+
   return {
     pantry: workingPantry,
     deductions,
