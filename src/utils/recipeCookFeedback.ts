@@ -14,7 +14,7 @@ export function getRecipeCookFeedback(
   language: Language,
   successText: string,
 ): RecipeCookFeedback {
-  if (outcome.success) {
+  if (outcome.success === true) {
     return { kind: "success", text: successText };
   }
 
