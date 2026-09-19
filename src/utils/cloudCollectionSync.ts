@@ -7,6 +7,11 @@ export type SyncedCollectionName =
 const nonBlank = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim() ? value.trim() : undefined;
 
+const directDocumentKey = (value: unknown): string | undefined => {
+  const key = nonBlank(value);
+  return key && !key.includes("/") ? key : undefined;
+};
+
 /**
  * Stable logical key for a synced item. Meal-plan days are keyed by date;
  * the other current collection models carry an explicit id.
@@ -19,15 +24,16 @@ export function getSyncedItemKey(
   const record = item as Record<string, unknown>;
 
   if (collectionName === "mealPlans") {
-    return nonBlank(record.date);
+    return directDocumentKey(record.date);
   }
 
-  if (
-    collectionName === "inventory" ||
-    collectionName === "recipes" ||
-    collectionName === "shoppingList"
-  ) {
+  if (collectionName === "inventory") {
+    // Inventory document IDs are user-scoped with encodeURIComponent later.
     return nonBlank(record.id);
+  }
+
+  if (collectionName === "recipes" || collectionName === "shoppingList") {
+    return directDocumentKey(record.id);
   }
 
   return undefined;
