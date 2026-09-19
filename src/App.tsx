@@ -30,7 +30,6 @@ import {
   ChatMessage,
 } from "./types";
 import {
-  INITIAL_PANTRY,
   INITIAL_RECIPES,
   SAMPLE_RECIPES,
   DEFAULT_PROFILE,
@@ -54,18 +53,12 @@ import {
   getUserPantryCacheKey,
   parseUserPantryCache,
 } from "./utils/startupPantryCache";
+import { loadGuestPantry } from "./utils/guestPantry";
 
 export default function App() {
-  const [pantry, setPantry] = useState<PantryItem[]>(() => {
-    try {
-      const saved = localStorage.getItem("balkanbite_pantry");
-      if (saved === null) return INITIAL_PANTRY;
-      const parsed = JSON.parse(saved);
-      return Array.isArray(parsed) ? parsed : INITIAL_PANTRY;
-    } catch {
-      return INITIAL_PANTRY;
-    }
-  });
+  const [pantry, setPantry] = useState<PantryItem[]>(() =>
+    loadGuestPantry(localStorage.getItem("balkanbite_pantry"))
+  );
 
   const [recipes, setRecipes] = useState<Recipe[]>(() => {
     try {
@@ -247,17 +240,7 @@ export default function App() {
 
     if (firebaseLoading || pantryScope === "guest") return;
 
-    try {
-      const savedGuestPantry = localStorage.getItem("balkanbite_pantry");
-      if (savedGuestPantry === null) {
-        setPantry(INITIAL_PANTRY);
-      } else {
-        const parsed = JSON.parse(savedGuestPantry);
-        setPantry(Array.isArray(parsed) ? parsed : INITIAL_PANTRY);
-      }
-    } catch {
-      setPantry(INITIAL_PANTRY);
-    }
+    setPantry(loadGuestPantry(localStorage.getItem("balkanbite_pantry")));
     setPantryScope("guest");
   }, [currentUser, firebaseLoading, inventoryHydrated, pantryScope, isResetting]);
 
