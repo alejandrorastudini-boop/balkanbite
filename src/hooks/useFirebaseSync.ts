@@ -15,6 +15,7 @@ import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile } from "../t
 import { INITIAL_PANTRY } from "../data/initialData";
 import { getStartupCloudSyncState } from "../utils/startupCloudSync";
 import { findRemovedDocumentIds, getSyncedItemKey, selectCanonicalRemoteEntries } from "../utils/cloudCollectionSync";
+import { createSignedInProfileDefaults, sanitizeRemoteUserProfile } from "../utils/profileSyncBoundary";
 
 const DEMO_PANTRY_ITEM_IDS = new Set(INITIAL_PANTRY.map(item => item.id));
 
@@ -41,6 +42,7 @@ export function useFirebaseSync(
   // can finish in the background instead of holding a full-screen overlay.
   const [authReady, setAuthReady] = useState(false);
   const [inventoryHydratedUser, setInventoryHydratedUser] = useState<string | null>(null);
+  const [profileHydratedUser, setProfileHydratedUser] = useState<string | null>(null);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
   const lastHydratedCollectionJson = useRef<Record<string, string>>({});
   const hydratedCollectionDocumentIds = useRef<Record<string, Set<string>>>({});
@@ -54,6 +56,7 @@ export function useFirebaseSync(
       hydratedCollectionDocumentIds.current = {};
       hydratedInventoryActiveIds.current = new Set();
       setInventoryHydratedUser(null);
+      setProfileHydratedUser(null);
       setLoading(user !== null);
       setCurrentUser(user);
       setAuthReady(true);
@@ -61,40 +64,51 @@ export function useFirebaseSync(
     return unsubscribe;
   }, []);
 
-  // Sync Profile
+  // Sync Profile. Remote account data replaces the signed-in profile boundary;
+  // it is never merged over guest or previous-account state.
   useEffect(() => {
     if (!currentUser) return;
     const userDoc = doc(db, "users", currentUser.uid);
 
     const unsub = onSnapshot(userDoc, (docSnap) => {
       if (docSnap.exists()) {
-        const data = docSnap.data() as UserProfile;
+        const data = sanitizeRemoteUserProfile(docSnap.data());
         if (JSON.stringify(data) !== JSON.stringify(profile)) {
-          setProfile(prev => ({ ...prev, ...data }));
+          setProfile(data);
         }
       } else {
-        // Initial profile save
+        const newProfile = createSignedInProfileDefaults(
+          currentUser.displayName
+        );
+        setProfile(newProfile);
         setDoc(userDoc, {
-          ...profile,
+          ...newProfile,
           userId: currentUser.uid,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now()
         });
       }
+      setProfileHydratedUser(currentUser.uid);
       setLoading(false);
     });
     return unsub;
   }, [currentUser]);
 
-  // Save profile changes
+  // Save profile changes only after this exact account hydrated its own profile.
   useEffect(() => {
-    if (!currentUser || loading) return;
+    if (
+      !currentUser ||
+      loading ||
+      profileHydratedUser !== currentUser.uid
+    ) {
+      return;
+    }
     const userDoc = doc(db, "users", currentUser.uid);
     setDoc(userDoc, {
       ...profile,
       updatedAt: Timestamp.now()
     }, { merge: true });
-  }, [profile, currentUser]);
+  }, [profile, currentUser, loading, profileHydratedUser]);
 
   const { canRenderApp, inventoryIsProvisional, cloudInventoryWritesAllowed } =
     getStartupCloudSyncState(
@@ -320,6 +334,8 @@ export function useFirebaseSync(
   syncCollection("shoppingList", shoppingList, setShoppingList, () => true, true);
 
   const inventoryHydrated = !inventoryIsProvisional;
+  const profileHydrated =
+    !currentUser || profileHydratedUser === currentUser.uid;
 
   // Only unresolved Auth blocks the application shell. Inventory authority is
   // surfaced separately so a delayed first snapshot cannot freeze the UI.
@@ -331,5 +347,6 @@ export function useFirebaseSync(
     loading: !canRenderApp,
     inventoryHydrated,
     inventoryIsProvisional,
+    profileHydrated,
   };
 }
