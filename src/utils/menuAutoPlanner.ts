@@ -4,58 +4,53 @@ import { assessTotalAvailability, areUnitsCompatible } from "./quantityUnits";
 import { areReviewedBulgarianFoodAliases } from "./bulgarianFoodAliases";
 
 const normalizeIngredientName = (value: string): string =>
-  (value || "").trim().toLowerCase();
+  (value || "")
+    .normalize("NFKC")
+    .trim()
+    .toLowerCase()
+    .replace(/[^\p{L}\p{N}]+/gu, " ")
+    .replace(/\s+/g, " ")
+    .trim();
 
 const singularStem = (value: string): string => value.replace(/s$/, "");
 
+const ingredientTokens = (value: string): string[] =>
+  normalizeIngredientName(value)
+    .split(/\s+/)
+    .map(singularStem)
+    .filter((word) => word.length > 2);
+
+function hasWholeTokenRequirementMatch(target: string, candidate: string): boolean {
+  const requiredTokens = ingredientTokens(target);
+  const candidateTokens = new Set(ingredientTokens(candidate));
+  return (
+    requiredTokens.length > 0 &&
+    requiredTokens.every((token) => candidateTokens.has(token))
+  );
+}
+
 /**
- * Keeps the current fuzzy name matching behavior in one place so quantity
- * checks, recipe scoring and later shopping calculations can share it.
+ * Matches pantry names conservatively. Character-substring matching is unsafe
+ * for food identity ("egg" must not match "eggplant", "oil" must not match
+ * "boiled"). A requirement can match an exact/localized name, a reviewed
+ * Bulgarian alias, or complete requirement tokens present in the pantry name.
  */
 export function isPantryNameMatch(ingredientName: string, pantryItem: PantryItem): boolean {
   const target = normalizeIngredientName(ingredientName);
   if (!target) return false;
 
-  const cleanTarget = singularStem(target);
-  const pName = normalizeIngredientName(pantryItem.name);
-  const pNameBg = normalizeIngredientName(pantryItem.nameBg || "");
-  const pNameEs = normalizeIngredientName(pantryItem.nameEs || "");
-  const cleanPName = singularStem(pName);
-  const cleanPNameEs = singularStem(pNameEs);
+  const candidates = [
+    normalizeIngredientName(pantryItem.name),
+    normalizeIngredientName(pantryItem.nameBg || ""),
+    normalizeIngredientName(pantryItem.nameEs || ""),
+  ].filter(Boolean);
 
-  if (
-    areReviewedBulgarianFoodAliases(target, pName) ||
-    areReviewedBulgarianFoodAliases(target, pNameBg) ||
-    areReviewedBulgarianFoodAliases(target, pNameEs) ||
-    pName.includes(target) ||
-    target.includes(pName) ||
-    cleanPName.includes(cleanTarget) ||
-    cleanTarget.includes(cleanPName) ||
-    (pNameBg && (pNameBg.includes(target) || target.includes(pNameBg))) ||
-    (pNameEs &&
-      (pNameEs.includes(target) ||
-        target.includes(pNameEs) ||
-        cleanPNameEs.includes(cleanTarget) ||
-        cleanTarget.includes(cleanPNameEs)))
-  ) {
-    return true;
-  }
-
-  const targetWords = target
-    .split(/\s+/)
-    .map(singularStem)
-    .filter((word) => word.length > 2);
-  const pantryWords = pName
-    .split(/\s+/)
-    .map(singularStem)
-    .filter((word) => word.length > 2);
-
-  return targetWords.some((targetWord) =>
-    pantryWords.some(
-      (pantryWord) =>
-        targetWord.includes(pantryWord) || pantryWord.includes(targetWord)
-    )
-  );
+  return candidates.some((candidate) => {
+    if (areReviewedBulgarianFoodAliases(target, candidate)) return true;
+    if (target === candidate) return true;
+    if (singularStem(target) === singularStem(candidate)) return true;
+    return hasWholeTokenRequirementMatch(target, candidate);
+  });
 }
 
 export function findMatchingPantryItems(
