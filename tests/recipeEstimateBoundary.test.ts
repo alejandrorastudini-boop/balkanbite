@@ -24,10 +24,14 @@ test("recipe UI never presents unverified nutrition or cost as exact", () => {
   assert.match(typesSource, /nutritionDataStatus\?: "verified" \| "estimated" \| "unknown"/);
   assert.match(typesSource, /costDataStatus\?: "verified" \| "estimated" \| "unknown"/);
   assert.match(recipeViewSource, /isNutritionVerified\(recipe\) \? "" : "≈"/);
-  assert.match(recipeViewSource, /isCostVerified\(recipe\) \? "" : "≈"/);
+  assert.match(recipeViewSource, /formatRecipeCostEUR\(/);
+  assert.match(recipeViewSource, /recipeCostCurrencyNotice\(currency, language\)/);
   assert.match(
     recipeViewSource,
     /Nutrition and cost are shown as estimates; they are not verified calculations/
   );
-  assert.match(recipeViewSource, /\$\$\{\(recipe\.costPerServingEUR \* 1\.1\)\.toFixed\(2\)\}/);
+  assert.doesNotMatch(
+    recipeViewSource,
+    /costPerServingEUR\s*\*\s*1\.1/
+  );
 });
