@@ -1,4 +1,5 @@
-import { describe, expect, it } from "vitest";
+import { describe, it } from "node:test";
+import assert from "node:assert/strict";
 import {
   aggregateNutritionValues,
   type NutritionValue,
@@ -32,7 +33,7 @@ describe("aggregateNutritionValues", () => {
 
     const aggregation = aggregateNutritionValues(values);
 
-    expect(aggregation.verifiedTotals).toEqual([
+    assert.deepEqual(aggregation.verifiedTotals,[
       {
         nutrient: "protein",
         amount: 15,
@@ -41,7 +42,7 @@ describe("aggregateNutritionValues", () => {
         sources: ["product-label", "second-label"],
       },
     ]);
-    expect(aggregation.estimatedTotals).toEqual([
+    assert.deepEqual(aggregation.estimatedTotals,[
       {
         nutrient: "protein",
         amount: 5,
@@ -79,7 +80,7 @@ describe("aggregateNutritionValues", () => {
 
     const aggregation = aggregateNutritionValues(values);
 
-    expect(aggregation.verifiedTotals).toEqual([
+    assert.deepEqual(aggregation.verifiedTotals,[
       {
         nutrient: "energy",
         amount: 100,
@@ -95,6 +96,6 @@ describe("aggregateNutritionValues", () => {
         sources: ["product-label"],
       },
     ]);
-    expect(aggregation.unknownValues).toEqual([values[2]]);
+    assert.deepEqual(aggregation.unknownValues,[values[2]]);
   });
 });
