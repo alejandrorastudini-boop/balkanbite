@@ -41,18 +41,16 @@ const updateCandidateReviewField = <K extends keyof ScannedItem>(
   field: K,
   value: ScannedItem[K]
 ): ScannedItem => {
-  const requiredValueChanged =
-    (field === "quantity" && value !== item.quantity) ||
-    (field === "unit" && value !== item.unit);
+  const valueChanged = value !== item[field];
 
   return {
     ...item,
     [field]: value,
-    // Editing either required value revokes both the field-specific review and
-    // any prior selection, so a stale confirmation can never remain saveable.
-    ...(requiredValueChanged ? { selected: false } : {}),
-    ...(field === "quantity" && value !== item.quantity ? { quantityConfirmed: false } : {}),
-    ...(field === "unit" && value !== item.unit ? { unitConfirmed: false } : {}),
+    // Any edit changes the review candidate, so it must be selected again.
+    // Quantity and unit additionally lose their field-specific confirmation.
+    ...(valueChanged ? { selected: false } : {}),
+    ...(field === "quantity" && valueChanged ? { quantityConfirmed: false } : {}),
+    ...(field === "unit" && valueChanged ? { unitConfirmed: false } : {}),
   };
 };
 
