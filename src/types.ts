@@ -118,6 +118,8 @@ export interface MealLog {
   mealType: "breakfast" | "lunch" | "dinner" | "snack";
   recipeId?: string;
   manualName?: string;
+  /** Nutrition from voice or other unverified input must not be treated as an authoritative daily total. */
+  nutritionDataStatus?: "verified" | "estimated" | "unknown";
   calories: number;
   proteinG: number;
   carbsG: number;
