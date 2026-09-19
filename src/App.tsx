@@ -55,6 +55,12 @@ import {
   parseUserPantryCache,
 } from "./utils/startupPantryCache";
 import { loadGuestPantry } from "./utils/guestPantry";
+import {
+  createSignedInProfileDefaults,
+  getUserProfileCacheKey,
+  parseGuestProfileCache,
+  parseUserProfileCache,
+} from "./utils/profileSyncBoundary";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
@@ -117,14 +123,10 @@ export default function App() {
     }
   });
 
-  const [profile, setProfile] = useState<UserProfile>(() => {
-    try {
-      const saved = localStorage.getItem("balkanbite_profile");
-      return saved ? JSON.parse(saved) : DEFAULT_PROFILE;
-    } catch {
-      return DEFAULT_PROFILE;
-    }
-  });
+  const [profile, setProfile] = useState<UserProfile>(() =>
+    parseGuestProfileCache(localStorage.getItem("balkanbite_profile")) ??
+    DEFAULT_PROFILE
+  );
 
   const {
     currentUser,
@@ -132,6 +134,7 @@ export default function App() {
     inventoryHydrated,
     inventoryIsProvisional,
     canRenderApp,
+    profileHydrated,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -146,6 +149,7 @@ export default function App() {
   );
 
   const [pantryScope, setPantryScope] = useState<string>("guest");
+  const [profileScope, setProfileScope] = useState<string>("guest");
   const [activeTab, setActiveTab] = useState<TabType>("pantry");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   // Commercial entitlement is not implemented yet. Never trust the legacy
@@ -285,12 +289,66 @@ export default function App() {
 
   useEffect(() => {
     if (isResetting) return;
+
+    if (currentUser) {
+      if (!profileHydrated && profileScope !== currentUser.uid) {
+        const cachedProfile = parseUserProfileCache(
+          localStorage.getItem(getUserProfileCacheKey(currentUser.uid)),
+          currentUser.displayName
+        );
+        setProfile(
+          cachedProfile ??
+            createSignedInProfileDefaults(currentUser.displayName)
+        );
+        setProfileScope(currentUser.uid);
+        return;
+      }
+
+      if (profileHydrated && profileScope !== currentUser.uid) {
+        setProfileScope(currentUser.uid);
+      }
+      return;
+    }
+
+    if (firebaseLoading || profileScope === "guest") return;
+
+    setProfile(
+      parseGuestProfileCache(localStorage.getItem("balkanbite_profile")) ??
+        DEFAULT_PROFILE
+    );
+    setProfileScope("guest");
+  }, [
+    currentUser,
+    firebaseLoading,
+    profileHydrated,
+    profileScope,
+    isResetting,
+  ]);
+
+  useEffect(() => {
+    if (isResetting) return;
     try {
+      if (currentUser) {
+        if (!profileHydrated || profileScope !== currentUser.uid) return;
+        localStorage.setItem(
+          getUserProfileCacheKey(currentUser.uid),
+          JSON.stringify(profile)
+        );
+        return;
+      }
+
+      if (profileScope !== "guest") return;
       localStorage.setItem("balkanbite_profile", JSON.stringify(profile));
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [profile, isResetting]);
+  }, [
+    profile,
+    currentUser,
+    profileHydrated,
+    profileScope,
+    isResetting,
+  ]);
 
   useEffect(() => {
     if (isResetting) return;
