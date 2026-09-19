@@ -24,6 +24,18 @@ test('derives shortages only from known requirements and compatible pantry stock
   });
 });
 
+test('treats known zero pantry stock as a full shortage', () => {
+  const result = computePlanShortages(
+    [{ ingredientId: 'rice', foodName: 'Rice', quantity: 500, unit: 'g' }],
+    [{ id: 'rice-stock', foodName: 'Rice', quantity: 0, unit: 'g' }],
+  );
+
+  assert.deepEqual(result, {
+    shortages: [{ ingredientId: 'rice', foodName: 'Rice', quantity: 500, unit: 'g' }],
+    pending: [],
+  });
+});
+
 test('keeps unknown requirements and unknown matching pantry stock pending', () => {
   const result = computePlanShortages(
     [

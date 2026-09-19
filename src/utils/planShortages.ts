@@ -50,7 +50,7 @@ function foodKey(value: unknown): string | undefined {
 }
 
 function knownQuantity(quantity: unknown, unit: unknown): KnownQuantity | undefined {
-  if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity <= 0) return undefined;
+  if (typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity < 0) return undefined;
   const unitName = knownText(unit);
   return unitName ? normalizeQuantity(quantity, unitName) : undefined;
 }
