@@ -14,6 +14,7 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile } from "../types";
 import { INITIAL_PANTRY } from "../data/initialData";
 import { getStartupCloudSyncState } from "../utils/startupCloudSync";
+import { findRemovedDocumentIds, getSyncedItemKey } from "../utils/cloudCollectionSync";
 
 const DEMO_PANTRY_ITEM_IDS = new Set(INITIAL_PANTRY.map(item => item.id));
 
@@ -42,6 +43,7 @@ export function useFirebaseSync(
   const [inventoryHydratedUser, setInventoryHydratedUser] = useState<string | null>(null);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
   const lastHydratedCollectionJson = useRef<Record<string, string>>({});
+  const hydratedCollectionDocumentIds = useRef<Record<string, Set<string>>>({});
   const hydratedInventoryActiveIds = useRef<Set<string>>(new Set());
 
   useEffect(() => {
@@ -49,6 +51,7 @@ export function useFirebaseSync(
       // A new auth session must hydrate the remote state before any cloud writes are allowed.
       hydratedCollectionUser.current = {};
       lastHydratedCollectionJson.current = {};
+      hydratedCollectionDocumentIds.current = {};
       hydratedInventoryActiveIds.current = new Set();
       setInventoryHydratedUser(null);
       setLoading(user !== null);
@@ -128,6 +131,17 @@ export function useFirebaseSync(
 
         let itemsWithoutUserId = remoteEntries.map(({ item }) => item);
 
+        if (collectionName !== "inventory") {
+          hydratedCollectionDocumentIds.current[collectionName] = new Set(
+            remoteEntries.map(({ documentId }) => documentId)
+          );
+          // Invalid remote rows stay unresolved instead of being assigned an
+          // invented document identity in local state.
+          itemsWithoutUserId = itemsWithoutUserId.filter((item) =>
+            Boolean(getSyncedItemKey(collectionName, item))
+          );
+        }
+
         if (collectionName === "inventory") {
           // Read both legacy global IDs and new user-scoped IDs during the transition.
           // When both exist for the same logical item, the user-scoped document is authoritative.
@@ -180,8 +194,13 @@ export function useFirebaseSync(
 
       const save = async () => {
         const itemsToPersist = localState.filter(shouldPersistItem);
+        const persistableItems = itemsToPersist.filter((item) =>
+          Boolean(getSyncedItemKey(collectionName, item))
+        );
         const currentInventoryIds: Set<string> = isInventory
-          ? new Set<string>(itemsToPersist.map(item => String(item.id)))
+          ? new Set<string>(
+              persistableItems.map((item) => getSyncedItemKey(collectionName, item)!)
+            )
           : new Set<string>();
         const hydratedActiveInventoryIds = Array.from(
           hydratedInventoryActiveIds.current.values()
@@ -190,26 +209,52 @@ export function useFirebaseSync(
           ? hydratedActiveInventoryIds.filter(id => !currentInventoryIds.has(id))
           : [];
 
-        if (!isInventory && itemsToPersist.length === 0) return;
-        if (isInventory && itemsToPersist.length === 0 && deletedInventoryIds.length === 0) {
+        const currentCollectionDocumentIds = !isInventory
+          ? new Set(
+              persistableItems.map(
+                (item) => getSyncedItemKey(collectionName, item)!
+              )
+            )
+          : new Set<string>();
+        const deletedCollectionDocumentIds = !isInventory
+          ? findRemovedDocumentIds(
+              hydratedCollectionDocumentIds.current[collectionName] || [],
+              currentCollectionDocumentIds
+            )
+          : [];
+
+        if (
+          !isInventory &&
+          persistableItems.length === 0 &&
+          deletedCollectionDocumentIds.length === 0
+        ) {
+          return;
+        }
+        if (
+          isInventory &&
+          persistableItems.length === 0 &&
+          deletedInventoryIds.length === 0
+        ) {
           return;
         }
 
-        // Do not turn a freshly hydrated legacy snapshot into duplicate user-scoped documents.
-        // Migration only begins after a real local inventory mutation changes the hydrated state.
+        // A fresh remote snapshot is already the source of truth. Do not write
+        // it back until a real local mutation changes the hydrated state.
         if (
-          isInventory &&
           deletedInventoryIds.length === 0 &&
-          lastHydratedCollectionJson.current[collectionName] === JSON.stringify(itemsToPersist)
+          deletedCollectionDocumentIds.length === 0 &&
+          lastHydratedCollectionJson.current[collectionName] ===
+            JSON.stringify(itemsToPersist)
         ) {
           return;
         }
 
         const batch = writeBatch(db);
-        itemsToPersist.forEach(item => {
+        persistableItems.forEach(item => {
+          const logicalId = getSyncedItemKey(collectionName, item)!;
           const documentId = isInventory
-            ? getInventoryDocumentId(currentUser.uid, String(item.id))
-            : String(item.id);
+            ? getInventoryDocumentId(currentUser.uid, logicalId)
+            : logicalId;
           const docRef = doc(db, collectionName, documentId);
           batch.set(
             docRef,
@@ -243,6 +288,10 @@ export function useFirebaseSync(
           );
         });
 
+        deletedCollectionDocumentIds.forEach((documentId) => {
+          batch.delete(doc(db, collectionName, documentId));
+        });
+
         await batch.commit();
       };
       save();
@@ -259,9 +308,12 @@ export function useFirebaseSync(
     true,
     isRealPantryItem
   );
-  syncCollection("recipes", recipes, setRecipes);
-  syncCollection("mealPlans", mealPlan, setMealPlan);
-  syncCollection("shoppingList", shoppingList, setShoppingList);
+  // For authenticated sessions an empty remote collection is authoritative.
+  // This prevents guest/previous-account data from leaking into a new account
+  // and lets remote deletions propagate back to this device.
+  syncCollection("recipes", recipes, setRecipes, () => true, true);
+  syncCollection("mealPlans", mealPlan, setMealPlan, () => true, true);
+  syncCollection("shoppingList", shoppingList, setShoppingList, () => true, true);
 
   const inventoryHydrated = !inventoryIsProvisional;
 
