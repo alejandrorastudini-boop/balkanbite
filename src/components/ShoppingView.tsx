@@ -500,7 +500,11 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
 
               <div>
                 <label className="block text-[11px] font-bold uppercase tracking-widest text-stone-500 mb-1.5">
-                  {language === "es" ? "Precio Estimado (€)" : "Estimated Price (€)"}
+                  {language === "es"
+                    ? "Precio estimado (€) — opcional; déjalo vacío si se desconoce"
+                    : language === "bg"
+                    ? "Прогнозна цена (€) — по избор; оставете празно, ако е неизвестна"
+                    : "Estimated price (€) — optional; leave blank if unknown"}
                 </label>
                 <input
                   type="number"
