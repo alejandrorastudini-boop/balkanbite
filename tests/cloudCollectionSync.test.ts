@@ -28,7 +28,13 @@ test("removed cloud documents are derived deterministically", () => {
   );
 });
 
-test("unknown collection schemas remain unresolved", () => {
+test("unknown or unsafe direct document identities remain unresolved", () => {
   assert.equal(getSyncedItemKey("other", { id: "x" }), undefined);
   assert.equal(getSyncedItemKey("recipes", { id: "   " }), undefined);
+  assert.equal(getSyncedItemKey("recipes", { id: "folder/recipe" }), undefined);
+  assert.equal(getSyncedItemKey("shoppingList", { id: "a/b" }), undefined);
+  assert.equal(getSyncedItemKey("mealPlans", { date: "2026/09/20" }), undefined);
+
+  // Inventory IDs are encoded into a scoped document ID by the hook.
+  assert.equal(getSyncedItemKey("inventory", { id: "legacy/a" }), "legacy/a");
 });
