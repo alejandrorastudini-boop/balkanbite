@@ -375,3 +375,31 @@ test("hosted runtime QA binds the protected preview by fixed host and source fin
   );
 });
 
+
+
+test("auth transitions clear cloud-backed workspace before the next account hydrates", () => {
+  assert.match(firebaseSyncSource, /authSessionUserId/);
+  assert.match(
+    firebaseSyncSource,
+    /hydratedCollectionUser\.current = \{\};[\s\S]*setRecipes\(\[\]\);[\s\S]*setMealPlan\(\[\]\);[\s\S]*setShoppingList\(\[\]\);/
+  );
+  assert.match(
+    firebaseSyncSource,
+    /hydratedCollectionUser\.current\[collectionName\] !== currentUser\.uid/
+  );
+});
+
+test("guest workspace storage is not overwritten by a signed-in account", () => {
+  assert.match(
+    appSource,
+    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest"\) return;[\s\S]*localStorage\.setItem\("balkanbite_recipes"/
+  );
+  assert.match(
+    appSource,
+    /getUserLocalWorkspaceKey\([\s\S]*"balkanbite_meallogs"[\s\S]*currentUser\.uid/
+  );
+  assert.match(
+    appSource,
+    /getUserLocalWorkspaceKey\([\s\S]*"balkanbite_chat_messages"[\s\S]*currentUser\.uid/
+  );
+});
