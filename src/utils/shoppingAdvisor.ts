@@ -258,8 +258,7 @@ export function evaluateShoppingNeeds(
           date: day.date,
           dayLabel: dayName,
           ingredientName: ingredient.name,
-          // No verified price source exists here; do not fabricate a price.
-          estimatedPriceEUR: 0,
+          // No verified price source exists here, so leave price absent.
           unit: assessment.unit,
           amount: assessment.shortfallAmount,
           availabilityStatus: assessment.status,
