@@ -22,6 +22,7 @@ import { useGoogleCalendarSync } from "../hooks/useGoogleCalendarSync";
 import { calculateRecipePantryScore } from "../utils/menuAutoPlanner";
 import { evaluateShoppingNeeds } from "../utils/shoppingAdvisor";
 import { findPlannedMealForDate } from "../utils/mealPlanLookup";
+import { summarizeVerifiedMealNutrition, verifiedMealCalories } from "../utils/mealNutritionSummary";
 
 interface MealPlanViewProps {
   mealPlan: MealPlanDay[];
@@ -68,15 +69,8 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   const selectedDateStr = selectedDate.toISOString().split("T")[0];
   const dailyLogs = mealLogs.filter((log) => log.date === selectedDateStr);
 
-  const totalNutrition = dailyLogs.reduce(
-    (acc, curr) => ({
-      calories: acc.calories + curr.calories,
-      protein: acc.protein + curr.proteinG,
-      carbs: acc.carbs + curr.carbsG,
-      fat: acc.fat + curr.fatG,
-    }),
-    { calories: 0, protein: 0, carbs: 0, fat: 0 }
-  );
+  const nutritionSummary = summarizeVerifiedMealNutrition(dailyLogs);
+  const totalNutrition = nutritionSummary.totals;
 
   const getRecipeTitle = (recipe?: Recipe | null) => {
     if (!recipe) return "-";
@@ -439,28 +433,28 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
           {[
             {
               label: language === "es" ? "Cal" : "Cal",
-              value: totalNutrition.calories,
+              value: totalNutrition?.calories,
               target: 2000,
               unit: "kcal",
               color: "text-white",
             },
             {
               label: language === "es" ? "Prot" : "Prot",
-              value: totalNutrition.protein,
+              value: totalNutrition?.protein,
               target: 120,
               unit: "g",
               color: "text-emerald-400",
             },
             {
               label: language === "es" ? "Carb" : "Carb",
-              value: totalNutrition.carbs,
+              value: totalNutrition?.carbs,
               target: 250,
               unit: "g",
               color: "text-amber-400",
             },
             {
               label: language === "es" ? "Grasa" : language === "bg" ? "Мазнини" : "Fat",
-              value: totalNutrition.fat,
+              value: totalNutrition?.fat,
               target: 60,
               unit: "g",
               color: "text-stone-300",
@@ -474,13 +468,16 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
                 {stat.label}
               </span>
               <span className={`text-sm font-extrabold font-['Outfit'] ${stat.color}`}>
-                {Math.round(stat.value)}
+                {typeof stat.value === "number" ? Math.round(stat.value) : "—"}
               </span>
               <div className="w-full bg-stone-700 h-1.5 rounded-full mt-1.5 overflow-hidden">
                 <div
                   className="h-full bg-emerald-500 transition-all rounded-full"
                   style={{
-                    width: `${Math.min(100, (stat.value / stat.target) * 100)}%`,
+                    width:
+                      typeof stat.value === "number"
+                        ? `${Math.min(100, (stat.value / stat.target) * 100)}%`
+                        : "0%",
                   }}
                 />
               </div>
@@ -499,10 +496,28 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
                   <div className="w-1.5 h-3.5 bg-emerald-500 rounded-full" />
                   <span className="text-stone-200 font-medium">{log.manualName}</span>
                 </div>
-                <span className="text-stone-400 font-bold">{log.calories} kcal</span>
+                <span className="text-stone-400 font-bold">
+                  {verifiedMealCalories(log) !== null
+                    ? `${verifiedMealCalories(log)} kcal`
+                    : language === "es"
+                    ? "Nutrición no verificada"
+                    : language === "bg"
+                    ? "Непроверено хранене"
+                    : "Nutrition unverified"}
+                </span>
               </div>
             ))}
           </div>
+        )}
+
+        {nutritionSummary.unverifiedLogCount > 0 && (
+          <p className="text-[10px] text-amber-300/90 text-center">
+            {language === "es"
+              ? `${nutritionSummary.unverifiedLogCount} comida(s) quedan fuera de los totales porque su nutrición no está verificada.`
+              : language === "bg"
+              ? `${nutritionSummary.unverifiedLogCount} хранене(ия) не участват в общите стойности, защото хранителните данни не са проверени.`
+              : `${nutritionSummary.unverifiedLogCount} meal(s) are excluded from totals because their nutrition is not verified.`}
+          </p>
         )}
 
         {dailyLogs.length === 0 && (
