@@ -132,14 +132,15 @@ export function useFirebaseSync(
         let itemsWithoutUserId = remoteEntries.map(({ item }) => item);
 
         if (collectionName !== "inventory") {
-          hydratedCollectionDocumentIds.current[collectionName] = new Set(
-            remoteEntries.map(({ documentId }) => documentId)
-          );
-          // Invalid remote rows stay unresolved instead of being assigned an
-          // invented document identity in local state.
-          itemsWithoutUserId = itemsWithoutUserId.filter((item) =>
+          const validRemoteEntries = remoteEntries.filter(({ item }) =>
             Boolean(getSyncedItemKey(collectionName, item))
           );
+          hydratedCollectionDocumentIds.current[collectionName] = new Set(
+            validRemoteEntries.map(({ documentId }) => documentId)
+          );
+          // Invalid remote rows stay unresolved instead of being assigned an
+          // invented identity or being silently deleted by a later local save.
+          itemsWithoutUserId = validRemoteEntries.map(({ item }) => item);
         }
 
         if (collectionName === "inventory") {
