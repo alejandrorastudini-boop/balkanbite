@@ -43,7 +43,7 @@ export interface ShoppingAlertDiagnostic {
   depletedPantryItems: PantryItem[];
   expiringPantryItems: PantryItem[];
   pendingShoppingItemsCount: number;
-  estimatedTotalTripEUR: number;
+  estimatedTotalTripEUR?: number;
   itemsToAddToShoppingList: Array<Omit<ShoppingItem, "id" | "checked">>;
   daysUntilNextTripNeeded: number;
 }
@@ -451,17 +451,23 @@ export function evaluateShoppingNeeds(
       ? `Имате ${pendingShoppingItems.length} продукта в списъка за пазаруване.`
       : "Килерът ви покрива менютата и нямате чакащи покупки.";
 
-  const listCost = pendingShoppingItems.reduce(
-    (acc, item) => acc + (item.estimatedPriceEUR || 0),
-    0
+  const tripItems = [
+    ...pendingShoppingItems,
+    ...Array.from(candidateItemsToAdd.values()),
+  ];
+  const hasUnknownTripPrice = tripItems.some(
+    (item) =>
+      typeof item.estimatedPriceEUR !== "number" ||
+      !Number.isFinite(item.estimatedPriceEUR) ||
+      item.estimatedPriceEUR <= 0
   );
-  const verifiedCandidateCost = Array.from(candidateItemsToAdd.values()).reduce(
-    (acc, item) => acc + (item.estimatedPriceEUR || 0),
-    0
-  );
-  const estimatedTotalTripEUR = Number(
-    (listCost + verifiedCandidateCost).toFixed(2)
-  );
+  const estimatedTotalTripEUR = hasUnknownTripPrice
+    ? undefined
+    : Number(
+        tripItems
+          .reduce((acc, item) => acc + (item.estimatedPriceEUR as number), 0)
+          .toFixed(2)
+      );
 
   return {
     urgencyLevel,

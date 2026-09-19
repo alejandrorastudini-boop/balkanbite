@@ -59,14 +59,26 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
     daysUntilNextTripNeeded,
   } = diagnostic;
 
-  const currRate = currency === "USD" ? 1.08 : 1.0;
-  const currSym = currency === "USD" ? "$" : "€";
-  // The advisor has no verified price source. A zero total is not a known
-  // price, so render an explicit unknown marker rather than €0.00/$0.00.
-  const tripCostFormatted =
-    typeof estimatedTotalTripEUR === "number" && estimatedTotalTripEUR > 0
-      ? (estimatedTotalTripEUR * currRate).toFixed(2)
-      : "—";
+  const hasKnownTripCost =
+    typeof estimatedTotalTripEUR === "number" &&
+    Number.isFinite(estimatedTotalTripEUR) &&
+    estimatedTotalTripEUR >= 0;
+  // Shopping prices in this path are stored in EUR. Do not invent a live USD
+  // conversion from a hard-coded exchange rate.
+  const tripCostFormatted = hasKnownTripCost
+    ? `€${estimatedTotalTripEUR.toFixed(2)}`
+    : "—";
+  const tripCostLabel = hasKnownTripCost
+    ? language === "es"
+      ? currency === "EUR" ? "Presupuesto estimado" : "Presupuesto estimado (EUR)"
+      : language === "bg"
+      ? currency === "EUR" ? "Приблизителен бюджет" : "Приблизителен бюджет (EUR)"
+      : currency === "EUR" ? "Estimated Basket" : "Estimated Basket (EUR)"
+    : language === "es"
+    ? "Total desconocido"
+    : language === "bg"
+    ? "Неизвестна обща сума"
+    : "Total unknown";
 
   const handleAddMissing = () => {
     if (itemsToAddToShoppingList.length > 0) {
@@ -300,10 +312,9 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
             </div>
             <div>
               <span className="text-[10px] font-bold text-stone-400 uppercase block">
-                {language === "es" ? "Presupuesto Estimado" : "Estimated Basket"}
+                {tripCostLabel}
               </span>
               <span className="text-sm font-extrabold text-white">
-                {currSym}
                 {tripCostFormatted}
               </span>
             </div>

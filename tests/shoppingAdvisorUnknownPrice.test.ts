@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { evaluateShoppingNeeds } from "../src/utils/shoppingAdvisor";
-import type { MealPlanDay, Recipe } from "../src/types";
+import type { MealPlanDay, Recipe, ShoppingItem } from "../src/types";
 
 const recipe: Recipe = {
   id: "rice-meal",
@@ -49,4 +49,33 @@ test("missing-meal diagnostics keep unavailable price unknown instead of zero", 
     ),
     false,
   );
+  assert.equal(result.estimatedTotalTripEUR, undefined);
+});
+
+test("trip total exists only when every shopping line has a known positive EUR price", () => {
+  const priced: ShoppingItem[] = [
+    {
+      id: "known",
+      name: "Milk",
+      quantity: 1,
+      unit: "L",
+      category: "Dairy",
+      estimatedPriceEUR: 2.5,
+      checked: false,
+    },
+  ];
+  assert.equal(evaluateShoppingNeeds([], [], priced, "en").estimatedTotalTripEUR, 2.5);
+
+  const mixed: ShoppingItem[] = [
+    ...priced,
+    {
+      id: "unknown",
+      name: "Eggs",
+      quantity: 6,
+      unit: "pcs",
+      category: "Dairy",
+      checked: false,
+    },
+  ];
+  assert.equal(evaluateShoppingNeeds([], [], mixed, "en").estimatedTotalTripEUR, undefined);
 });
