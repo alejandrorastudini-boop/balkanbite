@@ -114,7 +114,7 @@ export function confirmCookTransaction(
       unit: ingredient.unit,
       confirmed: true,
     });
-    if (!deduction.accepted) {
+    if (deduction.accepted === false) {
       pendingIngredients.push({ ingredientId, reason: deduction.reason });
       continue;
     }
