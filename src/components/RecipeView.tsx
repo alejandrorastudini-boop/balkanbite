@@ -20,11 +20,12 @@ import { t } from "../utils/translations";
 import { getRecipeImageUrl } from "../utils/recipeImages";
 import { isIngredientQuantityAvailable } from "../utils/menuAutoPlanner";
 import { ConfirmModal } from "./ConfirmModal";
+import { getRecipeCookFeedback, type RecipeCookOutcome } from "../utils/recipeCookFeedback";
 
 interface RecipeViewProps {
   recipes: Recipe[];
   pantry: PantryItem[];
-  onCookRecipe: (recipe: Recipe) => void;
+  onCookRecipe: (recipe: Recipe) => RecipeCookOutcome;
   onAddMissingToShopping: (recipe: Recipe) => void;
   onGenerateAiRecipes: () => Promise<void>;
   onClearRecipes?: () => void;
@@ -49,7 +50,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const currentText = t[language];
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
-  const [cookedSuccessMessage, setCookedSuccessMessage] = useState<string | null>(null);
+  const [cookFeedback, setCookFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
 
   const filters = [
@@ -109,10 +110,12 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
     );
 
   const handleCook = (recipe: Recipe) => {
-    onCookRecipe(recipe);
-    setCookedSuccessMessage(currentText.recipeCookSuccess);
+    const outcome = onCookRecipe(recipe);
+    setCookFeedback(
+      getRecipeCookFeedback(outcome, language, currentText.recipeCookSuccess)
+    );
     setTimeout(() => {
-      setCookedSuccessMessage(null);
+      setCookFeedback(null);
     }, 4000);
   };
 
@@ -176,11 +179,22 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
         </div>
       </div>
 
-      {/* Success Notification Banner */}
-      {cookedSuccessMessage && (
-        <div className="p-3 bg-emerald-900/60 border border-emerald-500/50 rounded-xl text-xs text-emerald-200 flex items-center gap-2 animate-in fade-in">
-          <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
-          <span>{cookedSuccessMessage}</span>
+      {/* Cook result notification */}
+      {cookFeedback && (
+        <div
+          role={cookFeedback.kind === "error" ? "alert" : "status"}
+          className={`p-3 rounded-xl text-xs flex items-center gap-2 animate-in fade-in ${
+            cookFeedback.kind === "success"
+              ? "bg-emerald-900/60 border border-emerald-500/50 text-emerald-200"
+              : "bg-amber-950/70 border border-amber-500/50 text-amber-200"
+          }`}
+        >
+          {cookFeedback.kind === "success" ? (
+            <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+          ) : (
+            <Info className="w-4 h-4 text-amber-400 shrink-0" />
+          )}
+          <span>{cookFeedback.text}</span>
         </div>
       )}
 
