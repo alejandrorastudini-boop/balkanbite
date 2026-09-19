@@ -180,6 +180,13 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
 
   return (
     <div id="meal-plan-view" className="space-y-4 pb-36 sm:pb-32">
+      <p className="rounded-xl border border-sky-500/20 bg-sky-500/5 px-3 py-2 text-xs leading-relaxed text-sky-100">
+        {language === "bg"
+          ? "Записите за храненията отразяват декларираното от вас. Показаните хранителни стойности може да са приблизителни и не са проверена дневна сума."
+          : language === "es"
+          ? "Los registros de comidas reflejan lo que declaraste. Los valores nutricionales mostrados pueden ser estimados y no son un total diario verificado."
+          : "Meal logs reflect what you declared. Nutrition values shown may be estimated and are not a verified daily total."}
+      </p>
       {/* AI Meal Plan PRO Feature Banner */}
       <div className="bg-[#131A1F]/80 backdrop-blur-md border border-amber-500/20 rounded-3xl p-5 shadow-[0_8px_30px_rgba(245,158,11,0.08)] relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 blur-[60px] rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none group-hover:bg-amber-500/15 transition-all duration-700" />
