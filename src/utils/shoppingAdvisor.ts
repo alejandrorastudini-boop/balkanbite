@@ -13,7 +13,9 @@ export interface MissingMealIngredient {
   date: string;
   dayLabel: string;
   ingredientName: string;
-  estimatedPriceEUR: number;
+  // This planner has no verified price source. Keep price unknown rather than
+  // encoding an unavailable estimate as a numeric value.
+  estimatedPriceEUR?: number;
   unit: string;
   amount: number;
   availabilityStatus: IngredientAvailabilityStatus;
