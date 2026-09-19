@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   findRemovedDocumentIds,
   getSyncedItemKey,
+  selectCanonicalRemoteEntries,
 } from "../src/utils/cloudCollectionSync";
 
 test("uses the real stable identity for every synced collection", () => {
@@ -37,4 +38,33 @@ test("unknown or unsafe direct document identities remain unresolved", () => {
 
   // Inventory IDs are encoded into a scoped document ID by the hook.
   assert.equal(getSyncedItemKey("inventory", { id: "legacy/a" }), "legacy/a");
+});
+
+
+test("canonical remote rows win over legacy duplicates without tracking malformed rows", () => {
+  const selected = selectCanonicalRemoteEntries("mealPlans", [
+    {
+      documentId: "undefined",
+      item: { date: "2026-09-20", lunch: { id: "legacy" } },
+    },
+    {
+      documentId: "2026-09-20",
+      item: { date: "2026-09-20", lunch: { id: "canonical" } },
+    },
+    {
+      documentId: "broken",
+      item: { lunch: { id: "missing-date" } },
+    },
+  ]);
+
+  assert.deepEqual(selected.entries, [
+    {
+      documentId: "2026-09-20",
+      item: { date: "2026-09-20", lunch: { id: "canonical" } },
+    },
+  ]);
+  assert.deepEqual(selected.trackedDocumentIds, [
+    "undefined",
+    "2026-09-20",
+  ]);
 });
