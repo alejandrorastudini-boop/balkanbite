@@ -43,6 +43,7 @@ import {
   deductVoiceItemsFromPantry,
 } from "./utils/pantryConsumption";
 import { buildRecipeShoppingNeeds } from "./utils/recipeShoppingNeeds";
+import type { RecipeCookOutcome } from "./utils/recipeCookFeedback";
 import {
   transferCheckedShoppingItems,
   reconcileConfirmedShoppingPurchases,
@@ -579,23 +580,26 @@ export default function App() {
     }, 100);
   };
 
-  const handleCookRecipe = (recipe: Recipe) => {
-    if (!requireAuthoritativeInventory()) return;
-    setPantry((currentPantry) => {
-      const result = deductRecipeIngredientsFromPantry(
-        currentPantry,
-        recipe.ingredients || []
+  const handleCookRecipe = (recipe: Recipe): RecipeCookOutcome => {
+    if (!requireAuthoritativeInventory()) {
+      return { success: false, issueCount: 1 };
+    }
+
+    const result = deductRecipeIngredientsFromPantry(
+      pantry,
+      recipe.ingredients || []
+    );
+
+    if (result.issues.length > 0) {
+      console.warn(
+        "Pantry consumption skipped for unresolved ingredients",
+        result.issues
       );
+      return { success: false, issueCount: result.issues.length };
+    }
 
-      if (result.issues.length > 0) {
-        console.warn(
-          "Pantry consumption skipped for unresolved ingredients",
-          result.issues
-        );
-      }
-
-      return result.pantry;
-    });
+    setPantry(result.pantry);
+    return { success: true };
   };
 
   const handleAddMissingToShopping = (recipe: Recipe) => {
