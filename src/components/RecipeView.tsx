@@ -21,6 +21,7 @@ import { getRecipeImageUrl } from "../utils/recipeImages";
 import { isIngredientQuantityAvailable } from "../utils/menuAutoPlanner";
 import { ConfirmModal } from "./ConfirmModal";
 import { getRecipeCookFeedback, type RecipeCookOutcome } from "../utils/recipeCookFeedback";
+import { formatRecipeCostEUR, recipeCheapFilterLabel, recipeCostCurrencyNotice } from "../utils/recipeCostDisplay";
 
 interface RecipeViewProps {
   recipes: Recipe[];
@@ -56,7 +57,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const filters = [
     { id: "all", label: language === "es" ? "Todos" : language === "bg" ? "Всички" : "All" },
     { id: "fast", label: "⚡ <20m" },
-    { id: "cheap", label: currency === "EUR" ? "💰 ≈<3€" : "💰 ≈<$3" },
+    { id: "cheap", label: recipeCheapFilterLabel(currency) },
     { id: "protein", label: language === "es" ? "💪 Proteína ≈" : language === "bg" ? "💪 Протеин ≈" : "💪 Protein ≈" },
   ];
 
@@ -317,10 +318,11 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                     {currentText.costServing}
                   </span>
                   <span className="text-lg font-extrabold text-emerald-400 font-['Outfit'] tracking-tight">
-                    {isCostVerified(recipe) ? "" : "≈"}
-                    {currency === "EUR"
-                      ? `€${recipe.costPerServingEUR.toFixed(2)}`
-                      : `$${(recipe.costPerServingEUR * 1.1).toFixed(2)}`}
+                    {formatRecipeCostEUR(
+                      recipe.costPerServingEUR,
+                      isCostVerified(recipe),
+                      currency
+                    )}
                   </span>
                 </div>
               </div>
@@ -452,10 +454,11 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                   </h2>
                   <div className="flex items-center gap-3 mt-2">
                     <span className="text-sm text-emerald-400 font-bold bg-emerald-500/10 px-2.5 py-1 rounded-lg border border-emerald-500/20">
-                      {isCostVerified(selectedRecipe) ? "" : "≈"}
-                      {currency === "EUR"
-                        ? `€${selectedRecipe.costPerServingEUR.toFixed(2)}`
-                        : `$${(selectedRecipe.costPerServingEUR * 1.1).toFixed(2)}`} / {language === "es" ? "ración" : language === "bg" ? "порция" : "serving"}
+                      {formatRecipeCostEUR(
+                        selectedRecipe.costPerServingEUR,
+                        isCostVerified(selectedRecipe),
+                        currency
+                      )} / {language === "es" ? "ración" : language === "bg" ? "порция" : "serving"}
                     </span>
                     <span className="text-sm text-stone-400 font-medium flex items-center gap-1.5 bg-white/[0.04] px-2.5 py-1 rounded-lg border border-white/[0.08]">
                       <Clock className="w-3.5 h-3.5" />
@@ -465,13 +468,19 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                 </div>
               </div>
 
-              {!isNutritionVerified(selectedRecipe) && (
+              {(!isNutritionVerified(selectedRecipe) || !isCostVerified(selectedRecipe)) && (
                 <p className="text-[11px] text-amber-300/90">
                   {language === "es"
                     ? "Nutrición y coste mostrados como estimaciones; no son cálculos verificados."
                     : language === "bg"
                     ? "Хранителните стойности и цената са приблизителни; не са проверени изчисления."
                     : "Nutrition and cost are shown as estimates; they are not verified calculations."}
+                </p>
+              )}
+
+              {recipeCostCurrencyNotice(currency, language) && (
+                <p className="text-[10px] text-stone-400">
+                  {recipeCostCurrencyNotice(currency, language)}
                 </p>
               )}
 
