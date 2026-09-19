@@ -521,7 +521,7 @@ export const t = {
     weekMenuTitle: "Меню за седмицата",
     quickShoppingListTitle: "Бърз списък за пазаруване (отбележете купеното)",
     hangOnFridgeNote: "Закачете на хладилника • BalkanBite AI Kitchen",
-    bonAppetitSavings: "Добър апетит и гарантирани спестявания!",
+    bonAppetitSavings: "Добър апетит! Следете разхода си според въведените данни.",
     activeWeek: "Текуща седмица",
 
     // Scan modal extra
