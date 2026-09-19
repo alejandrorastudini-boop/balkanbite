@@ -61,7 +61,12 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
 
   const currRate = currency === "USD" ? 1.08 : 1.0;
   const currSym = currency === "USD" ? "$" : "€";
-  const tripCostFormatted = (estimatedTotalTripEUR * currRate).toFixed(2);
+  // The advisor has no verified price source. A zero total is not a known
+  // price, so render an explicit unknown marker rather than €0.00/$0.00.
+  const tripCostFormatted =
+    typeof estimatedTotalTripEUR === "number" && estimatedTotalTripEUR > 0
+      ? (estimatedTotalTripEUR * currRate).toFixed(2)
+      : "—";
 
   const handleAddMissing = () => {
     if (itemsToAddToShoppingList.length > 0) {
