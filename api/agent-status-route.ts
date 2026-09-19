@@ -3,6 +3,7 @@ const ADMIN_EMAIL = "alejandrorastudini@gmail.com";
 const AGENT_REPOSITORY = "alejandrorastudini-boop/balkanbite-dev-agent";
 const AGENT_STATE_REF = "agent-state";
 const AGENT_STATE_PATH = "runtime-state/agent-state.json";
+const DEFAULT_EFFECTIVE_TARGET_MS = 8 * 60 * 60 * 1000;
 
 type ApiRequest = {
   method?: string;
@@ -55,11 +56,24 @@ function latestActionAt(state: any): string | null {
   return null;
 }
 
+function effectiveTargetRuntimeMs(windowState: any): number {
+  const explicit = Number(windowState?.targetAgentRuntimeMs);
+  if (Number.isFinite(explicit) && explicit > 0) return explicit;
+
+  const started = Date.parse(windowState?.startedAt ?? "");
+  const legacyDeadline = Date.parse(windowState?.deadlineAt ?? "");
+  if (Number.isFinite(started) && Number.isFinite(legacyDeadline) && legacyDeadline > started) {
+    return legacyDeadline - started;
+  }
+  return DEFAULT_EFFECTIVE_TARGET_MS;
+}
+
 function sanitizeState(state: any) {
   const autonomyWindow = state?.autonomyWindow && typeof state.autonomyWindow === "object"
     ? {
         startedAt: state.autonomyWindow.startedAt ?? null,
         deadlineAt: state.autonomyWindow.deadlineAt ?? null,
+        targetAgentRuntimeMs: effectiveTargetRuntimeMs(state.autonomyWindow),
         attemptedCycles: Number(state.autonomyWindow.attemptedCycles) || 0,
         completedCycles: Number(state.autonomyWindow.completedCycles) || 0,
         agentRuntimeMs: Number(state.autonomyWindow.agentRuntimeMs) || 0,

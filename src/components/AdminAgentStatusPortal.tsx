@@ -1,9 +1,10 @@
-import React, { useCallback, useEffect, useMemo, useState } from "react";
+import React, { useCallback, useEffect, useState } from "react";
 import { Activity, Clock3, Coins, RefreshCw, ShieldCheck, TimerReset } from "lucide-react";
 import { onAuthStateChanged, type User } from "firebase/auth";
 import { auth } from "../lib/firebase";
 
 const ADMIN_EMAIL = "alejandrorastudini@gmail.com";
+const DEFAULT_EFFECTIVE_TARGET_MS = 8 * 60 * 60 * 1000;
 
 type AgentStatusPayload = {
   fetchedAt: string;
@@ -32,6 +33,7 @@ type AgentStatusPayload = {
     autonomyWindow: {
       startedAt: string | null;
       deadlineAt: string | null;
+      targetAgentRuntimeMs: number;
       attemptedCycles: number;
       completedCycles: number;
       agentRuntimeMs: number;
@@ -98,7 +100,6 @@ function AgentStatusCard({ user }: { user: User }) {
   const [payload, setPayload] = useState<AgentStatusPayload | null>(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
-  const [now, setNow] = useState(() => Date.now());
 
   const refresh = useCallback(async () => {
     setLoading(true);
@@ -127,10 +128,8 @@ function AgentStatusCard({ user }: { user: User }) {
   useEffect(() => {
     void refresh();
     const refreshId = window.setInterval(() => void refresh(), 60_000);
-    const clockId = window.setInterval(() => setNow(Date.now()), 30_000);
     return () => {
       window.clearInterval(refreshId);
-      window.clearInterval(clockId);
     };
   }, [refresh]);
 
@@ -144,14 +143,15 @@ function AgentStatusCard({ user }: { user: User }) {
     ? "OpenAI API rechazó nuevas llamadas por límite/cuota de gasto"
     : agent?.reason || "—";
   const displayedNextAction = providerBillingInterruption
-    ? "Revisar o aumentar el límite de gasto de OpenAI y reanudar la ventana vigente."
+    ? "Revisar o aumentar el límite de gasto de OpenAI y reanudar la sesión vigente."
     : agent?.nextAction;
-  const elapsedMs = useMemo(() => {
-    if (!windowInfo?.startedAt) return null;
-    const started = Date.parse(windowInfo.startedAt);
-    if (!Number.isFinite(started)) return null;
-    return Math.max(0, now - started);
-  }, [windowInfo?.startedAt, now]);
+
+  const effectiveTargetMs = windowInfo
+    ? Math.max(1, Number(windowInfo.targetAgentRuntimeMs) || DEFAULT_EFFECTIVE_TARGET_MS)
+    : null;
+  const effectiveRemainingMs = windowInfo && effectiveTargetMs !== null
+    ? Math.max(0, effectiveTargetMs - Math.max(0, Number(windowInfo.agentRuntimeMs) || 0))
+    : null;
 
   const errorMessage = error === "agent_status_not_configured"
     ? "El panel está instalado, pero falta configurar la credencial de lectura del repositorio privado del agente."
@@ -204,12 +204,12 @@ function AgentStatusCard({ user }: { user: User }) {
             <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-3">
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-stone-500 font-bold"><TimerReset className="w-3.5 h-3.5" />Tiempo efectivo</div>
               <div className="text-lg font-extrabold text-white mt-1">{windowInfo ? formatDuration(windowInfo.agentRuntimeMs) : "—"}</div>
-              <div className="text-[11px] text-stone-500 mt-0.5">{windowInfo ? "Trabajo medido del agente" : "No medido en esta fase"}</div>
+              <div className="text-[11px] text-stone-500 mt-0.5">{effectiveTargetMs === null ? "No medido en esta fase" : `Objetivo: ${formatDuration(effectiveTargetMs)}`}</div>
             </div>
             <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-3">
-              <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-stone-500 font-bold"><Clock3 className="w-3.5 h-3.5" />Ventana transcurrida</div>
-              <div className="text-lg font-extrabold text-white mt-1">{elapsedMs === null ? "—" : formatDuration(elapsedMs)}</div>
-              <div className="text-[11px] text-stone-500 mt-0.5">Límite: {formatDate(windowInfo?.deadlineAt)}</div>
+              <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-stone-500 font-bold"><Clock3 className="w-3.5 h-3.5" />Restante efectivo</div>
+              <div className="text-lg font-extrabold text-white mt-1">{effectiveRemainingMs === null ? "—" : formatDuration(effectiveRemainingMs)}</div>
+              <div className="text-[11px] text-stone-500 mt-0.5">La espera no descuenta tiempo</div>
             </div>
             <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-3">
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-stone-500 font-bold"><Activity className="w-3.5 h-3.5" />Ciclos</div>
@@ -219,7 +219,7 @@ function AgentStatusCard({ user }: { user: User }) {
             <div className="rounded-2xl border border-white/[0.06] bg-black/20 p-3">
               <div className="flex items-center gap-2 text-[10px] uppercase tracking-widest text-stone-500 font-bold"><Coins className="w-3.5 h-3.5" />Coste estimado</div>
               <div className="text-lg font-extrabold text-white mt-1">${(windowInfo?.estimatedUsd ?? agent.dailyUsage?.estimatedUsd ?? 0).toFixed(2)}</div>
-              <div className="text-[11px] text-stone-500 mt-0.5">{windowInfo ? "Ventana actual" : "Uso diario estimado"}</div>
+              <div className="text-[11px] text-stone-500 mt-0.5">{windowInfo ? "Sesión actual" : "Uso diario estimado"}</div>
             </div>
           </div>
 
