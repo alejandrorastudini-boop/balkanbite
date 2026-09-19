@@ -5,7 +5,13 @@ export function formatRecipeCostEUR(
   verified: boolean,
   requestedCurrency: Currency,
 ): string {
-  if (!Number.isFinite(amountEUR) || amountEUR < 0) return "—";
+  if (
+    !Number.isFinite(amountEUR) ||
+    amountEUR < 0 ||
+    (!verified && amountEUR === 0)
+  ) {
+    return "—";
+  }
   const prefix = verified ? "" : "≈";
   const value = `${prefix}€${amountEUR.toFixed(2)}`;
   return requestedCurrency === "EUR" ? value : `${value} (EUR)`;
