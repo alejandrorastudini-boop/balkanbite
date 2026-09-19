@@ -1,6 +1,7 @@
 import { PantryItem, Recipe, MealPlanDay, UserProfile } from "../types";
 import { SAMPLE_RECIPES, INITIAL_RECIPES } from "../data/initialData";
 import { assessTotalAvailability, areUnitsCompatible } from "./quantityUnits";
+import { areReviewedBulgarianFoodAliases } from "./bulgarianFoodAliases";
 
 const normalizeIngredientName = (value: string): string =>
   (value || "").trim().toLowerCase();
@@ -23,6 +24,9 @@ export function isPantryNameMatch(ingredientName: string, pantryItem: PantryItem
   const cleanPNameEs = singularStem(pNameEs);
 
   if (
+    areReviewedBulgarianFoodAliases(target, pName) ||
+    areReviewedBulgarianFoodAliases(target, pNameBg) ||
+    areReviewedBulgarianFoodAliases(target, pNameEs) ||
     pName.includes(target) ||
     target.includes(pName) ||
     cleanPName.includes(cleanTarget) ||
