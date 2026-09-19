@@ -1007,7 +1007,6 @@ export default function App() {
             <MealPlanView
               mealPlan={mealPlan}
               mealLogs={mealLogs}
-              recipes={recipes}
               pantry={pantry}
               language={profile.language}
               currency={profile.currency}
