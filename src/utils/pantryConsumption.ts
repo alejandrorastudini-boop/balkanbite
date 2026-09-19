@@ -16,6 +16,7 @@ export interface PantryConsumptionIssue {
 }
 
 export interface PantryConsumptionDeduction {
+  ingredientIndex: number;
   ingredientName: string;
   pantryItemId: string;
   consumedQuantity: number;
@@ -58,7 +59,7 @@ export function deductRecipeIngredientsFromPantry(
   const deductions: PantryConsumptionDeduction[] = [];
   const issues: PantryConsumptionIssue[] = [];
 
-  for (const ingredient of ingredients || []) {
+  for (const [ingredientIndex, ingredient] of (ingredients || []).entries()) {
     const required = normalizeQuantity(ingredient.amount, ingredient.unit);
     if (!required || required.baseQuantity <= 0) {
       issues.push({
@@ -139,6 +140,7 @@ export function deductRecipeIngredientsFromPantry(
       const remainingInItemUnit = remainingBase / normalizedCurrent.unit.factorToBase;
 
       deductions.push({
+        ingredientIndex,
         ingredientName: ingredient.name,
         pantryItemId: current.id,
         consumedQuantity: roundQuantity(consumedInItemUnit),
