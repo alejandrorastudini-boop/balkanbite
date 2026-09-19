@@ -61,6 +61,7 @@ import {
   parseGuestProfileCache,
   parseUserProfileCache,
 } from "./utils/profileSyncBoundary";
+import { getUserLocalWorkspaceKey, parseArrayCache } from "./utils/localWorkspaceScope";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
@@ -150,6 +151,7 @@ export default function App() {
 
   const [pantryScope, setPantryScope] = useState<string>("guest");
   const [profileScope, setProfileScope] = useState<string>("guest");
+  const [workspaceScope, setWorkspaceScope] = useState<string>("guest");
   const [activeTab, setActiveTab] = useState<TabType>("pantry");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   // Commercial entitlement is not implemented yet. Never trust the legacy
@@ -252,6 +254,76 @@ export default function App() {
   useEffect(() => {
     if (isResetting) return;
 
+    if (currentUser) {
+      if (workspaceScope === currentUser.uid) return;
+
+      setMealLogs(
+        parseArrayCache<MealLog>(
+          localStorage.getItem(
+            getUserLocalWorkspaceKey(
+              "balkanbite_meallogs",
+              currentUser.uid
+            )
+          )
+        ) ?? []
+      );
+      setChatMessages(
+        parseArrayCache<ChatMessage>(
+          localStorage.getItem(
+            getUserLocalWorkspaceKey(
+              "balkanbite_chat_messages",
+              currentUser.uid
+            )
+          )
+        ) ?? []
+      );
+      setWorkspaceScope(currentUser.uid);
+      return;
+    }
+
+    if (firebaseLoading || workspaceScope === "guest") return;
+
+    const guestRecipes =
+      parseArrayCache<Recipe>(
+        localStorage.getItem("balkanbite_recipes")
+      ) ?? INITIAL_RECIPES;
+    setRecipes(
+      guestRecipes.map((recipe) => ({
+        ...recipe,
+        imageUrl: getRecipeImageUrl(recipe),
+      }))
+    );
+    setShoppingList(
+      parseArrayCache<ShoppingItem>(
+        localStorage.getItem("balkanbite_shopping")
+      ) ?? []
+    );
+    setMealPlan(
+      parseArrayCache<MealPlanDay>(
+        localStorage.getItem("balkanbite_mealplan")
+      ) ?? DEFAULT_MEAL_PLAN
+    );
+    setMealLogs(
+      parseArrayCache<MealLog>(
+        localStorage.getItem("balkanbite_meallogs")
+      ) ?? []
+    );
+    setChatMessages(
+      parseArrayCache<ChatMessage>(
+        localStorage.getItem("balkanbite_chat_messages")
+      ) ?? []
+    );
+    setWorkspaceScope("guest");
+  }, [
+    currentUser,
+    firebaseLoading,
+    workspaceScope,
+    isResetting,
+  ]);
+
+  useEffect(() => {
+    if (isResetting) return;
+
     try {
       if (currentUser) {
         if (!inventoryHydrated || pantryScope !== currentUser.uid) return;
@@ -270,22 +342,22 @@ export default function App() {
   }, [pantry, currentUser, inventoryHydrated, pantryScope, isResetting]);
 
   useEffect(() => {
-    if (isResetting) return;
+    if (isResetting || currentUser || workspaceScope !== "guest") return;
     try {
       localStorage.setItem("balkanbite_recipes", JSON.stringify(recipes));
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [recipes, isResetting]);
+  }, [recipes, currentUser, workspaceScope, isResetting]);
 
   useEffect(() => {
-    if (isResetting) return;
+    if (isResetting || currentUser || workspaceScope !== "guest") return;
     try {
       localStorage.setItem("balkanbite_shopping", JSON.stringify(shoppingList));
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [shoppingList, isResetting]);
+  }, [shoppingList, currentUser, workspaceScope, isResetting]);
 
   useEffect(() => {
     if (isResetting) return;
@@ -351,31 +423,58 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (isResetting) return;
+    if (isResetting || currentUser || workspaceScope !== "guest") return;
     try {
       localStorage.setItem("balkanbite_mealplan", JSON.stringify(mealPlan));
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [mealPlan, isResetting]);
+  }, [mealPlan, currentUser, workspaceScope, isResetting]);
 
   useEffect(() => {
     if (isResetting) return;
     try {
+      if (currentUser) {
+        if (workspaceScope !== currentUser.uid) return;
+        localStorage.setItem(
+          getUserLocalWorkspaceKey(
+            "balkanbite_meallogs",
+            currentUser.uid
+          ),
+          JSON.stringify(mealLogs)
+        );
+        return;
+      }
+      if (workspaceScope !== "guest") return;
       localStorage.setItem("balkanbite_meallogs", JSON.stringify(mealLogs));
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [mealLogs, isResetting]);
+  }, [mealLogs, currentUser, workspaceScope, isResetting]);
 
   useEffect(() => {
     if (isResetting) return;
     try {
-      localStorage.setItem("balkanbite_chat_messages", JSON.stringify(chatMessages));
+      if (currentUser) {
+        if (workspaceScope !== currentUser.uid) return;
+        localStorage.setItem(
+          getUserLocalWorkspaceKey(
+            "balkanbite_chat_messages",
+            currentUser.uid
+          ),
+          JSON.stringify(chatMessages)
+        );
+        return;
+      }
+      if (workspaceScope !== "guest") return;
+      localStorage.setItem(
+        "balkanbite_chat_messages",
+        JSON.stringify(chatMessages)
+      );
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [chatMessages, isResetting]);
+  }, [chatMessages, currentUser, workspaceScope, isResetting]);
 
   const requireAuthoritativeInventory = () => {
     if (!inventoryIsProvisional) return true;
