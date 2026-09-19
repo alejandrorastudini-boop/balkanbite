@@ -138,9 +138,27 @@ export function useFirebaseSync(
           hydratedCollectionDocumentIds.current[collectionName] = new Set(
             validRemoteEntries.map(({ documentId }) => documentId)
           );
+
+          const byLogicalKey = new Map<
+            string,
+            { documentId: string; item: any }
+          >();
+          validRemoteEntries.forEach((entry) => {
+            const logicalKey = getSyncedItemKey(collectionName, entry.item)!;
+            const existing = byLogicalKey.get(logicalKey);
+            const entryIsCanonical = entry.documentId === logicalKey;
+            const existingIsCanonical = existing?.documentId === logicalKey;
+            if (!existing || (entryIsCanonical && !existingIsCanonical)) {
+              byLogicalKey.set(logicalKey, entry);
+            }
+          });
+
           // Invalid remote rows stay unresolved instead of being assigned an
           // invented identity or being silently deleted by a later local save.
-          itemsWithoutUserId = validRemoteEntries.map(({ item }) => item);
+          // If both a legacy and canonical row exist, the canonical row wins.
+          itemsWithoutUserId = Array.from(byLogicalKey.values()).map(
+            ({ item }) => item
+          );
         }
 
         if (collectionName === "inventory") {
