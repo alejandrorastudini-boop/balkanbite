@@ -64,6 +64,7 @@ import {
 import { getUserLocalWorkspaceKey, parseArrayCache } from "./utils/localWorkspaceScope";
 import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
 import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext";
+import { buildVerifiedMealLog } from "./utils/verifiedMealLog";
 import {
   getFoodSafetyQuarantine,
   getFoodSafetyQuarantineMessage,
@@ -1051,19 +1052,19 @@ export default function App() {
   };
 
   const handleLogMeal = (logData: any) => {
-    const newLog = {
+    const now = new Date().toISOString();
+    const newLog = buildVerifiedMealLog({
+      ...logData,
       id: `log-${Date.now()}`,
-      date: new Date().toISOString().split("T")[0],
-      mealType: logData.mealType || "snack",
-      manualName: typeof logData.manualName === "string" && logData.manualName.trim() ? logData.manualName.trim() : undefined,
-      // Voice-provided nutrition is a declaration, not a verified daily total.
-      nutritionDataStatus: "unknown" as const,
-      calories: Number.isFinite(logData.calories) ? logData.calories : 0,
-      proteinG: Number.isFinite(logData.proteinG) ? logData.proteinG : 0,
-      carbsG: Number.isFinite(logData.carbsG) ? logData.carbsG : 0,
-      fatG: Number.isFinite(logData.fatG) ? logData.fatG : 0,
-      timestamp: new Date().toISOString(),
-    };
+      date: now.split("T")[0],
+      timestamp: now,
+    });
+
+    if (!newLog) {
+      console.warn("Meal log rejected because verified nutrition was incomplete or invalid.");
+      return;
+    }
+
     setMealLogs((prev) => [...prev, newLog]);
   };
 
