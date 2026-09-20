@@ -23,13 +23,42 @@ const shoppingSource = readFileSync(
   new URL("../src/components/ShoppingView.tsx", import.meta.url),
   "utf8"
 );
+const mealPlanSource = readFileSync(
+  new URL("../src/components/MealPlanView.tsx", import.meta.url),
+  "utf8"
+);
+const profileSource = readFileSync(
+  new URL("../src/components/ProfileView.tsx", import.meta.url),
+  "utf8"
+);
+const headerSource = readFileSync(
+  new URL("../src/components/Header.tsx", import.meta.url),
+  "utf8"
+);
+const translationsSource = readFileSync(
+  new URL("../src/utils/translations.ts", import.meta.url),
+  "utf8"
+);
 
-test("legacy profile Pro flag is not accepted as a verified commercial entitlement", () => {
-  assert.match(appSource, /const hasVerifiedProEntitlement = false;/);
+test("non-existent Pro entitlement cannot gate current product functionality", () => {
+  assert.doesNotMatch(appSource, /hasVerifiedProEntitlement/);
   assert.doesNotMatch(appSource, /if \(!profile\.isProSubscriber\)/);
   assert.doesNotMatch(appSource, /isPro=\{profile\.isProSubscriber\}/);
   assert.doesNotMatch(appSource, /isProSubscriber:\s*!prev\.isProSubscriber/);
   assert.match(initialDataSource, /isProSubscriber:\s*false/);
+
+  const start = appSource.indexOf("const handleGenerateAiWeekPlan");
+  const end = appSource.indexOf("const handleResetApp", start);
+  assert.ok(start >= 0 && end > start);
+  const weeklyPlanHandler = appSource.slice(start, end);
+
+  assert.match(weeklyPlanHandler, /requireAuthoritativeInventory/);
+  assert.match(weeklyPlanHandler, /requireFoodRecommendationSafetyReview/);
+  assert.match(weeklyPlanHandler, /\/api\/ai\/generate-weekly-plan/);
+  assert.doesNotMatch(weeklyPlanHandler, /setShowProModal|isPro|entitlement/i);
+
+  assert.doesNotMatch(mealPlanSource, /\bisPro\b|onOpenProModal/);
+  assert.match(mealPlanSource, /id="generate-ai-week-plan-btn"/);
 });
 
 test("Pro UI cannot activate a fake subscription or billing state", () => {
@@ -120,4 +149,41 @@ test("landing budget scenario never applies an unverified hardcoded FX rate", ()
     landingSource,
     /Amounts are shown directly in the selected currency/
   );
+});
+
+
+test("commercial UI presents Pro only as an unavailable future concept", () => {
+  assert.doesNotMatch(headerSource, /header-pro-badge|BalkanBite Pro Tier/);
+  assert.match(profileSource, /id="profile-pro-concept-card"/);
+  assert.match(profileSource, /Future concept/);
+  assert.match(profileSource, /There is no active Pro subscription or billing/);
+  assert.match(profileSource, /Pricing, limits, and future Pro features are not defined yet/);
+});
+
+test("legacy translations cannot reintroduce invented Pro price, trial, or paywall claims", () => {
+  for (const forbidden of [
+    "3.99€ / month",
+    "3.99€ / месец",
+    "3.99€ / mes",
+    "Try 7 Days Free",
+    "Опитай 7 дни безплатно",
+    "Probar 7 Días Gratis",
+    "Active Subscription",
+    "Активен абонамент",
+    "Suscripción Activa",
+    "Unlock unlimited meal generation",
+    "неограничени менюта",
+    "menús semanales ilimitados",
+  ]) {
+    assert.equal(
+      translationsSource.includes(forbidden),
+      false,
+      `translations must not contain stale commercial claim: ${forbidden}`,
+    );
+  }
+
+  assert.match(translationsSource, /mealPlanAiBadge: "AI"/);
+  assert.match(translationsSource, /mealPlanAiBadge: "IA"/);
+  assert.match(translationsSource, /Pro pricing not defined/);
+  assert.match(translationsSource, /Precio Pro no definido/);
 });
