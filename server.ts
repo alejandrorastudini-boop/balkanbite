@@ -4,6 +4,7 @@ import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import { GoogleGenAI, Type } from "@google/genai";
 import dotenv from "dotenv";
+import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileContext";
 
 dotenv.config();
 
@@ -897,17 +898,15 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
       });
     }
 
+    const culinaryProfile = buildAiCulinaryProfileContext(profile);
+
     const prompt = `Generate 6 to 8 distinct, delicious, healthy, balanced and inexpensive recipes.
 Primary Language: ${language === "bg" ? "Bulgarian (български)" : language === "es" ? "Spanish (Español)" : "English"}.
 User Current Pantry Inventory: ${JSON.stringify(pantry)}.
-User Taste Profile & Preferences:
-- Cooking Level/Speed: ${profile.cookingSpeed || "fast 15-20 min"}
-- Health Goal: ${profile.healthGoal || "balanced & gut-health"}
-- Diet Style: ${profile.dietStyle || "Mediterranean & Balkan balanced"}
-- Disliked/Allergies: ${JSON.stringify(profile.disliked || [])}
-- Budget constraint: ${profile.budgetConstraint || "Very budget friendly (< 1.5-2 EUR per serving)"}
-- Household size: ${profile.servings || 2} servings
-- Specific user craving / voice query: "${query || "Recipes maximizing my pantry inventory"}"
+User culinary preferences (non-clinical): ${JSON.stringify(culinaryProfile)}.
+Specific user craving / voice query: "${query || "Recipes maximizing my pantry inventory"}".
+Do not infer medical conditions, nutrient deficiencies, calorie targets, weight-loss prescriptions or therapeutic diets from this context.
+Allergy/dislike entries are avoidance context only; do not claim the generated recipe is medically or allergen safe.
 
 CRITICAL GOALS & RULES:
 1. MAXIMIZE PANTRY INVENTORY USAGE: Generate recipes that systematically cover and utilize ALL items present in the User's Current Pantry Inventory. Create a full set of 6 to 8 varied recipes (breakfasts, lunches, dinners, stews, salads, quick pasta/rice dishes, snacks) so that virtually every single ingredient in the user's pantry is used in one or more recipes.
@@ -1010,6 +1009,8 @@ app.post("/api/ai/generate-weekly-plan", async (req, res) => {
       return res.status(400).json({ error: "Gemini API key not configured" });
     }
 
+    const culinaryProfile = buildAiCulinaryProfileContext(profile);
+
     const today = new Date();
     const dates: string[] = [];
     for (let i = 0; i < 7; i++) {
@@ -1018,12 +1019,13 @@ app.post("/api/ai/generate-weekly-plan", async (req, res) => {
       dates.push(d.toISOString().split("T")[0]);
     }
 
-    const prompt = `You are an expert Balkan and Mediterranean nutritionist and chef. 
+    const prompt = `You are a Balkan and Mediterranean culinary meal-planning assistant. 
 Think carefully and generate a complete, balanced 7-day weekly meal plan for the dates: ${JSON.stringify(dates)}.
 Language: ${language}.
 User Pantry Inventory: ${JSON.stringify(pantry)}.
 Available Recipes Pool: ${JSON.stringify(recipes.map((r: any) => ({ id: r.id, title: r.title, tags: r.tags, calories: r.calories, ingredients: r.ingredients } )))}.
-User Profile & Health Goal: ${JSON.stringify(profile)}.
+User culinary preferences (non-clinical): ${JSON.stringify(culinaryProfile)}.
+Do not infer disease, nutrient deficiency, calorie targets, weight-loss prescriptions or therapeutic diets from these preferences.
 
 CRITICAL RULES:
 1. PANTRY OPTIMIZATION (ZERO WASTE): Strongly prioritize recipes and ingredients that are already present in the User Pantry Inventory to minimize unnecessary shopping and prevent food waste.
@@ -1083,6 +1085,8 @@ app.post("/api/ai/suggest-shopping", async (req, res) => {
       });
     }
 
+    const culinaryProfile = buildAiCulinaryProfileContext(profile);
+
     const targetLangName =
       language === "bg"
         ? "Bulgarian"
@@ -1092,15 +1096,15 @@ app.post("/api/ai/suggest-shopping", async (req, res) => {
 
     const prompt = `You are BalkanBite AI. The user wants an intelligent, highly balanced, nutritious, and cost-effective weekly grocery shopping list.
 Current Pantry contents: ${JSON.stringify(pantry)}.
-User preferences: ${JSON.stringify(profile)}.
+User culinary preferences (non-clinical): ${JSON.stringify(culinaryProfile)}.
 Target Language: ${targetLangName}.
 
 CRITICAL LANGUAGE REQUIREMENT:
 All text including "title", every item "name", item "unit", item "reason", and "aiReasoning" MUST BE WRITTEN 100% IN ${targetLangName.toUpperCase()}.
 If Target Language is Spanish, write every ingredient name in Spanish (e.g. "Yogur natural", "Tomates maduros", "Huevos camperos", "Pepinos", "Ajo fresco", "Queso Feta"). NEVER return English ingredient names when target language is Spanish.
 
-Identify possible nutritional gaps as recommendations, not medical or authoritative findings.
-Suggest 7 to 10 budget-conscious staple items.
+Suggest 7 to 10 varied, budget-conscious staple items that complement the current pantry and culinary preferences.
+Do not infer nutrient deficiencies, disease, health status, calorie targets or therapeutic needs from pantry contents or profile preferences.
 If you include estimatedPriceEUR, it is an unverified planning estimate only; never describe it as live, exact, or verified.
 
 Return strictly JSON with this schema:
