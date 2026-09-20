@@ -52,11 +52,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [newDislike, setNewDislike] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showClearHealthDataConfirm, setShowClearHealthDataConfirm] = useState(false);
+  const [showClearLegacyFoodSafetyConfirm, setShowClearLegacyFoodSafetyConfirm] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const localResetCopy = getLocalResetCopy(language, user !== null);
+
+  const legacyFoodRestrictionLabels = (profile.allergies ?? [])
+    .filter((item) => typeof item === "string" && item.trim())
+    .map((item) => item.trim());
+  const legacyDietRestriction =
+    profile.dietStyle === "gluten_free" || profile.dietStyle === "keto"
+      ? profile.dietStyle
+      : null;
+  const hasLegacyFoodSafetyData =
+    legacyFoodRestrictionLabels.length > 0 || legacyDietRestriction !== null;
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
@@ -236,6 +247,69 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{[{ id: "all", label: currentText.dietAll }, { id: "mediterranean", label: currentText.dietMed }, { id: "vegetarian", label: currentText.dietVegetarian }, { id: "vegan", label: currentText.dietVegan }].map((opt) => <button key={opt.id} onClick={() => onUpdateProfile({ dietStyle: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.dietStyle === opt.id ? "bg-teal-500/10 border-teal-500/40 text-teal-300 shadow-[0_0_15px_rgba(20,184,166,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.dietStyle === opt.id && <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 ml-1" />}</div></button>)}</div>
       </div>
 
+
+      {hasLegacyFoodSafetyData && (
+        <div
+          id="profile-legacy-food-safety-card"
+          className="bg-[#131A1F]/60 backdrop-blur-md border border-amber-500/25 rounded-3xl p-6 shadow-[0_8px_30px_rgba(245,158,11,0.08)] space-y-4"
+        >
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-amber-300 font-['Outfit'] tracking-wide">
+              {language === "bg"
+                ? "Стари данни за хранителни ограничения"
+                : language === "es"
+                ? "Datos legacy de restricciones alimentarias"
+                : "Legacy food-restriction data"}
+            </h3>
+            <p className="text-sm text-stone-400 leading-relaxed font-medium">
+              {language === "bg"
+                ? "Тези стойности са запазени от стария поток и не се третират като проверена защита срещу алергени. Докато не бъдат прегледани в бъдещия специализиран поток или премахнати, BalkanBite няма да генерира AI рецепти, менюта или предложения за покупки."
+                : language === "es"
+                ? "Estos valores se conservaron del flujo antiguo y no se tratan como protección verificada frente a alérgenos. Hasta que puedan revisarse en el futuro flujo específico o los elimines, BalkanBite no generará recetas, menús ni sugerencias de compra con IA."
+                : "These values were retained from the old flow and are not treated as verified allergen protection. Until they can be reviewed in the future dedicated flow or you remove them, BalkanBite will not generate AI recipes, meal plans, or shopping suggestions."}
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-2">
+            {legacyDietRestriction && (
+              <span className="text-sm font-medium px-3 py-1.5 rounded-lg bg-amber-500/10 border border-amber-500/20 text-amber-200">
+                {legacyDietRestriction === "gluten_free"
+                  ? language === "bg"
+                    ? "Без глутен (legacy)"
+                    : language === "es"
+                    ? "Sin gluten (legacy)"
+                    : "Gluten-free (legacy)"
+                  : "Keto (legacy)"}
+              </span>
+            )}
+            {legacyFoodRestrictionLabels.map((item) => (
+              <span
+                key={item}
+                className="text-sm font-medium px-3 py-1.5 rounded-lg bg-rose-500/10 border border-rose-500/20 text-rose-200"
+              >
+                {item}
+              </span>
+            ))}
+          </div>
+
+          <button
+            id="profile-clear-legacy-food-safety-btn"
+            type="button"
+            onClick={() => setShowClearLegacyFoodSafetyConfirm(true)}
+            className="w-full py-3 px-4 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/15 text-amber-200 text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>
+              {language === "bg"
+                ? "Премахване на старите ограничения"
+                : language === "es"
+                ? "Eliminar restricciones legacy"
+                : "Delete legacy restrictions"}
+            </span>
+          </button>
+        </div>
+      )}
+
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-5 shadow-inner">
         <div className="flex items-center justify-between"><span className="text-white font-bold text-xs uppercase tracking-widest bg-rose-500/10 px-3 py-1.5 rounded-lg border border-rose-500/20">{currentText.dislikedTitle}</span><span className="text-[11px] font-bold text-stone-500 uppercase tracking-widest">{profile.disliked.length} {currentText.dislikedExcluded}</span></div>
         <form onSubmit={handleAddDislike} className="flex gap-3"><input type="text" value={newDislike} onChange={(e) => setNewDislike(e.target.value)} placeholder={currentText.dislikedPlaceholder} className="flex-1 px-4 py-3 bg-[#131A1F] border border-white/[0.08] rounded-xl text-sm font-medium text-white placeholder-stone-600 focus:outline-none focus:border-rose-500/50 transition-colors" /><button type="submit" className="px-5 py-3 bg-white/[0.04] hover:bg-white/[0.08] border border-white/[0.04] hover:border-white/[0.1] text-stone-300 text-sm font-bold rounded-xl cursor-pointer transition-colors">{currentText.add}</button></form>
@@ -291,6 +365,41 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       )}
 
       <div className="pt-8 pb-10"><button onClick={() => setShowResetConfirm(true)} className="w-full py-4 px-4 border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 hover:border-rose-500/40 text-rose-400 text-sm font-bold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-inner"><RotateCcw className="w-5 h-5" /><span className="tracking-wide uppercase font-['Outfit']">{localResetCopy.buttonLabel}</span></button></div>
+
+      <ConfirmModal
+        isOpen={showClearLegacyFoodSafetyConfirm}
+        onClose={() => setShowClearLegacyFoodSafetyConfirm(false)}
+        onConfirm={() => {
+          onUpdateProfile({
+            allergies: undefined,
+            ...(legacyDietRestriction ? { dietStyle: "all" as const } : {}),
+          });
+          setShowClearLegacyFoodSafetyConfirm(false);
+        }}
+        title={
+          language === "bg"
+            ? "Премахване на старите ограничения"
+            : language === "es"
+            ? "Eliminar restricciones legacy"
+            : "Delete legacy restrictions"
+        }
+        description={
+          language === "bg"
+            ? "Това ще изтрие старите стойности за алергии/непоносимости и ще нулира стария режим без глутен или keto, ако е зададен. Това не потвърждава, че нямате хранителни ограничения."
+            : language === "es"
+            ? "Esto eliminará los valores antiguos de alergias/intolerancias y restablecerá la antigua opción sin gluten o keto si estaba seleccionada. No confirma que no tengas restricciones alimentarias."
+            : "This will delete legacy allergy/intolerance values and reset the old gluten-free or keto option if selected. It does not confirm that you have no food restrictions."
+        }
+        confirmText={
+          language === "bg"
+            ? "Изтрий legacy данните"
+            : language === "es"
+            ? "Eliminar datos legacy"
+            : "Delete legacy data"
+        }
+        cancelText={currentText.cancel}
+        danger={true}
+      />
 
       <ConfirmModal
         isOpen={showClearHealthDataConfirm}
