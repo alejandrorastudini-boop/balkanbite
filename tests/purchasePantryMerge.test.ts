@@ -23,7 +23,13 @@ test('incompatible containers stay separate; identical containers combine', () =
 test('same-name purchase batch aggregates, with immutable inputs and replay protection', () => {
  const pantry = [stock()]; const list = [shop(),shop(.25,'kg',{id:'s2'})]; const before = JSON.stringify({pantry,list});
  const first = transferCheckedShoppingItems(pantry,list,date); const second = transferCheckedShoppingItems(first.pantry,list,date);
- assert.equal(first.pantry[0].quantity, 1.75); assert.deepEqual(second.pantry, first.pantry); assert.equal(JSON.stringify({pantry,list}), before);
+ assert.equal(first.pantry[0].quantity, 1.75);
+ assert.deepEqual(first.acceptedSourceIds, ['shopping:s1','shopping:s2']);
+ assert.deepEqual(first.newlyAppliedSourceIds, ['shopping:s1','shopping:s2']);
+ assert.deepEqual(second.pantry, first.pantry);
+ assert.deepEqual(second.acceptedSourceIds, ['shopping:s1','shopping:s2']);
+ assert.deepEqual(second.newlyAppliedSourceIds, []);
+ assert.equal(JSON.stringify({pantry,list}), before);
 });
 test('unknown costs stay unknown; positive line estimates retain provenance', () => {
  const result = transferCheckedShoppingItems([stock(1,'kg',{estimatedCostEUR:2})], [shop()], date).pantry[0];
@@ -54,4 +60,13 @@ test('duplicate source IDs reject the entire ambiguous pair', () => {
 test('confirmed zero cost and expiry are preserved without falsy fallbacks', () => {
  const result = mergePurchasesIntoPantry([], [{sourceId:'r1',source:'confirmed_reconciliation',name:'Tomate',quantity:1,unit:'ud',estimatedCostEUR:0,expiryDaysLeft:0}],date);
  assert.equal(result.pantry[0].estimatedCostEUR,0); assert.equal(result.pantry[0].expiryDaysLeft,0);
+});
+
+test('rejected purchases never appear as newly applied progression evidence', () => {
+ const result = mergePurchasesIntoPantry([], [
+  {sourceId:'bad',source:'confirmed_reconciliation',name:'Tomate',quantity:0,unit:'kg'},
+ ], date);
+ assert.deepEqual(result.acceptedSourceIds, []);
+ assert.deepEqual(result.newlyAppliedSourceIds, []);
+ assert.equal(result.rejected.length, 1);
 });
