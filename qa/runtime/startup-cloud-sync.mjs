@@ -308,6 +308,10 @@ async function runProfileHealthDataControlScenario(context) {
     url: profileHealthDataUrl().replace(/([?&]_vercel_share=)[^&]+/, "$1[redacted]"),
     initialHealthProfilePresent: null,
     initialFieldCount: null,
+    correctedAgeValue: null,
+    correctedAgeSource: null,
+    correctedAgeRecordedAtChanged: null,
+    afterCorrectionFieldCount: null,
     afterFirstRemovalFieldCount: null,
     finalFieldCount: null,
     finalHealthProfilePresent: null,
@@ -364,13 +368,104 @@ async function runProfileHealthDataControlScenario(context) {
       await page
         .locator(`#profile-remove-health-field-${field}`)
         .waitFor({ state: "visible", timeout: 5_000 });
+      await page
+        .locator(`#profile-edit-health-field-${field}`)
+        .waitFor({ state: "visible", timeout: 5_000 });
     }
+
+    const initialAgeRecordedAt = (
+      await page.getByTestId("qa-health-age-recorded-at").textContent()
+    )?.trim();
+    assert.equal(
+      initialAgeRecordedAt,
+      "2026-09-20T09:00:00.000Z",
+      "QA age seed must expose its original recordedAt"
+    );
+    assert.equal(
+      (await page.getByTestId("qa-health-age-source").textContent())?.trim(),
+      "imported",
+      "QA age seed must start with imported provenance so correction is observable"
+    );
+
+    await page.locator("#profile-edit-health-field-ageYears").click();
+    await page
+      .locator("#profile-health-edit-panel-ageYears")
+      .waitFor({ state: "visible", timeout: 5_000 });
+    assert.equal(
+      await page.locator("#profile-health-edit-status-ageYears").inputValue(),
+      "known",
+      "age editor must start from the stored status"
+    );
+    assert.equal(
+      await page.locator("#profile-health-edit-value-ageYears").inputValue(),
+      "35",
+      "age editor must start from the stored value"
+    );
+
+    await page.locator("#profile-health-edit-value-ageYears").fill("36");
+    await page.locator("#profile-save-health-field-ageYears").click();
+    await page.waitForFunction(() => {
+      const node = document.querySelector('[data-testid="qa-health-age-value"]');
+      return node?.textContent?.trim() === "36";
+    });
+
+    evidence.correctedAgeValue = (
+      await page.getByTestId("qa-health-age-value").textContent()
+    )?.trim();
+    evidence.correctedAgeSource = (
+      await page.getByTestId("qa-health-age-source").textContent()
+    )?.trim();
+    const correctedAgeRecordedAt = (
+      await page.getByTestId("qa-health-age-recorded-at").textContent()
+    )?.trim();
+
+    assert.equal(
+      evidence.correctedAgeValue,
+      "36",
+      "age correction must persist the explicit corrected value"
+    );
+    assert.equal(
+      (await page.getByTestId("qa-health-age-status").textContent())?.trim(),
+      "known",
+      "age correction must preserve the explicit known status"
+    );
+    assert.equal(
+      evidence.correctedAgeSource,
+      "self_reported",
+      "user correction must replace imported provenance with self_reported"
+    );
+    assert.ok(
+      correctedAgeRecordedAt &&
+        Number.isFinite(Date.parse(correctedAgeRecordedAt)) &&
+        correctedAgeRecordedAt !== initialAgeRecordedAt,
+      "user correction must record a fresh valid timestamp"
+    );
+    evidence.correctedAgeRecordedAtChanged = true;
+    evidence.afterCorrectionFieldCount = (
+      await page.getByTestId("qa-health-field-count").textContent()
+    )?.trim();
+    assert.equal(
+      evidence.afterCorrectionFieldCount,
+      "6",
+      "correcting one datum must not add or remove HealthProfile fields"
+    );
+    assert.equal(
+      await page.locator("#profile-health-field-heightCm").count(),
+      1,
+      "correcting age must preserve the height datum"
+    );
+    await page
+      .getByText("36 years", { exact: true })
+      .waitFor({ state: "visible", timeout: 5_000 });
 
     const deleteButton = page.locator("#profile-clear-health-data-btn");
     await deleteButton.waitFor({ state: "visible", timeout: 10_000 });
 
     await page.screenshot({
-      path: path.join(artifactDir, "profile-health-data-before-field-delete.png"),
+      path: path.join(
+        artifactDir,
+        "profile-health-data-after-correction-before-field-delete.png"
+      ),
       fullPage: true,
     });
 

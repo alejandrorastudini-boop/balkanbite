@@ -16,7 +16,7 @@ const INITIAL_PROFILE: UserProfile = {
     ageYears: {
       status: "known",
       value: 35,
-      source: "self_reported",
+      source: "imported",
       recordedAt: "2026-09-20T09:00:00.000Z",
     },
     heightCm: {
@@ -73,6 +73,20 @@ export function ProfileHealthDataQaHarness() {
               ).length
             : 0,
         )}
+      </span>
+      <span data-testid="qa-health-age-status" className="sr-only">
+        {profile.healthProfile?.ageYears?.status ?? "absent"}
+      </span>
+      <span data-testid="qa-health-age-value" className="sr-only">
+        {profile.healthProfile?.ageYears?.status === "known"
+          ? String(profile.healthProfile.ageYears.value ?? "")
+          : ""}
+      </span>
+      <span data-testid="qa-health-age-source" className="sr-only">
+        {profile.healthProfile?.ageYears?.source ?? "absent"}
+      </span>
+      <span data-testid="qa-health-age-recorded-at" className="sr-only">
+        {profile.healthProfile?.ageYears?.recordedAt ?? "absent"}
       </span>
       <div className="mx-auto max-w-4xl">
         <ProfileView
