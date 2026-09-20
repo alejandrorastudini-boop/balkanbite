@@ -62,6 +62,7 @@ import {
   parseUserProfileCache,
 } from "./utils/profileSyncBoundary";
 import { getUserLocalWorkspaceKey, parseArrayCache } from "./utils/localWorkspaceScope";
+import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
@@ -722,17 +723,7 @@ export default function App() {
   const handleResetApp = () => {
     setIsResetting(true);
     setTimeout(() => {
-      const keys = [
-        "balkanbite_pantry",
-        "balkanbite_recipes",
-        "balkanbite_shopping",
-        "balkanbite_profile",
-        "balkanbite_mealplan",
-        "balkanbite_meallogs",
-        "balkanbite_chat_messages"
-      ];
-      keys.forEach(k => localStorage.removeItem(k));
-      localStorage.clear();
+      clearBalkanBiteLocalStorage(localStorage);
       window.location.href = window.location.origin + window.location.pathname;
     }, 100);
   };
