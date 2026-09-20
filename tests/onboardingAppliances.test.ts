@@ -22,3 +22,10 @@ test("confirmed appliance selections are still persisted through onboarding comp
   assert.match(source, /appliances:\s*selectedAppliances/);
   assert.match(source, /toggleAppliance/);
 });
+
+
+test("blank onboarding name is omitted instead of written as undefined", () => {
+  assert.match(source, /const trimmedName = name\.trim\(\)/);
+  assert.match(source, /\.\.\.\(trimmedName \? \{ name: trimmedName \} : \{\}\)/);
+  assert.doesNotMatch(source, /name:\s*name\.trim\(\)\s*\|\|\s*undefined/);
+});
