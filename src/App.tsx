@@ -63,6 +63,7 @@ import {
 } from "./utils/profileSyncBoundary";
 import { getUserLocalWorkspaceKey, parseArrayCache } from "./utils/localWorkspaceScope";
 import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
+import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
@@ -697,7 +698,7 @@ export default function App() {
         body: JSON.stringify({
           pantry,
           recipes,
-          profile,
+          profile: buildAiCulinaryProfileContext(profile),
           language: profile.language,
         }),
       });
@@ -821,7 +822,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pantry,
-          profile,
+          profile: buildAiCulinaryProfileContext(profile),
           query: queryText || voiceSearchQuery,
           language: profile.language,
         }),
@@ -966,7 +967,7 @@ export default function App() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           pantry,
-          profile,
+          profile: buildAiCulinaryProfileContext(profile),
           language: profile.language,
         }),
       });
