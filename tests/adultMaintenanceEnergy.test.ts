@@ -41,6 +41,10 @@ for (const { sex, activity, expected } of expectedByEquation) {
     assert.equal(result.formulaVersion, "nasem_dri_energy_2023_adult_v1");
     assert.equal(result.source.year, 2023);
     assert.equal(result.source.doi, "10.17226/26818");
+    assert.deepEqual(result.modelError, {
+      metric: "mean_absolute_error",
+      kcalPerDay: sex === "male" ? 266 : 191,
+    });
   });
 }
 
