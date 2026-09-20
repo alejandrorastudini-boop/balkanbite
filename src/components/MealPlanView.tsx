@@ -34,8 +34,6 @@ interface MealPlanViewProps {
   userName?: string;
   onClearMealPlan?: () => void;
   onNavigateToVoice?: () => void;
-  isPro?: boolean;
-  onOpenProModal?: () => void;
   onGenerateAiWeekPlan?: () => void;
   onAdaptToPantry?: () => void;
   isGeneratingPlan?: boolean;
@@ -52,8 +50,6 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   userName,
   onClearMealPlan,
   onNavigateToVoice,
-  isPro = false,
-  onOpenProModal,
   onGenerateAiWeekPlan,
   onAdaptToPantry,
   isGeneratingPlan = false,
@@ -160,7 +156,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
           ? "Los registros de comidas reflejan lo que declaraste. Los valores nutricionales mostrados pueden ser estimados y no son un total diario verificado."
           : "Meal logs reflect what you declared. Nutrition values shown may be estimated and are not a verified daily total."}
       </p>
-      {/* AI Meal Plan PRO Feature Banner */}
+      {/* AI weekly planning */}
       <div className="bg-[#131A1F]/80 backdrop-blur-md border border-amber-500/20 rounded-3xl p-5 shadow-[0_8px_30px_rgba(245,158,11,0.08)] relative overflow-hidden group">
         <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 blur-[60px] rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none group-hover:bg-amber-500/15 transition-all duration-700" />
         
@@ -169,10 +165,10 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             <div className="flex items-center gap-2.5">
               <span className="flex items-center gap-1.5 text-[10px] font-bold uppercase tracking-widest px-2.5 py-1 rounded-full bg-amber-500/10 text-amber-500 border border-amber-500/20">
                 <Sparkles className="w-3 h-3" />
-                {currentText.mealPlanProBadge || "PRO"}
+                {currentText.mealPlanAiBadge || "AI"}
               </span>
               <h3 className="text-base sm:text-lg font-bold text-white font-['Outfit'] tracking-wide">
-                {currentText.mealPlanAutoGeneratePro || "Auto-Generar Menú Semanal con IA"}
+                {currentText.mealPlanAutoGenerateAi || "Generate weekly plan with AI"}
               </h3>
             </div>
             <p className="text-sm text-stone-400 leading-relaxed font-medium mt-1">
@@ -181,29 +177,20 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
           </div>
           
           <button
-            onClick={() => {
-              if (isPro && onGenerateAiWeekPlan) {
-                onGenerateAiWeekPlan();
-              } else if (onOpenProModal) {
-                onOpenProModal();
-              }
-            }}
-            disabled={isGeneratingPlan}
-            className={`w-full sm:w-auto px-5 py-3 rounded-xl font-bold text-sm tracking-wide transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] flex items-center justify-center gap-2 ${
-              isPro
-                ? "bg-amber-500 hover:bg-amber-400 text-stone-950 border border-amber-400/50"
-                : "bg-white/[0.04] hover:bg-white/[0.08] text-amber-400 border border-amber-500/30"
-            }`}
+            id="generate-ai-week-plan-btn"
+            onClick={() => onGenerateAiWeekPlan?.()}
+            disabled={isGeneratingPlan || !onGenerateAiWeekPlan}
+            className="w-full sm:w-auto px-5 py-3 rounded-xl font-bold text-sm tracking-wide transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] flex items-center justify-center gap-2 bg-amber-500 hover:bg-amber-400 text-stone-950 border border-amber-400/50 disabled:opacity-50 disabled:cursor-not-allowed"
           >
             {isGeneratingPlan ? (
               <>
                 <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" />
-                <span>Generando...</span>
+                <span>{currentText.generatingWeekPlan}</span>
               </>
             ) : (
               <>
                 <Sparkles className="w-4 h-4" />
-                <span>{isPro ? "Generar Plan" : "Desbloquear Planificador IA"}</span>
+                <span>{currentText.generateWeeklyPlanAi || "Generate weekly plan with AI"}</span>
               </>
             )}
           </button>
