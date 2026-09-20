@@ -56,8 +56,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   };
 
   const finish = () => {
+    const trimmedName = name.trim();
     onComplete({
-      name: name.trim() || undefined,
+      ...(trimmedName ? { name: trimmedName } : {}),
       householdSize,
       cookingSpeed,
       healthGoal,
