@@ -16,8 +16,6 @@ import {
 } from "lucide-react";
 import { Language, UserProfile } from "../types";
 import { t } from "../utils/translations";
-import { formatBmi } from "../utils/bodyMetrics";
-import { createSelfReportedHealthProfile } from "../utils/healthProfile";
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -44,20 +42,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
   const [selectedAppliances, setSelectedAppliances] = useState<string[]>([]);
   const [monthlyBudgetEUR, setMonthlyBudgetEUR] = useState<number>(350);
-  const [ageInput, setAgeInput] = useState("");
-  const [heightInput, setHeightInput] = useState("");
-  const [weightInput, setWeightInput] = useState("");
-
-  const parsePositiveMetric = (value: string): number | undefined => {
-    if (!value.trim()) return undefined;
-    const parsed = Number(value.replace(",", "."));
-    return Number.isFinite(parsed) && parsed > 0 ? parsed : undefined;
-  };
-
-  const ageYears = parsePositiveMetric(ageInput);
-  const heightCm = parsePositiveMetric(heightInput);
-  const weightKg = parsePositiveMetric(weightInput);
-  const bmiDisplay = formatBmi(heightCm, weightKg);
 
   const toggleAllergy = (allergy: string) => {
     setSelectedAllergies((prev) =>
@@ -73,10 +57,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   const finish = () => {
     const trimmedName = name.trim();
-    const healthProfile = createSelfReportedHealthProfile(
-      { ageYears, heightCm, weightKg },
-      new Date().toISOString(),
-    );
 
     onComplete({
       ...(trimmedName ? { name: trimmedName } : {}),
@@ -87,7 +67,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       allergies: selectedAllergies,
       appliances: selectedAppliances,
       monthlyBudgetEUR,
-      ...(healthProfile ? { healthProfile } : {}),
       onboardingCompleted: true,
     });
   };
@@ -305,77 +284,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   </button>
                 ))}
               </div>
-            </div>
-
-            <div className="bg-white/[0.02] border border-white/[0.05] rounded-2xl p-3 space-y-2.5">
-              <div className="flex items-center justify-between gap-2">
-                <label className="text-xs font-bold text-stone-300 uppercase tracking-wider">
-                  {language === "es"
-                    ? "Edad, altura y peso (Opcional)"
-                    : language === "bg"
-                    ? "Възраст, ръст и тегло (по желание)"
-                    : "Age, height and weight (Optional)"}
-                </label>
-                {bmiDisplay && (
-                  <span className="text-xs font-black text-emerald-400">
-                    IMC {bmiDisplay}
-                  </span>
-                )}
-              </div>
-              <div>
-                <label className="text-[10px] text-stone-500 font-bold block mb-1">
-                  {language === "es" ? "Edad (años)" : language === "bg" ? "Възраст (години)" : "Age (years)"}
-                </label>
-                <input
-                  type="number"
-                  inputMode="numeric"
-                  min="1"
-                  step="1"
-                  value={ageInput}
-                  onChange={(e) => setAgeInput(e.target.value)}
-                  placeholder="35"
-                  className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500/50"
-                />
-              </div>
-              <div className="grid grid-cols-2 gap-2">
-                <div>
-                  <label className="text-[10px] text-stone-500 font-bold block mb-1">
-                    {language === "es" ? "Altura (cm)" : language === "bg" ? "Ръст (cm)" : "Height (cm)"}
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="1"
-                    step="0.1"
-                    value={heightInput}
-                    onChange={(e) => setHeightInput(e.target.value)}
-                    placeholder="175"
-                    className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500/50"
-                  />
-                </div>
-                <div>
-                  <label className="text-[10px] text-stone-500 font-bold block mb-1">
-                    {language === "es" ? "Peso (kg)" : language === "bg" ? "Тегло (kg)" : "Weight (kg)"}
-                  </label>
-                  <input
-                    type="number"
-                    inputMode="decimal"
-                    min="1"
-                    step="0.1"
-                    value={weightInput}
-                    onChange={(e) => setWeightInput(e.target.value)}
-                    placeholder="70"
-                    className="w-full px-3 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-stone-600 focus:outline-none focus:border-emerald-500/50"
-                  />
-                </div>
-              </div>
-              <p className="text-[10px] leading-relaxed text-stone-500">
-                {language === "es"
-                  ? "El IMC es orientativo y se calcula automáticamente. No mide masa muscular ni sustituye una evaluación médica."
-                  : language === "bg"
-                  ? "ИТМ е ориентировъчен и се изчислява автоматично. Не измерва мускулна маса и не замества медицинска оценка."
-                  : "BMI is an approximate metric calculated automatically. It does not measure muscle mass or replace medical assessment."}
-              </p>
             </div>
 
             <div>
