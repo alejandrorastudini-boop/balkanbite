@@ -68,6 +68,14 @@ import {
   getFoodSafetyQuarantine,
   getFoodSafetyQuarantineMessage,
 } from "./utils/foodSafetyQuarantine";
+import {
+  appendProgressionEvents,
+  buildPurchaseProgressEvents,
+  buildRecipeCookProgressEvent,
+  createProgressionActionId,
+  normalizeProgressionLedger,
+  type ProgressionLedgerV1,
+} from "./utils/progressionLedger";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
@@ -129,6 +137,14 @@ export default function App() {
       return [];
     }
   });
+
+  const [progressionLedger, setProgressionLedger] = useState<ProgressionLedgerV1>(() =>
+    normalizeProgressionLedger(
+      parseArrayCache<unknown>(
+        localStorage.getItem("balkanbite_progression")
+      ) ?? []
+    )
+  );
 
   const [profile, setProfile] = useState<UserProfile>(() =>
     parseGuestProfileCache(localStorage.getItem("balkanbite_profile")) ??
@@ -293,6 +309,18 @@ export default function App() {
           )
         ) ?? []
       );
+      setProgressionLedger(
+        normalizeProgressionLedger(
+          parseArrayCache<unknown>(
+            localStorage.getItem(
+              getUserLocalWorkspaceKey(
+                "balkanbite_progression",
+                currentUser.uid
+              )
+            )
+          ) ?? []
+        )
+      );
       setWorkspaceScope(currentUser.uid);
       return;
     }
@@ -328,6 +356,13 @@ export default function App() {
       parseArrayCache<ChatMessage>(
         localStorage.getItem("balkanbite_chat_messages")
       ) ?? []
+    );
+    setProgressionLedger(
+      normalizeProgressionLedger(
+        parseArrayCache<unknown>(
+          localStorage.getItem("balkanbite_progression")
+        ) ?? []
+      )
     );
     setWorkspaceScope("guest");
   }, [
@@ -491,6 +526,37 @@ export default function App() {
       console.warn("localStorage write error", e);
     }
   }, [chatMessages, currentUser, workspaceScope, isResetting]);
+
+  useEffect(() => {
+    if (isResetting) return;
+    try {
+      if (currentUser) {
+        if (workspaceScope !== currentUser.uid) return;
+        localStorage.setItem(
+          getUserLocalWorkspaceKey(
+            "balkanbite_progression",
+            currentUser.uid
+          ),
+          JSON.stringify(progressionLedger)
+        );
+        return;
+      }
+      if (workspaceScope !== "guest") return;
+      localStorage.setItem(
+        "balkanbite_progression",
+        JSON.stringify(progressionLedger)
+      );
+    } catch (e) {
+      console.warn("localStorage write error", e);
+    }
+  }, [progressionLedger, currentUser, workspaceScope, isResetting]);
+
+  const appendProgressionCandidates = (candidates: readonly unknown[]) => {
+    if (candidates.length === 0) return;
+    setProgressionLedger((current) =>
+      appendProgressionEvents(current, candidates).ledger
+    );
+  };
 
   const requireAuthoritativeInventory = () => {
     if (!inventoryIsProvisional) return true;
@@ -750,6 +816,8 @@ export default function App() {
       return { success: false, issueCount: 1 };
     }
 
+    const actionId = createProgressionActionId();
+    const occurredAt = new Date().toISOString();
     const result = deductRecipeIngredientsFromPantry(
       pantry,
       recipe.ingredients || []
@@ -764,6 +832,14 @@ export default function App() {
     }
 
     setPantry(result.pantry);
+    if (actionId) {
+      const event = buildRecipeCookProgressEvent({
+        actionId,
+        occurredAt,
+        result,
+      });
+      if (event) appendProgressionCandidates([event]);
+    }
     return { success: true };
   };
 
@@ -889,8 +965,11 @@ export default function App() {
     const checkedItems = shoppingList.filter((i) => i.checked);
     if (checkedItems.length === 0) return;
 
+    const occurredAt = new Date().toISOString();
     const result = transferCheckedShoppingItems(
-      pantry, shoppingList, new Date().toISOString().split("T")[0]
+      pantry,
+      shoppingList,
+      occurredAt.split("T")[0]
     );
     if (result.acceptedSourceIds.length > 0) {
       setPantry(result.pantry);
@@ -903,6 +982,12 @@ export default function App() {
       setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
       setShoppingList(result.shoppingList);
     }
+    appendProgressionCandidates(
+      buildPurchaseProgressEvents({
+        occurredAt,
+        newlyAppliedSourceIds: result.newlyAppliedSourceIds,
+      })
+    );
     if (result.rejected.length > 0) {
       alert(profile.language === "es"
         ? "Algunos artículos siguen en la lista: revisa su nombre, cantidad y unidad antes de transferirlos."
@@ -923,12 +1008,13 @@ export default function App() {
   }) => {
     if (!requireAuthoritativeInventory()) return;
 
+    const occurredAt = new Date().toISOString();
     const result = reconcileConfirmedShoppingPurchases(
       pantry,
       shoppingList,
       purchasedItemIds || [],
       itemsToAddToPantry || [],
-      new Date().toISOString().split("T")[0],
+      occurredAt.split("T")[0],
       reconciliationId || ""
     );
 
@@ -943,6 +1029,13 @@ export default function App() {
       setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
       setShoppingList(result.shoppingList);
     }
+
+    appendProgressionCandidates(
+      buildPurchaseProgressEvents({
+        occurredAt,
+        newlyAppliedSourceIds: result.newlyAppliedSourceIds,
+      })
+    );
 
     if (
       result.unresolvedPurchasedItemIds.length > 0 ||
