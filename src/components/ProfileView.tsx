@@ -19,7 +19,13 @@ import {
   HeartPulse,
   Trash2,
 } from "lucide-react";
-import {\n  UserProfile,\n  Language,\n  Currency,\n  type HealthDatum,\n  type HealthDataStatus,\n} from "../types";
+import {
+  UserProfile,
+  Language,
+  Currency,
+  type HealthDatum,
+  type HealthDataStatus,
+} from "../types";
 import { t } from "../utils/translations";
 import { ConfirmModal } from "./ConfirmModal";
 import { AdminAgentStatusPanel } from "./AdminAgentStatusPortal";
