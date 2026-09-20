@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   createSelfReportedHealthProfile,
   getKnownHealthNumber,
+  removeHealthProfileField,
   sanitizeHealthProfile,
   serializeHealthProfile,
 } from "../src/utils/healthProfile";
@@ -164,4 +165,60 @@ test("invalid categorical energy values are not converted into health facts", ()
   });
 
   assert.equal(profile, undefined);
+});
+
+
+test("field removal preserves other HealthProfile data and provenance", () => {
+  const profile = sanitizeHealthProfile({
+    version: 1,
+    ageYears: {
+      status: "known",
+      value: 35,
+      source: "self_reported",
+      recordedAt: "2026-09-20T09:00:00.000Z",
+    },
+    heightCm: {
+      status: "known",
+      value: 175,
+      source: "measured",
+      recordedAt: "2026-09-20T09:05:00.000Z",
+    },
+  });
+
+  const next = removeHealthProfileField(profile, "ageYears");
+
+  assert.equal(next?.ageYears, undefined);
+  assert.deepEqual(next?.heightCm, {
+    status: "known",
+    value: 175,
+    source: "measured",
+    recordedAt: "2026-09-20T09:05:00.000Z",
+  });
+});
+
+test("removing the final HealthProfile datum makes the profile absent", () => {
+  const profile = sanitizeHealthProfile({
+    version: 1,
+    pregnancyLactationStatus: {
+      status: "prefer_not_to_say",
+      source: "self_reported",
+    },
+  });
+
+  assert.equal(
+    removeHealthProfileField(profile, "pregnancyLactationStatus"),
+    undefined,
+  );
+});
+
+test("removing a missing field does not create unknown/default health data", () => {
+  const profile = sanitizeHealthProfile({
+    version: 1,
+    weightKg: {
+      status: "unknown",
+      source: "self_reported",
+    },
+  });
+
+  assert.deepEqual(removeHealthProfileField(profile, "heightCm"), profile);
 });
