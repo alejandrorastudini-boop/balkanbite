@@ -43,8 +43,6 @@ interface ShoppingViewProps {
   isLoadingAi: boolean;
   language: Language;
   currency: Currency;
-  isPro?: boolean;
-  onOpenProModal?: () => void;
   onOpenShoppingAdvisor?: () => void;
 }
 
@@ -60,8 +58,6 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
   isLoadingAi,
   language,
   currency,
-  isPro = false,
-  onOpenProModal,
   onOpenShoppingAdvisor,
 }) => {
   const currentText = t[language];

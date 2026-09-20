@@ -23,13 +23,40 @@ const shoppingSource = readFileSync(
   new URL("../src/components/ShoppingView.tsx", import.meta.url),
   "utf8"
 );
+const mealPlanSource = readFileSync(
+  new URL("../src/components/MealPlanView.tsx", import.meta.url),
+  "utf8"
+);
+const headerSource = readFileSync(
+  new URL("../src/components/Header.tsx", import.meta.url),
+  "utf8"
+);
+const profileSource = readFileSync(
+  new URL("../src/components/ProfileView.tsx", import.meta.url),
+  "utf8"
+);
+const translationsSource = readFileSync(
+  new URL("../src/utils/translations.ts", import.meta.url),
+  "utf8"
+);
 
-test("legacy profile Pro flag is not accepted as a verified commercial entitlement", () => {
-  assert.match(appSource, /const hasVerifiedProEntitlement = false;/);
+test("weekly AI planning is not gated by a non-existent commercial entitlement", () => {
+  assert.doesNotMatch(appSource, /hasVerifiedProEntitlement/);
   assert.doesNotMatch(appSource, /if \(!profile\.isProSubscriber\)/);
-  assert.doesNotMatch(appSource, /isPro=\{profile\.isProSubscriber\}/);
+  assert.doesNotMatch(appSource, /isPro=\{/);
   assert.doesNotMatch(appSource, /isProSubscriber:\s*!prev\.isProSubscriber/);
   assert.match(initialDataSource, /isProSubscriber:\s*false/);
+
+  const start = appSource.indexOf("const handleGenerateAiWeekPlan");
+  const end = appSource.indexOf("const handleResetApp", start);
+  assert.ok(start >= 0 && end > start);
+  const handler = appSource.slice(start, end);
+
+  assert.match(handler, /requireAuthoritativeInventory\(\)/);
+  assert.match(handler, /requireFoodRecommendationSafetyReview\(\)/);
+  assert.match(handler, /setIsGeneratingPlan\(true\)/);
+  assert.doesNotMatch(handler, /setShowProModal/);
+  assert.doesNotMatch(handler, /ProEntitlement|isProSubscriber/);
 });
 
 test("Pro UI cannot activate a fake subscription or billing state", () => {
@@ -120,4 +147,54 @@ test("landing budget scenario never applies an unverified hardcoded FX rate", ()
     landingSource,
     /Amounts are shown directly in the selected currency/
   );
+});
+
+
+test("weekly planner and shopping surfaces contain no dead Pro gating props", () => {
+  assert.doesNotMatch(mealPlanSource, /\bisPro\b/);
+  assert.doesNotMatch(mealPlanSource, /onOpenProModal/);
+  assert.match(mealPlanSource, /onClick=\{onGenerateAiWeekPlan\}/);
+  assert.match(mealPlanSource, /id="meal-plan-generate-ai-week"/);
+  assert.doesNotMatch(mealPlanSource, /Desbloquear Planificador IA/);
+  assert.doesNotMatch(shoppingSource, /\bisPro\b/);
+  assert.doesNotMatch(shoppingSource, /onOpenProModal/);
+});
+
+test("header does not advertise a persistent Pro tier", () => {
+  assert.doesNotMatch(headerSource, /header-pro-badge/);
+  assert.doesNotMatch(headerSource, /BalkanBite Pro Tier/);
+  assert.doesNotMatch(headerSource, /onOpenProModal/);
+});
+
+test("profile Pro surface is explicitly a future concept, not an active subscription", () => {
+  assert.match(profileSource, /\{currentText\.activePro\}/);
+  assert.match(profileSource, /\{currentText\.manageSub\}/);
+  assert.match(proModalSource, /future product concept/);
+  assert.match(proModalSource, /No subscription, billing, or trial is currently enabled/);
+});
+
+test("translations contain no legacy price, trial, active-tier, or unlock claims", () => {
+  for (const forbidden of [
+    "3.99€",
+    "Try 7 Days Free",
+    "Probar 7 Días Gratis",
+    "Опитай 7 дни безплатно",
+    "BalkanBite Pro (Active)",
+    "BalkanBite Pro (Activo)",
+    "BalkanBite Pro (Активен)",
+    "Upgrade to unlock unlimited meal generation",
+    "Pasa a PRO para desbloquear menús semanales ilimitados",
+    "Активирайте PRO за неограничени менюта",
+  ]) {
+    assert.equal(
+      translationsSource.includes(forbidden),
+      false,
+      `translations must not contain stale commercial claim: ${forbidden}`,
+    );
+  }
+
+  assert.match(translationsSource, /No active subscription/);
+  assert.match(translationsSource, /No hay suscripción activa/);
+  assert.match(translationsSource, /Няма активен абонамент/);
+  assert.match(translationsSource, /Pricing, limits, and packaging are not defined yet/);
 });

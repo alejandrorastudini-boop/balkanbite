@@ -178,9 +178,6 @@ export default function App() {
   const [workspaceScope, setWorkspaceScope] = useState<string>("guest");
   const [activeTab, setActiveTab] = useState<TabType>("pantry");
   const [showProModal, setShowProModal] = useState<boolean>(false);
-  // Commercial entitlement is not implemented yet. Never trust the legacy
-  // profile flag as proof of payment or subscription status.
-  const hasVerifiedProEntitlement = false;
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
   const [voiceSearchQuery, setVoiceSearchQuery] = useState<string>("");
   const [isResetting, setIsResetting] = useState(false);
@@ -765,11 +762,6 @@ export default function App() {
   const handleGenerateAiWeekPlan = async () => {
     if (!requireAuthoritativeInventory()) return;
     if (!requireFoodRecommendationSafetyReview()) return;
-    if (!hasVerifiedProEntitlement) {
-      setShowProModal(true);
-      return;
-    }
-
     setIsGeneratingPlan(true);
     try {
       const res = await fetch("/api/ai/generate-weekly-plan", {
@@ -1228,7 +1220,6 @@ export default function App() {
           onLanguageChange={(lang: Language) => setProfile((p) => ({ ...p, language: lang }))}
           currency={profile.currency}
           onCurrencyChange={(curr: Currency) => setProfile((p) => ({ ...p, currency: curr }))}
-          onOpenProModal={() => setShowProModal(true)}
           theme={theme}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
           onGoToLanding={() => setShowLanding(true)}
@@ -1299,8 +1290,6 @@ export default function App() {
               userName={profile.name}
               onClearMealPlan={handleClearMealPlan}
               onNavigateToVoice={() => setShowChefIaModal(true)}
-              isPro={hasVerifiedProEntitlement}
-              onOpenProModal={() => setShowProModal(true)}
               onGenerateAiWeekPlan={handleGenerateAiWeekPlan}
               onAdaptToPantry={handleAdaptMenuToPantry}
               isGeneratingPlan={isGeneratingPlan}
@@ -1322,8 +1311,6 @@ export default function App() {
               isLoadingAi={isLoadingAi}
               language={profile.language}
               currency={profile.currency}
-              isPro={hasVerifiedProEntitlement}
-              onOpenProModal={() => setShowProModal(true)}
               onOpenShoppingAdvisor={handleOpenShoppingAdvisor}
               theme={theme}
             />
