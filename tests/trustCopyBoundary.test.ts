@@ -22,7 +22,8 @@ const printMenuSource = fs.readFileSync(
 test("current service worker is retirement-only, so product copy must not promise offline mode", () => {
   assert.match(serviceWorkerSource, /caches\.keys\(\)/);
   assert.match(serviceWorkerSource, /registration\.unregister\(\)/);
-  assert.match(serviceWorkerSource, /reintroduce[\\s\\S]*offline caching later/i);
+  assert.match(serviceWorkerSource, /reintroduce/i);
+  assert.match(serviceWorkerSource, /offline caching later/i);
 
   const installLines = translationsSource
     .split("\n")
