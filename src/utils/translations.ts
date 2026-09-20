@@ -186,7 +186,7 @@ export const t = {
     savingsRadarTitle: "Anti-Waste Savings Radar",
     savingsRadarEstimated: "Not calculated",
     installAppBtn: "Install App on Device",
-    installAppDesc: "Install BalkanBite for fullscreen experience and instant offline access.",
+    installAppDesc: "Install BalkanBite for a standalone fullscreen experience. Internet is still required for cloud sync and AI features.",
     pwaInstalled: "App installed successfully",
     tryProFree: "Commercial plans are not available yet",
     proFeatureLock: "Future concept",
@@ -226,7 +226,7 @@ export const t = {
     benefitSync: "Instant synchronization across phone, tablet, and computer",
     benefitBackup: "Safeguard recipes and pantry items against browser cache clearing",
     benefitSecurity: "One-click access with Google without storing passwords",
-    privacyGuarantee: "We only use your basic Google profile to sync your data securely. Your privacy is 100% protected.",
+    privacyGuarantee: "Cloud sync uses your signed-in account. See the Privacy Policy for details on how account and app data are handled.",
     signedInAs: "Signed in as",
     syncActive: "Cloud Backup Active",
     appInstalled: "Installed",
@@ -248,7 +248,7 @@ export const t = {
     weekMenuTitle: "Week's Menu",
     quickShoppingListTitle: "Quick Shopping List (Check when purchased)",
     hangOnFridgeNote: "Hang on your fridge • BalkanBite AI Kitchen",
-    bonAppetitSavings: "Enjoy your meals and guaranteed savings!",
+    bonAppetitSavings: "Enjoy your meals and track spending using the data you have provided.",
     activeWeek: "Active week",
 
     // Scan modal extra
@@ -261,7 +261,7 @@ export const t = {
     detectedIngredients: "Detected Ingredients",
     addToPantry: "Add to Pantry",
     receiptTipTitle: "Tip for grocery receipts:",
-    receiptTipDesc: "Ensure product names and prices are clearly readable for optimal AI detection.",
+    receiptTipDesc: "Clear product names and prices improve review quality. AI detections can be wrong, so confirm the item details before saving.",
 
     // Voice Chef extra
     voiceChefOnline: "Smart culinary assistant with memory",
@@ -459,7 +459,7 @@ export const t = {
     savingsRadarTitle: "Радар за спестяване от храна",
     savingsRadarEstimated: "Не е изчислено",
     installAppBtn: "Инсталирай като приложение",
-    installAppDesc: "Инсталирайте BalkanBite на вашия телефон за бърз достъп на цял екран.",
+    installAppDesc: "Инсталирайте BalkanBite за самостоятелен изглед на цял екран. За облачна синхронизация и AI функции е необходим интернет.",
     pwaInstalled: "Приложението е инсталирано успешно",
     tryProFree: "Търговските планове още не са налични",
     proFeatureLock: "Бъдеща концепция",
@@ -499,7 +499,7 @@ export const t = {
     benefitSync: "Мигновена синхронизация между телефон, таблет и компютър",
     benefitBackup: "Защита на вашите рецепти и продукти при изчистване на кеша",
     benefitSecurity: "Бърз и сигурен достъп с профила ви в Google",
-    privacyGuarantee: "Използваме само основния ви профил за сигурно съхранение. Вашите данни никога не се споделят.",
+    privacyGuarantee: "Облачната синхронизация използва профила, с който сте влезли. Вижте Политиката за поверителност за начина, по който се обработват данните.",
     signedInAs: "Влезли сте като",
     syncActive: "Активна синхронизация в облака",
     appInstalled: "Инсталирано",
@@ -521,7 +521,7 @@ export const t = {
     weekMenuTitle: "Меню за седмицата",
     quickShoppingListTitle: "Бърз списък за пазаруване (отбележете купеното)",
     hangOnFridgeNote: "Закачете на хладилника • BalkanBite AI Kitchen",
-    bonAppetitSavings: "Добър апетит! Следете разхода си според въведените данни.",
+    bonAppetitSavings: "Добър апетит! Следете разхода си според данните, които сте въвели.",
     activeWeek: "Текуща седмица",
 
     // Scan modal extra
@@ -534,7 +534,7 @@ export const t = {
     detectedIngredients: "Разпознати съставки",
     addToPantry: "Добави към килера",
     receiptTipTitle: "Съвет за касови бележки:",
-    receiptTipDesc: "Уверете се, че имената на продуктите и цените се четат ясно за точно разпознаване.",
+    receiptTipDesc: "Ясните имена и цени улесняват прегледа. AI разпознаването може да греши, затова потвърдете данните преди запис.",
 
     // Voice Chef extra
     voiceChefOnline: "Интелигентен кулинарен асистент с памет",
@@ -732,7 +732,7 @@ export const t = {
     savingsRadarTitle: "Radar de Ahorro Anti-Desperdicio",
     savingsRadarEstimated: "No calculado",
     installAppBtn: "Instalar en el Móvil",
-    installAppDesc: "Instala BalkanBite en tu pantalla de inicio para usarla a pantalla completa y sin conexión.",
+    installAppDesc: "Instala BalkanBite para usarla como aplicación independiente a pantalla completa. La sincronización en la nube y las funciones de IA siguen necesitando internet.",
     pwaInstalled: "Aplicación instalada con éxito",
     tryProFree: "Los planes comerciales aún no están disponibles",
     proFeatureLock: "Concepto futuro",
@@ -772,7 +772,7 @@ export const t = {
     benefitSync: "Sincronización instantánea entre tu móvil, tablet y ordenador",
     benefitBackup: "Protege tu despensa y recetas favoritas contra borrados de caché",
     benefitSecurity: "Acceso seguro con Google sin necesidad de recordar contraseñas",
-    privacyGuarantee: "Solo usamos tu perfil básico de Google para sincronizar tus datos de forma segura. Tu privacidad es 100% respetada.",
+    privacyGuarantee: "La sincronización en la nube usa la cuenta con la que has iniciado sesión. Consulta la Política de Privacidad para saber cómo se tratan los datos de la cuenta y de la app.",
     signedInAs: "Sesión iniciada como",
     syncActive: "Respaldo en la nube activo",
     appInstalled: "Instalada",
@@ -794,7 +794,7 @@ export const t = {
     weekMenuTitle: "Menú de la Semana",
     quickShoppingListTitle: "Lista Rápida de la Compra (Marcar al comprar)",
     hangOnFridgeNote: "Colgar en la nevera • BalkanBite AI Kitchen",
-    bonAppetitSavings: "¡Buen provecho y ahorro garantizado!",
+    bonAppetitSavings: "¡Buen provecho! Sigue tus gastos según los datos que has introducido.",
     activeWeek: "Semana activa",
 
     // Scan modal extra
@@ -807,7 +807,7 @@ export const t = {
     detectedIngredients: "Ingredientes Detectados",
     addToPantry: "Añadir a la Despensa",
     receiptTipTitle: "Consejo para tickets de compra:",
-    receiptTipDesc: "Asegúrate de que los nombres de los productos y precios se lean con claridad para una detección perfecta.",
+    receiptTipDesc: "Los nombres y precios legibles facilitan la revisión. La IA puede equivocarse, así que confirma los datos antes de guardarlos.",
 
     // Voice Chef extra
     voiceChefOnline: "Asistente inteligente con memoria culinaria",
