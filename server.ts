@@ -5,6 +5,7 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileContext.js";
 import { withOpenAIJsonModeInstruction } from "./src/utils/openAIJsonMode.js";
+import { markAiGeneratedRecipePlanningEstimates } from "./src/utils/aiGeneratedRecipeProvenance.js";
 import {
   getFoodSafetyQuarantineMessage,
   isFoodSafetyReviewRequired,
@@ -556,12 +557,7 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
       });
     }
     const enrichedRecipes = rawList.map((rec: any, idx: number) => ({
-      ...rec,
-      // LLM-produced nutrition and price figures are planning estimates, never
-      // authoritative calculations. Arbitrary health scores are discarded.
-      healthScore: undefined,
-      nutritionDataStatus: "estimated",
-      costDataStatus: "estimated",
+      ...markAiGeneratedRecipePlanningEstimates(rec),
       id: rec.id || `ai-rec-${Date.now()}-${idx}`,
       imageUrl: resolveRecipeImageUrl(rec),
     }));
@@ -642,12 +638,21 @@ CRITICAL RULES:
     const parsed = JSON.parse(response.text || "[]");
     const rawPlan = Array.isArray(parsed) ? parsed : [];
     
-    // Ensure image URLs are resolved for each meal
+    // Every recipe object emitted by the model remains planning-estimate data.
+    // Image resolution is presentation-only and does not upgrade provenance.
+    const withWeeklyMealProvenance = (meal: any) =>
+      meal
+        ? {
+            ...markAiGeneratedRecipePlanningEstimates(meal),
+            imageUrl: resolveRecipeImageUrl(meal),
+          }
+        : undefined;
+
     const mealPlan = rawPlan.map((day: any) => ({
       date: day.date,
-      breakfast: day.breakfast ? { ...day.breakfast, imageUrl: resolveRecipeImageUrl(day.breakfast) } : undefined,
-      lunch: day.lunch ? { ...day.lunch, imageUrl: resolveRecipeImageUrl(day.lunch) } : undefined,
-      dinner: day.dinner ? { ...day.dinner, imageUrl: resolveRecipeImageUrl(day.dinner) } : undefined,
+      breakfast: withWeeklyMealProvenance(day.breakfast),
+      lunch: withWeeklyMealProvenance(day.lunch),
+      dinner: withWeeklyMealProvenance(day.dinner),
     }));
 
     return res.json({ mealPlan, source: "openai_gpt_5_6_luna" });
