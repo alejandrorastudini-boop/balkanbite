@@ -53,6 +53,31 @@ export function isValidProgressionEventId(value: unknown): value is string {
   return typeof value === "string" && EVENT_ID_PATTERN.test(value);
 }
 
+export function createProgressionActionId(
+  randomUUID?: () => string,
+): string | null {
+  if (!randomUUID) return null;
+  try {
+    const value = randomUUID();
+    return isValidProgressionSourceRef(value) ? value : null;
+  } catch {
+    return null;
+  }
+}
+
+export function parseProgressionLedgerCache(
+  raw: string | null,
+): ProgressionLedgerV1 {
+  if (raw === null) return [];
+  try {
+    const parsed: unknown = JSON.parse(raw);
+    if (!Array.isArray(parsed)) return [];
+    return appendProgressionEvents([], parsed).ledger;
+  } catch {
+    return [];
+  }
+}
+
 function isValidProgressionSourceRef(value: unknown): value is string {
   return typeof value === "string" && SOURCE_REF_PATTERN.test(value);
 }
