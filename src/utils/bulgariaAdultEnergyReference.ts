@@ -1,10 +1,11 @@
+import {
+  parseAdultPhysicalActivityCategory,
+  type AdultPhysicalActivityCategory,
+} from "./adultPhysicalActivity";
+
 export type BulgarianAdultEnergySex = "female" | "male";
 
-export type BulgarianAdultEnergyActivityCategory =
-  | "low_active"
-  | "moderately_active"
-  | "active"
-  | "very_active";
+export type BulgarianAdultEnergyActivityCategory = AdultPhysicalActivityCategory;
 
 export type BulgarianAdultEnergyField =
   | "ageYears"
@@ -214,13 +215,9 @@ export function getBulgarianAdultAverageEnergyReference2018(
     invalid.push("physiologicalSex");
   }
 
-  const activityCategory =
-    input.activityCategory === "low_active" ||
-    input.activityCategory === "moderately_active" ||
-    input.activityCategory === "active" ||
-    input.activityCategory === "very_active"
-      ? input.activityCategory
-      : undefined;
+  const activityCategory = parseAdultPhysicalActivityCategory(
+    input.activityCategory,
+  );
   if (
     input.activityCategory === undefined ||
     input.activityCategory === null ||
