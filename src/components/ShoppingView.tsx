@@ -74,29 +74,29 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
   const [category, setCategory] = useState<string>("Produce");
   const [estimatedCost, setEstimatedCost] = useState<string>("");
 
-  const pricedItems = shoppingList.filter(
+  const estimatedPricedItems = shoppingList.filter(
     (item) =>
       typeof item.estimatedPriceEUR === "number" &&
       Number.isFinite(item.estimatedPriceEUR) &&
       item.estimatedPriceEUR > 0
   );
-  const knownTotalEUR = pricedItems.reduce(
+  const estimatedSubtotalEUR = estimatedPricedItems.reduce(
     (total, item) => total + (item.estimatedPriceEUR as number),
     0
   );
-  const hasUnknownPrices = pricedItems.length < shoppingList.length;
+  const hasUnknownPrices = estimatedPricedItems.length < shoppingList.length;
   const unknownPriceLabel =
     language === "es"
       ? "precios desconocidos"
       : language === "bg"
       ? "неизвестни цени"
       : "unknown prices";
-  const knownPriceSubtotalLabel =
+  const estimatedPriceSubtotalLabel =
     language === "es"
-      ? "Subtotal con precios conocidos"
+      ? "Subtotal estimado"
       : language === "bg"
-      ? "Междинна сума с известни цени"
-      : "Known-price subtotal";
+      ? "Прогнозна междинна сума"
+      : "Estimated subtotal";
   const priceSummaryLabel =
     language === "es"
       ? "Información de precios"
@@ -104,9 +104,9 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
       ? "Информация за цените"
       : "Price information";
   const totalCostDisplay =
-    pricedItems.length === 0 && hasUnknownPrices
+    estimatedPricedItems.length === 0 && hasUnknownPrices
       ? unknownPriceLabel
-      : `${knownPriceSubtotalLabel}: €${knownTotalEUR.toFixed(2)}${
+      : `${estimatedPriceSubtotalLabel}: ~€${estimatedSubtotalEUR.toFixed(2)}${
           hasUnknownPrices ? ` + ${unknownPriceLabel}` : ""
         }`;
 
@@ -355,7 +355,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
               typeof itemPriceEUR === "number" &&
               Number.isFinite(itemPriceEUR) &&
               itemPriceEUR > 0
-                ? `€${itemPriceEUR.toFixed(2)}`
+                ? `~€${itemPriceEUR.toFixed(2)}`
                 : unknownPriceLabel;
 
             return (
@@ -498,7 +498,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                   min="0.1"
                   step="0.1"
                   value={estimatedCost}
-                  onChange={(e) => setEstimatedCost(Number(e.target.value))}
+                  onChange={(e) => setEstimatedCost(e.target.value)}
                   className="w-full px-4 py-2.5 bg-black/40 border border-white/[0.08] rounded-xl text-sm font-medium text-white focus:outline-none focus:border-emerald-500/50 transition-colors"
                 />
               </div>
