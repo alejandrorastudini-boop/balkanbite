@@ -2,7 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 
 import {
-  estimateAdultMaintenanceEnergy,
+  estimateAdultMaintenanceEnergyNasem2023,
   type AdultPhysicalActivityCategory,
   type PhysiologicalSexForEnergyEquation,
 } from "../src/utils/adultMaintenanceEnergy";
@@ -24,7 +24,7 @@ const expectedByEquation: Array<{
 
 for (const { sex, activity, expected } of expectedByEquation) {
   test(`2023 adult EER equation: ${sex} / ${activity}`, () => {
-    const result = estimateAdultMaintenanceEnergy({
+    const result = estimateAdultMaintenanceEnergyNasem2023({
       ageYears: 35,
       heightCm: 175,
       weightKg: 75,
@@ -41,6 +41,7 @@ for (const { sex, activity, expected } of expectedByEquation) {
     assert.equal(result.formulaVersion, "nasem_dri_energy_2023_adult_v1");
     assert.equal(result.source.year, 2023);
     assert.equal(result.source.doi, "10.17226/26818");
+    assert.equal(result.source.populationContext, "United States and Canada");
     assert.deepEqual(result.modelError, {
       metric: "mean_absolute_error",
       kcalPerDay: sex === "male" ? 266 : 191,
@@ -49,7 +50,7 @@ for (const { sex, activity, expected } of expectedByEquation) {
 }
 
 test("never invents missing inputs", () => {
-  const result = estimateAdultMaintenanceEnergy({
+  const result = estimateAdultMaintenanceEnergyNasem2023({
     ageYears: 35,
     heightCm: 175,
     weightKg: 75,
@@ -62,7 +63,7 @@ test("never invents missing inputs", () => {
 });
 
 test("female equation requires explicit pregnancy/lactation status", () => {
-  const result = estimateAdultMaintenanceEnergy({
+  const result = estimateAdultMaintenanceEnergyNasem2023({
     ageYears: 35,
     heightCm: 175,
     weightKg: 75,
@@ -77,7 +78,7 @@ test("female equation requires explicit pregnancy/lactation status", () => {
 });
 
 test("pregnancy or lactation is blocked instead of using the general adult equation", () => {
-  const result = estimateAdultMaintenanceEnergy({
+  const result = estimateAdultMaintenanceEnergyNasem2023({
     ageYears: 35,
     heightCm: 175,
     weightKg: 75,
@@ -93,7 +94,7 @@ test("pregnancy or lactation is blocked instead of using the general adult equat
 });
 
 test("under-19 inputs are outside this adult primitive", () => {
-  const result = estimateAdultMaintenanceEnergy({
+  const result = estimateAdultMaintenanceEnergyNasem2023({
     ageYears: 18,
     heightCm: 170,
     weightKg: 65,
@@ -108,7 +109,7 @@ test("under-19 inputs are outside this adult primitive", () => {
 });
 
 test("invalid numeric or categorical values are rejected", () => {
-  const result = estimateAdultMaintenanceEnergy({
+  const result = estimateAdultMaintenanceEnergyNasem2023({
     ageYears: Number.NaN,
     heightCm: -170,
     weightKg: 0,
