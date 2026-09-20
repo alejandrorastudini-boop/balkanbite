@@ -15,6 +15,7 @@ import {
 import { PantryItem, Language, Currency } from "../types";
 import { t } from "../utils/translations";
 import { validateManualPantryRequiredFields } from "../utils/manualPantryValidation";
+import { knownPantryCostEUR, summarizePantryCosts } from "../utils/pantryCostSummary";
 import { ConfirmModal } from "./ConfirmModal";
 import { ScanModal } from "./ScanModal";
 
@@ -93,12 +94,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
     (i) => i.expiryDaysLeft !== undefined && i.expiryDaysLeft <= 3
   ).length;
 
-  const hasCompleteCostData = pantry.every(
-    (item) => item.estimatedCostEUR !== undefined
-  );
-  const totalValueEUR = hasCompleteCostData
-    ? pantry.reduce((acc, curr) => acc + (curr.estimatedCostEUR ?? 0), 0)
-    : null;
+  const totalValueEUR = summarizePantryCosts(pantry).totalEUR;
 
   const handleClearWithConfirm = () => {
     setShowClearConfirm(true);
@@ -366,6 +362,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
               
             const displayName =
               language === "bg" && item.nameBg ? item.nameBg : item.name;
+            const itemCostEUR = knownPantryCostEUR(item.estimatedCostEUR);
 
             return (
               <div
@@ -452,9 +449,9 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     </button>
                   </div>
 
-                  {item.estimatedCostEUR !== undefined && (
+                  {itemCostEUR !== null && (
                     <span className="text-sm font-bold text-emerald-400 font-['Outfit'] pr-1">
-                      {`~€${item.estimatedCostEUR.toFixed(2)}`}
+                      {`~€${itemCostEUR.toFixed(2)}`}
                     </span>
                   )}
                 </div>
