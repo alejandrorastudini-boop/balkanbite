@@ -805,16 +805,16 @@ export default function App() {
   };
 
   const handleCookRecipe = (recipe: Recipe): RecipeCookOutcome => {
+    if (!requireAuthoritativeInventory()) {
+      return { success: false, issueCount: 1 };
+    }
+
     const occurredAt = new Date().toISOString();
     const actionId = createProgressionActionId(
       typeof globalThis.crypto?.randomUUID === "function"
         ? () => globalThis.crypto.randomUUID()
         : undefined
     );
-
-    if (!requireAuthoritativeInventory()) {
-      return { success: false, issueCount: 1 };
-    }
 
     const result = deductRecipeIngredientsFromPantry(
       pantry,
