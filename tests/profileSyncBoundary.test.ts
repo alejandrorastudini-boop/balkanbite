@@ -147,3 +147,29 @@ test("Firestore serialization never emits undefined when required runtime fields
   );
   assert.equal(typeof serialized.name, "string");
 });
+
+
+test("optional body metrics persist when valid and remain unknown otherwise", () => {
+  const profile = {
+    ...createSignedInProfileDefaults("Alex"),
+    heightCm: 182.5,
+    weightKg: 79.4,
+  };
+  const serialized = serializeUserProfileForFirestore(profile);
+  assert.equal(serialized.heightCm, 182.5);
+  assert.equal(serialized.weightKg, 79.4);
+
+  const absent = serializeUserProfileForFirestore(
+    createSignedInProfileDefaults("Alex"),
+  );
+  assert.equal(absent.heightCm, null);
+  assert.equal(absent.weightKg, null);
+
+  const sanitized = sanitizeRemoteUserProfile({
+    ...serialized,
+    heightCm: -10,
+    weightKg: Number.NaN,
+  });
+  assert.equal(sanitized.heightCm, undefined);
+  assert.equal(sanitized.weightKg, undefined);
+});

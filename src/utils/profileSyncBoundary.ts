@@ -89,6 +89,8 @@ export function createSignedInProfileDefaults(
     householdSize: undefined,
     cookingLevel: undefined,
     monthlyBudgetEUR: undefined,
+    heightCm: undefined,
+    weightKg: undefined,
     isProSubscriber: false,
     onboardingCompleted: false,
   };
@@ -159,6 +161,14 @@ function sanitizeProfile(
   }
 
   profile.monthlyBudgetEUR = finiteNonNegative(raw.monthlyBudgetEUR);
+  profile.heightCm =
+    typeof raw.heightCm === "number" && Number.isFinite(raw.heightCm) && raw.heightCm > 0
+      ? raw.heightCm
+      : undefined;
+  profile.weightKg =
+    typeof raw.weightKg === "number" && Number.isFinite(raw.weightKg) && raw.weightKg > 0
+      ? raw.weightKg
+      : undefined;
 
   if (
     typeof raw.budgetTier === "string" &&
@@ -197,6 +207,8 @@ export function serializeUserProfileForFirestore(
     cookingLevel: safeProfile.cookingLevel ?? null,
     appliances: safeProfile.appliances ? [...safeProfile.appliances] : null,
     monthlyBudgetEUR: safeProfile.monthlyBudgetEUR ?? null,
+    heightCm: safeProfile.heightCm ?? null,
+    weightKg: safeProfile.weightKg ?? null,
     budgetTier: safeProfile.budgetTier,
     isProSubscriber: safeProfile.isProSubscriber,
     onboardingCompleted: safeProfile.onboardingCompleted,

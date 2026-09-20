@@ -100,6 +100,9 @@ export interface UserProfile {
   cookingLevel?: "beginner" | "intermediate" | "chef";
   appliances?: string[];
   monthlyBudgetEUR?: number;
+  /** Optional self-reported body metrics. BMI is derived deterministically and is not persisted. */
+  heightCm?: number;
+  weightKg?: number;
   budgetTier: "strict_budget" | "balanced" | "flexible";
   isProSubscriber: boolean;
   onboardingCompleted: boolean;
