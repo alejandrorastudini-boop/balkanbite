@@ -370,6 +370,14 @@ async function runProfileHealthDataControlScenario(context) {
     await page
       .locator("#profile-progress-boundary-copy")
       .waitFor({ state: "visible", timeout: 5_000 });
+    await page
+      .locator("#profile-progress-storage-copy")
+      .waitFor({ state: "visible", timeout: 5_000 });
+    assert.match(
+      (await page.locator("#profile-progress-storage-copy").textContent()) || "",
+      /stored only on this device/i,
+      "progression UI must disclose device-local storage"
+    );
 
     const fieldIds = [
       "ageYears",
