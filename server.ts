@@ -1257,10 +1257,37 @@ app.get("/api/barcode/:code", async (req, res) => {
       const data = await offRes.json();
       if (data.status === 1 && data.product) {
         const p = data.product;
-        const rawName = p.product_name_es || p.product_name || p.product_name_en || p.brands || "Producto escaneado";
-        const categoryTags = (p.categories_tags || []).join(" ").toLowerCase();
-        
-        let category: "Produce" | "Dairy" | "Meat/Fish" | "Pantry" | "Bakery" | "Spices" | "Other" = "Pantry";
+        const languageSpecificName =
+          language === "bg"
+            ? p.product_name_bg
+            : language === "es"
+              ? p.product_name_es
+              : p.product_name_en;
+        const rawName =
+          languageSpecificName ||
+          p.product_name ||
+          p.product_name_en ||
+          p.product_name_es ||
+          p.product_name_bg;
+        if (typeof rawName !== "string" || !rawName.trim()) {
+          // Open Food Facts may know the barcode while lacking a usable product
+          // name. Do not invent one or expose a saveable pantry candidate.
+          return res.json({ found: false, reason: "missing_product_name" });
+        }
+
+        const categoryTags = Array.isArray(p.categories_tags)
+          ? p.categories_tags.join(" ").toLowerCase()
+          : "";
+
+        let category:
+          | "Produce"
+          | "Dairy"
+          | "Meat/Fish"
+          | "Pantry"
+          | "Bakery"
+          | "Spices"
+          | "Other"
+          | undefined;
         if (categoryTags.includes("dair") || categoryTags.includes("lait") || categoryTags.includes("queso") || categoryTags.includes("yog")) {
           category = "Dairy";
         } else if (categoryTags.includes("meat") || categoryTags.includes("viande") || categoryTags.includes("fish") || categoryTags.includes("poisson") || categoryTags.includes("carne")) {
@@ -1269,19 +1296,20 @@ app.get("/api/barcode/:code", async (req, res) => {
           category = "Produce";
         } else if (categoryTags.includes("bread") || categoryTags.includes("pan") || categoryTags.includes("boulang")) {
           category = "Bakery";
+        } else if (categoryTags) {
+          // The source has category evidence but it does not map to one of the
+          // narrower BalkanBite groups.
+          category = "Other";
         }
 
         return res.json({
           found: true,
           barcode: code,
-          name: rawName,
-          brand: p.brands || "",
-          quantity: 1,
-          unit: "pcs",
-          category,
+          name: rawName.trim(),
+          brand: typeof p.brands === "string" ? p.brands : "",
+          ...(category ? { category } : {}),
           nutriscore: p.nutriscore_grade?.toUpperCase() || null,
           imageUrl: p.image_front_small_url || p.image_url || null,
-          estimatedDaysUntilExpiry: category === "Dairy" ? 10 : (category === "Produce" ? 5 : (category === "Bakery" ? 4 : 60)),
           source: "openfoodfacts",
         });
       }
