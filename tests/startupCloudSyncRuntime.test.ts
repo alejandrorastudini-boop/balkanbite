@@ -285,6 +285,8 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
   );
 
   for (const handlerName of [
+    "handleAddPantryItem",
+    "handleAddMultiplePantryItems",
     "handleTransferToPantry",
     "handleGenerateAiRecipes",
     "handleGenerateAiShopping",
@@ -436,5 +438,26 @@ test("profile Firestore writes serialize optional unknown fields instead of spre
   assert.match(
     firebaseSyncSource,
     /Failed to save user profile/
+  );
+});
+
+
+test("manual and batch pantry additions revalidate required fields at the App boundary", () => {
+  const singleStart = appSource.indexOf("const handleAddPantryItem");
+  const batchStart = appSource.indexOf("const handleAddMultiplePantryItems");
+  const updateStart = appSource.indexOf("const handleUpdatePantryQuantity");
+
+  assert.ok(singleStart >= 0 && batchStart > singleStart && updateStart > batchStart);
+
+  const single = appSource.slice(singleStart, batchStart);
+  const batch = appSource.slice(batchStart, updateStart);
+
+  assert.match(single, /hasValidPantryAcquisitionRequiredFields\(item\)/);
+  assert.match(batch, /isValidPantryAcquisitionBatch\(items\)/);
+  assert.match(batch, /if \(!isValidPantryAcquisitionBatch\(items\)\) return;/);
+  assert.ok(
+    batch.indexOf("isValidPantryAcquisitionBatch(items)") <
+      batch.indexOf("items.map"),
+    "batch validation must happen before authoritative pantry rows are created",
   );
 });
