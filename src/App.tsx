@@ -64,6 +64,10 @@ import {
 import { getUserLocalWorkspaceKey, parseArrayCache } from "./utils/localWorkspaceScope";
 import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
 import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext";
+import {
+  getFoodSafetyQuarantine,
+  getFoodSafetyQuarantineMessage,
+} from "./utils/foodSafetyQuarantine";
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
@@ -187,6 +191,16 @@ export default function App() {
     isVisible: false,
     readyMealsCount: 0,
   });
+
+  const foodSafetyQuarantine = getFoodSafetyQuarantine(profile);
+
+  const requireFoodRecommendationSafetyReview = (): boolean => {
+    if (foodSafetyQuarantine.status === "clear") return true;
+
+    alert(getFoodSafetyQuarantineMessage(profile.language));
+    setActiveTab("profile");
+    return false;
+  };
   const [showLanding, setShowLanding] = useState<boolean>(() => {
     try {
       const saved = localStorage.getItem("balkanbite_show_landing");
@@ -685,6 +699,7 @@ export default function App() {
 
   const handleGenerateAiWeekPlan = async () => {
     if (!requireAuthoritativeInventory()) return;
+    if (!requireFoodRecommendationSafetyReview()) return;
     if (!hasVerifiedProEntitlement) {
       setShowProModal(true);
       return;
@@ -699,6 +714,7 @@ export default function App() {
           pantry,
           recipes,
           profile: buildAiCulinaryProfileContext(profile),
+          foodSafety: foodSafetyQuarantine,
           language: profile.language,
         }),
       });
@@ -815,6 +831,7 @@ export default function App() {
 
   const handleGenerateAiRecipes = async (queryText?: string) => {
     if (!requireAuthoritativeInventory()) return;
+    if (!requireFoodRecommendationSafetyReview()) return;
     setIsLoadingAi(true);
     try {
       const res = await fetch("/api/ai/generate-recipes", {
@@ -960,6 +977,7 @@ export default function App() {
 
   const handleGenerateAiShopping = async () => {
     if (!requireAuthoritativeInventory()) return;
+    if (!requireFoodRecommendationSafetyReview()) return;
     setIsLoadingAi(true);
     try {
       const res = await fetch("/api/ai/suggest-shopping", {
@@ -968,6 +986,7 @@ export default function App() {
         body: JSON.stringify({
           pantry,
           profile: buildAiCulinaryProfileContext(profile),
+          foodSafety: foodSafetyQuarantine,
           language: profile.language,
         }),
       });
@@ -1237,6 +1256,7 @@ export default function App() {
               onDeductItemsFromPantry={handleVoiceDeductItems}
               onNavigateToRecipes={handleVoiceNavigateToRecipes}
               onLogMeal={handleLogMeal}
+              foodSafety={foodSafetyQuarantine}
               language={profile.language}
               theme={theme}
             />
