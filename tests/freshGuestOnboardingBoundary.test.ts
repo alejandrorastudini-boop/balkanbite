@@ -12,6 +12,14 @@ const onboardingSource = fs.readFileSync(
   new URL("../src/components/OnboardingModal.tsx", import.meta.url),
   "utf8",
 );
+const mainSource = fs.readFileSync(
+  new URL("../src/main.tsx", import.meta.url),
+  "utf8",
+);
+const runtimeQaGateSource = fs.readFileSync(
+  new URL("../src/qa/runtimeQaGate.ts", import.meta.url),
+  "utf8",
+);
 
 test("fresh guest defaults cannot silently claim onboarding completion", () => {
   assert.equal(DEFAULT_PROFILE.onboardingCompleted, false);
@@ -61,4 +69,21 @@ test("current culinary onboarding does not collect HealthProfile physiological i
   assert.match(onboardingSource, /householdSize/);
   assert.match(onboardingSource, /monthlyBudgetEUR/);
   assert.match(onboardingSource, /onboardingCompleted:\s*true/);
+});
+
+
+test("onboarding modal keeps hook order stable when completion closes it", () => {
+  const firstUseState = onboardingSource.indexOf("useState");
+  const closedReturn = onboardingSource.indexOf("if (!isOpen) return null");
+  assert.ok(firstUseState >= 0);
+  assert.ok(
+    closedReturn > firstUseState,
+    "conditional close return must occur after onboarding hooks",
+  );
+});
+
+test("fresh-guest onboarding has an isolated runtime QA route", () => {
+  assert.match(runtimeQaGateSource, /\/__qa\/fresh-guest-onboarding/);
+  assert.match(runtimeQaGateSource, /isFreshGuestOnboardingQaRoute/);
+  assert.match(mainSource, /FreshGuestOnboardingQaHarness/);
 });
