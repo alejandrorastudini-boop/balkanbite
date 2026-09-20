@@ -758,7 +758,6 @@ export default function App() {
 
   const handleClearMealPlan = () => {
     setMealPlan([]);
-    setMealLogs([]);
   };
 
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
