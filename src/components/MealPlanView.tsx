@@ -415,10 +415,10 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             <Activity className="w-4 h-4" />
             <span>
               {language === "es"
-                ? "Nutrición verificada registrada"
+                ? "Nutrición registrada verificada"
                 : language === "bg"
-                ? "Проверено записано хранене"
-                : "Verified nutrition logged"}
+                ? "Проверени записани хранителни стойности"
+                : "Verified logged nutrition"}
             </span>
           </div>
           <span className="text-[11px] font-bold text-stone-400 uppercase tracking-widest bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.08]">
