@@ -127,10 +127,32 @@ export function appendProgressionEvents(
   return { ledger, addedEventIds, rejectedEventIds };
 }
 
+export function normalizeProgressionLedger(
+  value: unknown,
+): ProgressionLedgerV1 {
+  if (!Array.isArray(value)) return [];
+  return appendProgressionEvents([], value).ledger;
+}
+
 export function eligibleProgressEventCount(
   ledger: readonly ProgressionEventV1[],
 ): number {
   return ledger.filter(isValidProgressionEvent).length;
+}
+
+export type ProgressionUuidFactory = () => string;
+
+export function createProgressionActionId(
+  uuidFactory: ProgressionUuidFactory | undefined =
+    globalThis.crypto?.randomUUID?.bind(globalThis.crypto),
+): string | null {
+  if (!uuidFactory) return null;
+  try {
+    const candidate = uuidFactory();
+    return isValidProgressionSourceRef(candidate) ? candidate : null;
+  } catch {
+    return null;
+  }
 }
 
 export interface RecipeCookProgressEvidence {
