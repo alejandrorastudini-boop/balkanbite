@@ -158,6 +158,12 @@ test("optional body metrics persist through HealthProfile and legacy fields are 
     name: "Alex",
     healthProfile: {
       version: 1,
+      ageYears: {
+        status: "known",
+        value: 34,
+        source: "self_reported",
+        recordedAt: "2026-09-20T07:00:00.000Z",
+      },
       heightCm: {
         status: "known",
         value: 182.5,
@@ -176,6 +182,12 @@ test("optional body metrics persist through HealthProfile and legacy fields are 
 
   assert.deepEqual(serialized.healthProfile, {
     version: 1,
+    ageYears: {
+      status: "known",
+      value: 34,
+      source: "self_reported",
+      recordedAt: "2026-09-20T07:00:00.000Z",
+    },
     heightCm: {
       status: "known",
       value: 182.5,
