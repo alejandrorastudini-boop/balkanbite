@@ -866,11 +866,11 @@ export const LandingPage: React.FC<LandingPageProps> = ({
               <div className="text-xs text-stone-300 leading-relaxed space-y-3">
                 <p>En BalkanBite AI valoramos y protegemos la privacidad de tus datos personales.</p>
                 <h4 className="font-bold text-emerald-400 text-sm">1. Información que recopilamos</h4>
-                <p>Recopilamos únicamente tu dirección de correo electrónico, nombre de usuario y foto de perfil suministrados mediante inicio de sesión seguro con Google (OAuth 2.0 / Firebase Auth) para autenticarte y sincronizar tu despensa y recetas en la nube.</p>
+                <p>Al iniciar sesión podemos tratar los datos básicos de tu cuenta necesarios para autenticarte. BalkanBite también procesa los datos que introduces o confirmas en la app, como despensa, compras, recetas, preferencias y, cuando decidas proporcionarlos, datos opcionales de salud.</p>
                 <h4 className="font-bold text-emerald-400 text-sm">2. Uso de la información</h4>
-                <p>Tus datos son utilizados exclusivamente para ofrecerte recomendaciones culinarias personalizadas mediante la API de Gemini y sincronizar tus compras entre tus dispositivos.</p>
+                <p>Las funciones de IA utilizan OpenAI GPT-5.6 Luna. Cuando utilizas una función de IA, BalkanBite envía al servidor únicamente el contexto necesario para esa función y el servidor realiza la solicitud a la API de OpenAI. La clave de API no se expone al navegador.</p>
                 <h4 className="font-bold text-emerald-400 text-sm">3. Protección y Uso Limitado de Google</h4>
-                <p>El uso y transferencia de información recibida de las API de Google cumple estrictamente con la Política de Datos de Usuario de los Servicios de API de Google (Google API Services User Data Policy, including Limited Use requirements). No vendemos ni compartimos tus datos con terceros.</p>
+                <p>Usamos proveedores técnicos para prestar el servicio, actualmente Firebase/Google para autenticación y sincronización y OpenAI para las funciones de IA. No vendemos tus datos personales a anunciantes.</p>
                 <h4 className="font-bold text-emerald-400 text-sm">4. Eliminación de datos</h4>
                 <p>Puedes eliminar tus datos en cualquier momento desde tu perfil o escribiéndonos a <a href="mailto:soporte@balkanbite.app" class="text-emerald-400 underline">soporte@balkanbite.app</a>.</p>
                 <div className="pt-2 border-t border-stone-800">
