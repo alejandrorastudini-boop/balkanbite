@@ -92,11 +92,16 @@ export function sanitizeHealthProfile(
 ): HealthProfile | undefined {
   const raw = isRecord(value) ? value : undefined;
 
+  const hasNestedAge =
+    raw !== undefined && Object.prototype.hasOwnProperty.call(raw, "ageYears");
   const hasNestedHeight =
     raw !== undefined && Object.prototype.hasOwnProperty.call(raw, "heightCm");
   const hasNestedWeight =
     raw !== undefined && Object.prototype.hasOwnProperty.call(raw, "weightKg");
 
+  const ageYears = hasNestedAge
+    ? sanitizePositiveNumberDatum(raw?.ageYears)
+    : undefined;
   const heightCm = hasNestedHeight
     ? sanitizePositiveNumberDatum(raw?.heightCm)
     : legacySelfReportedDatum(legacyHeightCm);
@@ -104,10 +109,11 @@ export function sanitizeHealthProfile(
     ? sanitizePositiveNumberDatum(raw?.weightKg)
     : legacySelfReportedDatum(legacyWeightKg);
 
-  if (!heightCm && !weightKg) return undefined;
+  if (!ageYears && !heightCm && !weightKg) return undefined;
 
   return {
     version: 1,
+    ...(ageYears ? { ageYears } : {}),
     ...(heightCm ? { heightCm } : {}),
     ...(weightKg ? { weightKg } : {}),
   };
@@ -135,6 +141,7 @@ export function serializeHealthProfile(
 
   return {
     version: 1,
+    ageYears: serializePositiveNumberDatum(safe.ageYears),
     heightCm: serializePositiveNumberDatum(safe.heightCm),
     weightKg: serializePositiveNumberDatum(safe.weightKg),
   };
@@ -146,20 +153,28 @@ export function cloneHealthProfile(
   if (!profile) return undefined;
   return {
     version: 1,
+    ...(profile.ageYears ? { ageYears: { ...profile.ageYears } } : {}),
     ...(profile.heightCm ? { heightCm: { ...profile.heightCm } } : {}),
     ...(profile.weightKg ? { weightKg: { ...profile.weightKg } } : {}),
   };
 }
 
 export function createSelfReportedHealthProfile(
-  metrics: { heightCm?: number; weightKg?: number },
+  metrics: { ageYears?: number; heightCm?: number; weightKg?: number },
   recordedAt: string,
 ): HealthProfile | undefined {
   const timestamp = validRecordedAt(recordedAt);
+  const ageYears = positiveFiniteNumber(metrics.ageYears);
   const heightCm = positiveFiniteNumber(metrics.heightCm);
   const weightKg = positiveFiniteNumber(metrics.weightKg);
 
-  if (heightCm === undefined && weightKg === undefined) return undefined;
+  if (
+    ageYears === undefined &&
+    heightCm === undefined &&
+    weightKg === undefined
+  ) {
+    return undefined;
+  }
 
   const makeDatum = (value: number): HealthDatum<number> => ({
     status: "known",
@@ -170,6 +185,7 @@ export function createSelfReportedHealthProfile(
 
   return {
     version: 1,
+    ...(ageYears !== undefined ? { ageYears: makeDatum(ageYears) } : {}),
     ...(heightCm !== undefined ? { heightCm: makeDatum(heightCm) } : {}),
     ...(weightKg !== undefined ? { weightKg: makeDatum(weightKg) } : {}),
   };
