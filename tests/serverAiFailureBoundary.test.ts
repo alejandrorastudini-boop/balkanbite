@@ -41,6 +41,13 @@ test("shopping AI failure has no fabricated basket fallback", () => {
 });
 
 
+test("server contains no dormant fabricated recipe fallback dataset", () => {
+  assert.doesNotMatch(serverSource, /const FALLBACK_RECIPES/);
+  assert.doesNotMatch(serverSource, /Fallback seed recipes in case API key is missing or offline/);
+  assert.doesNotMatch(serverSource, /id:\s*"rec-tarator"/);
+  assert.doesNotMatch(serverSource, /id:\s*"rec-balkan-shopska-salad"/);
+});
+
 test("recipe and weekly-plan AI failures cannot become fallback content", () => {
   const recipes = endpointSection(
     'app.post("/api/ai/generate-recipes"',
