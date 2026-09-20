@@ -19,6 +19,10 @@ const initialDataSource = readFileSync(
   new URL("../src/data/initialData.ts", import.meta.url),
   "utf8"
 );
+const shoppingSource = readFileSync(
+  new URL("../src/components/ShoppingView.tsx", import.meta.url),
+  "utf8"
+);
 
 test("legacy profile Pro flag is not accepted as a verified commercial entitlement", () => {
   assert.match(appSource, /const hasVerifiedProEntitlement = false;/);
@@ -79,4 +83,24 @@ test("landing scanner copy preserves the human-review authority boundary", () =>
   assert.doesNotMatch(landingDataSource, /exact grocery list|lista de compras exacta/i);
   assert.doesNotMatch(landingDataSource, /zero lag/i);
   assert.doesNotMatch(landingDataSource, /desde 0,85|under €1\.00/i);
+});
+
+
+test("shopping UI does not claim fixed savings without a verified calculation", () => {
+  for (const forbidden of [
+    "~€14.50",
+    "~$16.00",
+    "Smart Supermarket Savings Radar",
+  ]) {
+    assert.equal(
+      shoppingSource.includes(forbidden),
+      false,
+      `shopping UI must not contain unsupported savings claim: ${forbidden}`
+    );
+  }
+
+  assert.doesNotMatch(
+    shoppingSource,
+    /currency\s*===\s*"EUR"[\s\S]{0,120}ahorro|спестяване|savings/
+  );
 });
