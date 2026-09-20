@@ -50,7 +50,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   currency,
 }) => {
   const currentText = t[language];
-  const localResetCopy = getLocalResetCopy(language, user !== null);
   const [newDislike, setNewDislike] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showClearHealthDataConfirm, setShowClearHealthDataConfirm] = useState(false);
@@ -58,6 +57,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [isInstalled, setIsInstalled] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const localResetCopy = getLocalResetCopy(language, user !== null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
