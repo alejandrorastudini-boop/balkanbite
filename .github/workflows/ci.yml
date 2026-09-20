@@ -100,21 +100,19 @@ jobs:
           retention-days: 14
 
 
-  luna-production-smoke:
-    if: github.event_name == 'pull_request' && github.head_ref == 'qa/luna-production-e2e-probe-20260920'
+  food-safety-production-smoke:
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
-      - name: Call production Luna text route
+      - name: Verify legacy food-safety gate blocks before AI
         shell: bash
         run: |
           set -euo pipefail
           response_file="$(mktemp)"
           status="$(curl --silent --show-error --output "$response_file" --write-out "%{http_code}" \
-            --request POST https://balkanbite.vercel.app/api/ai/parse-intent \
+            --request POST https://balkanbite.vercel.app/api/ai/generate-recipes \
             --header 'Content-Type: application/json' \
-            --data '{"transcript":"Say hello and confirm this food-planning smoke test.","currentPantry":[],"mealLogs":[],"conversationHistory":[],"language":"en"}')"
+            --data '{"pantry":[],"profile":{},"foodSafety":{"status":"review_required","reasons":["legacy_allergy_or_intolerance"]},"language":"en"}')"
           echo "HTTP status: $status"
-          node -e 'const fs=require("fs"); const body=fs.readFileSync(process.argv[1],"utf8"); console.log("Response prefix:", body.slice(0,240).replace(/\\s+/g," "));' "$response_file"
-          test "$status" = "200"
-          node -e 'const fs=require("fs"); const payload=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(payload.success!==true || typeof payload.spokenFeedback!=="string" || !payload.spokenFeedback.trim()) process.exit(1); console.log(JSON.stringify({success: payload.success, actionType: payload.actionType, hasSpokenFeedback: true}));' "$response_file"
+          test "$status" = "409"
+          node -e 'const fs=require("fs"); const payload=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(payload.code!=="FOOD_SAFETY_REVIEW_REQUIRED" || !Array.isArray(payload.recipes) || payload.recipes.length!==0) process.exit(1); console.log(JSON.stringify({code: payload.code, recipes: payload.recipes.length}));' "$response_file"
