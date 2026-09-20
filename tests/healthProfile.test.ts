@@ -18,12 +18,18 @@ const hasUndefinedDeep = (value: unknown): boolean => {
 
 test("self-reported body metrics carry provenance and measurement time", () => {
   const profile = createSelfReportedHealthProfile(
-    { heightCm: 180, weightKg: 81.5 },
+    { ageYears: 34, heightCm: 180, weightKg: 81.5 },
     "2026-09-20T07:00:00.000Z",
   );
 
   assert.deepEqual(profile, {
     version: 1,
+    ageYears: {
+      status: "known",
+      value: 34,
+      source: "self_reported",
+      recordedAt: "2026-09-20T07:00:00.000Z",
+    },
     heightCm: {
       status: "known",
       value: 180,
@@ -100,6 +106,7 @@ test("HealthProfile serialization never emits undefined, including nested fields
   assert.equal(hasUndefinedDeep(serialized), false);
   assert.deepEqual(serialized, {
     version: 1,
+    ageYears: null,
     heightCm: {
       status: "known",
       value: 182.5,
