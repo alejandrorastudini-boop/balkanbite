@@ -1,19 +1,19 @@
 # BALKANBITE — DOCUMENTACIÓN DE HANDOFF TÉCNICO
 
-**Versión del documento:** 1.0.0  
-**Fecha de generación:** 12 de Septiembre, 2026  
+**Versión del documento:** 1.1.0  
+**Última actualización técnica:** 20 de Septiembre, 2026  
 **Aplicación:** BalkanBite (Smart AI Pantry Tracker, Recipe Engine & Meal Planner)
 
 ---
 
 ## 1. RESUMEN EJECUTIVO Y ESTADO DE APLICACIÓN
 
-BalkanBite es una aplicación web full-stack construida con React 18 (Vite), TypeScript, Express.js y Google Gemini AI, enfocada en la gestión inteligente de la despensa, generación de recetas saludables de tradición balcánica/mediterránea, planificación de menús semanales sin desperdicio y compras optimizadas por presupuesto.
+BalkanBite es una aplicación web full-stack construida con React 18 (Vite), TypeScript, Express.js y OpenAI GPT-5.6 Luna, enfocada en la gestión inteligente de la despensa, generación de recetas saludables de tradición balcánica/mediterránea, planificación de menús semanales sin desperdicio y compras optimizadas por presupuesto.
 
 ### Clasificación de Componentes Clave:
 - **FUNCIONA REALMENTE E2E (Servidor + IA + Firebase):**
   - Autenticación con Firebase Auth (Google Sign-In, Email/Password).
-  - Proxy de Inteligencia Artificial en Express (`server.ts`) con la SDK oficial `@google/genai` e integración de visión (análisis de imágenes de refrigerador y tickets) y modelos con fallback automático (`gemini-3.5-flash-lite`, `gemini-3.1-flash-lite`).
+  - Proxy de Inteligencia Artificial en Express (`server.ts`) mediante OpenAI Responses API, fijado a `gpt-5.6-luna` para texto y visión (análisis de imágenes de refrigerador y tickets). No existe fallback a otro proveedor/modelo.
   - Escáner de código de barras conectado a la API externa de OpenFoodFacts (`/api/barcode/:code`).
   - Asistente de Cocina por Voz ("Chef IA") con procesamiento de lenguaje natural y extracción estructurada de intención (JSON).
   - Exportación de menús a PDF con `jspdf` y `html2canvas`.
@@ -32,7 +32,7 @@ BalkanBite es una aplicación web full-stack construida con React 18 (Vite), Typ
 
 - **Frontend:** React 18, Vite 6, Tailwind CSS v4, Motion (framer-motion v12), Lucide React Icons.
 - **Backend (API Server):** Express.js ejecutado con `tsx` en desarrollo y empaquetado en `dist/server.cjs` mediante `esbuild` para producción en Node.js (puerto 3000).
-- **IA / Visión / NLP:** `@google/genai` (SDK cliente oficial en servidor Node.js).
+- **IA / Visión / NLP:** OpenAI Responses API mediante un adaptador HTTP propio en servidor Node.js, fijado a `gpt-5.6-luna`. La clave nunca se expone al cliente.
 - **Base de Datos & Auth:** Firebase Web SDK v12 (Authentication + Firestore).
 - **Estructura de Archivos Backend / Frontend:**
   - `server.ts`: Servidor Express centralizado con endpoints `/api/ai/*` y `/api/barcode/*`.
@@ -72,8 +72,8 @@ npm run start
 ## 4. VARIABLES DE ENTORNO (`.env.example`)
 
 ```env
-# Clave de API de Google Gemini (Inyectada en el servidor por Cloud Run / AI Studio)
-GEMINI_API_KEY="MY_GEMINI_API_KEY"
+# Clave de OpenAI API. Solo servidor; nunca usar VITE_ ni exponerla al navegador.
+OPENAI_API_KEY="MY_OPENAI_API_KEY"
 
 # URL base de la aplicación en Cloud Run / Hosting
 APP_URL="MY_APP_URL"
