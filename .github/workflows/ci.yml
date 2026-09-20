@@ -98,3 +98,22 @@ jobs:
           path: artifacts/runtime-qa-local
           if-no-files-found: warn
           retention-days: 14
+
+
+  luna-production-smoke:
+    needs: validate
+    if: github.event_name == 'pull_request' && github.head_ref == 'qa/luna-production-e2e-probe-20260920'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 3
+    steps:
+      - name: Call production Luna text route
+        shell: bash
+        run: |
+          set -euo pipefail
+          response_file="$(mktemp)"
+          status="$(curl --silent --show-error --output "$response_file" --write-out "%{http_code}" \
+            --request POST https://balkanbite.vercel.app/api/ai/parse-intent \
+            --header 'Content-Type: application/json' \
+            --data '{"transcript":"Say hello and confirm this food-planning smoke test.","currentPantry":[],"mealLogs":[],"conversationHistory":[],"language":"en"}')"
+          test "$status" = "200"
+          node -e 'const fs=require("fs"); const payload=JSON.parse(fs.readFileSync(process.argv[1],"utf8")); if(payload.success!==true || typeof payload.spokenFeedback!=="string" || !payload.spokenFeedback.trim()) process.exit(1); console.log(JSON.stringify({success: payload.success, actionType: payload.actionType, hasSpokenFeedback: true}));' "$response_file"
