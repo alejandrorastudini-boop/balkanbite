@@ -1,5 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
+import path from "node:path";
+import { fileURLToPath } from "node:url";
 import test from "node:test";
 
 const serverSource = fs.readFileSync(
@@ -90,4 +92,54 @@ test("vision uses OpenAI image input and provider-specific source metadata", () 
 test("text generation endpoints expose OpenAI Luna source metadata where source is returned", () => {
   assert.match(serverSource, /source:\s*"openai_gpt_5_6_luna"/);
   assert.doesNotMatch(serverSource, /source:\s*"gemini/);
+});
+
+
+const repoRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  "..",
+);
+
+function collectTextFiles(root: string): string[] {
+  const result: string[] = [];
+  for (const entry of fs.readdirSync(root, { withFileTypes: true })) {
+    const fullPath = path.join(root, entry.name);
+    if (entry.isDirectory()) {
+      result.push(...collectTextFiles(fullPath));
+      continue;
+    }
+    if (/\.(ts|tsx|js|jsx|json|html|md)$/.test(entry.name)) {
+      result.push(fullPath);
+    }
+  }
+  return result;
+}
+
+test("runtime and user-facing app files contain no Gemini provider remnants", () => {
+  const files = [
+    path.join(repoRoot, "server.ts"),
+    path.join(repoRoot, "package.json"),
+    path.join(repoRoot, "BALKANBITE_HANDOFF.md"),
+    ...collectTextFiles(path.join(repoRoot, "src")),
+    ...collectTextFiles(path.join(repoRoot, "public")),
+  ];
+
+  const forbiddenPatterns = [
+    /Gemini/,
+    /gemini-/,
+    /GEMINI_API_KEY/,
+    /@google\/genai/,
+    /GoogleGenAI/,
+  ];
+
+  for (const file of files) {
+    const source = fs.readFileSync(file, "utf8");
+    for (const pattern of forbiddenPatterns) {
+      assert.doesNotMatch(
+        source,
+        pattern,
+        `${path.relative(repoRoot, file)} contains stale AI provider reference ${pattern}`,
+      );
+    }
+  }
 });
