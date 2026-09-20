@@ -72,6 +72,7 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
   const [transcript, setTranscript] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isAnalyzing, setIsAnalyzing] = useState(false);
+  const [analysisError, setAnalysisError] = useState<string | null>(null);
   const [isSaving, setIsSaving] = useState(false);
   const [step, setStep] = useState<"input" | "review">("input");
   const [reconciliationResult, setReconciliationResult] = useState<ReconciliationData | null>(null);
@@ -96,6 +97,7 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
       setTranscript("");
       setIsListening(false);
       setIsAnalyzing(false);
+      setAnalysisError(null);
       setIsSaving(false);
       setStep("input");
       setReconciliationResult(null);
@@ -226,6 +228,7 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
     }
 
     setIsAnalyzing(true);
+    setAnalysisError(null);
     try {
       const response = await fetch("/api/ai/reconcile-shopping", {
         method: "POST",
@@ -237,7 +240,20 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
         }),
       });
 
-      const data: ReconciliationData = await response.json();
+      const data: ReconciliationData & { error?: string } = await response.json();
+      if (!response.ok) {
+        setAnalysisError(
+          typeof data.spokenFeedback === "string" && data.spokenFeedback.trim()
+            ? data.spokenFeedback
+            : language === "bg"
+            ? "Покупката не можа да бъде анализирана. Не са направени промени."
+            : language === "es"
+            ? "No se pudo analizar la compra. No se ha realizado ningún cambio."
+            : "The shopping trip could not be analyzed. No changes were made.",
+        );
+        return;
+      }
+
       const rawExtras = Array.isArray(data.extraPurchasedItems)
         ? data.extraPurchasedItems
         : [];
@@ -265,7 +281,7 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
           (id): id is string => typeof id === "string" && validShoppingIds.has(id)
         )
       );
-      // AI/fallback extras require an explicit user click in the review step.
+      // AI-proposed extras require an explicit user click in the review step.
       // Server/model quantity, unit, price and expiry are never trusted here.
       setSelectedExtraItems([]);
       reconciliationIdRef.current = `voice-${Date.now()}-${Math.random()
@@ -274,6 +290,13 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
       setStep("review");
     } catch (err) {
       console.error("Error analyzing shopping reconciliation:", err);
+      setAnalysisError(
+        language === "bg"
+          ? "Покупката не можа да бъде анализирана. Не са направени промени."
+          : language === "es"
+          ? "No se pudo analizar la compra. No se ha realizado ningún cambio."
+          : "The shopping trip could not be analyzed. No changes were made.",
+      );
     } finally {
       setIsAnalyzing(false);
     }
@@ -439,6 +462,16 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
                   />
                 </div>
               </div>
+
+              {analysisError && (
+                <div
+                  id="voice-shopping-analysis-error"
+                  role="alert"
+                  className="rounded-2xl border border-rose-500/25 bg-rose-500/10 p-3.5 text-sm font-medium text-rose-200"
+                >
+                  {analysisError}
+                </div>
+              )}
 
               <div className="space-y-2">
                 <span className="text-[11px] font-bold text-stone-400 uppercase tracking-widest flex items-center gap-1.5">
