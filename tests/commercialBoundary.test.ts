@@ -104,3 +104,20 @@ test("shopping UI does not claim fixed savings without a verified calculation", 
     /currency\s*===\s*"EUR"[\s\S]{0,120}ahorro|спестяване|savings/
   );
 });
+
+
+test("landing budget scenario never applies an unverified hardcoded FX rate", () => {
+  assert.doesNotMatch(landingSource, /currRatio/);
+  assert.doesNotMatch(
+    landingSource,
+    /currency\s*===\s*"EUR"\s*\?\s*1\s*:\s*1\.08/
+  );
+  assert.match(
+    landingSource,
+    /No live exchange rate is applied/
+  );
+  assert.match(
+    landingSource,
+    /Amounts are shown directly in the selected currency/
+  );
+});
