@@ -301,6 +301,12 @@ function profileHealthDataUrl() {
   return url.toString();
 }
 
+function freshGuestOnboardingUrl() {
+  const url = new URL("/__qa/fresh-guest-onboarding", previewUrl);
+  if (shareToken) url.searchParams.set("_vercel_share", shareToken);
+  return url.toString();
+}
+
 async function runProfileHealthDataControlScenario(context) {
   const page = await context.newPage();
   const evidence = {
@@ -607,6 +613,111 @@ async function runProfileHealthDataControlScenario(context) {
   }
 }
 
+async function runFreshGuestOnboardingScenario(context) {
+  const page = await context.newPage();
+  const evidence = {
+    scenario: "fresh-guest-onboarding",
+    url: freshGuestOnboardingUrl().replace(
+      /([?&]_vercel_share=)[^&]+/,
+      "$1[redacted]"
+    ),
+    initialCompleted: null,
+    finalCompleted: null,
+    result: "running",
+  };
+
+  try {
+    await waitForExpectedDeployment(page);
+    await page.goto(freshGuestOnboardingUrl(), {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+
+    const root = page.getByTestId("qa-fresh-guest-onboarding-root");
+    await root.waitFor({ state: "visible", timeout: 10_000 });
+    assert.equal(
+      ((await root.getAttribute("data-deployment-sha")) || "").trim(),
+      expectedSha,
+      "fresh-guest onboarding QA must run against the exact expected build SHA"
+    );
+
+    evidence.initialCompleted = (
+      await page
+        .getByTestId("qa-fresh-guest-onboarding-completed")
+        .textContent()
+    )?.trim();
+    assert.equal(
+      evidence.initialCompleted,
+      "false",
+      "fresh guest must begin with onboarding incomplete"
+    );
+
+    await page
+      .getByRole("button", { name: "Next", exact: true })
+      .waitFor({ state: "visible", timeout: 5_000 });
+
+    await page.screenshot({
+      path: path.join(artifactDir, "fresh-guest-onboarding-before.png"),
+      fullPage: true,
+    });
+
+    for (let step = 0; step < 3; step += 1) {
+      await page.getByRole("button", { name: "Next", exact: true }).click();
+    }
+
+    await page
+      .getByRole("button", { name: "Start Experience", exact: true })
+      .click();
+
+    await page.waitForFunction(() => {
+      const node = document.querySelector(
+        '[data-testid="qa-fresh-guest-onboarding-completed"]'
+      );
+      return node?.textContent?.trim() === "true";
+    });
+
+    evidence.finalCompleted = (
+      await page
+        .getByTestId("qa-fresh-guest-onboarding-completed")
+        .textContent()
+    )?.trim();
+    assert.equal(
+      evidence.finalCompleted,
+      "true",
+      "completing the culinary onboarding must explicitly mark it complete"
+    );
+    assert.equal(
+      await page
+        .getByRole("button", { name: "Start Experience", exact: true })
+        .count(),
+      0,
+      "onboarding modal must close cleanly after completion"
+    );
+
+    await page.screenshot({
+      path: path.join(artifactDir, "fresh-guest-onboarding-after.png"),
+      fullPage: true,
+    });
+
+    evidence.result = "pass";
+    return evidence;
+  } catch (error) {
+    evidence.result = "fail";
+    evidence.error = error instanceof Error ? error.message : String(error);
+    await page
+      .screenshot({
+        path: path.join(artifactDir, "fresh-guest-onboarding-failure.png"),
+        fullPage: true,
+      })
+      .catch(() => {});
+    throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
+      evidence,
+    });
+  } finally {
+    await page.close();
+  }
+}
+
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({
   viewport: { width: 390, height: 844 },
@@ -622,6 +733,7 @@ try {
     runScenario(context, "present"),
     runScenario(context, "none"),
     runProfileHealthDataControlScenario(context),
+    runFreshGuestOnboardingScenario(context),
   ]);
 } catch (error) {
   failure = error;
