@@ -14,6 +14,10 @@ test("local-only history keys are isolated by authenticated user", () => {
     getUserLocalWorkspaceKey("balkanbite_chat_messages", "user-1"),
     getUserLocalWorkspaceKey("balkanbite_chat_messages", "user-2"),
   );
+  assert.equal(
+    getUserLocalWorkspaceKey("balkanbite_progression", "user-1"),
+    "balkanbite_progression_user_user-1",
+  );
 });
 
 test("user ids are encoded before becoming local-storage key segments", () => {
