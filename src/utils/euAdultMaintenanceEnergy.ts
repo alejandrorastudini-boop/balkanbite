@@ -1,10 +1,12 @@
+import {
+  getEfsaPalForAdultActivityCategory,
+  parseAdultPhysicalActivityCategory,
+  type AdultPhysicalActivityCategory,
+} from "./adultPhysicalActivity";
+
 export type EfsaAdultEnergySex = "female" | "male";
 
-export type EfsaAdultPhysicalActivityCategory =
-  | "low_active"
-  | "moderately_active"
-  | "active"
-  | "very_active";
+export type EfsaAdultPhysicalActivityCategory = AdultPhysicalActivityCategory;
 
 export type EfsaPregnancyLactationStatus =
   | "not_pregnant_or_lactating"
@@ -100,16 +102,6 @@ const HENRY_2005: Record<
   },
 };
 
-const PAL_BY_ACTIVITY: Record<
-  EfsaAdultPhysicalActivityCategory,
-  1.4 | 1.6 | 1.8 | 2.0
-> = {
-  low_active: 1.4,
-  moderately_active: 1.6,
-  active: 1.8,
-  very_active: 2.0,
-};
-
 function henryAgeBand(ageYears: number): "19_to_29" | "30_to_59" | "60_plus" {
   if (ageYears < 30) return "19_to_29";
   if (ageYears < 60) return "30_to_59";
@@ -167,13 +159,9 @@ export function estimateAdultMaintenanceEnergyEfsa2013(
     invalid.push("physiologicalSex");
   }
 
-  const activityCategory =
-    input.activityCategory === "low_active" ||
-    input.activityCategory === "moderately_active" ||
-    input.activityCategory === "active" ||
-    input.activityCategory === "very_active"
-      ? input.activityCategory
-      : undefined;
+  const activityCategory = parseAdultPhysicalActivityCategory(
+    input.activityCategory,
+  );
   if (
     input.activityCategory === undefined ||
     input.activityCategory === null ||
@@ -227,7 +215,8 @@ export function estimateAdultMaintenanceEnergyEfsa2013(
     coefficients.weightKg * weightKg! +
     coefficients.heightM * heightM +
     coefficients.intercept;
-  const physicalActivityLevel = PAL_BY_ACTIVITY[activityCategory!];
+  const physicalActivityLevel =
+    getEfsaPalForAdultActivityCategory(activityCategory!);
   const estimatedKcalPerDay =
     restingEnergyKcalPerDay * physicalActivityLevel;
 
