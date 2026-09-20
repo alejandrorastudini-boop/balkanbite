@@ -224,6 +224,9 @@ test("PWA copy does not promise offline use while service worker is retirement-o
     translationsSource,
     /Cloud sync and AI features require an internet connection/,
   );
+  assert.doesNotMatch(translationsSource, /Instant synchronization/);
+  assert.doesNotMatch(translationsSource, /Sincronización instantánea/);
+  assert.doesNotMatch(translationsSource, /Мигновена синхронизация/);
   assert.match(
     translationsSource,
     /La sincronización en la nube y las funciones de IA requieren conexión a internet/,
