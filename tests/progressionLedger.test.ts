@@ -9,6 +9,7 @@ import {
   isValidProgressionEvent,
   isValidProgressionTimestamp,
   parseProgressionLedgerCache,
+  summarizeProgressionActivity,
   type ProgressionEventV1,
 } from "../src/utils/progressionLedger";
 
@@ -269,4 +270,76 @@ test("progression cache parsing canonicalizes, deduplicates and strips extra met
   assert.deepEqual(parseProgressionLedgerCache("not-json"), []);
   assert.deepEqual(parseProgressionLedgerCache('{"events":[]}'), []);
   assert.deepEqual(parseProgressionLedgerCache(null), []);
+});
+
+
+test("verified activity summary counts canonical event rows by safe type", () => {
+  const ledger = [
+    {
+      version: 1,
+      eventId: "purchase:shopping:summary-1",
+      type: "confirmed_purchase_applied",
+      occurredAt: NOW,
+      evidence: "deterministic_state_transition",
+      evidenceCount: 1,
+    },
+    {
+      version: 1,
+      eventId: "cook:summary-1",
+      type: "recipe_cook_inventory_applied",
+      occurredAt: NOW,
+      evidence: "deterministic_state_transition",
+      evidenceCount: 3,
+    },
+    {
+      version: 1,
+      eventId: "cook:summary-2",
+      type: "recipe_cook_inventory_applied",
+      occurredAt: NOW,
+      evidence: "deterministic_state_transition",
+      evidenceCount: 1,
+    },
+  ] as const;
+
+  assert.deepEqual(summarizeProgressionActivity(ledger), {
+    totalVerifiedEvents: 3,
+    confirmedPurchaseEvents: 1,
+    successfulCookEvents: 2,
+  });
+});
+
+test("verified activity summary excludes malformed rows rather than guessing", () => {
+  assert.deepEqual(
+    summarizeProgressionActivity([
+      {
+        version: 1,
+        eventId: "purchase:shopping:summary-2",
+        type: "confirmed_purchase_applied",
+        occurredAt: NOW,
+        evidence: "deterministic_state_transition",
+        evidenceCount: 1,
+      },
+      {
+        version: 1,
+        eventId: "bad id",
+        type: "recipe_cook_inventory_applied",
+        occurredAt: NOW,
+        evidence: "deterministic_state_transition",
+        evidenceCount: 1,
+      },
+    ] as any),
+    {
+      totalVerifiedEvents: 1,
+      confirmedPurchaseEvents: 1,
+      successfulCookEvents: 0,
+    },
+  );
+});
+
+test("verified activity zero state is neutral and deterministic", () => {
+  assert.deepEqual(summarizeProgressionActivity([]), {
+    totalVerifiedEvents: 0,
+    confirmedPurchaseEvents: 0,
+    successfulCookEvents: 0,
+  });
 });
