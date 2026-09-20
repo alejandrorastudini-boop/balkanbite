@@ -1,5 +1,5 @@
 import type {
-  AdultActivityCategoryForEnergy,
+  AdultPhysicalActivityCategory,
   HealthDataSource,
   HealthDataStatus,
   HealthDatum,
@@ -122,7 +122,7 @@ const PHYSIOLOGICAL_SEX_VALUES = new Set<PhysiologicalSexForEnergy>([
   "male",
 ]);
 
-const ADULT_ACTIVITY_VALUES = new Set<AdultActivityCategoryForEnergy>([
+const ADULT_ACTIVITY_VALUES = new Set<AdultPhysicalActivityCategory>([
   "low_active",
   "moderately_active",
   "active",
