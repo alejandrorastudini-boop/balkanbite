@@ -177,6 +177,28 @@ function sanitizeProfile(
   return profile;
 }
 
+export function serializeUserProfileForFirestore(
+  profile: UserProfile,
+): Record<string, unknown> {
+  return {
+    name: profile.name,
+    language: profile.language,
+    currency: profile.currency,
+    cookingSpeed: profile.cookingSpeed,
+    healthGoal: profile.healthGoal,
+    dietStyle: profile.dietStyle,
+    disliked: [...profile.disliked],
+    allergies: profile.allergies ? [...profile.allergies] : null,
+    householdSize: profile.householdSize ?? null,
+    cookingLevel: profile.cookingLevel ?? null,
+    appliances: profile.appliances ? [...profile.appliances] : null,
+    monthlyBudgetEUR: profile.monthlyBudgetEUR ?? null,
+    budgetTier: profile.budgetTier,
+    isProSubscriber: profile.isProSubscriber,
+    onboardingCompleted: profile.onboardingCompleted,
+  };
+}
+
 /**
  * Firestore metadata and unknown fields never enter application profile state.
  * Missing fields resolve against signed-in defaults, never another session.
