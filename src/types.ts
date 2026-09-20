@@ -87,6 +87,37 @@ export interface ShoppingItem {
   reason?: string;
 }
 
+export type HealthDataStatus =
+  | "known"
+  | "unknown"
+  | "not_applicable"
+  | "prefer_not_to_say";
+
+export type HealthDataSource =
+  | "self_reported"
+  | "measured"
+  | "imported"
+  | "estimated";
+
+export interface HealthDatum<T> {
+  status: HealthDataStatus;
+  value?: T;
+  source?: HealthDataSource;
+  /** ISO-8601 timestamp for when this datum was reported, measured or imported. */
+  recordedAt?: string;
+}
+
+/**
+ * Versioned health domain boundary.
+ * Keep derived metrics (for example BMI) out of persisted state when they can
+ * be recalculated deterministically from authoritative inputs.
+ */
+export interface HealthProfile {
+  version: 1;
+  heightCm?: HealthDatum<number>;
+  weightKg?: HealthDatum<number>;
+}
+
 export interface UserProfile {
   name: string;
   language: Language;
@@ -100,9 +131,7 @@ export interface UserProfile {
   cookingLevel?: "beginner" | "intermediate" | "chef";
   appliances?: string[];
   monthlyBudgetEUR?: number;
-  /** Optional self-reported body metrics. BMI is derived deterministically and is not persisted. */
-  heightCm?: number;
-  weightKg?: number;
+  healthProfile?: HealthProfile;
   budgetTier: "strict_budget" | "balanced" | "flexible";
   isProSubscriber: boolean;
   onboardingCompleted: boolean;
