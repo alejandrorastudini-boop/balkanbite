@@ -6,6 +6,7 @@ declare const __BALKANBITE_RUNTIME_QA_FINGERPRINT__: string;
 const QA_PREFIX = "/__qa/";
 const STARTUP_CLOUD_SYNC_QA_PATH = "/__qa/startup-cloud-sync";
 const PROFILE_HEALTH_DATA_QA_PATH = "/__qa/profile-health-data";
+const FRESH_GUEST_ONBOARDING_QA_PATH = "/__qa/fresh-guest-onboarding";
 const RUNTIME_QA_PREVIEW_HOST =
   "balkanbite-git-preview-qa-agent-runtime-alejandrorastudini-6993.vercel.app";
 
@@ -33,6 +34,13 @@ export function isProfileHealthDataQaRoute(): boolean {
   return (
     runtimeQaHostAllowed() &&
     window.location.pathname === PROFILE_HEALTH_DATA_QA_PATH
+  );
+}
+
+export function isFreshGuestOnboardingQaRoute(): boolean {
+  return (
+    runtimeQaHostAllowed() &&
+    window.location.pathname === FRESH_GUEST_ONBOARDING_QA_PATH
   );
 }
 
