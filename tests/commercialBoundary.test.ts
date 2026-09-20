@@ -39,6 +39,10 @@ const translationsSource = readFileSync(
   new URL("../src/utils/translations.ts", import.meta.url),
   "utf8"
 );
+const serviceWorkerSource = readFileSync(
+  new URL("../public/sw.js", import.meta.url),
+  "utf8"
+);
 
 test("weekly AI planning is not gated by a non-existent commercial entitlement", () => {
   assert.doesNotMatch(appSource, /hasVerifiedProEntitlement/);
@@ -197,4 +201,87 @@ test("translations contain no legacy price, trial, active-tier, or unlock claims
   assert.match(translationsSource, /No hay suscripción activa/);
   assert.match(translationsSource, /Няма активен абонамент/);
   assert.match(translationsSource, /Pricing, limits, and packaging are not defined yet/);
+});
+
+
+test("PWA copy does not promise offline use while service worker is retirement-only", () => {
+  assert.match(serviceWorkerSource, /unregister/i);
+  assert.match(serviceWorkerSource, /caches\.keys/);
+
+  for (const forbidden of [
+    "instant offline access",
+    "sin conexión",
+    "offline mode",
+  ]) {
+    assert.equal(
+      translationsSource.toLowerCase().includes(forbidden.toLowerCase()),
+      false,
+      `translations must not promise unsupported offline use: ${forbidden}`,
+    );
+  }
+
+  assert.match(
+    translationsSource,
+    /Cloud sync and AI features require an internet connection/,
+  );
+  assert.doesNotMatch(translationsSource, /Instant synchronization/);
+  assert.doesNotMatch(translationsSource, /Sincronización instantánea/);
+  assert.doesNotMatch(translationsSource, /Мигновена синхронизация/);
+  assert.match(
+    translationsSource,
+    /La sincronización en la nube y las funciones de IA requieren conexión a internet/,
+  );
+});
+
+test("translations contain no guaranteed-savings or absolute privacy claims", () => {
+  for (const forbidden of [
+    "guaranteed savings",
+    "ahorro garantizado",
+    "100% protected",
+    "100% respetada",
+    "never shared",
+    "никога не се споделят",
+  ]) {
+    assert.equal(
+      translationsSource.toLowerCase().includes(forbidden.toLowerCase()),
+      false,
+      `translations must not contain unsupported trust claim: ${forbidden}`,
+    );
+  }
+
+  assert.match(
+    translationsSource,
+    /track spending from the data you provide/,
+  );
+  assert.match(
+    translationsSource,
+    /Sigue tu gasto a partir de los datos que proporciones/,
+  );
+  assert.match(
+    translationsSource,
+    /See the Privacy Policy for how account and cloud data are handled/,
+  );
+});
+
+test("scan copy explicitly preserves human confirmation authority", () => {
+  for (const forbidden of [
+    "detect food instantly",
+    "detectar alimentos al instante",
+    "perfect detection",
+    "detección perfecta",
+    "точно разпознаване",
+  ]) {
+    assert.equal(
+      translationsSource.toLowerCase().includes(forbidden.toLowerCase()),
+      false,
+      `scan copy must not imply perfect or instant authoritative detection: ${forbidden}`,
+    );
+  }
+
+  assert.match(translationsSource, /AI can be wrong/);
+  assert.match(translationsSource, /confirm each item before adding it/);
+  assert.match(translationsSource, /La IA puede equivocarse/);
+  assert.match(translationsSource, /Confirma cada alimento antes de añadirlo/);
+  assert.match(translationsSource, /AI може да греши/);
+  assert.match(translationsSource, /Потвърдете всеки продукт преди добавяне/);
 });
