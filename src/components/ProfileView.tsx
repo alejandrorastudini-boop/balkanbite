@@ -17,6 +17,8 @@ import {
   LogIn,
   LogOut,
   ShieldCheck,
+  HeartPulse,
+  Trash2,
 } from "lucide-react";
 import { UserProfile, Language, Currency } from "../types";
 import { t } from "../utils/translations";
@@ -49,6 +51,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const currentText = t[language];
   const [newDislike, setNewDislike] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [showClearHealthDataConfirm, setShowClearHealthDataConfirm] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
@@ -249,7 +252,81 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         {onGoToLanding && <div className="pt-3"><button id="profile-view-landing-btn" type="button" onClick={onGoToLanding} className="w-full py-3 px-4 border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] hover:border-emerald-500/30 text-stone-300 text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"><Globe className="w-5 h-5 text-emerald-400" /><span>{currentText.viewLandingPage}</span></button></div>}
       </div>
 
+      {profile.healthProfile && (
+        <div className="bg-[#131A1F]/60 backdrop-blur-md border border-rose-500/20 rounded-3xl p-6 shadow-[0_8px_30px_rgba(0,0,0,0.4)] space-y-4">
+          <div className="flex items-start gap-4">
+            <div className="w-12 h-12 rounded-xl bg-rose-500/10 text-rose-300 border border-rose-500/20 flex items-center justify-center shrink-0">
+              <HeartPulse className="w-6 h-6" />
+            </div>
+            <div className="space-y-1">
+              <h3 className="text-base font-bold text-white font-['Outfit'] tracking-wide">
+                {language === "es"
+                  ? "Datos de salud guardados"
+                  : language === "bg"
+                  ? "Запазени здравни данни"
+                  : "Saved health data"}
+              </h3>
+              <p className="text-sm text-stone-400 leading-relaxed font-medium">
+                {language === "es"
+                  ? "Tu perfil contiene datos de salud que proporcionaste anteriormente. Puedes eliminarlos sin borrar tu despensa, recetas ni el resto de tu cuenta."
+                  : language === "bg"
+                  ? "Профилът ви съдържа здравни данни, които сте предоставили по-рано. Можете да ги изтриете, без да изтривате килера, рецептите или останалата част от акаунта си."
+                  : "Your profile contains health data you provided previously. You can remove it without deleting your pantry, recipes, or the rest of your account."}
+              </p>
+            </div>
+          </div>
+
+          <button
+            id="profile-clear-health-data-btn"
+            type="button"
+            onClick={() => setShowClearHealthDataConfirm(true)}
+            className="w-full py-3 px-4 border border-rose-500/30 bg-rose-500/10 hover:bg-rose-500/15 text-rose-300 text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2"
+          >
+            <Trash2 className="w-4 h-4" />
+            <span>
+              {language === "es"
+                ? "Eliminar datos de salud"
+                : language === "bg"
+                ? "Изтриване на здравните данни"
+                : "Delete health data"}
+            </span>
+          </button>
+        </div>
+      )}
+
       <div className="pt-8 pb-10"><button onClick={() => setShowResetConfirm(true)} className="w-full py-4 px-4 border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 hover:border-rose-500/40 text-rose-400 text-sm font-bold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-inner"><RotateCcw className="w-5 h-5" /><span className="tracking-wide uppercase font-['Outfit']">{currentText.resetAppTitle}</span></button></div>
+
+      <ConfirmModal
+        isOpen={showClearHealthDataConfirm}
+        onClose={() => setShowClearHealthDataConfirm(false)}
+        onConfirm={() => {
+          onUpdateProfile({ healthProfile: undefined });
+          setShowClearHealthDataConfirm(false);
+        }}
+        title={
+          language === "es"
+            ? "Eliminar datos de salud"
+            : language === "bg"
+            ? "Изтриване на здравните данни"
+            : "Delete health data"
+        }
+        description={
+          language === "es"
+            ? "Se eliminarán del perfil los datos guardados en HealthProfile. Tu despensa, recetas, menú y cuenta no se borrarán."
+            : language === "bg"
+            ? "Запазените в HealthProfile здравни данни ще бъдат изтрити. Килерът, рецептите, менюто и акаунтът ви няма да бъдат изтрити."
+            : "Saved HealthProfile data will be removed. Your pantry, recipes, meal plan, and account will not be deleted."
+        }
+        confirmText={
+          language === "es"
+            ? "Eliminar datos de salud"
+            : language === "bg"
+            ? "Изтрий здравните данни"
+            : "Delete health data"
+        }
+        cancelText={currentText.cancel}
+        danger={true}
+      />
 
       <ConfirmModal isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} onConfirm={onResetApp} title={currentText.resetAppTitle} description={currentText.resetAppConfirm} confirmText={currentText.yesResetAll} cancelText={currentText.cancel} danger={true} />
     </div>
