@@ -5,6 +5,10 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileContext.js";
 import { withOpenAIJsonModeInstruction } from "./src/utils/openAIJsonMode.js";
+import {
+  getFoodSafetyQuarantineMessage,
+  isFoodSafetyReviewRequired,
+} from "./src/utils/foodSafetyQuarantine.js";
 
 dotenv.config();
 
@@ -17,6 +21,27 @@ app.use(express.json({ limit: "15mb" }));
 
 function hasOpenAIKey(): boolean {
   return Boolean(process.env.OPENAI_API_KEY?.trim());
+}
+
+function foodRecommendationRequiresReview(
+  profile: unknown,
+  foodSafety: unknown,
+): boolean {
+  return (
+    isFoodSafetyReviewRequired(profile) ||
+    isFoodSafetyReviewRequired(foodSafety)
+  );
+}
+
+function foodSafetyBlockedPayload(
+  language: "en" | "es" | "bg",
+  extra: Record<string, unknown>,
+): Record<string, unknown> {
+  return {
+    code: "FOOD_SAFETY_REVIEW_REQUIRED",
+    error: getFoodSafetyQuarantineMessage(language),
+    ...extra,
+  };
 }
 
 function extractOpenAIOutputText(payload: any): string {
@@ -759,7 +784,14 @@ function fallbackReconcileShopping(transcript: string, currentShoppingList: any[
 
 // Endpoint: Parse voice or typed AI request (Voice Chef)
 app.post("/api/ai/parse-intent", async (req, res) => {
-  const { transcript, currentPantry = [], mealLogs = [], conversationHistory = [], language = "en" } = req.body || {};
+  const {
+    transcript,
+    currentPantry = [],
+    mealLogs = [],
+    conversationHistory = [],
+    foodSafety = { status: "clear", reasons: [] },
+    language = "en",
+  } = req.body || {};
   if (!transcript || typeof transcript !== "string") {
     return res.status(400).json({ error: "Transcript is required" });
   }
@@ -814,6 +846,23 @@ Return strictly JSON format:
     });
 
     const parsed = JSON.parse(response.text || "{}");
+
+    if (
+      parsed.actionType === "RECIPE_RECOMMENDATION" &&
+      isFoodSafetyReviewRequired(foodSafety)
+    ) {
+      return res.json({
+        success: true,
+        actionType: "ANSWER",
+        spokenFeedback: getFoodSafetyQuarantineMessage(
+          language === "bg" ? "bg" : language === "es" ? "es" : "en",
+        ),
+        items: [],
+        mealLog: null,
+        foodSafetyBlocked: true,
+      });
+    }
+
     // Nutrition from free-form voice text is not authoritative. Until BalkanBite
     // has a verified deterministic nutrition path, meal logs cannot be persisted here.
     if (parsed.actionType === "MEAL_LOG") {
@@ -918,9 +967,19 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
     const {
       pantry = [],
       profile = {},
+      foodSafety = { status: "clear", reasons: [] },
       query = "",
       language = "en",
     } = req.body;
+
+    if (foodRecommendationRequiresReview(profile, foodSafety)) {
+      return res.status(409).json(
+        foodSafetyBlockedPayload(
+          language === "bg" ? "bg" : language === "es" ? "es" : "en",
+          { recipes: [] },
+        ),
+      );
+    }
 
     if (!hasOpenAIKey()) {
       return res.status(503).json({
@@ -937,7 +996,7 @@ User Current Pantry Inventory: ${JSON.stringify(pantry)}.
 User culinary preferences (non-clinical): ${JSON.stringify(culinaryProfile)}.
 Specific user craving / voice query: "${query || "Recipes maximizing my pantry inventory"}".
 Do not infer medical conditions, nutrient deficiencies, calorie targets, weight-loss prescriptions or therapeutic diets from this context.
-Allergy/dislike entries are avoidance context only; do not claim the generated recipe is medically or allergen safe.
+Disliked ingredients are ordinary culinary avoidance preferences only. Do not infer or claim allergen safety from this non-clinical context.
 
 CRITICAL GOALS & RULES:
 1. MAXIMIZE PANTRY INVENTORY USAGE: Generate recipes that systematically cover and utilize ALL items present in the User's Current Pantry Inventory. Create a full set of 6 to 8 varied recipes (breakfasts, lunches, dinners, stews, salads, quick pasta/rice dishes, snacks) so that virtually every single ingredient in the user's pantry is used in one or more recipes.
@@ -1030,8 +1089,23 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
 
 // Endpoint: AI Smart 7-Day Weekly Meal Plan using GPT-5.6 Luna
 app.post("/api/ai/generate-weekly-plan", async (req, res) => {
-  const { pantry = [], recipes = [], profile = {}, language = "es" } = req.body || {};
+  const {
+    pantry = [],
+    recipes = [],
+    profile = {},
+    foodSafety = { status: "clear", reasons: [] },
+    language = "es",
+  } = req.body || {};
   try {
+    if (foodRecommendationRequiresReview(profile, foodSafety)) {
+      return res.status(409).json(
+        foodSafetyBlockedPayload(
+          language === "bg" ? "bg" : language === "es" ? "es" : "en",
+          { mealPlan: [] },
+        ),
+      );
+    }
+
     if (!hasOpenAIKey()) {
       return res.status(400).json({ error: "OpenAI API key not configured" });
     }
@@ -1096,8 +1170,22 @@ CRITICAL RULES:
 
 // Endpoint: AI Smart Weekly Shopping List Proposal
 app.post("/api/ai/suggest-shopping", async (req, res) => {
-  const { pantry = [], profile = {}, language = "es" } = req.body || {};
+  const {
+    pantry = [],
+    profile = {},
+    foodSafety = { status: "clear", reasons: [] },
+    language = "es",
+  } = req.body || {};
   try {
+    if (foodRecommendationRequiresReview(profile, foodSafety)) {
+      return res.status(409).json(
+        foodSafetyBlockedPayload(
+          language === "bg" ? "bg" : language === "es" ? "es" : "en",
+          { items: [] },
+        ),
+      );
+    }
+
     // AI unavailability is not a valid product or price detection. Keep the
     // response explicitly empty so clients cannot save a fabricated basket.
     if (!hasOpenAIKey()) {

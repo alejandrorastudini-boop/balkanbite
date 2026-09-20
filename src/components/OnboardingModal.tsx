@@ -9,7 +9,6 @@ import {
   Flame,
   CheckCircle2,
   ChefHat,
-  ShieldAlert,
   Microwave,
   Check,
 } from "lucide-react";
@@ -36,16 +35,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [name, setName] = useState("");
   const [householdSize, setHouseholdSize] = useState<number>(2);
   const [cookingSpeed, setCookingSpeed] = useState<"fast" | "moderate" | "elaborate">("fast");
-  const [dietStyle, setDietStyle] = useState<"all" | "mediterranean" | "vegetarian" | "vegan" | "keto" | "gluten_free">("mediterranean");
-  const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
+  const [dietStyle, setDietStyle] = useState<
+    "all" | "mediterranean" | "vegetarian" | "vegan"
+  >("mediterranean");
   const [selectedAppliances, setSelectedAppliances] = useState<string[]>([]);
   const [monthlyBudgetEUR, setMonthlyBudgetEUR] = useState<number>(350);
-
-  const toggleAllergy = (allergy: string) => {
-    setSelectedAllergies((prev) =>
-      prev.includes(allergy) ? prev.filter((a) => a !== allergy) : [...prev, allergy]
-    );
-  };
 
   const toggleAppliance = (appliance: string) => {
     setSelectedAppliances((prev) =>
@@ -61,7 +55,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       householdSize,
       cookingSpeed,
       dietStyle,
-      allergies: selectedAllergies,
       appliances: selectedAppliances,
       monthlyBudgetEUR,
       onboardingCompleted: true,
@@ -170,7 +163,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </div>
         )}
 
-        {/* STEP 2: Dieta & Alergias */}
+        {/* STEP 2: culinary preference only; clinical/restriction capture is deferred */}
         {step === 2 && (
           <div className="space-y-4">
             <div>
@@ -183,9 +176,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                   { id: "mediterranean", label: "Mediterránea (Equilibrada)" },
                   { id: "vegetarian", label: "Vegetariana" },
                   { id: "vegan", label: "Vegana" },
-                  { id: "gluten_free", label: "Sin Gluten" },
-                  { id: "keto", label: "Keto / Baja en Carbos" },
-                  { id: "all", label: "Sin Restricciones" },
+                  { id: "all", label: "Sin restricciones culinarias" },
                 ].map((opt) => (
                   <button
                     key={opt.id}
@@ -203,31 +194,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               </div>
             </div>
 
-            <div>
-              <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
-                <ShieldAlert className="w-3.5 h-3.5 text-rose-400" />
-                {language === "es" ? "Alergias o Intolerancias (Opcional)" : "Allergies or Intolerances"}
-              </label>
-              <div className="flex flex-wrap gap-1.5">
-                {["Gluten", "Lactosa", "Frutos Secos", "Marisco", "Huevos", "Soja"].map((allergy) => {
-                  const isSelected = selectedAllergies.includes(allergy);
-                  return (
-                    <button
-                      key={allergy}
-                      type="button"
-                      onClick={() => toggleAllergy(allergy)}
-                      className={`px-3 py-1.5 rounded-xl border text-xs font-bold transition-all flex items-center gap-1.5 ${
-                        isSelected
-                          ? "bg-rose-500/20 border-rose-500/40 text-rose-300"
-                          : "bg-white/[0.02] border-white/[0.05] text-stone-400 hover:text-white"
-                      }`}
-                    >
-                      {isSelected && <Check className="w-3 h-3 text-rose-400" />}
-                      <span>{allergy}</span>
-                    </button>
-                  );
-                })}
-              </div>
+            <div className="rounded-2xl border border-amber-500/20 bg-amber-500/5 p-3">
+              <p className="text-[11px] leading-relaxed text-stone-400">
+                {language === "bg"
+                  ? "Алергии, непоносимости, безглутенови и кето режими временно не се събират тук. BalkanBite ще добави отделен проверим поток за хранителни ограничения, вместо да ги третира като обикновени предпочитания."
+                  : language === "es"
+                  ? "Las alergias, intolerancias y las opciones sin gluten o keto no se recogen aquí por ahora. BalkanBite añadirá un flujo específico y verificable para restricciones alimentarias en lugar de tratarlas como simples preferencias."
+                  : "Allergies, intolerances, gluten-free, and keto options are not collected here for now. BalkanBite will add a dedicated, verifiable food-restriction flow instead of treating them as ordinary preferences."}
+              </p>
             </div>
 
             <div className="flex items-center gap-2 pt-2">

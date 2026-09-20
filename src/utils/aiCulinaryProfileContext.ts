@@ -3,15 +3,12 @@ type DietStyle =
   | "all"
   | "mediterranean"
   | "vegetarian"
-  | "vegan"
-  | "keto"
-  | "gluten_free";
+  | "vegan";
 
 export interface AiCulinaryProfileContext {
   cookingSpeed?: CookingSpeed;
   dietStyle?: DietStyle;
   disliked?: string[];
-  allergies?: string[];
   householdSize?: number;
   appliances?: string[];
   monthlyBudgetEUR?: number;
@@ -28,8 +25,6 @@ const DIET_STYLES = new Set<DietStyle>([
   "mediterranean",
   "vegetarian",
   "vegan",
-  "keto",
-  "gluten_free",
 ]);
 
 function isRecord(value: unknown): value is Record<string, unknown> {
@@ -77,7 +72,11 @@ function optionalStringList(value: unknown): string[] | undefined {
  * - healthGoal;
  * - healthProfile or physiological inputs;
  * - subscription/account state;
- * - future conditions, medications, labs or clinical data.
+ * - future conditions, medications, labs or clinical data;
+ * - legacy allergies/intolerances or legacy gluten-free/keto labels.
+ *
+ * Phase B deliberately quarantines those legacy food-safety fields. They must
+ * not be downgraded into ordinary prompt preferences or treated as guarantees.
  */
 export function buildAiCulinaryProfileContext(
   value: unknown,
@@ -87,7 +86,6 @@ export function buildAiCulinaryProfileContext(
   const cookingSpeed = optionalEnum(value.cookingSpeed, COOKING_SPEEDS);
   const dietStyle = optionalEnum(value.dietStyle, DIET_STYLES);
   const disliked = optionalStringList(value.disliked);
-  const allergies = optionalStringList(value.allergies);
   const householdSize = optionalPositiveInteger(value.householdSize);
   const appliances = optionalStringList(value.appliances);
   const monthlyBudgetEUR = optionalPositiveFinite(value.monthlyBudgetEUR);
@@ -96,7 +94,6 @@ export function buildAiCulinaryProfileContext(
     ...(cookingSpeed ? { cookingSpeed } : {}),
     ...(dietStyle ? { dietStyle } : {}),
     ...(disliked ? { disliked } : {}),
-    ...(allergies ? { allergies } : {}),
     ...(householdSize !== undefined ? { householdSize } : {}),
     ...(appliances ? { appliances } : {}),
     ...(monthlyBudgetEUR !== undefined ? { monthlyBudgetEUR } : {}),
