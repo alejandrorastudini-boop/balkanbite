@@ -296,3 +296,24 @@ test("clearing HealthProfile serializes an explicit cloud null", () => {
   const serialized = serializeUserProfileForFirestore(cleared);
   assert.equal(serialized.healthProfile, null);
 });
+
+
+test("legacy food-restriction values survive read until the user explicitly clears them", () => {
+  const legacy = sanitizeRemoteUserProfile({
+    name: "Legacy",
+    dietStyle: "gluten_free",
+    allergies: ["Gluten", "Lactosa"],
+  });
+
+  assert.equal(legacy.dietStyle, "gluten_free");
+  assert.deepEqual(legacy.allergies, ["Gluten", "Lactosa"]);
+
+  const cleared = serializeUserProfileForFirestore({
+    ...legacy,
+    dietStyle: "all",
+    allergies: undefined,
+  });
+
+  assert.equal(cleared.dietStyle, "all");
+  assert.equal(cleared.allergies, null);
+});
