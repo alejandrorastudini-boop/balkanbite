@@ -415,10 +415,10 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             <Activity className="w-4 h-4" />
             <span>
               {language === "es"
-                ? "Estado Nutricional Diario"
+                ? "Nutrición verificada registrada"
                 : language === "bg"
-                ? "Дневен Нутри статус"
-                : "Daily Nutrition Status"}
+                ? "Проверено записано хранене"
+                : "Verified nutrition logged"}
             </span>
           </div>
           <span className="text-[11px] font-bold text-stone-400 uppercase tracking-widest bg-white/[0.04] px-3 py-1.5 rounded-lg border border-white/[0.08]">
@@ -434,28 +434,24 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             {
               label: language === "es" ? "Cal" : "Cal",
               value: totalNutrition?.calories,
-              target: 2000,
               unit: "kcal",
               color: "text-white",
             },
             {
               label: language === "es" ? "Prot" : "Prot",
               value: totalNutrition?.protein,
-              target: 120,
               unit: "g",
               color: "text-emerald-400",
             },
             {
               label: language === "es" ? "Carb" : "Carb",
               value: totalNutrition?.carbs,
-              target: 250,
               unit: "g",
               color: "text-amber-400",
             },
             {
               label: language === "es" ? "Grasa" : language === "bg" ? "Мазнини" : "Fat",
               value: totalNutrition?.fat,
-              target: 60,
               unit: "g",
               color: "text-stone-300",
             },
@@ -468,22 +464,21 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
                 {stat.label}
               </span>
               <span className={`text-sm font-extrabold font-['Outfit'] ${stat.color}`}>
-                {typeof stat.value === "number" ? Math.round(stat.value) : "—"}
+                {typeof stat.value === "number"
+                  ? `${Math.round(stat.value)} ${stat.unit}`
+                  : "—"}
               </span>
-              <div className="w-full bg-stone-700 h-1.5 rounded-full mt-1.5 overflow-hidden">
-                <div
-                  className="h-full bg-emerald-500 transition-all rounded-full"
-                  style={{
-                    width:
-                      typeof stat.value === "number"
-                        ? `${Math.min(100, (stat.value / stat.target) * 100)}%`
-                        : "0%",
-                  }}
-                />
-              </div>
             </div>
           ))}
         </div>
+
+        <p className="text-[10px] leading-relaxed text-stone-500">
+          {language === "es"
+            ? "Estos valores son únicamente la suma de comidas registradas con nutrición verificada. BalkanBite todavía no calcula objetivos diarios personalizados."
+            : language === "bg"
+            ? "Тези стойности са само сборът от записаните хранения с проверени хранителни данни. BalkanBite все още не изчислява персонализирани дневни цели."
+            : "These values are only the sum of logged meals with verified nutrition. BalkanBite does not calculate personalized daily targets yet."}
+        </p>
 
         {dailyLogs.length > 0 && (
           <div className="space-y-2 mt-4 pt-4 border-t border-stone-800">
