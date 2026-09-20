@@ -65,6 +65,7 @@ import { getUserLocalWorkspaceKey, parseArrayCache } from "./utils/localWorkspac
 import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
 import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext";
 import { buildVerifiedMealLog } from "./utils/verifiedMealLog";
+import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
 import {
   getFoodSafetyQuarantine,
   getFoodSafetyQuarantineMessage,
@@ -703,14 +704,12 @@ export default function App() {
   };
 
   const handleAddPantryItem = (item: Omit<PantryItem, "id" | "addedAt">) => {
-    // Manual pantry persistence requires an explicit name, positive quantity, and unit.
+    if (!requireAuthoritativeInventory()) return;
+
+    // Manual pantry persistence requires explicit identity + amount.
     // Optional category, cost, and expiry remain unknown when blank.
-    if (
-      !item.name.trim() ||
-      !Number.isFinite(item.quantity) ||
-      item.quantity <= 0 ||
-      !item.unit.trim()
-    ) return;
+    if (!hasValidPantryAcquisitionRequiredFields(item)) return;
+
     const newItem: PantryItem = {
       ...item,
       id: `p-${Date.now()}`,
@@ -720,10 +719,14 @@ export default function App() {
   };
 
   const handleAddMultiplePantryItems = (items: Array<Omit<PantryItem, "id" | "addedAt">>) => {
+    if (!requireAuthoritativeInventory()) return;
+    if (!isValidPantryAcquisitionBatch(items)) return;
+
+    const acquiredAt = new Date().toISOString().split("T")[0];
     const newItems: PantryItem[] = items.map((item, idx) => ({
       ...item,
       id: `p-${Date.now()}-${idx}`,
-      addedAt: new Date().toISOString().split("T")[0],
+      addedAt: acquiredAt,
     }));
     updatePantryAndReconcileMenu(newItems, true);
   };
