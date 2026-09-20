@@ -629,7 +629,7 @@ function resolveRecipeImageUrl(recipe: any): string {
   return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80";
 }
 
-// Fallback reconciliation parser when offline or Gemini API is not available
+// Fallback reconciliation parser when the AI API is unavailable
 function fallbackReconcileShopping(transcript: string, currentShoppingList: any[] = [], language: string = "es") {
   const lower = transcript.toLowerCase();
   const negations = [
@@ -760,9 +760,7 @@ app.post("/api/ai/parse-intent", async (req, res) => {
   }
 
   try {
-    const ai = getGeminiClient();
-
-    if (!ai) {
+    if (!hasOpenAIKey()) {
       return res.status(503).json({
         success: false,
         error: "Voice interpretation is temporarily unavailable",
@@ -804,13 +802,10 @@ Return strictly JSON format:
   "mealLog": null
 }`;
 
-    const response = await generateWithRetry(ai, {
-      model: "gemini-3.5-flash-lite",
-      contents: transcript,
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: "application/json",
-      },
+    const response = await generateWithOpenAI({
+      input: transcript,
+      instructions: systemPrompt,
+      json: true,
     });
 
     const parsed = JSON.parse(response.text || "{}");
@@ -829,7 +824,7 @@ Return strictly JSON format:
     }
     return res.json({ success: true, ...parsed });
   } catch (err: any) {
-    console.warn("Gemini API error during voice intent parse:", err.message || err);
+    console.warn("OpenAI API error during voice intent parse:", err.message || err);
     return res.status(503).json({
       success: false,
       error: "Voice interpretation failed",
@@ -848,8 +843,7 @@ app.post("/api/ai/reconcile-shopping", async (req, res) => {
   }
 
   try {
-    const ai = getGeminiClient();
-    if (!ai) {
+    if (!hasOpenAIKey()) {
       return res.json(fallbackReconcileShopping(transcript, currentShoppingList, language));
     }
 
@@ -895,13 +889,10 @@ Return strictly JSON format:
   "spokenFeedback": "Concise summary in ${language}."
 }`;
 
-    const response = await generateWithRetry(ai, {
-      model: "gemini-3.5-flash-lite",
-      contents: transcript,
-      config: {
-        systemInstruction: systemPrompt,
-        responseMimeType: "application/json",
-      },
+    const response = await generateWithOpenAI({
+      input: transcript,
+      instructions: systemPrompt,
+      json: true,
     });
 
     const parsed = JSON.parse(response.text || "{}");
@@ -910,7 +901,7 @@ Return strictly JSON format:
     }
     return res.json(parsed);
   } catch (err: any) {
-    console.warn("Gemini API error in reconcile-shopping, using fallback:", err.message || err);
+    console.warn("OpenAI API error in reconcile-shopping, using fallback:", err.message || err);
     return res.json(fallbackReconcileShopping(transcript, currentShoppingList, language));
   }
 });
@@ -926,9 +917,7 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
       language = "en",
     } = req.body;
 
-    const ai = getGeminiClient();
-
-    if (!ai) {
+    if (!hasOpenAIKey()) {
       return res.status(503).json({
         error: "Recipe generation is temporarily unavailable",
         recipes: [],
@@ -993,12 +982,9 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
   }
 ]`;
 
-    const response = await generateWithRetry(ai, {
-      model: "gemini-3.5-flash-lite",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      },
+    const response = await generateWithOpenAI({
+      input: prompt,
+      json: true,
     });
 
     const parsed = JSON.parse(response.text || "[]");
@@ -1026,7 +1012,7 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
 
     return res.json({
       recipes: enrichedRecipes,
-      source: "gemini",
+      source: "openai_gpt_5_6_luna",
     });
   } catch (err: any) {
     console.error("Error generating recipes:", err);
@@ -1037,13 +1023,12 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
   }
 });
 
-// Endpoint: AI Smart 7-Day Weekly Meal Plan using latest Gemini model
+// Endpoint: AI Smart 7-Day Weekly Meal Plan using GPT-5.6 Luna
 app.post("/api/ai/generate-weekly-plan", async (req, res) => {
   const { pantry = [], recipes = [], profile = {}, language = "es" } = req.body || {};
   try {
-    const ai = getGeminiClient();
-    if (!ai) {
-      return res.status(400).json({ error: "Gemini API key not configured" });
+    if (!hasOpenAIKey()) {
+      return res.status(400).json({ error: "OpenAI API key not configured" });
     }
 
     const culinaryProfile = buildAiCulinaryProfileContext(profile);
@@ -1078,12 +1063,9 @@ CRITICAL RULES:
   }
 ]`;
 
-    const response = await generateWithRetry(ai, {
-      model: "gemini-3.5-flash-lite",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      },
+    const response = await generateWithOpenAI({
+      input: prompt,
+      json: true,
     });
 
     const parsed = JSON.parse(response.text || "[]");
@@ -1097,9 +1079,9 @@ CRITICAL RULES:
       dinner: day.dinner ? { ...day.dinner, imageUrl: resolveRecipeImageUrl(day.dinner) } : undefined,
     }));
 
-    return res.json({ mealPlan, source: "gemini" });
+    return res.json({ mealPlan, source: "openai_gpt_5_6_luna" });
   } catch (err: any) {
-    console.warn("Error generating weekly meal plan with Gemini:", err?.message || err);
+    console.warn("Error generating weekly meal plan with OpenAI GPT-5.6 Luna:", err?.message || err);
     return res.status(503).json({
       error: "Weekly meal-plan generation failed",
       mealPlan: [],
@@ -1111,11 +1093,9 @@ CRITICAL RULES:
 app.post("/api/ai/suggest-shopping", async (req, res) => {
   const { pantry = [], profile = {}, language = "es" } = req.body || {};
   try {
-    const ai = getGeminiClient();
-
     // AI unavailability is not a valid product or price detection. Keep the
     // response explicitly empty so clients cannot save a fabricated basket.
-    if (!ai) {
+    if (!hasOpenAIKey()) {
       return res.status(503).json({
         error: "Shopping suggestions are temporarily unavailable",
         items: [],
@@ -1161,18 +1141,15 @@ Return strictly JSON with this schema:
   ]
 }`;
 
-    const response = await generateWithRetry(ai, {
-      model: "gemini-3.5-flash-lite",
-      contents: prompt,
-      config: {
-        responseMimeType: "application/json",
-      },
+    const response = await generateWithOpenAI({
+      input: prompt,
+      json: true,
     });
 
     const parsed = JSON.parse(response.text || "{}");
     return res.json(parsed);
   } catch (err: any) {
-    console.warn("Gemini API error during shopping suggestion:", err.message || err);
+    console.warn("OpenAI API error during shopping suggestion:", err.message || err);
     return res.status(503).json({
       error: "Shopping suggestions are temporarily unavailable",
       items: [],
@@ -1190,9 +1167,7 @@ app.post("/api/ai/scan-image", async (req, res) => {
 
     // Strip prefix if user passed data:image/...;base64,...
     const base64Data = image.includes(",") ? image.split(",")[1] : image;
-    const ai = getGeminiClient();
-
-    if (!ai) {
+    if (!hasOpenAIKey()) {
       // AI unavailability is not a detection. Preserve the no-result boundary.
       return res.status(503).json({
         success: false,
@@ -1227,21 +1202,20 @@ Return strictly a JSON array conforming to this schema, with no markdown code fe
   }
 ]`;
 
-    const imagePart = {
-      inlineData: {
-        mimeType: mimeType || "image/jpeg",
-        data: base64Data,
-      },
-    };
-
-    const response = await generateWithRetry(ai, {
-      model: "gemini-3.5-flash-lite",
-      contents: {
-        parts: [imagePart, { text: promptText }],
-      },
-      config: {
-        responseMimeType: "application/json",
-      },
+    const response = await generateWithOpenAI({
+      input: [
+        {
+          role: "user",
+          content: [
+            { type: "input_text", text: promptText },
+            {
+              type: "input_image",
+              image_url: `data:${mimeType || "image/jpeg"};base64,${base64Data}`,
+            },
+          ],
+        },
+      ],
+      json: true,
     });
 
     let items = [];
@@ -1254,10 +1228,10 @@ Return strictly a JSON array conforming to this schema, with no markdown code fe
     return res.json({
       success: true,
       items: Array.isArray(items) ? items : [],
-      source: "gemini_vision",
+      source: "openai_gpt_5_6_luna_vision",
     });
   } catch (err: any) {
-    console.warn("Gemini Vision scan failed:", err.message || err);
+    console.warn("OpenAI GPT-5.6 Luna vision scan failed:", err.message || err);
     return res.status(503).json({
       success: false,
       error: "AI vision scan failed",
