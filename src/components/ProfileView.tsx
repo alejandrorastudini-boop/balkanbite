@@ -2,7 +2,6 @@ import React, { useState, useEffect } from "react";
 import {
   Sparkles,
   Zap,
-  Target,
   Clock,
   Utensils,
   Globe,
@@ -230,11 +229,6 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-4 shadow-inner">
         <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 w-fit"><Clock className="w-4 h-4 text-emerald-400" /><span>{currentText.cookingSpeed}</span></div>
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{[{ id: "fast", label: currentText.speedFast }, { id: "moderate", label: currentText.speedModerate }, { id: "elaborate", label: currentText.speedElaborate }].map((opt) => <button key={opt.id} onClick={() => onUpdateProfile({ cookingSpeed: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.cookingSpeed === opt.id ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.cookingSpeed === opt.id && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 ml-1" />}</div></button>)}</div>
-      </div>
-
-      <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-4 shadow-inner">
-        <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-amber-500/10 px-3 py-1.5 rounded-lg border border-amber-500/20 w-fit"><Target className="w-4 h-4 text-amber-400" /><span>{currentText.healthGoals}</span></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{[{ id: "balanced", label: currentText.goalBalanced }, { id: "muscle", label: currentText.goalMuscle }, { id: "fat_loss", label: currentText.goalFatLoss }, { id: "heart", label: currentText.goalHeart }].map((opt) => <button key={opt.id} onClick={() => onUpdateProfile({ healthGoal: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.healthGoal === opt.id ? "bg-amber-500/10 border-amber-500/40 text-amber-300 shadow-[0_0_15px_rgba(245,158,11,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.healthGoal === opt.id && <CheckCircle2 className="w-5 h-5 text-amber-400 shrink-0 ml-1" />}</div></button>)}</div>
       </div>
 
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-4 shadow-inner">

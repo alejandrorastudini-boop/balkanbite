@@ -5,7 +5,6 @@ import {
   ArrowLeft,
   Users,
   UtensilsCrossed,
-  Target,
   Wallet,
   Flame,
   CheckCircle2,
@@ -37,7 +36,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [name, setName] = useState("");
   const [householdSize, setHouseholdSize] = useState<number>(2);
   const [cookingSpeed, setCookingSpeed] = useState<"fast" | "moderate" | "elaborate">("fast");
-  const [healthGoal, setHealthGoal] = useState<"balanced" | "muscle" | "fat_loss" | "heart">("balanced");
   const [dietStyle, setDietStyle] = useState<"all" | "mediterranean" | "vegetarian" | "vegan" | "keto" | "gluten_free">("mediterranean");
   const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
   const [selectedAppliances, setSelectedAppliances] = useState<string[]>([]);
@@ -62,7 +60,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       ...(trimmedName ? { name: trimmedName } : {}),
       householdSize,
       cookingSpeed,
-      healthGoal,
       dietStyle,
       allergies: selectedAllergies,
       appliances: selectedAppliances,
@@ -254,38 +251,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
           </div>
         )}
 
-        {/* STEP 3: Objetivo de Salud & Velocidad */}
+        {/* STEP 3: Cooking speed */}
         {step === 3 && (
           <div className="space-y-4">
-            <div>
-              <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
-                <Target className="w-3.5 h-3.5 text-amber-400" />
-                {language === "es" ? "Objetivo de Salud Principal" : "Health Goal"}
-              </label>
-              <div className="space-y-2">
-                {[
-                  { id: "balanced", label: "Equilibrio & Ahorro Anti-Desperdicio", desc: "Aprovechar al 100% lo que hay en la despensa" },
-                  { id: "fat_loss", label: "Pérdida de Grasa / Ligero", desc: "Recetas con menos calorías y altas en saciedad" },
-                  { id: "muscle", label: "Ganancia Muscular (Alta Proteína)", desc: "Enfocado en proteínas magras y recuperación" },
-                  { id: "heart", label: "Salud Cardiovascular & Digestiva", desc: "Recetas ricas en fibra, omega-3 y bajas en sodio" },
-                ].map((opt) => (
-                  <button
-                    key={opt.id}
-                    type="button"
-                    onClick={() => setHealthGoal(opt.id as any)}
-                    className={`w-full p-3 rounded-xl border text-left transition-all ${
-                      healthGoal === opt.id
-                        ? "bg-amber-500/15 border-amber-500/40 text-amber-300 shadow-md"
-                        : "bg-white/[0.02] border-white/[0.05] text-stone-400 hover:text-white"
-                    }`}
-                  >
-                    <div className="text-xs font-bold">{opt.label}</div>
-                    <div className="text-[10px] text-stone-400 font-medium mt-0.5">{opt.desc}</div>
-                  </button>
-                ))}
-              </div>
-            </div>
-
             <div>
               <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
                 <Flame className="w-3.5 h-3.5 text-emerald-400" />
