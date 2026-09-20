@@ -59,3 +59,27 @@ test("recipe and weekly-plan AI failures cannot become fallback content", () => 
   assert.match(weekly, /Weekly meal-plan generation failed[\s\S]*mealPlan:\s*\[\]/);
   assert.doesNotMatch(weekly, /fallbackPlan|Healthy Breakfast|Desayuno saludable/);
 });
+
+test("shopping reconciliation AI failures return no detections", () => {
+  const reconciliation = endpointSection(
+    'app.post("/api/ai/reconcile-shopping"',
+    '// Endpoint: Generate dynamic tailored recipes'
+  );
+
+  assert.match(
+    serverSource,
+    /function shoppingReconciliationUnavailablePayload[\s\S]*purchasedItemIds:\s*\[\][\s\S]*unpurchasedItemIds:\s*\[\][\s\S]*extraPurchasedItems:\s*\[\][\s\S]*purchasedListItemsDetails:\s*\[\]/
+  );
+  assert.match(
+    reconciliation,
+    /if \(!hasOpenAIKey\(\)\)[\s\S]*status\(503\)[\s\S]*shoppingReconciliationUnavailablePayload/
+  );
+  assert.match(
+    reconciliation,
+    /catch \(err: any\)[\s\S]*status\(503\)[\s\S]*shoppingReconciliationUnavailablePayload/
+  );
+  assert.doesNotMatch(serverSource, /fallbackReconcileShopping/);
+  assert.doesNotMatch(serverSource, /estimatedPriceEUR\s*\|\|\s*1\.5/);
+  assert.match(serverSource, /SHOPPING_RECONCILIATION_UNAVAILABLE/);
+});
+

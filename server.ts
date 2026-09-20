@@ -659,127 +659,32 @@ function resolveRecipeImageUrl(recipe: any): string {
   return "https://images.unsplash.com/photo-1504674900247-0877df9cc836?auto=format&fit=crop&w=800&q=80";
 }
 
-// Fallback reconciliation parser when the AI API is unavailable
-function fallbackReconcileShopping(transcript: string, currentShoppingList: any[] = [], language: string = "es") {
-  const lower = transcript.toLowerCase();
-  const negations = [
-    "no compré", "no compre", "no había", "no habia", "sin", "menos", "excepto", 
-    "didn't buy", "did not buy", "except", "нямаше", "не купих", "без", "faltó", "falto"
-  ];
-  
-  const boughtAll = lower.includes("todo") || lower.includes("toda") || lower.includes("all") || lower.includes("всичко");
-
-  const purchasedItemIds: string[] = [];
-  const unpurchasedItemIds: string[] = [];
-  const purchasedListItemsDetails: any[] = [];
-
-  currentShoppingList.forEach((item: any) => {
-    const itemName = String(item.name || "").toLowerCase();
-    const itemWords = itemName.split(/\s+/).filter((w) => w.length > 2);
-    
-    const isMentioned = itemName && (lower.includes(itemName) || itemWords.some((w) => lower.includes(w)));
-    
-    let isNegated = false;
-    if (isMentioned) {
-      for (const neg of (negations || [])) {
-        const negIdx = String(lower || "").indexOf(String(neg || ""));
-        const itemIdx = String(lower || "").indexOf(String(itemName || ""));
-        if (negIdx !== -1 && itemIdx !== -1 && Math.abs(itemIdx - negIdx) < 40) {
-          isNegated = true;
-          break;
-        }
-      }
-    }
-
-    if (boughtAll) {
-      if (isNegated) {
-        unpurchasedItemIds.push(item.id);
-      } else {
-        purchasedItemIds.push(item.id);
-        purchasedListItemsDetails.push({
-          id: item.id,
-          name: item.name,
-          quantity: item.quantity || 1,
-          unit: item.unit || "pcs",
-          category: item.category || "Produce",
-          estimatedCostEUR: item.estimatedPriceEUR || 1.5,
-          expiryDaysLeft: 7,
-        });
-      }
-    } else {
-      if (isMentioned && !isNegated) {
-        purchasedItemIds.push(item.id);
-        purchasedListItemsDetails.push({
-          id: item.id,
-          name: item.name,
-          quantity: item.quantity || 1,
-          unit: item.unit || "pcs",
-          category: item.category || "Produce",
-          estimatedCostEUR: item.estimatedPriceEUR || 1.5,
-          expiryDaysLeft: 7,
-        });
-      } else {
-        unpurchasedItemIds.push(item.id);
-      }
-    }
-  });
-
-  const extraPurchasedItems: any[] = [];
-  const commonExtras = [
-    { key: "aguacate", name: "Aguacates", nameBg: "Авокадо", unit: "uds", category: "Produce", cost: 1.99 },
-    { key: "plátano", name: "Plátanos", nameBg: "Банани", unit: "kg", category: "Produce", cost: 1.40 },
-    { key: "platano", name: "Plátanos", nameBg: "Банани", unit: "kg", category: "Produce", cost: 1.40 },
-    { key: "banana", name: "Bananas", nameBg: "Банани", unit: "kg", category: "Produce", cost: 1.40 },
-    { key: "pan", name: "Pan artesano", nameBg: "Хляб", unit: "ud", category: "Pantry/Grains", cost: 1.10 },
-    { key: "manzana", name: "Manzanas", nameBg: "Ябълки", unit: "kg", category: "Produce", cost: 1.60 },
-    { key: "café", name: "Café molido", nameBg: "Кафе", unit: "pack", category: "Pantry/Grains", cost: 2.50 },
-    { key: "cafe", name: "Café molido", nameBg: "Кафе", unit: "pack", category: "Pantry/Grains", cost: 2.50 },
-    { key: "chocolate", name: "Chocolate negro", nameBg: "Шоколад", unit: "ud", category: "Pantry/Grains", cost: 1.80 },
-  ];
-
-  commonExtras.forEach((extra) => {
-    if (lower.includes(extra.key)) {
-      const alreadyInList = currentShoppingList.some((item) =>
-        String(item.name).toLowerCase().includes(extra.key)
-      );
-      if (!alreadyInList) {
-        extraPurchasedItems.push({
-          name: language === "bg" ? extra.nameBg : language === "es" ? extra.name : extra.key,
-          quantity: 1,
-          unit: extra.unit,
-          category: extra.category,
-          estimatedCostEUR: extra.cost,
-          expiryDaysLeft: 7,
-        });
-      }
-    }
-  });
-
-  const purchasedNames = purchasedListItemsDetails.map((i) => i.name).join(", ");
-  const extraNames = extraPurchasedItems.map((i) => i.name).join(", ");
-
-  let spokenFeedback = "";
-  if (language === "es") {
-    if (purchasedItemIds.length > 0 && extraPurchasedItems.length > 0) {
-      spokenFeedback = `He marcado como comprados de tu lista: ${purchasedNames}. Además he detectado compras extra: ${extraNames}. Los artículos no comprados se quedan en tu lista.`;
-    } else if (purchasedItemIds.length > 0) {
-      spokenFeedback = `He detectado que compraste: ${purchasedNames}. Los artículos pendientes permanecen en tu lista para la próxima compra.`;
-    } else {
-      spokenFeedback = `He analizado tu mensaje. Revisa los artículos marcados a continuación antes de confirmar.`;
-    }
-  } else if (language === "bg") {
-    spokenFeedback = `Отчетох закупените продукти: ${purchasedNames || "избраните"}. Останалите ще се запазят в списъка.`;
-  } else {
-    spokenFeedback = `Identified purchased items: ${purchasedNames || "selected items"}. Unpurchased items remain in your shopping list.`;
-  }
+// A provider/configuration failure is never converted into purchase detections.
+function shoppingReconciliationUnavailablePayload(language: string = "es") {
+  const spokenFeedback =
+    language === "bg"
+      ? "Покупката не можа да бъде анализирана. Не са открити или записани покупки. Опитайте отново по-късно."
+      : language === "es"
+      ? "No se pudo analizar la compra. No se ha detectado ni guardado ninguna compra. Inténtalo de nuevo más tarde."
+      : "The shopping trip could not be analyzed. No purchases were detected or saved. Please try again later.";
 
   return {
-    purchasedItemIds,
-    unpurchasedItemIds,
-    extraPurchasedItems,
-    purchasedListItemsDetails,
+    success: false,
+    error: "SHOPPING_RECONCILIATION_UNAVAILABLE",
+    purchasedItemIds: [] as string[],
+    unpurchasedItemIds: [] as string[],
+    extraPurchasedItems: [] as any[],
+    purchasedListItemsDetails: [] as any[],
     spokenFeedback,
   };
+}
+
+function shoppingReconciliationReviewMessage(language: string = "es") {
+  return language === "bg"
+    ? "Прегледайте предложеното съпоставяне преди да потвърдите промени в килера."
+    : language === "es"
+    ? "Revisa la propuesta antes de confirmar cambios en la despensa."
+    : "Review the proposed reconciliation before confirming pantry changes.";
 }
 
 // Endpoint: Parse voice or typed AI request (Voice Chef)
@@ -898,7 +803,9 @@ app.post("/api/ai/reconcile-shopping", async (req, res) => {
 
   try {
     if (!hasOpenAIKey()) {
-      return res.json(fallbackReconcileShopping(transcript, currentShoppingList, language));
+      return res
+        .status(503)
+        .json(shoppingReconciliationUnavailablePayload(language));
     }
 
     const systemPrompt = `You are an intelligent supermarket shopping reconciliation assistant (BalkanBite).
@@ -951,12 +858,14 @@ Return strictly JSON format:
 
     const parsed = JSON.parse(response.text || "{}");
     if (!parsed.spokenFeedback) {
-      parsed.spokenFeedback = fallbackReconcileShopping(transcript, currentShoppingList, language).spokenFeedback;
+      parsed.spokenFeedback = shoppingReconciliationReviewMessage(language);
     }
     return res.json(parsed);
   } catch (err: any) {
-    console.warn("OpenAI API error in reconcile-shopping, using fallback:", err.message || err);
-    return res.json(fallbackReconcileShopping(transcript, currentShoppingList, language));
+    console.warn("OpenAI API error in reconcile-shopping:", err.message || err);
+    return res
+      .status(503)
+      .json(shoppingReconciliationUnavailablePayload(language));
   }
 });
 
