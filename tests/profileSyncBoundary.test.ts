@@ -1,5 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { removeHealthProfileField } from "../src/utils/healthProfile";
 import {
   createSignedInProfileDefaults,
   getUserProfileCacheKey,
@@ -316,4 +317,67 @@ test("legacy food-restriction values survive read until the user explicitly clea
 
   assert.equal(cleared.dietStyle, "all");
   assert.equal(cleared.allergies, null);
+});
+
+
+test("removing one HealthProfile field clears it in cloud serialization without touching siblings", () => {
+  const profile = sanitizeRemoteUserProfile({
+    name: "Alex",
+    healthProfile: {
+      version: 1,
+      ageYears: {
+        status: "known",
+        value: 35,
+        source: "self_reported",
+      },
+      heightCm: {
+        status: "known",
+        value: 175,
+        source: "measured",
+      },
+    },
+  });
+
+  const healthProfile = removeHealthProfileField(
+    profile.healthProfile,
+    "ageYears",
+  );
+  const serialized = serializeUserProfileForFirestore({
+    ...profile,
+    healthProfile,
+  });
+  const cloudHealth = serialized.healthProfile as Record<string, unknown>;
+
+  assert.equal(cloudHealth.ageYears, null);
+  assert.deepEqual(cloudHealth.heightCm, {
+    status: "known",
+    value: 175,
+    source: "measured",
+    recordedAt: null,
+  });
+});
+
+test("removing the final HealthProfile field serializes the whole cloud profile as null", () => {
+  const profile = sanitizeRemoteUserProfile({
+    name: "Alex",
+    healthProfile: {
+      version: 1,
+      weightKg: {
+        status: "unknown",
+        source: "self_reported",
+      },
+    },
+  });
+
+  const healthProfile = removeHealthProfileField(
+    profile.healthProfile,
+    "weightKg",
+  );
+  const serialized = serializeUserProfileForFirestore({
+    ...profile,
+    healthProfile,
+  });
+
+  assert.equal(healthProfile, undefined);
+  assert.equal(serialized.healthProfile, null);
 });
