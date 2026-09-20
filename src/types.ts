@@ -114,7 +114,7 @@ export interface HealthDatum<T> {
  */
 export type PhysiologicalSexForEnergy = "female" | "male";
 
-export type AdultActivityCategoryForEnergy =
+export type AdultPhysicalActivityCategory =
   | "low_active"
   | "moderately_active"
   | "active"
@@ -138,7 +138,7 @@ export interface HealthProfile {
    * Whole-day activity category selected explicitly by the user.
    * The corresponding PAL remains a derived, approximate value.
    */
-  activityCategory?: HealthDatum<AdultActivityCategoryForEnergy>;
+  activityCategory?: HealthDatum<AdultPhysicalActivityCategory>;
   /**
    * Collected only when needed by a calculation path.
    * Absence never means "not pregnant or lactating".
