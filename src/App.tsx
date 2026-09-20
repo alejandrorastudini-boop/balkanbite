@@ -1148,6 +1148,19 @@ export default function App() {
             />
           )}
 
+          {activeTab === "pantry" && inventoryIsProvisional && profile.onboardingCompleted && (
+            <div
+              role="status"
+              className="mb-3 rounded-lg border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-center text-[11px] font-semibold text-amber-200/90"
+            >
+              {profile.language === "es"
+                ? "Sincronizando inventario…"
+                : profile.language === "bg"
+                ? "Синхронизиране на наличностите…"
+                : "Syncing inventory…"}
+            </div>
+          )}
+
           {activeTab === "pantry" && (
             <PantryView
               pantry={pantry}
@@ -1284,19 +1297,6 @@ export default function App() {
           onLogMeal={handleLogMeal}
           language={profile.language}
         />
-
-        {inventoryIsProvisional && (
-          <div
-            role="status"
-            className="fixed left-4 right-4 top-20 z-[90] rounded-xl border border-amber-500/40 bg-stone-950/95 px-4 py-3 text-center text-sm font-semibold text-amber-200 shadow-lg"
-          >
-            {profile.language === "es"
-              ? "El inventario en este dispositivo es provisional mientras llega la primera sincronización. Los cambios no se guardarán en la nube todavía."
-              : profile.language === "bg"
-              ? "Наличностите на това устройство са временни до първото синхронизиране. Промените все още няма да се запазват в облака."
-              : "Inventory on this device is provisional until the first sync arrives. Changes will not be saved to the cloud yet."}
-          </div>
-        )}
 
         {!canRenderApp && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 backdrop-blur-sm">
