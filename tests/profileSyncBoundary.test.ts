@@ -18,6 +18,7 @@ test("new signed-in profiles do not inherit guest completion or preferences", ()
   assert.deepEqual(profile.disliked, []);
   assert.equal(profile.monthlyBudgetEUR, undefined);
   assert.equal(profile.householdSize, undefined);
+  assert.equal(profile.healthProfile, undefined);
 });
 
 test("remote profiles are rebuilt from allowed fields instead of merged with another session", () => {
@@ -90,6 +91,9 @@ test("Firestore profile serialization preserves unknowns as null, never undefine
   assert.equal(serialized.householdSize, null);
   assert.equal(serialized.cookingLevel, null);
   assert.equal(serialized.monthlyBudgetEUR, null);
+  assert.equal(serialized.healthProfile, null);
+  assert.equal(serialized.heightCm, null);
+  assert.equal(serialized.weightKg, null);
   assert.equal(
     Object.values(serialized).some((value) => value === undefined),
     false,
@@ -149,27 +153,55 @@ test("Firestore serialization never emits undefined when required runtime fields
 });
 
 
-test("optional body metrics persist when valid and remain unknown otherwise", () => {
-  const profile = {
-    ...createSignedInProfileDefaults("Alex"),
-    heightCm: 182.5,
-    weightKg: 79.4,
-  };
-  const serialized = serializeUserProfileForFirestore(profile);
-  assert.equal(serialized.heightCm, 182.5);
-  assert.equal(serialized.weightKg, 79.4);
-
-  const absent = serializeUserProfileForFirestore(
-    createSignedInProfileDefaults("Alex"),
-  );
-  assert.equal(absent.heightCm, null);
-  assert.equal(absent.weightKg, null);
-
-  const sanitized = sanitizeRemoteUserProfile({
-    ...serialized,
-    heightCm: -10,
-    weightKg: Number.NaN,
+test("optional body metrics persist through HealthProfile and legacy fields are cleared", () => {
+  const profile = sanitizeRemoteUserProfile({
+    name: "Alex",
+    healthProfile: {
+      version: 1,
+      heightCm: {
+        status: "known",
+        value: 182.5,
+        source: "measured",
+        recordedAt: "2026-09-20T07:00:00.000Z",
+      },
+      weightKg: {
+        status: "known",
+        value: 79.4,
+        source: "self_reported",
+        recordedAt: "2026-09-20T07:00:00.000Z",
+      },
+    },
   });
-  assert.equal(sanitized.heightCm, undefined);
-  assert.equal(sanitized.weightKg, undefined);
+  const serialized = serializeUserProfileForFirestore(profile);
+
+  assert.deepEqual(serialized.healthProfile, {
+    version: 1,
+    heightCm: {
+      status: "known",
+      value: 182.5,
+      source: "measured",
+      recordedAt: "2026-09-20T07:00:00.000Z",
+    },
+    weightKg: {
+      status: "known",
+      value: 79.4,
+      source: "self_reported",
+      recordedAt: "2026-09-20T07:00:00.000Z",
+    },
+  });
+  assert.equal(serialized.heightCm, null);
+  assert.equal(serialized.weightKg, null);
+});
+
+test("legacy remote body metrics migrate into HealthProfile on read", () => {
+  const sanitized = sanitizeRemoteUserProfile({
+    name: "Legacy",
+    heightCm: 175,
+    weightKg: 70,
+  });
+
+  assert.equal(sanitized.healthProfile?.heightCm?.value, 175);
+  assert.equal(sanitized.healthProfile?.heightCm?.source, "self_reported");
+  assert.equal(sanitized.healthProfile?.weightKg?.value, 70);
+  assert.equal(sanitized.healthProfile?.weightKg?.source, "self_reported");
 });
