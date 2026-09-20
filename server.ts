@@ -797,7 +797,7 @@ IMPORTANT RULES:
 Return strictly JSON format:
 {
   "actionType": "MEAL_LOG" | "RECIPE_RECOMMENDATION" | "ADD_ITEMS" | "REMOVE_ITEMS" | "ADD_SHOPPING" | "ANSWER",
-  "spokenFeedback": "Complete, friendly nutritionist response addressing all user points in ${language}.",
+  "spokenFeedback": "Complete, friendly food-planning response addressing all user points in ${language}.",
   "items": [{ "name": "string", "quantity": number, "unit": "string", "category": "Produce"|"Dairy"|"Meat/Fish"|"Pantry/Grains"|"Spices"|"Other" }],
   "mealLog": null
 }`;
