@@ -1,8 +1,7 @@
+import type { AdultPhysicalActivityCategory as HealthAdultPhysicalActivityCategory } from "../types";
+
 export type AdultPhysicalActivityCategory =
-  | "low_active"
-  | "moderately_active"
-  | "active"
-  | "very_active";
+  HealthAdultPhysicalActivityCategory;
 
 export type EfsaAdultPal = 1.4 | 1.6 | 1.8 | 2.0;
 

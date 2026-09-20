@@ -112,11 +112,38 @@ export interface HealthDatum<T> {
  * Keep derived metrics (for example BMI) out of persisted state when they can
  * be recalculated deterministically from authoritative inputs.
  */
+export type PhysiologicalSexForEnergy = "female" | "male";
+
+export type AdultPhysicalActivityCategory =
+  | "low_active"
+  | "moderately_active"
+  | "active"
+  | "very_active";
+
+export type PregnancyLactationStatus =
+  | "not_pregnant_or_lactating"
+  | "pregnant_or_lactating";
+
 export interface HealthProfile {
   version: 1;
   ageYears?: HealthDatum<number>;
   heightCm?: HealthDatum<number>;
   weightKg?: HealthDatum<number>;
+  /**
+   * Optional physiological input for source-backed energy equations.
+   * This is not a gender-identity field and must never receive a default.
+   */
+  physiologicalSex?: HealthDatum<PhysiologicalSexForEnergy>;
+  /**
+   * Whole-day activity category selected explicitly by the user.
+   * The corresponding PAL remains a derived, approximate value.
+   */
+  activityCategory?: HealthDatum<AdultPhysicalActivityCategory>;
+  /**
+   * Collected only when needed by a calculation path.
+   * Absence never means "not pregnant or lactating".
+   */
+  pregnancyLactationStatus?: HealthDatum<PregnancyLactationStatus>;
 }
 
 export interface UserProfile {

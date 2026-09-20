@@ -114,5 +114,54 @@ test("HealthProfile serialization never emits undefined, including nested fields
       recordedAt: null,
     },
     weightKg: null,
+    physiologicalSex: null,
+    activityCategory: null,
+    pregnancyLactationStatus: null,
   });
+});
+
+
+test("HealthProfile preserves explicit categorical energy inputs and provenance", () => {
+  const profile = sanitizeHealthProfile({
+    version: 1,
+    physiologicalSex: {
+      status: "known",
+      value: "female",
+      source: "self_reported",
+      recordedAt: "2026-09-20T09:00:00.000Z",
+    },
+    activityCategory: {
+      status: "known",
+      value: "moderately_active",
+      source: "self_reported",
+      recordedAt: "2026-09-20T09:00:00.000Z",
+    },
+    pregnancyLactationStatus: {
+      status: "prefer_not_to_say",
+      source: "self_reported",
+    },
+  });
+
+  assert.equal(profile?.physiologicalSex?.value, "female");
+  assert.equal(profile?.activityCategory?.value, "moderately_active");
+  assert.equal(profile?.pregnancyLactationStatus?.status, "prefer_not_to_say");
+  assert.equal(profile?.pregnancyLactationStatus?.value, undefined);
+});
+
+test("invalid categorical energy values are not converted into health facts", () => {
+  const profile = sanitizeHealthProfile({
+    version: 1,
+    physiologicalSex: {
+      status: "known",
+      value: "unknown-from-ai",
+      source: "estimated",
+    },
+    activityCategory: {
+      status: "known",
+      value: "sedentary",
+      source: "estimated",
+    },
+  });
+
+  assert.equal(profile, undefined);
 });

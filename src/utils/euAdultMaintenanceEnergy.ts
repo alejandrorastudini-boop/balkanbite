@@ -1,16 +1,19 @@
+import type {
+  PhysiologicalSexForEnergy,
+  PregnancyLactationStatus,
+} from "../types";
+
 import {
   getEfsaPalForAdultActivityCategory,
   parseAdultPhysicalActivityCategory,
   type AdultPhysicalActivityCategory,
 } from "./adultPhysicalActivity";
 
-export type EfsaAdultEnergySex = "female" | "male";
+export type EfsaAdultEnergySex = PhysiologicalSexForEnergy;
 
 export type EfsaAdultPhysicalActivityCategory = AdultPhysicalActivityCategory;
 
-export type EfsaPregnancyLactationStatus =
-  | "not_pregnant_or_lactating"
-  | "pregnant_or_lactating";
+export type EfsaPregnancyLactationStatus = PregnancyLactationStatus;
 
 export type EfsaAdultEnergyField =
   | "ageYears"

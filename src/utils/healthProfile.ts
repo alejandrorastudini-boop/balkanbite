@@ -1,8 +1,11 @@
 import type {
+  AdultPhysicalActivityCategory,
   HealthDataSource,
   HealthDataStatus,
   HealthDatum,
   HealthProfile,
+  PhysiologicalSexForEnergy,
+  PregnancyLactationStatus,
 } from "../types";
 
 const HEALTH_DATA_STATUSES = new Set<HealthDataStatus>([
@@ -72,6 +75,65 @@ function sanitizePositiveNumberDatum(
   };
 }
 
+function sanitizeCategoricalDatum<T extends string>(
+  value: unknown,
+  allowed: ReadonlySet<T>,
+): HealthDatum<T> | undefined {
+  if (!isRecord(value)) return undefined;
+
+  const status =
+    typeof value.status === "string" &&
+    HEALTH_DATA_STATUSES.has(value.status as HealthDataStatus)
+      ? (value.status as HealthDataStatus)
+      : undefined;
+  if (!status) return undefined;
+
+  const source =
+    typeof value.source === "string" &&
+    HEALTH_DATA_SOURCES.has(value.source as HealthDataSource)
+      ? (value.source as HealthDataSource)
+      : undefined;
+  const recordedAt = validRecordedAt(value.recordedAt);
+
+  if (status !== "known") {
+    return {
+      status,
+      ...(source ? { source } : {}),
+      ...(recordedAt ? { recordedAt } : {}),
+    };
+  }
+
+  const categoricalValue =
+    typeof value.value === "string" && allowed.has(value.value as T)
+      ? (value.value as T)
+      : undefined;
+  if (!categoricalValue) return undefined;
+
+  return {
+    status: "known",
+    value: categoricalValue,
+    ...(source ? { source } : {}),
+    ...(recordedAt ? { recordedAt } : {}),
+  };
+}
+
+const PHYSIOLOGICAL_SEX_VALUES = new Set<PhysiologicalSexForEnergy>([
+  "female",
+  "male",
+]);
+
+const ADULT_ACTIVITY_VALUES = new Set<AdultPhysicalActivityCategory>([
+  "low_active",
+  "moderately_active",
+  "active",
+  "very_active",
+]);
+
+const PREGNANCY_LACTATION_VALUES = new Set<PregnancyLactationStatus>([
+  "not_pregnant_or_lactating",
+  "pregnant_or_lactating",
+]);
+
 function legacySelfReportedDatum(
   value: unknown,
 ): HealthDatum<number> | undefined {
@@ -98,6 +160,15 @@ export function sanitizeHealthProfile(
     raw !== undefined && Object.prototype.hasOwnProperty.call(raw, "heightCm");
   const hasNestedWeight =
     raw !== undefined && Object.prototype.hasOwnProperty.call(raw, "weightKg");
+  const hasNestedPhysiologicalSex =
+    raw !== undefined &&
+    Object.prototype.hasOwnProperty.call(raw, "physiologicalSex");
+  const hasNestedActivityCategory =
+    raw !== undefined &&
+    Object.prototype.hasOwnProperty.call(raw, "activityCategory");
+  const hasNestedPregnancyLactationStatus =
+    raw !== undefined &&
+    Object.prototype.hasOwnProperty.call(raw, "pregnancyLactationStatus");
 
   const ageYears = hasNestedAge
     ? sanitizePositiveNumberDatum(raw?.ageYears)
@@ -108,14 +179,58 @@ export function sanitizeHealthProfile(
   const weightKg = hasNestedWeight
     ? sanitizePositiveNumberDatum(raw?.weightKg)
     : legacySelfReportedDatum(legacyWeightKg);
+  const physiologicalSex = hasNestedPhysiologicalSex
+    ? sanitizeCategoricalDatum(
+        raw?.physiologicalSex,
+        PHYSIOLOGICAL_SEX_VALUES,
+      )
+    : undefined;
+  const activityCategory = hasNestedActivityCategory
+    ? sanitizeCategoricalDatum(raw?.activityCategory, ADULT_ACTIVITY_VALUES)
+    : undefined;
+  const pregnancyLactationStatus = hasNestedPregnancyLactationStatus
+    ? sanitizeCategoricalDatum(
+        raw?.pregnancyLactationStatus,
+        PREGNANCY_LACTATION_VALUES,
+      )
+    : undefined;
 
-  if (!ageYears && !heightCm && !weightKg) return undefined;
+  if (
+    !ageYears &&
+    !heightCm &&
+    !weightKg &&
+    !physiologicalSex &&
+    !activityCategory &&
+    !pregnancyLactationStatus
+  ) {
+    return undefined;
+  }
 
   return {
     version: 1,
     ...(ageYears ? { ageYears } : {}),
     ...(heightCm ? { heightCm } : {}),
     ...(weightKg ? { weightKg } : {}),
+    ...(physiologicalSex ? { physiologicalSex } : {}),
+    ...(activityCategory ? { activityCategory } : {}),
+    ...(pregnancyLactationStatus
+      ? { pregnancyLactationStatus }
+      : {}),
+  };
+}
+
+function serializeCategoricalDatum<T extends string>(
+  datum: HealthDatum<T> | undefined,
+  allowed: ReadonlySet<T>,
+): Record<string, unknown> | null {
+  const safe = sanitizeCategoricalDatum(datum, allowed);
+  if (!safe) return null;
+
+  return {
+    status: safe.status,
+    value: safe.status === "known" ? safe.value ?? null : null,
+    source: safe.source ?? null,
+    recordedAt: safe.recordedAt ?? null,
   };
 }
 
@@ -144,6 +259,18 @@ export function serializeHealthProfile(
     ageYears: serializePositiveNumberDatum(safe.ageYears),
     heightCm: serializePositiveNumberDatum(safe.heightCm),
     weightKg: serializePositiveNumberDatum(safe.weightKg),
+    physiologicalSex: serializeCategoricalDatum(
+      safe.physiologicalSex,
+      PHYSIOLOGICAL_SEX_VALUES,
+    ),
+    activityCategory: serializeCategoricalDatum(
+      safe.activityCategory,
+      ADULT_ACTIVITY_VALUES,
+    ),
+    pregnancyLactationStatus: serializeCategoricalDatum(
+      safe.pregnancyLactationStatus,
+      PREGNANCY_LACTATION_VALUES,
+    ),
   };
 }
 
@@ -156,6 +283,15 @@ export function cloneHealthProfile(
     ...(profile.ageYears ? { ageYears: { ...profile.ageYears } } : {}),
     ...(profile.heightCm ? { heightCm: { ...profile.heightCm } } : {}),
     ...(profile.weightKg ? { weightKg: { ...profile.weightKg } } : {}),
+    ...(profile.physiologicalSex
+      ? { physiologicalSex: { ...profile.physiologicalSex } }
+      : {}),
+    ...(profile.activityCategory
+      ? { activityCategory: { ...profile.activityCategory } }
+      : {}),
+    ...(profile.pregnancyLactationStatus
+      ? { pregnancyLactationStatus: { ...profile.pregnancyLactationStatus } }
+      : {}),
   };
 }
 
@@ -196,4 +332,11 @@ export function getKnownHealthNumber(
 ): number | undefined {
   if (datum?.status !== "known") return undefined;
   return positiveFiniteNumber(datum.value);
+}
+
+
+export function getKnownHealthValue<T>(
+  datum: HealthDatum<T> | undefined,
+): T | undefined {
+  return datum?.status === "known" ? datum.value : undefined;
 }
