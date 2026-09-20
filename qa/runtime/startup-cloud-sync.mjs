@@ -350,6 +350,27 @@ async function runProfileHealthDataControlScenario(context) {
       "QA profile must start with stored HealthProfile data"
     );
 
+    const progressCard = page.getByTestId("profile-verified-activity-card");
+    await progressCard.waitFor({ state: "visible", timeout: 5_000 });
+    assert.equal(
+      (await page.locator("#profile-progress-total").textContent())?.trim(),
+      "0",
+      "profile QA zero state must render verified activity as zero"
+    );
+    assert.equal(
+      (await page.locator("#profile-progress-purchases").textContent())?.trim(),
+      "0",
+      "profile QA zero state must render purchase activity as zero"
+    );
+    assert.equal(
+      (await page.locator("#profile-progress-cooks").textContent())?.trim(),
+      "0",
+      "profile QA zero state must render cook activity as zero"
+    );
+    await page
+      .locator("#profile-progress-boundary-copy")
+      .waitFor({ state: "visible", timeout: 5_000 });
+
     const fieldIds = [
       "ageYears",
       "heightCm",
