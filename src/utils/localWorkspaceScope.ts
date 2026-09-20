@@ -1,6 +1,7 @@
 export type LocalWorkspaceKey =
   | "balkanbite_meallogs"
-  | "balkanbite_chat_messages";
+  | "balkanbite_chat_messages"
+  | "balkanbite_progression";
 
 export function getUserLocalWorkspaceKey(
   baseKey: LocalWorkspaceKey,
