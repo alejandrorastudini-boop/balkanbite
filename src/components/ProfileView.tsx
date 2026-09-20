@@ -38,6 +38,7 @@ import {
   type HealthProfileFieldKey,
 } from "../utils/healthProfile";
 import { correctExistingHealthProfileField } from "../utils/healthProfileCorrection";
+import type { ProgressionActivitySummaryV1 } from "../utils/progressionLedger";
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -48,6 +49,7 @@ interface ProfileViewProps {
   onOpenAuthModal?: () => void;
   language: Language;
   currency: Currency;
+  progressionSummary: ProgressionActivitySummaryV1;
 }
 
 
@@ -215,6 +217,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onOpenAuthModal,
   language,
   currency,
+  progressionSummary,
 }) => {
   const currentText = t[language];
   const [newDislike, setNewDislike] = useState("");
@@ -479,6 +482,114 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       </div>
 
       <AdminAgentStatusPanel />
+
+      <div
+        id="profile-verified-activity-card"
+        data-testid="profile-verified-activity-card"
+        className="bg-[#131A1F]/60 backdrop-blur-md border border-emerald-500/20 rounded-3xl p-5 shadow-[0_8px_30px_rgba(16,185,129,0.06)] space-y-4"
+      >
+        <div className="flex items-start gap-3">
+          <div className="w-10 h-10 rounded-xl bg-emerald-500/10 border border-emerald-500/20 text-emerald-400 flex items-center justify-center shrink-0">
+            <Zap className="w-5 h-5" />
+          </div>
+          <div className="space-y-1">
+            <h3 className="text-base font-bold text-white font-['Outfit'] tracking-wide">
+              {language === "bg"
+                ? "Потвърдена активност"
+                : language === "es"
+                ? "Actividad verificada"
+                : "Verified activity"}
+            </h3>
+            <p className="text-sm text-stone-400 leading-relaxed">
+              {language === "bg"
+                ? "Показва само действия от основния хранителен цикъл, които BalkanBite е потвърдил чрез реална промяна в данните."
+                : language === "es"
+                ? "Muestra solo acciones del ciclo principal de alimentación que BalkanBite pudo confirmar mediante un cambio real en los datos."
+                : "Shows only core food-loop actions BalkanBite could confirm through a real data change."}
+            </p>
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+          <div className="rounded-2xl bg-black/25 border border-white/[0.06] p-4">
+            <div
+              id="profile-progress-total"
+              className="text-2xl font-extrabold text-emerald-300 font-['Outfit']"
+            >
+              {progressionSummary.totalVerifiedEvents}
+            </div>
+            <div className="text-xs text-stone-400 mt-1">
+              {language === "bg"
+                ? "Потвърдени събития"
+                : language === "es"
+                ? "Eventos verificados"
+                : "Verified events"}
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-black/25 border border-white/[0.06] p-4">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="w-4 h-4 text-teal-400" />
+              <span
+                id="profile-progress-purchases"
+                className="text-xl font-extrabold text-white font-['Outfit']"
+              >
+                {progressionSummary.confirmedPurchaseEvents}
+              </span>
+            </div>
+            <div className="text-xs text-stone-400 mt-2">
+              {language === "bg"
+                ? "Покупки, добавени в наличност"
+                : language === "es"
+                ? "Compras aplicadas a despensa"
+                : "Purchases applied to pantry"}
+            </div>
+          </div>
+
+          <div className="rounded-2xl bg-black/25 border border-white/[0.06] p-4">
+            <div className="flex items-center gap-2">
+              <Utensils className="w-4 h-4 text-amber-400" />
+              <span
+                id="profile-progress-cooks"
+                className="text-xl font-extrabold text-white font-['Outfit']"
+              >
+                {progressionSummary.successfulCookEvents}
+              </span>
+            </div>
+            <div className="text-xs text-stone-400 mt-2">
+              {language === "bg"
+                ? "Готвения с реално намаление на наличностите"
+                : language === "es"
+                ? "Cocinados con descuento real de despensa"
+                : "Cooks with real pantry deductions"}
+            </div>
+          </div>
+        </div>
+
+        {progressionSummary.totalVerifiedEvents === 0 && (
+          <p
+            id="profile-progress-zero-copy"
+            className="text-xs text-stone-500 leading-relaxed"
+          >
+            {language === "bg"
+              ? "Все още няма потвърдена активност. Това не е отрицателен резултат — запис се създава само когато действие действително промени наличностите."
+              : language === "es"
+              ? "Aún no hay actividad verificada. No es un resultado negativo: solo se registra cuando una acción modifica realmente la despensa."
+              : "There is no verified activity yet. This is not a negative result: an event is recorded only when an action actually changes pantry state."}
+          </p>
+        )}
+
+        <p
+          id="profile-progress-boundary-copy"
+          className="text-xs text-stone-500 leading-relaxed border-t border-white/[0.04] pt-3"
+        >
+          {language === "bg"
+            ? "Това не е здравен резултат и не е баланс с награди. Не оценява тегло, калории или медицински резултати."
+            : language === "es"
+            ? "Esto no es una puntuación de salud ni un saldo de recompensas. No evalúa peso, calorías ni resultados médicos."
+            : "This is not a health score or a reward balance. It does not evaluate weight, calories, or medical outcomes."}
+        </p>
+      </div>
 
       {/* BalkanBite Logo Showcase & Download Card */}
       <div className="bg-[#131A1F]/60 backdrop-blur-md border border-white/[0.06] rounded-3xl p-5 shadow-[0_8px_30px_rgba(0,0,0,0.4)] space-y-4">

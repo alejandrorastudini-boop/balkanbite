@@ -98,6 +98,11 @@ export function ProfileHealthDataQaHarness() {
           onResetApp={() => {}}
           language="en"
           currency="EUR"
+          progressionSummary={{
+            totalVerifiedEvents: 0,
+            confirmedPurchaseEvents: 0,
+            successfulCookEvents: 0,
+          }}
         />
       </div>
     </div>

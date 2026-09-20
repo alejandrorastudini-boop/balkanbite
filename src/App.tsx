@@ -74,6 +74,7 @@ import {
   buildRecipeCookProgressEvent,
   createProgressionActionId,
   parseProgressionLedgerCache,
+  summarizeProgressionActivity,
   type ProgressionLedgerV1,
 } from "./utils/progressionLedger";
 
@@ -140,6 +141,11 @@ export default function App() {
 
   const [progressionLedger, setProgressionLedger] = useState<ProgressionLedgerV1>(
     () => parseProgressionLedgerCache(localStorage.getItem("balkanbite_progression"))
+  );
+
+  const progressionSummary = useMemo(
+    () => summarizeProgressionActivity(progressionLedger),
+    [progressionLedger]
   );
 
   const [profile, setProfile] = useState<UserProfile>(() =>
@@ -1335,6 +1341,7 @@ export default function App() {
               isLoadingAi={isLoadingAi}
               language={profile.language}
               currency={profile.currency}
+              progressionSummary={progressionSummary}
               theme={theme}
             />
           )}

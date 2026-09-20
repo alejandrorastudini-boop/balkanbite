@@ -158,6 +158,34 @@ export function eligibleProgressEventCount(
   return ledger.filter(isValidProgressionEvent).length;
 }
 
+export interface ProgressionActivitySummaryV1 {
+  totalVerifiedEvents: number;
+  confirmedPurchaseEvents: number;
+  successfulCookEvents: number;
+}
+
+export function summarizeProgressionActivity(
+  ledger: readonly ProgressionEventV1[],
+): ProgressionActivitySummaryV1 {
+  let confirmedPurchaseEvents = 0;
+  let successfulCookEvents = 0;
+
+  for (const event of ledger) {
+    if (!isValidProgressionEvent(event)) continue;
+    if (event.type === "confirmed_purchase_applied") {
+      confirmedPurchaseEvents += 1;
+    } else if (event.type === "recipe_cook_inventory_applied") {
+      successfulCookEvents += 1;
+    }
+  }
+
+  return {
+    totalVerifiedEvents: confirmedPurchaseEvents + successfulCookEvents,
+    confirmedPurchaseEvents,
+    successfulCookEvents,
+  };
+}
+
 export interface RecipeCookProgressEvidence {
   actionId: string;
   occurredAt: string;
