@@ -16,7 +16,7 @@ test("daily nutrition summary does not present universal personalized targets", 
 });
 
 test("daily nutrition summary labels values as verified logged totals, not recommendations", () => {
-  assert.match(source, /Verified nutrition logged/);
+  assert.match(source, /Verified logged nutrition/);
   assert.match(source, /does not calculate personalized daily targets yet/);
   assert.match(source, /\$\{Math\.round\(stat\.value\)\} \$\{stat\.unit\}/);
 });
