@@ -26,6 +26,7 @@ import { ConfirmModal } from "./ConfirmModal";
 import { AdminAgentStatusPanel } from "./AdminAgentStatusPortal";
 import { signInWithGoogle, logout, auth } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
+import { getLocalResetCopy } from "../utils/localResetCopy";
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -56,6 +57,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [isInstalled, setIsInstalled] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [user, setUser] = useState<User | null>(null);
+  const localResetCopy = getLocalResetCopy(language, user !== null);
 
   useEffect(() => {
     const unsub = onAuthStateChanged(auth, (u) => setUser(u));
@@ -294,7 +296,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       )}
 
-      <div className="pt-8 pb-10"><button onClick={() => setShowResetConfirm(true)} className="w-full py-4 px-4 border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 hover:border-rose-500/40 text-rose-400 text-sm font-bold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-inner"><RotateCcw className="w-5 h-5" /><span className="tracking-wide uppercase font-['Outfit']">{currentText.resetAppTitle}</span></button></div>
+      <div className="pt-8 pb-10"><button onClick={() => setShowResetConfirm(true)} className="w-full py-4 px-4 border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 hover:border-rose-500/40 text-rose-400 text-sm font-bold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-inner"><RotateCcw className="w-5 h-5" /><span className="tracking-wide uppercase font-['Outfit']">{localResetCopy.buttonLabel}</span></button></div>
 
       <ConfirmModal
         isOpen={showClearHealthDataConfirm}
@@ -328,7 +330,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         danger={true}
       />
 
-      <ConfirmModal isOpen={showResetConfirm} onClose={() => setShowResetConfirm(false)} onConfirm={onResetApp} title={currentText.resetAppTitle} description={currentText.resetAppConfirm} confirmText={currentText.yesResetAll} cancelText={currentText.cancel} danger={true} />
+      <ConfirmModal
+        isOpen={showResetConfirm}
+        onClose={() => setShowResetConfirm(false)}
+        onConfirm={onResetApp}
+        title={localResetCopy.title}
+        description={localResetCopy.description}
+        confirmText={localResetCopy.confirmText}
+        cancelText={currentText.cancel}
+        danger={true}
+      />
     </div>
   );
 };
