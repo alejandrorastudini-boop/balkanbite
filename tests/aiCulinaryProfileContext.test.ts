@@ -29,12 +29,12 @@ test("generic AI context allowlists culinary preferences and drops health/accoun
     cookingSpeed: "moderate",
     dietStyle: "vegetarian",
     disliked: ["mushrooms"],
-    allergies: ["peanuts"],
     householdSize: 3,
     appliances: ["Airfryer", "Oven"],
     monthlyBudgetEUR: 240,
   });
 
+  assert.equal("allergies" in context, false);
   assert.equal("healthGoal" in context, false);
   assert.equal("healthProfile" in context, false);
   assert.equal("isProSubscriber" in context, false);
@@ -53,5 +53,25 @@ test("generic AI context invents no defaults for missing or invalid preferences"
       appliances: [],
     }),
     {},
+  );
+});
+
+
+test("generic AI context quarantines legacy gluten-free and keto labels", () => {
+  assert.deepEqual(
+    buildAiCulinaryProfileContext({
+      dietStyle: "gluten_free",
+      allergies: ["Gluten"],
+      cookingSpeed: "fast",
+    }),
+    { cookingSpeed: "fast" },
+  );
+
+  assert.deepEqual(
+    buildAiCulinaryProfileContext({
+      dietStyle: "keto",
+      cookingSpeed: "moderate",
+    }),
+    { cookingSpeed: "moderate" },
   );
 });
