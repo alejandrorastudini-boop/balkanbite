@@ -418,7 +418,7 @@ export const SAMPLE_RECIPES: Recipe[] = [
   }
 ];
 
-export const INITIAL_RECIPES: Recipe[] = SAMPLE_RECIPES;
+export const INITIAL_RECIPES: Recipe[] = [];
 
 export const INITIAL_SHOPPING: ShoppingItem[] = [];
 
