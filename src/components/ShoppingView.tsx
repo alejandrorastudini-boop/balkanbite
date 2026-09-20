@@ -6,7 +6,6 @@ import {
   CheckCircle2,
   Sparkles,
   ArrowRight,
-  TrendingDown,
   Layers,
   RefreshCw,
   Share2,
@@ -253,18 +252,6 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
           <span className="text-xs text-stone-400 font-bold uppercase tracking-widest px-2">
             {shoppingList.length} {currentText.shoppingItemsInList}
           </span>
-          {/* Smart Supermarket Savings Radar */}
-          <div className="hidden sm:flex items-center gap-1.5 text-[11px] px-3 py-1.5 rounded-lg bg-emerald-500/10 text-emerald-400 border border-emerald-500/20 font-bold uppercase tracking-widest">
-            <TrendingDown className="w-3.5 h-3.5 text-emerald-400" />
-            <span>
-              {currency === "EUR" ? "~€14.50" : "~$16.00"}{" "}
-              {language === "es"
-                ? "ahorro"
-                : language === "bg"
-                ? "спестяване"
-                : "savings"}
-            </span>
-          </div>
         </div>
 
         <div className="flex items-center gap-2">
