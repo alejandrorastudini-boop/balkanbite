@@ -589,6 +589,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             ? "Esto no es una puntuación de salud ni un saldo de recompensas. No evalúa peso, calorías ni resultados médicos."
             : "This is not a health score or a reward balance. It does not evaluate weight, calories, or medical outcomes."}
         </p>
+        <p
+          id="profile-progress-storage-copy"
+          className="text-xs text-stone-500 leading-relaxed"
+        >
+          {language === "bg"
+            ? "Засега тази история на активността се съхранява само на това устройство и не се синхронизира с вашия акаунт."
+            : language === "es"
+            ? "Por ahora, este historial de actividad se guarda solo en este dispositivo y no se sincroniza con tu cuenta."
+            : "For now, this activity history is stored only on this device and is not synced to your account."}
+        </p>
       </div>
 
       {/* BalkanBite Logo Showcase & Download Card */}
