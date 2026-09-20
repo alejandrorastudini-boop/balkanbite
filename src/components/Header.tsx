@@ -1,5 +1,5 @@
 import React from "react";
-import { Sparkles, Smartphone, Monitor, Sun, Moon, Globe, User as UserIcon, Bell, BellRing, ShoppingCart } from "lucide-react";
+import { Smartphone, Monitor, Sun, Moon, Globe, User as UserIcon, Bell, BellRing, ShoppingCart } from "lucide-react";
 import { User } from "firebase/auth";
 import { Language, Currency } from "../types";
 import { t } from "../utils/translations";
