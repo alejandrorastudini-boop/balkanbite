@@ -87,3 +87,16 @@ test("fresh-guest onboarding has an isolated runtime QA route", () => {
   assert.match(runtimeQaGateSource, /isFreshGuestOnboardingQaRoute/);
   assert.match(mainSource, /FreshGuestOnboardingQaHarness/);
 });
+
+
+test("onboarding navigation labels follow the selected language", () => {
+  assert.doesNotMatch(onboardingSource, /<span>Siguiente<\/span>/);
+  assert.match(
+    onboardingSource,
+    /language === "bg" \? "Напред" : language === "es" \? "Siguiente" : "Next"/,
+  );
+  assert.match(
+    onboardingSource,
+    /language === "bg" \? "Започни" : language === "es" \? "Comenzar Experiencia" : "Start Experience"/,
+  );
+});
