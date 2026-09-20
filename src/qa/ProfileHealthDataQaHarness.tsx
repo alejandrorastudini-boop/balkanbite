@@ -16,7 +16,7 @@ const INITIAL_PROFILE: UserProfile = {
     ageYears: {
       status: "known",
       value: 35,
-      source: "self_reported",
+      source: "imported",
       recordedAt: "2026-09-20T09:00:00.000Z",
     },
     heightCm: {
