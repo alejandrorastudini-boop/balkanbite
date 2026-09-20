@@ -100,18 +100,18 @@ jobs:
           retention-days: 14
 
 
-  luna-preview-smoke:
+  luna-production-smoke:
     if: github.event_name == 'pull_request' && github.head_ref == 'qa/luna-production-e2e-probe-20260920'
     runs-on: ubuntu-24.04
     timeout-minutes: 3
     steps:
-      - name: Call Luna text route on hotfix preview
+      - name: Call production Luna text route
         shell: bash
         run: |
           set -euo pipefail
           response_file="$(mktemp)"
           status="$(curl --silent --show-error --output "$response_file" --write-out "%{http_code}" \
-            --request POST https://balkanbite-git-integration-fix-o-468d6b-alejandrorastudini-6993.vercel.app/api/ai/parse-intent \
+            --request POST https://balkanbite.vercel.app/api/ai/parse-intent \
             --header 'Content-Type: application/json' \
             --data '{"transcript":"Say hello and confirm this food-planning smoke test.","currentPantry":[],"mealLogs":[],"conversationHistory":[],"language":"en"}')"
           echo "HTTP status: $status"
