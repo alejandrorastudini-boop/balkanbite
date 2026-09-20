@@ -380,6 +380,20 @@ async function runProfileHealthDataControlScenario(context) {
       "health-data card must disappear after confirmed deletion"
     );
 
+    const localResetButton = page.getByRole("button", {
+      name: "Reset local app data",
+      exact: true,
+    });
+    await localResetButton.waitFor({ state: "visible", timeout: 5_000 });
+    await localResetButton.click();
+    await page
+      .getByText(
+        "This removes BalkanBite data stored locally in this browser or device. It does not delete data from any cloud account.",
+        { exact: true }
+      )
+      .waitFor({ state: "visible", timeout: 5_000 });
+    await page.getByRole("button", { name: "Cancel", exact: true }).click();
+
     await page.screenshot({
       path: path.join(artifactDir, "profile-health-data-after-delete.png"),
       fullPage: true,
