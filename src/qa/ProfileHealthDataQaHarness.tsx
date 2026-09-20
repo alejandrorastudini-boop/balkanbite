@@ -74,6 +74,20 @@ export function ProfileHealthDataQaHarness() {
             : 0,
         )}
       </span>
+      <span data-testid="qa-health-age-status" className="sr-only">
+        {profile.healthProfile?.ageYears?.status ?? "absent"}
+      </span>
+      <span data-testid="qa-health-age-value" className="sr-only">
+        {profile.healthProfile?.ageYears?.status === "known"
+          ? String(profile.healthProfile.ageYears.value ?? "")
+          : ""}
+      </span>
+      <span data-testid="qa-health-age-source" className="sr-only">
+        {profile.healthProfile?.ageYears?.source ?? "absent"}
+      </span>
+      <span data-testid="qa-health-age-recorded-at" className="sr-only">
+        {profile.healthProfile?.ageYears?.recordedAt ?? "absent"}
+      </span>
       <div className="mx-auto max-w-4xl">
         <ProfileView
           profile={profile}
