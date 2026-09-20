@@ -125,14 +125,6 @@ const DIRECT_RULES: readonly IngredientRule[] = [
     composition: "known",
   },
   {
-    names: [
-      "sulphur dioxide", "sulfur dioxide", "sulphites", "sulfites",
-      "dioxido de azufre", "sulfitos", "серен диоксид", "сулфити",
-    ],
-    restrictionIds: ["eu_annex_ii:sulphur_dioxide_and_sulphites"],
-    composition: "known",
-  },
-  {
     names: ["lupin", "lupine", "altramuz", "altramuces", "лупина"],
     restrictionIds: ["eu_annex_ii:lupin"],
     composition: "known",
@@ -266,7 +258,9 @@ function classifyIngredient(name: unknown): {
  * this narrow ruleset. It is NOT an allergen-safety claim. Cross-contact,
  * "may contain" statements, hidden compound ingredients, manufacturing data,
  * concentration thresholds and product-specific exemptions are outside this
- * evidence boundary and remain unknown.
+ * evidence boundary and remain unknown. In particular, sulphur dioxide /
+ * sulphites cannot become match_detected from a name alone because Annex II
+ * applies a >10 mg/kg or >10 mg/l concentration threshold.
  */
 export function screenRecipeFoodRestrictions(
   ingredients: readonly { name?: unknown }[] | undefined,
