@@ -65,6 +65,8 @@ async function generateWithOpenAI(
         model: OPENAI_MODEL,
         input: params.input,
         store: false,
+        reasoning: { effort: "low" },
+        max_output_tokens: 16_000,
       };
 
       if (params.instructions) {
