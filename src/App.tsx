@@ -840,6 +840,7 @@ export default function App() {
         body: JSON.stringify({
           pantry,
           profile: buildAiCulinaryProfileContext(profile),
+          foodSafety: foodSafetyQuarantine,
           query: queryText || voiceSearchQuery,
           language: profile.language,
         }),
