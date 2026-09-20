@@ -44,6 +44,7 @@ export interface AdultMaintenanceEnergyEstimate {
     report: "Dietary Reference Intakes for Energy";
     year: 2023;
     doi: "10.17226/26818";
+    populationContext: "United States and Canada";
   };
   modelError: {
     metric: "mean_absolute_error";
@@ -111,8 +112,12 @@ const EQUATIONS: Record<
  * The source itself describes individual EER as an estimate and notes that
  * choosing an individual's PAL category is challenging. Callers must not
  * present this result as an exact calorie requirement.
+ *
+ * This primitive is source-specific. Its presence does not make NASEM 2023
+ * the final product method for Bulgaria/EU users; product integration requires
+ * a separate source-selection decision.
  */
-export function estimateAdultMaintenanceEnergy(
+export function estimateAdultMaintenanceEnergyNasem2023(
   input: AdultMaintenanceEnergyInput,
 ): AdultMaintenanceEnergyResult {
   const missing: AdultEnergyRequirementField[] = [];
@@ -219,6 +224,7 @@ export function estimateAdultMaintenanceEnergy(
       report: "Dietary Reference Intakes for Energy",
       year: 2023,
       doi: "10.17226/26818",
+      populationContext: "United States and Canada",
     },
     modelError: {
       metric: "mean_absolute_error",
