@@ -123,3 +123,27 @@ test("Firestore profile serialization clones optional arrays and round-trips nul
   assert.equal(sanitized.householdSize, undefined);
   assert.equal(sanitized.monthlyBudgetEUR, undefined);
 });
+
+
+test("Firestore serialization never emits undefined when required runtime fields are malformed", () => {
+  const malformed = {
+    ...createSignedInProfileDefaults(),
+    name: undefined,
+    language: undefined,
+    currency: undefined,
+    cookingSpeed: undefined,
+    healthGoal: undefined,
+    dietStyle: undefined,
+    disliked: undefined,
+    budgetTier: undefined,
+    isProSubscriber: undefined,
+    onboardingCompleted: undefined,
+  } as unknown as Parameters<typeof serializeUserProfileForFirestore>[0];
+
+  const serialized = serializeUserProfileForFirestore(malformed);
+  assert.equal(
+    Object.values(serialized).some((value) => value === undefined),
+    false,
+  );
+  assert.equal(typeof serialized.name, "string");
+});
