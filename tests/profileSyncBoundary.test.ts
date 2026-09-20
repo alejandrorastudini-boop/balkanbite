@@ -200,6 +200,9 @@ test("optional body metrics persist through HealthProfile and legacy fields are 
       source: "self_reported",
       recordedAt: "2026-09-20T07:00:00.000Z",
     },
+    physiologicalSex: null,
+    activityCategory: null,
+    pregnancyLactationStatus: null,
   });
   assert.equal(serialized.heightCm, null);
   assert.equal(serialized.weightKg, null);
@@ -216,4 +219,52 @@ test("legacy remote body metrics migrate into HealthProfile on read", () => {
   assert.equal(sanitized.healthProfile?.heightCm?.source, "self_reported");
   assert.equal(sanitized.healthProfile?.weightKg?.value, 70);
   assert.equal(sanitized.healthProfile?.weightKg?.source, "self_reported");
+});
+
+
+test("optional energy inputs round-trip without defaults or inference", () => {
+  const profile = sanitizeRemoteUserProfile({
+    name: "Alex",
+    healthProfile: {
+      version: 1,
+      physiologicalSex: {
+        status: "known",
+        value: "male",
+        source: "self_reported",
+        recordedAt: "2026-09-20T09:00:00.000Z",
+      },
+      activityCategory: {
+        status: "known",
+        value: "active",
+        source: "self_reported",
+        recordedAt: "2026-09-20T09:00:00.000Z",
+      },
+      pregnancyLactationStatus: {
+        status: "not_applicable",
+        source: "self_reported",
+      },
+    },
+  });
+
+  const serialized = serializeUserProfileForFirestore(profile);
+  const healthProfile = serialized.healthProfile as Record<string, unknown>;
+
+  assert.deepEqual(healthProfile.physiologicalSex, {
+    status: "known",
+    value: "male",
+    source: "self_reported",
+    recordedAt: "2026-09-20T09:00:00.000Z",
+  });
+  assert.deepEqual(healthProfile.activityCategory, {
+    status: "known",
+    value: "active",
+    source: "self_reported",
+    recordedAt: "2026-09-20T09:00:00.000Z",
+  });
+  assert.deepEqual(healthProfile.pregnancyLactationStatus, {
+    status: "not_applicable",
+    value: null,
+    source: "self_reported",
+    recordedAt: null,
+  });
 });
