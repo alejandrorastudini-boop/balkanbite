@@ -180,22 +180,26 @@ function sanitizeProfile(
 export function serializeUserProfileForFirestore(
   profile: UserProfile,
 ): Record<string, unknown> {
+  const safeProfile =
+    sanitizeProfile(profile, createSignedInProfileDefaults()) ??
+    createSignedInProfileDefaults();
+
   return {
-    name: profile.name,
-    language: profile.language,
-    currency: profile.currency,
-    cookingSpeed: profile.cookingSpeed,
-    healthGoal: profile.healthGoal,
-    dietStyle: profile.dietStyle,
-    disliked: [...profile.disliked],
-    allergies: profile.allergies ? [...profile.allergies] : null,
-    householdSize: profile.householdSize ?? null,
-    cookingLevel: profile.cookingLevel ?? null,
-    appliances: profile.appliances ? [...profile.appliances] : null,
-    monthlyBudgetEUR: profile.monthlyBudgetEUR ?? null,
-    budgetTier: profile.budgetTier,
-    isProSubscriber: profile.isProSubscriber,
-    onboardingCompleted: profile.onboardingCompleted,
+    name: safeProfile.name,
+    language: safeProfile.language,
+    currency: safeProfile.currency,
+    cookingSpeed: safeProfile.cookingSpeed,
+    healthGoal: safeProfile.healthGoal,
+    dietStyle: safeProfile.dietStyle,
+    disliked: [...safeProfile.disliked],
+    allergies: safeProfile.allergies ? [...safeProfile.allergies] : null,
+    householdSize: safeProfile.householdSize ?? null,
+    cookingLevel: safeProfile.cookingLevel ?? null,
+    appliances: safeProfile.appliances ? [...safeProfile.appliances] : null,
+    monthlyBudgetEUR: safeProfile.monthlyBudgetEUR ?? null,
+    budgetTier: safeProfile.budgetTier,
+    isProSubscriber: safeProfile.isProSubscriber,
+    onboardingCompleted: safeProfile.onboardingCompleted,
   };
 }
 
