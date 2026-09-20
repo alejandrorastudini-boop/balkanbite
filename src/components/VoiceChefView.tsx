@@ -19,6 +19,7 @@ import {
 import { ChatMessage, Language, PantryItem, MealLog } from "../types";
 import { t } from "../utils/translations";
 import { parseDeterministicRemovalIntent } from "../utils/deterministicRemovalIntent";
+import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 
 interface VoiceChefViewProps {
   pantry: PantryItem[];
@@ -30,6 +31,7 @@ interface VoiceChefViewProps {
   onDeductItemsFromPantry: (items: any[]) => void;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => void;
+  foodSafety: FoodSafetyQuarantine;
   language: Language;
 }
 
@@ -43,6 +45,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   onDeductItemsFromPantry,
   onNavigateToRecipes,
   onLogMeal,
+  foodSafety,
   language,
 }) => {
   const currentText = t[language];
@@ -313,6 +316,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
           currentPantry: pantry,
           mealLogs,
           conversationHistory: chatMessages.slice(-6).map((m) => ({ sender: m.sender, text: m.text })),
+          foodSafety,
           language,
         }),
       });
