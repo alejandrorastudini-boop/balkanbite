@@ -294,6 +294,116 @@ async function runScenario(context, cacheMode) {
   }
 }
 
+
+function profileHealthDataUrl() {
+  const url = new URL("/__qa/profile-health-data", previewUrl);
+  if (shareToken) url.searchParams.set("_vercel_share", shareToken);
+  return url.toString();
+}
+
+async function runProfileHealthDataControlScenario(context) {
+  const page = await context.newPage();
+  const evidence = {
+    scenario: "profile-health-data-control",
+    url: profileHealthDataUrl().replace(/([?&]_vercel_share=)[^&]+/, "$1[redacted]"),
+    initialHealthProfilePresent: null,
+    finalHealthProfilePresent: null,
+    result: "running",
+  };
+
+  try {
+    // Reuse the startup QA route as the trusted deployment-identity probe.
+    await waitForExpectedDeployment(page);
+    await page.goto(profileHealthDataUrl(), {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+
+    const root = page.getByTestId("qa-profile-health-root");
+    await root.waitFor({ state: "visible", timeout: 10_000 });
+
+    assert.equal(
+      ((await root.getAttribute("data-deployment-sha")) || "").trim(),
+      expectedSha,
+      "profile health-data QA must run against the exact expected build SHA"
+    );
+
+    evidence.initialHealthProfilePresent = (
+      await page.getByTestId("qa-health-profile-present").textContent()
+    )?.trim();
+    assert.equal(
+      evidence.initialHealthProfilePresent,
+      "true",
+      "QA profile must start with stored HealthProfile data"
+    );
+
+    const deleteButton = page.locator("#profile-clear-health-data-btn");
+    await deleteButton.waitFor({ state: "visible", timeout: 10_000 });
+
+    await page.screenshot({
+      path: path.join(artifactDir, "profile-health-data-before-delete.png"),
+      fullPage: true,
+    });
+
+    await deleteButton.click();
+    await page
+      .getByText(
+        "Saved HealthProfile data will be removed. Your pantry, recipes, meal plan, and account will not be deleted.",
+        { exact: true }
+      )
+      .waitFor({ state: "visible", timeout: 5_000 });
+
+    const confirmButtons = page
+      .getByRole("button", { name: "Delete health data", exact: true });
+    assert.ok(
+      (await confirmButtons.count()) >= 2,
+      "confirmation must add a dedicated delete action"
+    );
+    await confirmButtons.last().click();
+
+    await page.waitForFunction(() => {
+      const node = document.querySelector('[data-testid="qa-health-profile-present"]');
+      return node?.textContent?.trim() === "false";
+    });
+
+    evidence.finalHealthProfilePresent = (
+      await page.getByTestId("qa-health-profile-present").textContent()
+    )?.trim();
+    assert.equal(
+      evidence.finalHealthProfilePresent,
+      "false",
+      "confirmed deletion must remove HealthProfile from state"
+    );
+    assert.equal(
+      await page.locator("#profile-clear-health-data-btn").count(),
+      0,
+      "health-data card must disappear after confirmed deletion"
+    );
+
+    await page.screenshot({
+      path: path.join(artifactDir, "profile-health-data-after-delete.png"),
+      fullPage: true,
+    });
+
+    evidence.result = "pass";
+    return evidence;
+  } catch (error) {
+    evidence.result = "fail";
+    evidence.error = error instanceof Error ? error.message : String(error);
+    await page
+      .screenshot({
+        path: path.join(artifactDir, "profile-health-data-failure.png"),
+        fullPage: true,
+      })
+      .catch(() => {});
+    throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
+      evidence,
+    });
+  } finally {
+    await page.close();
+  }
+}
+
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({
   viewport: { width: 390, height: 844 },
@@ -308,6 +418,7 @@ try {
   results = await Promise.all([
     runScenario(context, "present"),
     runScenario(context, "none"),
+    runProfileHealthDataControlScenario(context),
   ]);
 } catch (error) {
   failure = error;
