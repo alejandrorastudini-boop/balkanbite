@@ -487,6 +487,73 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           </div>
 
+          <div id="profile-health-field-list" className="space-y-2">
+            {healthFieldRows.map(({ field, datum }) => {
+              const valueLabel = healthValueLabel(field, datum, language);
+              return (
+                <div
+                  key={field}
+                  id={`profile-health-field-${field}`}
+                  data-testid={`health-field-${field}`}
+                  className="rounded-2xl border border-white/[0.07] bg-black/20 p-3.5 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-stone-200">
+                        {HEALTH_FIELD_LABELS[field][language]}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md border border-white/[0.08] bg-white/[0.03] text-stone-400">
+                        {healthStatusLabel(datum.status, language)}
+                      </span>
+                    </div>
+                    {valueLabel && (
+                      <p className="text-sm text-white font-semibold">
+                        {valueLabel}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone-500">
+                      {datum.source && (
+                        <span>
+                          {language === "bg"
+                            ? "Източник"
+                            : language === "es"
+                            ? "Procedencia"
+                            : "Source"}
+                          : {healthSourceLabel(datum.source, language)}
+                        </span>
+                      )}
+                      {datum.recordedAt && (
+                        <span>
+                          {language === "bg"
+                            ? "Записано"
+                            : language === "es"
+                            ? "Registrado"
+                            : "Recorded"}
+                          :{" "}
+                          <time dateTime={datum.recordedAt}>
+                            {healthRecordedAtLabel(datum.recordedAt, language)}
+                          </time>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    id={`profile-remove-health-field-${field}`}
+                    type="button"
+                    onClick={() => setPendingHealthFieldRemoval(field)}
+                    className="shrink-0 px-3 py-2 rounded-xl border border-rose-500/25 bg-rose-500/5 hover:bg-rose-500/10 text-rose-300 text-xs font-bold cursor-pointer transition-colors"
+                  >
+                    {language === "bg"
+                      ? "Премахни"
+                      : language === "es"
+                      ? "Eliminar"
+                      : "Remove"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
           <button
             id="profile-clear-health-data-btn"
             type="button"
@@ -537,6 +604,46 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             : language === "es"
             ? "Eliminar datos legacy"
             : "Delete legacy data"
+        }
+        cancelText={currentText.cancel}
+        danger={true}
+      />
+
+      <ConfirmModal
+        isOpen={pendingHealthFieldRemoval !== null}
+        onClose={() => setPendingHealthFieldRemoval(null)}
+        onConfirm={() => {
+          if (!pendingHealthFieldRemoval) return;
+          onUpdateProfile({
+            healthProfile: removeHealthProfileField(
+              profile.healthProfile,
+              pendingHealthFieldRemoval,
+            ),
+          });
+          setPendingHealthFieldRemoval(null);
+        }}
+        title={
+          language === "bg"
+            ? "Премахване на здравен показател"
+            : language === "es"
+            ? "Eliminar dato de salud"
+            : "Remove health field"
+        }
+        description={
+          pendingHealthFieldRemoval
+            ? language === "bg"
+              ? `Ще премахнете само „${HEALTH_FIELD_LABELS[pendingHealthFieldRemoval].bg}“. Другите запазени здравни данни и останалата част от акаунта няма да се променят.`
+              : language === "es"
+              ? `Eliminarás solo “${HEALTH_FIELD_LABELS[pendingHealthFieldRemoval].es}”. Los demás datos de salud guardados y el resto de tu cuenta no cambiarán.`
+              : `Only “${HEALTH_FIELD_LABELS[pendingHealthFieldRemoval].en}” will be removed. Other saved health data and the rest of your account will remain unchanged.`
+            : ""
+        }
+        confirmText={
+          language === "bg"
+            ? "Премахни показателя"
+            : language === "es"
+            ? "Eliminar dato"
+            : "Remove field"
         }
         cancelText={currentText.cancel}
         danger={true}
