@@ -51,3 +51,20 @@ test("profile progression slice does not expose commercial reward mechanics", ()
   assert.doesNotMatch(cardSource, /cash|money|voucher|redeem|reward amount/i);
   assert.doesNotMatch(cardSource, /weight loss|calorie restriction|fasting/i);
 });
+
+
+test("progression profile discloses that activity history is device-local", () => {
+  assert.match(profileSource, /profile-progress-storage-copy/);
+  assert.match(
+    profileSource,
+    /stored only on this device and is not synced to your account/,
+  );
+  assert.match(
+    profileSource,
+    /se guarda solo en este dispositivo y no se sincroniza con tu cuenta/,
+  );
+  assert.match(
+    profileSource,
+    /се съхранява само на това устройство и не се синхронизира с вашия акаунт/,
+  );
+});
