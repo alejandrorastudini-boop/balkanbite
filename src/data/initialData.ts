@@ -434,5 +434,5 @@ export const DEFAULT_PROFILE: UserProfile = {
   disliked: [],
   budgetTier: "balanced",
   isProSubscriber: false,
-  onboardingCompleted: true,
+  onboardingCompleted: false,
 };
