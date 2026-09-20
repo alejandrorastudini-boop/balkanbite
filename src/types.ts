@@ -114,6 +114,7 @@ export interface HealthDatum<T> {
  */
 export interface HealthProfile {
   version: 1;
+  ageYears?: HealthDatum<number>;
   heightCm?: HealthDatum<number>;
   weightKg?: HealthDatum<number>;
 }
