@@ -307,6 +307,9 @@ async function runProfileHealthDataControlScenario(context) {
     scenario: "profile-health-data-control",
     url: profileHealthDataUrl().replace(/([?&]_vercel_share=)[^&]+/, "$1[redacted]"),
     initialHealthProfilePresent: null,
+    initialFieldCount: null,
+    afterFirstRemovalFieldCount: null,
+    finalFieldCount: null,
     finalHealthProfilePresent: null,
     result: "running",
   };
@@ -337,29 +340,82 @@ async function runProfileHealthDataControlScenario(context) {
       "QA profile must start with stored HealthProfile data"
     );
 
+    const fieldIds = [
+      "ageYears",
+      "heightCm",
+      "weightKg",
+      "physiologicalSex",
+      "activityCategory",
+      "pregnancyLactationStatus",
+    ];
+
+    evidence.initialFieldCount = (
+      await page.getByTestId("qa-health-field-count").textContent()
+    )?.trim();
+    assert.equal(
+      evidence.initialFieldCount,
+      "6",
+      "QA profile must start with all six supported HealthProfile fields"
+    );
+    for (const field of fieldIds) {
+      await page
+        .locator(`#profile-health-field-${field}`)
+        .waitFor({ state: "visible", timeout: 5_000 });
+      await page
+        .locator(`#profile-remove-health-field-${field}`)
+        .waitFor({ state: "visible", timeout: 5_000 });
+    }
+
     const deleteButton = page.locator("#profile-clear-health-data-btn");
     await deleteButton.waitFor({ state: "visible", timeout: 10_000 });
 
     await page.screenshot({
-      path: path.join(artifactDir, "profile-health-data-before-delete.png"),
+      path: path.join(artifactDir, "profile-health-data-before-field-delete.png"),
       fullPage: true,
     });
 
-    await deleteButton.click();
+    await page.locator("#profile-remove-health-field-ageYears").click();
     await page
       .getByText(
-        "Saved HealthProfile data will be removed. Your pantry, recipes, meal plan, and account will not be deleted.",
+        "Only “Age” will be removed. Other saved health data and the rest of your account will remain unchanged.",
         { exact: true }
       )
       .waitFor({ state: "visible", timeout: 5_000 });
+    await page
+      .getByRole("button", { name: "Remove field", exact: true })
+      .click();
 
-    const confirmButtons = page
-      .getByRole("button", { name: "Delete health data", exact: true });
-    assert.ok(
-      (await confirmButtons.count()) >= 2,
-      "confirmation must add a dedicated delete action"
+    await page
+      .locator("#profile-health-field-ageYears")
+      .waitFor({ state: "detached", timeout: 5_000 });
+    assert.equal(
+      await page.locator("#profile-health-field-heightCm").count(),
+      1,
+      "removing age must preserve the height datum"
     );
-    await confirmButtons.last().click();
+    evidence.afterFirstRemovalFieldCount = (
+      await page.getByTestId("qa-health-field-count").textContent()
+    )?.trim();
+    assert.equal(
+      evidence.afterFirstRemovalFieldCount,
+      "5",
+      "removing one datum must leave the other five HealthProfile fields"
+    );
+    assert.equal(
+      (await page.getByTestId("qa-health-profile-present").textContent())?.trim(),
+      "true",
+      "removing one field must not delete the whole HealthProfile"
+    );
+
+    for (const field of fieldIds.slice(1)) {
+      await page.locator(`#profile-remove-health-field-${field}`).click();
+      await page
+        .getByRole("button", { name: "Remove field", exact: true })
+        .click();
+      await page
+        .locator(`#profile-health-field-${field}`)
+        .waitFor({ state: "detached", timeout: 5_000 });
+    }
 
     await page.waitForFunction(() => {
       const node = document.querySelector('[data-testid="qa-health-profile-present"]');
@@ -372,13 +428,51 @@ async function runProfileHealthDataControlScenario(context) {
     assert.equal(
       evidence.finalHealthProfilePresent,
       "false",
-      "confirmed deletion must remove HealthProfile from state"
+      "removing the last field must make HealthProfile absent"
+    );
+    evidence.finalFieldCount = (
+      await page.getByTestId("qa-health-field-count").textContent()
+    )?.trim();
+    assert.equal(
+      evidence.finalFieldCount,
+      "0",
+      "no HealthProfile fields may remain after removing all six"
     );
     assert.equal(
       await page.locator("#profile-clear-health-data-btn").count(),
       0,
-      "health-data card must disappear after confirmed deletion"
+      "health-data card must disappear after removing the final field"
     );
+
+    await page.screenshot({
+      path: path.join(artifactDir, "profile-health-data-after-field-delete.png"),
+      fullPage: true,
+    });
+
+    // Reload the isolated QA route to retain coverage of the existing whole-profile
+    // deletion control as a regression check.
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 });
+    const resetDeleteButton = page.locator("#profile-clear-health-data-btn");
+    await resetDeleteButton.waitFor({ state: "visible", timeout: 5_000 });
+    await resetDeleteButton.click();
+    await page
+      .getByText(
+        "Saved HealthProfile data will be removed. Your pantry, recipes, meal plan, and account will not be deleted.",
+        { exact: true }
+      )
+      .waitFor({ state: "visible", timeout: 5_000 });
+    const confirmButtons = page
+      .getByRole("button", { name: "Delete health data", exact: true });
+    assert.ok(
+      (await confirmButtons.count()) >= 2,
+      "whole-profile confirmation must keep a dedicated delete action"
+    );
+    await confirmButtons.last().click();
+
+    await page.waitForFunction(() => {
+      const node = document.querySelector('[data-testid="qa-health-profile-present"]');
+      return node?.textContent?.trim() === "false";
+    });
 
     const localResetButton = page.getByRole("button", {
       name: "Reset local app data",

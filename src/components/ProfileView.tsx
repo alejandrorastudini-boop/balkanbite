@@ -19,13 +19,18 @@ import {
   HeartPulse,
   Trash2,
 } from "lucide-react";
-import { UserProfile, Language, Currency } from "../types";
+import { UserProfile, Language, Currency, type HealthDatum } from "../types";
 import { t } from "../utils/translations";
 import { ConfirmModal } from "./ConfirmModal";
 import { AdminAgentStatusPanel } from "./AdminAgentStatusPortal";
 import { signInWithGoogle, logout, auth } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { getLocalResetCopy } from "../utils/localResetCopy";
+import {
+  HEALTH_PROFILE_FIELD_KEYS,
+  removeHealthProfileField,
+  type HealthProfileFieldKey,
+} from "../utils/healthProfile";
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -36,6 +41,133 @@ interface ProfileViewProps {
   onOpenAuthModal?: () => void;
   language: Language;
   currency: Currency;
+}
+
+
+const HEALTH_FIELD_LABELS: Record<
+  HealthProfileFieldKey,
+  Record<Language, string>
+> = {
+  ageYears: { en: "Age", es: "Edad", bg: "Възраст" },
+  heightCm: { en: "Height", es: "Altura", bg: "Ръст" },
+  weightKg: { en: "Weight", es: "Peso", bg: "Тегло" },
+  physiologicalSex: {
+    en: "Physiological sex for calculations",
+    es: "Sexo fisiológico para cálculos",
+    bg: "Физиологичен пол за изчисления",
+  },
+  activityCategory: {
+    en: "Whole-day activity",
+    es: "Actividad diaria",
+    bg: "Дневна физическа активност",
+  },
+  pregnancyLactationStatus: {
+    en: "Pregnancy / lactation status",
+    es: "Estado de embarazo / lactancia",
+    bg: "Бременност / кърмене",
+  },
+};
+
+function healthStatusLabel(status: string, language: Language): string {
+  const labels: Record<string, Record<Language, string>> = {
+    known: { en: "Known", es: "Conocido", bg: "Известно" },
+    unknown: { en: "Unknown", es: "Desconocido", bg: "Неизвестно" },
+    not_applicable: {
+      en: "Not applicable",
+      es: "No aplica",
+      bg: "Не е приложимо",
+    },
+    prefer_not_to_say: {
+      en: "Prefer not to say",
+      es: "Prefiero no decirlo",
+      bg: "Предпочитам да не казвам",
+    },
+  };
+  return labels[status]?.[language] ?? status;
+}
+
+function healthSourceLabel(source: string, language: Language): string {
+  const labels: Record<string, Record<Language, string>> = {
+    self_reported: {
+      en: "Self-reported",
+      es: "Declarado por ti",
+      bg: "Посочено от вас",
+    },
+    measured: { en: "Measured", es: "Medido", bg: "Измерено" },
+    imported: { en: "Imported", es: "Importado", bg: "Импортирано" },
+    estimated: { en: "Estimated", es: "Estimado", bg: "Оценено" },
+  };
+  return labels[source]?.[language] ?? source;
+}
+
+function healthValueLabel(
+  field: HealthProfileFieldKey,
+  datum: HealthDatum<unknown>,
+  language: Language,
+): string | null {
+  if (datum.status !== "known") return null;
+
+  const value = datum.value;
+  if (typeof value === "number") {
+    const unit =
+      field === "ageYears"
+        ? language === "bg"
+          ? "г."
+          : language === "es"
+          ? "años"
+          : "years"
+        : field === "heightCm"
+        ? "cm"
+        : field === "weightKg"
+        ? "kg"
+        : "";
+    return `${value}${unit ? ` ${unit}` : ""}`;
+  }
+
+  if (typeof value !== "string") return null;
+
+  const categorical: Record<string, Record<Language, string>> = {
+    female: { en: "Female", es: "Femenino", bg: "Женски" },
+    male: { en: "Male", es: "Masculino", bg: "Мъжки" },
+    low_active: {
+      en: "Low active",
+      es: "Actividad baja",
+      bg: "Ниска активност",
+    },
+    moderately_active: {
+      en: "Moderately active",
+      es: "Actividad moderada",
+      bg: "Умерена активност",
+    },
+    active: { en: "Active", es: "Activo", bg: "Активно" },
+    very_active: {
+      en: "Very active",
+      es: "Muy activo",
+      bg: "Много активно",
+    },
+    not_pregnant_or_lactating: {
+      en: "Not pregnant or lactating",
+      es: "No embarazada ni en lactancia",
+      bg: "Не е бременна или кърмеща",
+    },
+    pregnant_or_lactating: {
+      en: "Pregnant or lactating",
+      es: "Embarazada o en lactancia",
+      bg: "Бременна или кърмеща",
+    },
+  };
+  return categorical[value]?.[language] ?? value;
+}
+
+function healthRecordedAtLabel(
+  recordedAt: string,
+  language: Language,
+): string {
+  const date = new Date(recordedAt);
+  if (!Number.isFinite(date.getTime())) return recordedAt;
+  return date.toLocaleString(
+    language === "bg" ? "bg-BG" : language === "es" ? "es-ES" : "en-GB",
+  );
 }
 
 export const ProfileView: React.FC<ProfileViewProps> = ({
@@ -52,12 +184,21 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [newDislike, setNewDislike] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showClearHealthDataConfirm, setShowClearHealthDataConfirm] = useState(false);
+  const [pendingHealthFieldRemoval, setPendingHealthFieldRemoval] =
+    useState<HealthProfileFieldKey | null>(null);
   const [showClearLegacyFoodSafetyConfirm, setShowClearLegacyFoodSafetyConfirm] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
   const [showInstallGuide, setShowInstallGuide] = useState(false);
   const [user, setUser] = useState<User | null>(null);
   const localResetCopy = getLocalResetCopy(language, user !== null);
+
+  const healthFieldRows = profile.healthProfile
+    ? HEALTH_PROFILE_FIELD_KEYS.flatMap((field) => {
+        const datum = profile.healthProfile?.[field];
+        return datum ? [{ field, datum: datum as HealthDatum<unknown> }] : [];
+      })
+    : [];
 
   const legacyFoodRestrictionLabels = (profile.allergies ?? [])
     .filter((item) => typeof item === "string" && item.trim())
@@ -346,6 +487,73 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             </div>
           </div>
 
+          <div id="profile-health-field-list" className="space-y-2">
+            {healthFieldRows.map(({ field, datum }) => {
+              const valueLabel = healthValueLabel(field, datum, language);
+              return (
+                <div
+                  key={field}
+                  id={`profile-health-field-${field}`}
+                  data-testid={`health-field-${field}`}
+                  className="rounded-2xl border border-white/[0.07] bg-black/20 p-3.5 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <span className="text-sm font-bold text-stone-200">
+                        {HEALTH_FIELD_LABELS[field][language]}
+                      </span>
+                      <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md border border-white/[0.08] bg-white/[0.03] text-stone-400">
+                        {healthStatusLabel(datum.status, language)}
+                      </span>
+                    </div>
+                    {valueLabel && (
+                      <p className="text-sm text-white font-semibold">
+                        {valueLabel}
+                      </p>
+                    )}
+                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone-500">
+                      {datum.source && (
+                        <span>
+                          {language === "bg"
+                            ? "Източник"
+                            : language === "es"
+                            ? "Procedencia"
+                            : "Source"}
+                          : {healthSourceLabel(datum.source, language)}
+                        </span>
+                      )}
+                      {datum.recordedAt && (
+                        <span>
+                          {language === "bg"
+                            ? "Записано"
+                            : language === "es"
+                            ? "Registrado"
+                            : "Recorded"}
+                          :{" "}
+                          <time dateTime={datum.recordedAt}>
+                            {healthRecordedAtLabel(datum.recordedAt, language)}
+                          </time>
+                        </span>
+                      )}
+                    </div>
+                  </div>
+                  <button
+                    id={`profile-remove-health-field-${field}`}
+                    type="button"
+                    onClick={() => setPendingHealthFieldRemoval(field)}
+                    className="shrink-0 px-3 py-2 rounded-xl border border-rose-500/25 bg-rose-500/5 hover:bg-rose-500/10 text-rose-300 text-xs font-bold cursor-pointer transition-colors"
+                  >
+                    {language === "bg"
+                      ? "Премахни"
+                      : language === "es"
+                      ? "Eliminar"
+                      : "Remove"}
+                  </button>
+                </div>
+              );
+            })}
+          </div>
+
           <button
             id="profile-clear-health-data-btn"
             type="button"
@@ -396,6 +604,46 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             : language === "es"
             ? "Eliminar datos legacy"
             : "Delete legacy data"
+        }
+        cancelText={currentText.cancel}
+        danger={true}
+      />
+
+      <ConfirmModal
+        isOpen={pendingHealthFieldRemoval !== null}
+        onClose={() => setPendingHealthFieldRemoval(null)}
+        onConfirm={() => {
+          if (!pendingHealthFieldRemoval) return;
+          onUpdateProfile({
+            healthProfile: removeHealthProfileField(
+              profile.healthProfile,
+              pendingHealthFieldRemoval,
+            ),
+          });
+          setPendingHealthFieldRemoval(null);
+        }}
+        title={
+          language === "bg"
+            ? "Премахване на здравен показател"
+            : language === "es"
+            ? "Eliminar dato de salud"
+            : "Remove health field"
+        }
+        description={
+          pendingHealthFieldRemoval
+            ? language === "bg"
+              ? `Ще премахнете само „${HEALTH_FIELD_LABELS[pendingHealthFieldRemoval].bg}“. Другите запазени здравни данни и останалата част от акаунта няма да се променят.`
+              : language === "es"
+              ? `Eliminarás solo “${HEALTH_FIELD_LABELS[pendingHealthFieldRemoval].es}”. Los demás datos de salud guardados y el resto de tu cuenta no cambiarán.`
+              : `Only “${HEALTH_FIELD_LABELS[pendingHealthFieldRemoval].en}” will be removed. Other saved health data and the rest of your account will remain unchanged.`
+            : ""
+        }
+        confirmText={
+          language === "bg"
+            ? "Премахни показателя"
+            : language === "es"
+            ? "Eliminar dato"
+            : "Remove field"
         }
         cancelText={currentText.cancel}
         danger={true}

@@ -31,6 +31,23 @@ const INITIAL_PROFILE: UserProfile = {
       source: "self_reported",
       recordedAt: "2026-09-20T09:00:00.000Z",
     },
+    physiologicalSex: {
+      status: "known",
+      value: "female",
+      source: "self_reported",
+      recordedAt: "2026-09-20T09:00:00.000Z",
+    },
+    activityCategory: {
+      status: "known",
+      value: "moderately_active",
+      source: "self_reported",
+      recordedAt: "2026-09-20T09:00:00.000Z",
+    },
+    pregnancyLactationStatus: {
+      status: "prefer_not_to_say",
+      source: "self_reported",
+      recordedAt: "2026-09-20T09:00:00.000Z",
+    },
   },
 };
 
@@ -47,6 +64,15 @@ export function ProfileHealthDataQaHarness() {
     >
       <span data-testid="qa-health-profile-present" className="sr-only">
         {String(Boolean(profile.healthProfile))}
+      </span>
+      <span data-testid="qa-health-field-count" className="sr-only">
+        {String(
+          profile.healthProfile
+            ? Object.keys(profile.healthProfile).filter(
+                (key) => key !== "version",
+              ).length
+            : 0,
+        )}
       </span>
       <div className="mx-auto max-w-4xl">
         <ProfileView

@@ -340,3 +340,34 @@ export function getKnownHealthValue<T>(
 ): T | undefined {
   return datum?.status === "known" ? datum.value : undefined;
 }
+
+
+export const HEALTH_PROFILE_FIELD_KEYS = [
+  "ageYears",
+  "heightCm",
+  "weightKg",
+  "physiologicalSex",
+  "activityCategory",
+  "pregnancyLactationStatus",
+] as const;
+
+export type HealthProfileFieldKey =
+  (typeof HEALTH_PROFILE_FIELD_KEYS)[number];
+
+/**
+ * Removes exactly one persisted HealthProfile datum without inventing a
+ * replacement state. When the final datum is removed, the profile itself
+ * becomes absent.
+ */
+export function removeHealthProfileField(
+  profile: HealthProfile | undefined,
+  field: HealthProfileFieldKey,
+): HealthProfile | undefined {
+  const safe = sanitizeHealthProfile(profile);
+  if (!safe) return undefined;
+
+  const next: Record<string, unknown> = { ...safe };
+  delete next[field];
+
+  return sanitizeHealthProfile(next);
+}
