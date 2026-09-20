@@ -7,6 +7,14 @@ const voiceSource = readFileSync(
   new URL("../src/components/VoiceChefView.tsx", import.meta.url),
   "utf8"
 );
+const appSource = readFileSync(
+  new URL("../src/App.tsx", import.meta.url),
+  "utf8"
+);
+const verifiedMealLogSource = readFileSync(
+  new URL("../src/utils/verifiedMealLog.ts", import.meta.url),
+  "utf8"
+);
 
 test("voice AI failure cannot fabricate pantry additions or meal nutrition", () => {
   assert.doesNotMatch(serverSource, /function fallbackParseIntent\(/);
@@ -38,4 +46,28 @@ test("free-form voice nutrition stays unsaved without verified provenance", () =
     voiceSource,
     /I did not save nutrition values because there is not yet a verified source/
   );
+});
+
+
+test("App meal logging never fills missing verified nutrition with zero", () => {
+  const start = appSource.indexOf("const handleLogMeal");
+  const end = appSource.indexOf("const handleGenerateAiShopping", start);
+  assert.ok(start >= 0 && end > start);
+  const handler = appSource.slice(start, end);
+
+  assert.match(handler, /buildVerifiedMealLog\(/);
+  assert.match(handler, /if \(!newLog\)/);
+  assert.doesNotMatch(handler, /Number\.isFinite\([^)]*\)\s*\?[^:]+:\s*0/);
+  assert.doesNotMatch(handler, /nutritionDataStatus:\s*"unknown"/);
+});
+
+test("verified meal-log boundary requires complete non-negative nutrition", () => {
+  assert.match(verifiedMealLogSource, /candidate\.nutritionVerified !== true/);
+  assert.match(verifiedMealLogSource, /nutritionDataStatus:\s*"verified"/);
+  for (const field of ["calories", "proteinG", "carbsG", "fatG"]) {
+    assert.match(
+      verifiedMealLogSource,
+      new RegExp(`isFiniteNonNegativeNumber\\(candidate\\.${field}\\)`),
+    );
+  }
 });
