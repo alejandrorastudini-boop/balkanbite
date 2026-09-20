@@ -48,7 +48,6 @@ export const LandingPage: React.FC<LandingPageProps> = ({
   const [activePreviewTab, setActivePreviewTab] = useState<"fridge" | "recipes" | "planner" | "print">("fridge");
 
   const currSymbol = currency === "EUR" ? "€" : "$";
-  const currRatio = currency === "EUR" ? 1 : 1.08;
 
   // Budget figures below are deterministic transforms of the visitor's own inputs.
   // They are planning context, not savings estimates.
@@ -646,7 +645,7 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                     <span className="font-semibold text-stone-300">
                       {language === "es" ? "Gasto mensual:" : language === "bg" ? "Месечен разход за храна:" : "Monthly grocery spend:"}
                     </span>
-                    <span className="text-base font-extrabold text-amber-400">{Math.round(monthlySpend * currRatio)} {currSymbol}</span>
+                    <span className="text-base font-extrabold text-amber-400">{Math.round(monthlySpend)} {currSymbol}</span>
                   </div>
                   <input type="range" min="120" max="900" step="20" value={monthlySpend} onChange={(e) => setMonthlySpend(Number(e.target.value))} className="w-full accent-amber-500" />
                 </div>
@@ -659,13 +658,13 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                   </span>
                   <div className="pt-2">
                     <div className="text-4xl sm:text-5xl font-black text-white font-['Outfit'] tracking-tight">
-                      {Math.round(monthlyPerPerson * currRatio)} {currSymbol}
+                      {Math.round(monthlyPerPerson)} {currSymbol}
                       <span className="text-base font-bold text-stone-400 ml-1">
                         / {language === "es" ? "mes" : language === "bg" ? "месец" : "mo"}
                       </span>
                     </div>
                     <p className="text-sm font-bold text-emerald-400 mt-1">
-                      {Math.round(annualBudget * currRatio)} {currSymbol} {language === "es" ? "de presupuesto anual equivalente" : language === "bg" ? "еквивалентен годишен бюджет" : "equivalent annual budget"}
+                      {Math.round(annualBudget)} {currSymbol} {language === "es" ? "de presupuesto anual equivalente" : language === "bg" ? "еквивалентен годишен бюджет" : "equivalent annual budget"}
                     </p>
                   </div>
                 </div>
@@ -676,13 +675,22 @@ export const LandingPage: React.FC<LandingPageProps> = ({
                 </div>
               </div>
             </div>
-            <p className="text-center text-xs text-stone-500">
-              {language === "es"
-                ? "Cálculo matemático a partir del gasto y tamaño del hogar que introduces; no estima ni garantiza ahorro."
-                : language === "bg"
-                ? "Математическо изчисление от въведения разход и размер на домакинството; не оценява и не гарантира спестяване."
-                : "A mathematical breakdown of the spend and household size you enter; it does not estimate or guarantee savings."}
-            </p>
+            <div className="text-center text-xs text-stone-500 space-y-1">
+              <p>
+                {language === "es"
+                  ? "Cálculo matemático a partir del gasto y tamaño del hogar que introduces; no estima ni garantiza ahorro."
+                  : language === "bg"
+                  ? "Математическо изчисление от въведения разход и размер на домакинството; не оценява и не гарантира спестяване."
+                  : "A mathematical breakdown of the spend and household size you enter; it does not estimate or guarantee savings."}
+              </p>
+              <p id="landing-budget-currency-notice">
+                {language === "es"
+                  ? "Los importes se muestran directamente en la moneda seleccionada. No se aplica ningún tipo de cambio en tiempo real."
+                  : language === "bg"
+                  ? "Сумите се показват директно в избраната валута. Не се прилага валутен курс в реално време."
+                  : "Amounts are shown directly in the selected currency. No live exchange rate is applied."}
+              </p>
+            </div>
           </div>
         </div>
       </section>
