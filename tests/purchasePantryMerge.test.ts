@@ -24,6 +24,10 @@ test('same-name purchase batch aggregates, with immutable inputs and replay prot
  const pantry = [stock()]; const list = [shop(),shop(.25,'kg',{id:'s2'})]; const before = JSON.stringify({pantry,list});
  const first = transferCheckedShoppingItems(pantry,list,date); const second = transferCheckedShoppingItems(first.pantry,list,date);
  assert.equal(first.pantry[0].quantity, 1.75); assert.deepEqual(second.pantry, first.pantry); assert.equal(JSON.stringify({pantry,list}), before);
+ assert.deepEqual(first.acceptedSourceIds, ['shopping:s1','shopping:s2']);
+ assert.deepEqual(first.newlyAppliedSourceIds, ['shopping:s1','shopping:s2']);
+ assert.deepEqual(second.acceptedSourceIds, ['shopping:s1','shopping:s2']);
+ assert.deepEqual(second.newlyAppliedSourceIds, []);
 });
 test('unknown costs stay unknown; positive line estimates retain provenance', () => {
  const result = transferCheckedShoppingItems([stock(1,'kg',{estimatedCostEUR:2})], [shop()], date).pantry[0];
@@ -54,4 +58,34 @@ test('duplicate source IDs reject the entire ambiguous pair', () => {
 test('confirmed zero cost and expiry are preserved without falsy fallbacks', () => {
  const result = mergePurchasesIntoPantry([], [{sourceId:'r1',source:'confirmed_reconciliation',name:'Tomate',quantity:1,unit:'ud',estimatedCostEUR:0,expiryDaysLeft:0}],date);
  assert.equal(result.pantry[0].estimatedCostEUR,0); assert.equal(result.pantry[0].expiryDaysLeft,0);
+});
+
+
+test('newlyAppliedSourceIds contains only purchases that changed pantry state', () => {
+ const prior = mergePurchasesIntoPantry([], [{
+  sourceId:'shopping:prior',
+  source:'shopping_list',
+  name:'Tomate',
+  quantity:1,
+  unit:'kg'
+ }], date);
+ const result = mergePurchasesIntoPantry(prior.pantry, [
+  {
+   sourceId:'shopping:prior',
+   source:'shopping_list',
+   name:'Tomate',
+   quantity:1,
+   unit:'kg'
+  },
+  {
+   sourceId:'shopping:new',
+   source:'shopping_list',
+   name:'Tomate',
+   quantity:.5,
+   unit:'kg'
+  }
+ ], date);
+ assert.deepEqual(result.acceptedSourceIds, ['shopping:prior','shopping:new']);
+ assert.deepEqual(result.newlyAppliedSourceIds, ['shopping:new']);
+ assert.equal(result.pantry[0].quantity, 1.5);
 });
