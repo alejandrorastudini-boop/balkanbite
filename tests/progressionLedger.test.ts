@@ -3,10 +3,12 @@ import test from "node:test";
 import {
   appendProgressionEvents,
   buildPurchaseProgressEvents,
+  createProgressionActionId,
   buildRecipeCookProgressEvent,
   eligibleProgressEventCount,
   isValidProgressionEvent,
   isValidProgressionTimestamp,
+  parseProgressionLedgerCache,
   type ProgressionEventV1,
 } from "../src/utils/progressionLedger";
 
@@ -222,4 +224,49 @@ test("source references are bounded so derived event IDs remain valid", () => {
     }),
     null,
   );
+});
+
+test("progression action ids require an explicit valid local UUID source", () => {
+  assert.equal(createProgressionActionId(undefined), null);
+  assert.equal(createProgressionActionId(() => "action-123"), "action-123");
+  assert.equal(createProgressionActionId(() => "contains spaces"), null);
+  assert.equal(createProgressionActionId(() => { throw new Error("unavailable"); }), null);
+});
+
+test("progression cache parsing canonicalizes, deduplicates and strips extra metadata", () => {
+  const raw = JSON.stringify([
+    {
+      version: 1,
+      eventId: "purchase:shopping:item-cache",
+      type: "confirmed_purchase_applied",
+      occurredAt: NOW,
+      evidence: "deterministic_state_transition",
+      evidenceCount: 1,
+      foodName: "must disappear",
+      credits: 500,
+    },
+    {
+      version: 1,
+      eventId: "purchase:shopping:item-cache",
+      type: "confirmed_purchase_applied",
+      occurredAt: NOW,
+      evidence: "deterministic_state_transition",
+      evidenceCount: 1,
+    },
+    { invalid: true },
+  ]);
+
+  assert.deepEqual(parseProgressionLedgerCache(raw), [
+    {
+      version: 1,
+      eventId: "purchase:shopping:item-cache",
+      type: "confirmed_purchase_applied",
+      occurredAt: NOW,
+      evidence: "deterministic_state_transition",
+      evidenceCount: 1,
+    },
+  ]);
+  assert.deepEqual(parseProgressionLedgerCache("not-json"), []);
+  assert.deepEqual(parseProgressionLedgerCache('{"events":[]}'), []);
+  assert.deepEqual(parseProgressionLedgerCache(null), []);
 });

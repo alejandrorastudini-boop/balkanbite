@@ -26,6 +26,9 @@ test("replaying the same confirmed reconciliation does not double-add surviving 
 
   assert.equal(first.pantry.length, 1);
   assert.equal(first.pantry[0].quantity, 2);
+  assert.deepEqual(first.newlyAppliedSourceIds, ["reconcile:same-review:extra:0"]);
   assert.equal(second.pantry.length, 1);
   assert.equal(second.pantry[0].quantity, 2);
+  assert.deepEqual(second.acceptedSourceIds, ["reconcile:same-review:extra:0"]);
+  assert.deepEqual(second.newlyAppliedSourceIds, []);
 });
