@@ -26,8 +26,6 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   onComplete,
   language,
 }) => {
-  if (!isOpen) return null;
-
   const currentText = t[language] || t["es"];
   const [step, setStep] = useState(1);
 
@@ -62,6 +60,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   };
 
   const totalSteps = 4;
+
+  if (!isOpen) return null;
 
   return (
     <div className="fixed inset-0 bg-black/90 backdrop-blur-md z-50 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
