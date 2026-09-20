@@ -153,6 +153,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             </div>
 
             <button
+              id="onboarding-next-step-1"
               type="button"
               onClick={() => setStep(2)}
               className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 mt-4 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
@@ -214,6 +215,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <span>Atrás</span>
               </button>
               <button
+                id="onboarding-next-step-2"
                 type="button"
                 onClick={() => setStep(3)}
                 className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
@@ -265,6 +267,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <span>Atrás</span>
               </button>
               <button
+                id="onboarding-next-step-3"
                 type="button"
                 onClick={() => setStep(4)}
                 className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
@@ -342,6 +345,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <span>Atrás</span>
               </button>
               <button
+                id="onboarding-finish"
                 type="button"
                 onClick={finish}
                 className="flex-1 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all"
