@@ -4,6 +4,11 @@ import type {
   Language,
   UserProfile,
 } from "../types";
+import {
+  cloneHealthProfile,
+  sanitizeHealthProfile,
+  serializeHealthProfile,
+} from "./healthProfile";
 
 const LANGUAGES = new Set<Language>(["es", "en", "bg"]);
 const CURRENCIES = new Set<Currency>(["EUR", "USD"]);
@@ -46,6 +51,7 @@ function cloneProfile(profile: UserProfile): UserProfile {
     disliked: [...profile.disliked],
     allergies: cloneStrings(profile.allergies),
     appliances: cloneStrings(profile.appliances),
+    healthProfile: cloneHealthProfile(profile.healthProfile),
   };
 }
 
@@ -89,8 +95,7 @@ export function createSignedInProfileDefaults(
     householdSize: undefined,
     cookingLevel: undefined,
     monthlyBudgetEUR: undefined,
-    heightCm: undefined,
-    weightKg: undefined,
+    healthProfile: undefined,
     isProSubscriber: false,
     onboardingCompleted: false,
   };
@@ -161,14 +166,11 @@ function sanitizeProfile(
   }
 
   profile.monthlyBudgetEUR = finiteNonNegative(raw.monthlyBudgetEUR);
-  profile.heightCm =
-    typeof raw.heightCm === "number" && Number.isFinite(raw.heightCm) && raw.heightCm > 0
-      ? raw.heightCm
-      : undefined;
-  profile.weightKg =
-    typeof raw.weightKg === "number" && Number.isFinite(raw.weightKg) && raw.weightKg > 0
-      ? raw.weightKg
-      : undefined;
+  profile.healthProfile = sanitizeHealthProfile(
+    raw.healthProfile,
+    raw.heightCm,
+    raw.weightKg,
+  );
 
   if (
     typeof raw.budgetTier === "string" &&
@@ -207,8 +209,10 @@ export function serializeUserProfileForFirestore(
     cookingLevel: safeProfile.cookingLevel ?? null,
     appliances: safeProfile.appliances ? [...safeProfile.appliances] : null,
     monthlyBudgetEUR: safeProfile.monthlyBudgetEUR ?? null,
-    heightCm: safeProfile.heightCm ?? null,
-    weightKg: safeProfile.weightKg ?? null,
+    healthProfile: serializeHealthProfile(safeProfile.healthProfile),
+    // Clear legacy flat body metrics on the next successful profile write.
+    heightCm: null,
+    weightKg: null,
     budgetTier: safeProfile.budgetTier,
     isProSubscriber: safeProfile.isProSubscriber,
     onboardingCompleted: safeProfile.onboardingCompleted,

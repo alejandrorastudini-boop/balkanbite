@@ -1,0 +1,111 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  createSelfReportedHealthProfile,
+  getKnownHealthNumber,
+  sanitizeHealthProfile,
+  serializeHealthProfile,
+} from "../src/utils/healthProfile";
+
+const hasUndefinedDeep = (value: unknown): boolean => {
+  if (value === undefined) return true;
+  if (Array.isArray(value)) return value.some(hasUndefinedDeep);
+  if (value && typeof value === "object") {
+    return Object.values(value as Record<string, unknown>).some(hasUndefinedDeep);
+  }
+  return false;
+};
+
+test("self-reported body metrics carry provenance and measurement time", () => {
+  const profile = createSelfReportedHealthProfile(
+    { heightCm: 180, weightKg: 81.5 },
+    "2026-09-20T07:00:00.000Z",
+  );
+
+  assert.deepEqual(profile, {
+    version: 1,
+    heightCm: {
+      status: "known",
+      value: 180,
+      source: "self_reported",
+      recordedAt: "2026-09-20T07:00:00.000Z",
+    },
+    weightKg: {
+      status: "known",
+      value: 81.5,
+      source: "self_reported",
+      recordedAt: "2026-09-20T07:00:00.000Z",
+    },
+  });
+});
+
+test("health profile supports explicit non-known states without inventing values", () => {
+  const profile = sanitizeHealthProfile({
+    version: 1,
+    heightCm: {
+      status: "prefer_not_to_say",
+      source: "self_reported",
+      recordedAt: "2026-09-20T07:00:00.000Z",
+    },
+    weightKg: {
+      status: "unknown",
+    },
+  });
+
+  assert.equal(profile?.heightCm?.status, "prefer_not_to_say");
+  assert.equal(profile?.heightCm?.value, undefined);
+  assert.equal(profile?.weightKg?.status, "unknown");
+  assert.equal(getKnownHealthNumber(profile?.heightCm), undefined);
+  assert.equal(getKnownHealthNumber(profile?.weightKg), undefined);
+});
+
+test("legacy flat body metrics migrate into HealthProfile without fabrication", () => {
+  const profile = sanitizeHealthProfile(undefined, 175, 70);
+
+  assert.equal(profile?.version, 1);
+  assert.deepEqual(profile?.heightCm, {
+    status: "known",
+    value: 175,
+    source: "self_reported",
+  });
+  assert.deepEqual(profile?.weightKg, {
+    status: "known",
+    value: 70,
+    source: "self_reported",
+  });
+});
+
+test("explicit nested unknowns take precedence over stale legacy flat values", () => {
+  const profile = sanitizeHealthProfile(
+    {
+      version: 1,
+      heightCm: null,
+      weightKg: { status: "unknown" },
+    },
+    190,
+    100,
+  );
+
+  assert.equal(profile?.heightCm, undefined);
+  assert.equal(profile?.weightKg?.status, "unknown");
+});
+
+test("HealthProfile serialization never emits undefined, including nested fields", () => {
+  const profile = createSelfReportedHealthProfile(
+    { heightCm: 182.5 },
+    "not-a-date",
+  );
+  const serialized = serializeHealthProfile(profile);
+
+  assert.equal(hasUndefinedDeep(serialized), false);
+  assert.deepEqual(serialized, {
+    version: 1,
+    heightCm: {
+      status: "known",
+      value: 182.5,
+      source: "self_reported",
+      recordedAt: null,
+    },
+    weightKg: null,
+  });
+});

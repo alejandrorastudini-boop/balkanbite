@@ -17,6 +17,7 @@ import {
 import { Language, UserProfile } from "../types";
 import { t } from "../utils/translations";
 import { formatBmi } from "../utils/bodyMetrics";
+import { createSelfReportedHealthProfile } from "../utils/healthProfile";
 
 interface OnboardingModalProps {
   isOpen: boolean;
@@ -70,6 +71,11 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   const finish = () => {
     const trimmedName = name.trim();
+    const healthProfile = createSelfReportedHealthProfile(
+      { heightCm, weightKg },
+      new Date().toISOString(),
+    );
+
     onComplete({
       ...(trimmedName ? { name: trimmedName } : {}),
       householdSize,
@@ -79,8 +85,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       allergies: selectedAllergies,
       appliances: selectedAppliances,
       monthlyBudgetEUR,
-      ...(heightCm !== undefined ? { heightCm } : {}),
-      ...(weightKg !== undefined ? { weightKg } : {}),
+      ...(healthProfile ? { healthProfile } : {}),
       onboardingCompleted: true,
     });
   };
