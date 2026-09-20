@@ -31,15 +31,11 @@ test("blank onboarding name is omitted instead of written as undefined", () => {
 });
 
 
-test("optional age and body metrics have no defaults, derive BMI, and persist through HealthProfile", () => {
-  assert.match(source, /const \[ageInput, setAgeInput\] = useState\(""\)/);
-  assert.match(source, /const \[heightInput, setHeightInput\] = useState\(""\)/);
-  assert.match(source, /const \[weightInput, setWeightInput\] = useState\(""\)/);
-  assert.match(source, /formatBmi\(heightCm, weightKg\)/);
-  assert.match(source, /createSelfReportedHealthProfile/);
-  assert.match(source, /\{ ageYears, heightCm, weightKg \}/);
-  assert.match(source, /\.\.\.\(healthProfile \? \{ healthProfile \} : \{\}\)/);
-  assert.doesNotMatch(source, /\.\.\.\(heightCm !== undefined \? \{ heightCm \} : \{\}\)/);
-  assert.doesNotMatch(source, /\.\.\.\(weightKg !== undefined \? \{ weightKg \} : \{\}\)/);
-  assert.doesNotMatch(source, /bmi:\s*bmiDisplay/);
+test("onboarding does not collect health metrics before the purpose-specific privacy gate", () => {
+  assert.doesNotMatch(source, /ageInput/);
+  assert.doesNotMatch(source, /heightInput/);
+  assert.doesNotMatch(source, /weightInput/);
+  assert.doesNotMatch(source, /formatBmi/);
+  assert.doesNotMatch(source, /createSelfReportedHealthProfile/);
+  assert.doesNotMatch(source, /healthProfile\s*:/);
 });
