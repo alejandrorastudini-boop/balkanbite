@@ -268,3 +268,31 @@ test("optional energy inputs round-trip without defaults or inference", () => {
     recordedAt: null,
   });
 });
+
+
+test("clearing HealthProfile serializes an explicit cloud null", () => {
+  const profile = sanitizeRemoteUserProfile({
+    name: "Alex",
+    healthProfile: {
+      version: 1,
+      heightCm: {
+        status: "known",
+        value: 180,
+        source: "self_reported",
+      },
+      weightKg: {
+        status: "known",
+        value: 80,
+        source: "self_reported",
+      },
+    },
+  });
+
+  const cleared = {
+    ...profile,
+    healthProfile: undefined,
+  };
+
+  const serialized = serializeUserProfileForFirestore(cleared);
+  assert.equal(serialized.healthProfile, null);
+});
