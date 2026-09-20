@@ -21,7 +21,7 @@ test("failed reconciliation responses stay out of the review step", () => {
 
 test("failed reconciliation analysis cannot manufacture a confirmation id", () => {
   const responseGuard = source.indexOf("if (!response.ok)");
-  const reconciliationId = source.indexOf("reconciliationIdRef.current = ");
+  const reconciliationId = source.indexOf("reconciliationIdRef.current = `voice-");
   assert.ok(responseGuard >= 0);
   assert.ok(reconciliationId > responseGuard);
 });
