@@ -111,3 +111,55 @@ test("a match wins aggregate status even when another selected restriction is un
     "unverifiable",
   );
 });
+
+
+test("direct Annex II category terms screen deterministically across the supported taxonomy", () => {
+  const cases = [
+    ["crustaceans", "eu_annex_ii:crustaceans"],
+    ["huevo", "eu_annex_ii:eggs"],
+    ["fish", "eu_annex_ii:fish"],
+    ["cacahuetes", "eu_annex_ii:peanuts"],
+    ["соя", "eu_annex_ii:soybeans"],
+    ["milk", "eu_annex_ii:milk"],
+    ["almendra", "eu_annex_ii:nuts"],
+    ["целина", "eu_annex_ii:celery"],
+    ["mostaza", "eu_annex_ii:mustard"],
+    ["сусам", "eu_annex_ii:sesame"],
+    ["altramuces", "eu_annex_ii:lupin"],
+    ["мекотели", "eu_annex_ii:molluscs"],
+  ] as const;
+
+  for (const [name, restrictionId] of cases) {
+    const result = screenRecipeFoodRestrictions([{ name }], [restrictionId]);
+    assert.equal(result.status, "match_detected", `${name} -> ${restrictionId}`);
+  }
+});
+
+test("sulphites stay unverifiable without the Annex II concentration threshold evidence", () => {
+  for (const name of ["sulphites", "sulfitos", "сулфити"]) {
+    const result = screenRecipeFoodRestrictions(
+      [{ name }],
+      ["eu_annex_ii:sulphur_dioxide_and_sulphites"],
+    );
+    assert.equal(result.status, "unverifiable", name);
+    assert.equal(shouldBlockRecipeForFoodRestrictionScreening(result), false);
+  }
+});
+
+test("Annex II exception-like product names are not promoted to matches without product-specific evidence", () => {
+  for (const name of [
+    "wheat glucose syrup",
+    "fully refined soybean oil",
+    "fish gelatin",
+  ]) {
+    const result = screenRecipeFoodRestrictions(
+      [{ name }],
+      [
+        "eu_annex_ii:cereals_containing_gluten",
+        "eu_annex_ii:soybeans",
+        "eu_annex_ii:fish",
+      ],
+    );
+    assert.equal(result.status, "unverifiable", name);
+  }
+});
