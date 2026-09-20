@@ -9,7 +9,6 @@ interface HeaderProps {
   onLanguageChange: (lang: Language) => void;
   currency: Currency;
   onCurrencyChange: (curr: Currency) => void;
-  onOpenProModal: () => void;
   theme?: "dark" | "light";
   onToggleTheme?: () => void;
   onGoToLanding?: () => void;
@@ -25,7 +24,6 @@ export const Header: React.FC<HeaderProps> = ({
   onLanguageChange,
   currency,
   onCurrencyChange,
-  onOpenProModal,
   theme = "dark",
   onToggleTheme,
   onGoToLanding,
@@ -66,23 +64,6 @@ export const Header: React.FC<HeaderProps> = ({
               <h1 className="text-sm sm:text-lg font-extrabold tracking-tight font-['Outfit'] group-hover:text-emerald-500 transition-colors whitespace-nowrap">
                 {currentText.appName}
               </h1>
-              <button
-                id="header-pro-badge"
-                type="button"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  onOpenProModal();
-                }}
-                className={`hidden sm:flex items-center gap-1 text-[9px] sm:text-[10px] font-black px-1.5 sm:px-2 py-0.5 rounded-full border transition-all cursor-pointer shrink-0 uppercase tracking-widest ${
-                  isDark
-                    ? "bg-amber-500/10 text-amber-400 border-amber-500/20 hover:bg-amber-500/20"
-                    : "bg-amber-100 text-amber-900 border-amber-300 hover:bg-amber-200 font-extrabold shadow-xs"
-                }`}
-                title="BalkanBite Pro Tier"
-              >
-                <Sparkles className="w-2.5 h-2.5" />
-                PRO
-              </button>
             </div>
             <p className={`text-[10px] sm:text-xs hidden md:block truncate font-semibold ${isDark ? "text-stone-400" : "text-slate-600"}`}>
               {currentText.tagline}
