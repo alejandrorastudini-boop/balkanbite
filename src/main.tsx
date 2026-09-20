@@ -2,6 +2,7 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import {
+  isFreshGuestOnboardingQaRoute,
   isProfileHealthDataQaRoute,
   isRuntimeQaRoute,
   isStartupCloudSyncQaRoute,
@@ -20,6 +21,12 @@ async function bootstrap() {
   if (isProfileHealthDataQaRoute()) {
     const {ProfileHealthDataQaHarness} = await import('./qa/ProfileHealthDataQaHarness.tsx');
     root.render(<ProfileHealthDataQaHarness />);
+    return;
+  }
+
+  if (isFreshGuestOnboardingQaRoute()) {
+    const {FreshGuestOnboardingQaHarness} = await import('./qa/FreshGuestOnboardingQaHarness.tsx');
+    root.render(<FreshGuestOnboardingQaHarness />);
     return;
   }
 
