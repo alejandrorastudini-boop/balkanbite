@@ -3,7 +3,7 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
-import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileContext";
+import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileContext.js";
 
 dotenv.config();
 
