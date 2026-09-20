@@ -40,7 +40,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   const [healthGoal, setHealthGoal] = useState<"balanced" | "muscle" | "fat_loss" | "heart">("balanced");
   const [dietStyle, setDietStyle] = useState<"all" | "mediterranean" | "vegetarian" | "vegan" | "keto" | "gluten_free">("mediterranean");
   const [selectedAllergies, setSelectedAllergies] = useState<string[]>([]);
-  const [selectedAppliances, setSelectedAppliances] = useState<string[]>(["Airfryer", "Horno", "Vitro"]);
+  const [selectedAppliances, setSelectedAppliances] = useState<string[]>([]);
   const [monthlyBudgetEUR, setMonthlyBudgetEUR] = useState<number>(350);
 
   const toggleAllergy = (allergy: string) => {
