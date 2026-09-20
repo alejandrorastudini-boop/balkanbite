@@ -403,3 +403,31 @@ test("guest workspace storage is not overwritten by a signed-in account", () => 
     /getUserLocalWorkspaceKey\([\s\S]*"balkanbite_chat_messages"[\s\S]*currentUser\.uid/
   );
 });
+
+
+test("profile Firestore writes serialize optional unknown fields instead of spreading undefined", () => {
+  assert.match(
+    firebaseSyncSource,
+    /serializeUserProfileForFirestore\(newProfile\)/
+  );
+  assert.match(
+    firebaseSyncSource,
+    /serializeUserProfileForFirestore\(profile\)/
+  );
+  assert.doesNotMatch(
+    firebaseSyncSource,
+    /setDoc\(userDoc,\s*\{\s*\.\.\.newProfile/
+  );
+  assert.doesNotMatch(
+    firebaseSyncSource,
+    /setDoc\(userDoc,\s*\{\s*\.\.\.profile/
+  );
+  assert.match(
+    firebaseSyncSource,
+    /Failed to create user profile/
+  );
+  assert.match(
+    firebaseSyncSource,
+    /Failed to save user profile/
+  );
+});
