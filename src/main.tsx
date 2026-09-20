@@ -1,7 +1,11 @@
 import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
-import {isRuntimeQaRoute, isStartupCloudSyncQaRoute} from './qa/runtimeQaGate';
+import {
+  isProfileHealthDataQaRoute,
+  isRuntimeQaRoute,
+  isStartupCloudSyncQaRoute,
+} from './qa/runtimeQaGate';
 import './index.css';
 
 const root = createRoot(document.getElementById('root')!);
@@ -10,6 +14,12 @@ async function bootstrap() {
   if (isStartupCloudSyncQaRoute()) {
     const {StartupCloudSyncQaHarness} = await import('./qa/StartupCloudSyncQaHarness.tsx');
     root.render(<StartupCloudSyncQaHarness />);
+    return;
+  }
+
+  if (isProfileHealthDataQaRoute()) {
+    const {ProfileHealthDataQaHarness} = await import('./qa/ProfileHealthDataQaHarness.tsx');
+    root.render(<ProfileHealthDataQaHarness />);
     return;
   }
 
