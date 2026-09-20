@@ -307,6 +307,9 @@ async function runProfileHealthDataControlScenario(context) {
     scenario: "profile-health-data-control",
     url: profileHealthDataUrl().replace(/([?&]_vercel_share=)[^&]+/, "$1[redacted]"),
     initialHealthProfilePresent: null,
+    initialFieldCount: null,
+    afterFirstRemovalFieldCount: null,
+    finalFieldCount: null,
     finalHealthProfilePresent: null,
     result: "running",
   };
@@ -346,8 +349,11 @@ async function runProfileHealthDataControlScenario(context) {
       "pregnancyLactationStatus",
     ];
 
+    evidence.initialFieldCount = (
+      await page.getByTestId("qa-health-field-count").textContent()
+    )?.trim();
     assert.equal(
-      (await page.getByTestId("qa-health-field-count").textContent())?.trim(),
+      evidence.initialFieldCount,
       "6",
       "QA profile must start with all six supported HealthProfile fields"
     );
@@ -387,8 +393,11 @@ async function runProfileHealthDataControlScenario(context) {
       1,
       "removing age must preserve the height datum"
     );
+    evidence.afterFirstRemovalFieldCount = (
+      await page.getByTestId("qa-health-field-count").textContent()
+    )?.trim();
     assert.equal(
-      (await page.getByTestId("qa-health-field-count").textContent())?.trim(),
+      evidence.afterFirstRemovalFieldCount,
       "5",
       "removing one datum must leave the other five HealthProfile fields"
     );
@@ -421,8 +430,11 @@ async function runProfileHealthDataControlScenario(context) {
       "false",
       "removing the last field must make HealthProfile absent"
     );
+    evidence.finalFieldCount = (
+      await page.getByTestId("qa-health-field-count").textContent()
+    )?.trim();
     assert.equal(
-      (await page.getByTestId("qa-health-field-count").textContent())?.trim(),
+      evidence.finalFieldCount,
       "0",
       "no HealthProfile fields may remain after removing all six"
     );
