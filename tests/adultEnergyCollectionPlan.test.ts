@@ -154,9 +154,20 @@ test("not-applicable on a required female safety field makes the estimate unavai
   });
 });
 
-test("purpose metadata says inputs persist but the derived estimate does not", () => {
-  assert.equal(ADULT_MAINTENANCE_ENERGY_PURPOSE.persistentInputs, true);
-  assert.equal(ADULT_MAINTENANCE_ENERGY_PURPOSE.persistentDerivedEstimate, false);
+test("purpose metadata keeps persistence and privacy choices explicit", () => {
+  assert.equal(
+    ADULT_MAINTENANCE_ENERGY_PURPOSE.inputPersistence,
+    "health_profile_if_explicitly_saved",
+  );
+  assert.equal(
+    ADULT_MAINTENANCE_ENERGY_PURPOSE.derivedEstimatePersistence,
+    "not_persisted_by_default",
+  );
+  assert.equal(ADULT_MAINTENANCE_ENERGY_PURPOSE.requiresPurposeNotice, true);
+  assert.equal(
+    ADULT_MAINTENANCE_ENERGY_PURPOSE.requiresPrivacyGateBeforeUi,
+    true,
+  );
   assert.equal(
     ADULT_MAINTENANCE_ENERGY_PURPOSE.outputNature,
     "estimate_not_prescription",
