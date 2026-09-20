@@ -26,8 +26,10 @@ export const ADULT_MAINTENANCE_ENERGY_PURPOSE = {
   id: "adult_maintenance_energy_estimate_v1",
   purpose: "estimate_adult_daily_maintenance_energy",
   outputNature: "estimate_not_prescription",
-  persistentInputs: true,
-  persistentDerivedEstimate: false,
+  inputPersistence: "health_profile_if_explicitly_saved",
+  derivedEstimatePersistence: "not_persisted_by_default",
+  requiresPurposeNotice: true,
+  requiresPrivacyGateBeforeUi: true,
 } as const;
 
 type PlanBase = {
@@ -83,8 +85,9 @@ function classifyMissingOrUnavailable(
  * Plans the minimum profile data needed for BalkanBite's current EFSA-based
  * adult maintenance-energy estimate.
  *
- * This is deliberately a collection plan, not a consent record and not a
- * calculation. It exists so future UI can use progressive disclosure and data
+ * This is deliberately a collection plan, not a consent record, legal-basis
+ * decision or calculation. It exists so future UI can use progressive
+ * disclosure and data
  * minimisation:
  * - no defaults;
  * - no automatic PAL classification;
