@@ -6,6 +6,7 @@ import {
   parseGuestProfileCache,
   parseUserProfileCache,
   sanitizeRemoteUserProfile,
+  serializeUserProfileForFirestore,
 } from "../src/utils/profileSyncBoundary";
 
 test("new signed-in profiles do not inherit guest completion or preferences", () => {
@@ -77,4 +78,48 @@ test("profile caches are user-scoped and malformed caches stay unavailable", () 
 test("guest cache parsing does not accept arbitrary non-object payloads", () => {
   assert.equal(parseGuestProfileCache("[]"), null);
   assert.equal(parseGuestProfileCache("null"), null);
+});
+
+
+test("Firestore profile serialization preserves unknowns as null, never undefined", () => {
+  const profile = createSignedInProfileDefaults("Alex");
+  const serialized = serializeUserProfileForFirestore(profile);
+
+  assert.equal(serialized.allergies, null);
+  assert.equal(serialized.appliances, null);
+  assert.equal(serialized.householdSize, null);
+  assert.equal(serialized.cookingLevel, null);
+  assert.equal(serialized.monthlyBudgetEUR, null);
+  assert.equal(
+    Object.values(serialized).some((value) => value === undefined),
+    false,
+  );
+});
+
+test("Firestore profile serialization clones optional arrays and round-trips null as unknown", () => {
+  const profile = {
+    ...createSignedInProfileDefaults("Alex"),
+    allergies: ["milk"],
+    appliances: ["oven"],
+    householdSize: 2,
+    monthlyBudgetEUR: 300,
+  };
+  const serialized = serializeUserProfileForFirestore(profile);
+
+  assert.deepEqual(serialized.allergies, ["milk"]);
+  assert.deepEqual(serialized.appliances, ["oven"]);
+  assert.equal(serialized.householdSize, 2);
+  assert.equal(serialized.monthlyBudgetEUR, 300);
+
+  const sanitized = sanitizeRemoteUserProfile({
+    ...serialized,
+    allergies: null,
+    appliances: null,
+    householdSize: null,
+    monthlyBudgetEUR: null,
+  });
+  assert.equal(sanitized.allergies, undefined);
+  assert.equal(sanitized.appliances, undefined);
+  assert.equal(sanitized.householdSize, undefined);
+  assert.equal(sanitized.monthlyBudgetEUR, undefined);
 });

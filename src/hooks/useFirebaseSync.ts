@@ -15,7 +15,7 @@ import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile } from "../t
 import { INITIAL_PANTRY } from "../data/initialData";
 import { getStartupCloudSyncState } from "../utils/startupCloudSync";
 import { findRemovedDocumentIds, getSyncedItemKey, selectCanonicalRemoteEntries } from "../utils/cloudCollectionSync";
-import { createSignedInProfileDefaults, sanitizeRemoteUserProfile } from "../utils/profileSyncBoundary";
+import { createSignedInProfileDefaults, sanitizeRemoteUserProfile, serializeUserProfileForFirestore } from "../utils/profileSyncBoundary";
 
 const DEMO_PANTRY_ITEM_IDS = new Set(INITIAL_PANTRY.map(item => item.id));
 
@@ -98,11 +98,13 @@ export function useFirebaseSync(
           currentUser.displayName
         );
         setProfile(newProfile);
-        setDoc(userDoc, {
-          ...newProfile,
+        void setDoc(userDoc, {
+          ...serializeUserProfileForFirestore(newProfile),
           userId: currentUser.uid,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now()
+        }).catch((error) => {
+          console.error("Failed to create user profile:", error);
         });
       }
       setProfileHydratedUser(currentUser.uid);
@@ -121,10 +123,12 @@ export function useFirebaseSync(
       return;
     }
     const userDoc = doc(db, "users", currentUser.uid);
-    setDoc(userDoc, {
-      ...profile,
+    void setDoc(userDoc, {
+      ...serializeUserProfileForFirestore(profile),
       updatedAt: Timestamp.now()
-    }, { merge: true });
+    }, { merge: true }).catch((error) => {
+      console.error("Failed to save user profile:", error);
+    });
   }, [profile, currentUser, loading, profileHydratedUser]);
 
   const { canRenderApp, inventoryIsProvisional, cloudInventoryWritesAllowed } =
