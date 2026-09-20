@@ -3,7 +3,8 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
-import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileContext.js";\nimport { withOpenAIJsonModeInstruction } from "./src/utils/openAIJsonMode.js";
+import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileContext.js";
+import { withOpenAIJsonModeInstruction } from "./src/utils/openAIJsonMode.js";
 
 dotenv.config();
 
@@ -63,7 +64,9 @@ async function generateWithOpenAI(
     try {
       const requestBody: Record<string, unknown> = {
         model: OPENAI_MODEL,
-        input: params.json\n          ? withOpenAIJsonModeInstruction(params.input)\n          : params.input,
+        input: params.json
+          ? withOpenAIJsonModeInstruction(params.input)
+          : params.input,
         store: false,
         reasoning: { effort: "low" },
         max_output_tokens: 16_000,
