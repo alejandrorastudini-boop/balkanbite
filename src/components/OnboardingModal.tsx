@@ -218,7 +218,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 onClick={() => setStep(3)}
                 className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
               >
-                <span>Siguiente</span>
+                <span>{language === "bg" ? "Напред" : language === "es" ? "Siguiente" : "Next"}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -269,7 +269,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 onClick={() => setStep(4)}
                 className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
               >
-                <span>Siguiente</span>
+                <span>{language === "bg" ? "Напред" : language === "es" ? "Siguiente" : "Next"}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
               </button>
             </div>
@@ -347,7 +347,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 className="flex-1 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>{language === "es" ? "Comenzar Experiencia" : "Start Experience"}</span>
+                <span>{language === "bg" ? "Започни" : language === "es" ? "Comenzar Experiencia" : "Start Experience"}</span>
               </button>
             </div>
           </div>
