@@ -31,11 +31,13 @@ test("blank onboarding name is omitted instead of written as undefined", () => {
 });
 
 
-test("optional body metrics have no defaults, derive BMI, and persist through HealthProfile", () => {
+test("optional age and body metrics have no defaults, derive BMI, and persist through HealthProfile", () => {
+  assert.match(source, /const \[ageInput, setAgeInput\] = useState\(""\)/);
   assert.match(source, /const \[heightInput, setHeightInput\] = useState\(""\)/);
   assert.match(source, /const \[weightInput, setWeightInput\] = useState\(""\)/);
   assert.match(source, /formatBmi\(heightCm, weightKg\)/);
   assert.match(source, /createSelfReportedHealthProfile/);
+  assert.match(source, /\{ ageYears, heightCm, weightKg \}/);
   assert.match(source, /\.\.\.\(healthProfile \? \{ healthProfile \} : \{\}\)/);
   assert.doesNotMatch(source, /\.\.\.\(heightCm !== undefined \? \{ heightCm \} : \{\}\)/);
   assert.doesNotMatch(source, /\.\.\.\(weightKg !== undefined \? \{ weightKg \} : \{\}\)/);
