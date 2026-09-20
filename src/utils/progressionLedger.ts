@@ -29,6 +29,7 @@ export interface ProgressionAppendResult {
 }
 
 const EVENT_ID_PATTERN = /^[A-Za-z0-9._:-]{1,180}$/;
+const SOURCE_REF_PATTERN = /^[A-Za-z0-9._:-]{1,150}$/;
 const VALID_EVENT_TYPES = new Set<ProgressionEventType>([
   "confirmed_purchase_applied",
   "recipe_cook_inventory_applied",
@@ -50,6 +51,23 @@ export function isValidProgressionTimestamp(value: unknown): value is string {
 
 export function isValidProgressionEventId(value: unknown): value is string {
   return typeof value === "string" && EVENT_ID_PATTERN.test(value);
+}
+
+function isValidProgressionSourceRef(value: unknown): value is string {
+  return typeof value === "string" && SOURCE_REF_PATTERN.test(value);
+}
+
+function canonicalProgressionEvent(
+  event: ProgressionEventV1,
+): ProgressionEventV1 {
+  return {
+    version: 1,
+    eventId: event.eventId,
+    type: event.type,
+    occurredAt: event.occurredAt,
+    evidence: "deterministic_state_transition",
+    evidenceCount: event.evidenceCount,
+  };
 }
 
 export function isValidProgressionEvent(
@@ -81,9 +99,9 @@ export function appendProgressionEvents(
   current: readonly ProgressionEventV1[],
   candidates: readonly unknown[],
 ): ProgressionAppendResult {
-  const safeExisting = current.filter(isValidProgressionEvent).map((event) => ({
-    ...event,
-  }));
+  const safeExisting = current
+    .filter(isValidProgressionEvent)
+    .map(canonicalProgressionEvent);
   const seen = new Set(safeExisting.map((event) => event.eventId));
   const ledger = [...safeExisting];
   const addedEventIds: string[] = [];
@@ -102,7 +120,7 @@ export function appendProgressionEvents(
     if (seen.has(candidate.eventId)) continue;
 
     seen.add(candidate.eventId);
-    ledger.push({ ...candidate });
+    ledger.push(canonicalProgressionEvent(candidate));
     addedEventIds.push(candidate.eventId);
   }
 
@@ -130,7 +148,7 @@ export function buildRecipeCookProgressEvent(
   input: RecipeCookProgressEvidence,
 ): ProgressionEventV1 | null {
   if (
-    !isValidProgressionEventId(input.actionId) ||
+    !isValidProgressionSourceRef(input.actionId) ||
     !isValidProgressionTimestamp(input.occurredAt) ||
     input.result.issues.length > 0 ||
     input.result.deductions.length === 0
@@ -169,7 +187,7 @@ export function buildPurchaseProgressEvents(
 
   const unique = Array.from(
     new Set(
-      input.newlyAppliedSourceIds.filter(isValidProgressionEventId),
+      input.newlyAppliedSourceIds.filter(isValidProgressionSourceRef),
     ),
   );
 
