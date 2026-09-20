@@ -12,49 +12,49 @@ const cases: Array<{
   ageYears: number;
   heightCm: number;
   weightKg: number;
-  expectedRee: number;
+  expectedReeExact: number;
 }> = [
   {
     sex: "male",
     ageYears: 25,
     heightCm: 178,
     weightKg: 70,
-    expectedRee: 1678,
+    expectedReeExact: 1678.14,
   },
   {
     sex: "male",
     ageYears: 40,
     heightCm: 176,
     weightKg: 72,
-    expectedRee: 1636,
+    expectedReeExact: 1635.96,
   },
   {
     sex: "male",
     ageYears: 65,
     heightCm: 173,
     weightKg: 79,
-    expectedRee: 1581,
+    expectedReeExact: 1580.53,
   },
   {
     sex: "female",
     ageYears: 25,
     heightCm: 164,
     weightKg: 56,
-    expectedRee: 1309,
+    expectedReeExact: 1309,
   },
   {
     sex: "female",
     ageYears: 40,
     heightCm: 164,
     weightKg: 60,
-    expectedRee: 1302,
+    expectedReeExact: 1302.48,
   },
   {
     sex: "female",
     ageYears: 65,
     heightCm: 160,
     weightKg: 60,
-    expectedRee: 1196,
+    expectedReeExact: 1195.5,
   },
 ];
 
@@ -84,11 +84,11 @@ for (const base of cases) {
 
       assert.equal(result.status, "calculated");
       if (result.status !== "calculated") return;
-      assert.equal(result.restingEnergyKcalPerDay, base.expectedRee);
+      assert.equal(result.restingEnergyKcalPerDay, Math.round(base.expectedReeExact));
       assert.equal(result.physicalActivityLevel, pal);
       assert.equal(
         result.estimatedKcalPerDay,
-        Math.round(base.expectedRee * pal),
+        Math.round(base.expectedReeExact * pal),
       );
       assert.equal(result.formulaVersion, "efsa_2013_henry_2005_adult_v1");
       assert.equal(result.source.doi, "10.2903/j.efsa.2013.3005");
