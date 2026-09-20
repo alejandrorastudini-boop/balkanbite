@@ -653,7 +653,7 @@ async function runFreshGuestOnboardingScenario(context) {
     );
 
     await page
-      .getByRole("button", { name: "Next", exact: true })
+      .locator("#onboarding-next-step-1")
       .waitFor({ state: "visible", timeout: 5_000 });
 
     await page.screenshot({
@@ -661,13 +661,21 @@ async function runFreshGuestOnboardingScenario(context) {
       fullPage: true,
     });
 
-    for (let step = 0; step < 3; step += 1) {
-      await page.getByRole("button", { name: "Next", exact: true }).click();
-    }
-
+    await page.locator("#onboarding-next-step-1").click();
     await page
-      .getByRole("button", { name: "Start Experience", exact: true })
-      .click();
+      .locator("#onboarding-next-step-2")
+      .waitFor({ state: "visible", timeout: 5_000 });
+
+    await page.locator("#onboarding-next-step-2").click();
+    await page
+      .locator("#onboarding-next-step-3")
+      .waitFor({ state: "visible", timeout: 5_000 });
+
+    await page.locator("#onboarding-next-step-3").click();
+    await page
+      .locator("#onboarding-finish")
+      .waitFor({ state: "visible", timeout: 5_000 });
+    await page.locator("#onboarding-finish").click();
 
     await page.waitForFunction(() => {
       const node = document.querySelector(
