@@ -19,7 +19,7 @@ import {
   HeartPulse,
   Trash2,
 } from "lucide-react";
-import { UserProfile, Language, Currency, type HealthDatum } from "../types";
+import {\n  UserProfile,\n  Language,\n  Currency,\n  type HealthDatum,\n  type HealthDataStatus,\n} from "../types";
 import { t } from "../utils/translations";
 import { ConfirmModal } from "./ConfirmModal";
 import { AdminAgentStatusPanel } from "./AdminAgentStatusPortal";
@@ -31,6 +31,7 @@ import {
   removeHealthProfileField,
   type HealthProfileFieldKey,
 } from "../utils/healthProfile";
+import { correctExistingHealthProfileField } from "../utils/healthProfileCorrection";
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -67,6 +68,35 @@ const HEALTH_FIELD_LABELS: Record<
     bg: "Бременност / кърмене",
   },
 };
+
+const HEALTH_FIELD_KNOWN_VALUES: Partial<
+  Record<HealthProfileFieldKey, readonly string[]>
+> = {
+  physiologicalSex: ["female", "male"],
+  activityCategory: [
+    "low_active",
+    "moderately_active",
+    "active",
+    "very_active",
+  ],
+  pregnancyLactationStatus: [
+    "not_pregnant_or_lactating",
+    "pregnant_or_lactating",
+  ],
+};
+
+const HEALTH_STATUS_OPTIONS: readonly HealthDataStatus[] = [
+  "known",
+  "unknown",
+  "not_applicable",
+  "prefer_not_to_say",
+];
+
+const NUMERIC_HEALTH_FIELDS = new Set<HealthProfileFieldKey>([
+  "ageYears",
+  "heightCm",
+  "weightKg",
+]);
 
 function healthStatusLabel(status: string, language: Language): string {
   const labels: Record<string, Record<Language, string>> = {
@@ -186,6 +216,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [showClearHealthDataConfirm, setShowClearHealthDataConfirm] = useState(false);
   const [pendingHealthFieldRemoval, setPendingHealthFieldRemoval] =
     useState<HealthProfileFieldKey | null>(null);
+  const [healthFieldEdit, setHealthFieldEdit] = useState<{
+    field: HealthProfileFieldKey;
+    status: HealthDataStatus;
+    value: string;
+  } | null>(null);
+  const [healthFieldEditError, setHealthFieldEditError] = useState<string | null>(
+    null,
+  );
   const [showClearLegacyFoodSafetyConfirm, setShowClearLegacyFoodSafetyConfirm] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -255,6 +293,92 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     onUpdateProfile({
       disliked: profile.disliked.filter((i) => i !== itemToRemove),
     });
+  };
+
+  const beginHealthFieldCorrection = (
+    field: HealthProfileFieldKey,
+    datum: HealthDatum<unknown>,
+  ) => {
+    setHealthFieldEdit({
+      field,
+      status: datum.status,
+      value:
+        datum.status === "known" && datum.value !== undefined
+          ? String(datum.value)
+          : "",
+    });
+    setHealthFieldEditError(null);
+  };
+
+  const cancelHealthFieldCorrection = () => {
+    setHealthFieldEdit(null);
+    setHealthFieldEditError(null);
+  };
+
+  const saveHealthFieldCorrection = () => {
+    if (!healthFieldEdit) return;
+
+    const { field, status } = healthFieldEdit;
+    let correctedValue: unknown;
+
+    if (status === "known") {
+      if (NUMERIC_HEALTH_FIELDS.has(field)) {
+        const trimmed = healthFieldEdit.value.trim();
+        const numericValue = Number(trimmed);
+        if (
+          !trimmed ||
+          !Number.isFinite(numericValue) ||
+          numericValue <= 0
+        ) {
+          setHealthFieldEditError(
+            language === "bg"
+              ? "Въведете положителна числова стойност."
+              : language === "es"
+              ? "Introduce un valor numérico positivo."
+              : "Enter a positive numeric value.",
+          );
+          return;
+        }
+        correctedValue = numericValue;
+      } else {
+        if (!healthFieldEdit.value) {
+          setHealthFieldEditError(
+            language === "bg"
+              ? "Изберете стойност."
+              : language === "es"
+              ? "Selecciona un valor."
+              : "Select a value.",
+          );
+          return;
+        }
+        correctedValue = healthFieldEdit.value;
+      }
+    }
+
+    const result = correctExistingHealthProfileField(
+      profile.healthProfile,
+      field,
+      {
+        status,
+        ...(status === "known" ? { value: correctedValue } : {}),
+        recordedAt: new Date().toISOString(),
+      },
+    );
+
+    if (!result.ok) {
+      setHealthFieldEditError(
+        language === "bg"
+          ? "Промяната не можа да бъде запазена. Съществуващите данни не са променени."
+          : language === "es"
+          ? "No se pudo guardar la corrección. Los datos existentes no se han modificado."
+          : "The correction could not be saved. Existing data was not changed.",
+      );
+      return;
+    }
+
+    onUpdateProfile({ healthProfile: result.profile });
+    setHealthFieldEdit(null);
+    setHealthFieldEditError(null);
   };
 
   return (
@@ -490,65 +614,233 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           <div id="profile-health-field-list" className="space-y-2">
             {healthFieldRows.map(({ field, datum }) => {
               const valueLabel = healthValueLabel(field, datum, language);
+              const isEditing = healthFieldEdit?.field === field;
+              const knownOptions = HEALTH_FIELD_KNOWN_VALUES[field];
               return (
                 <div
                   key={field}
                   id={`profile-health-field-${field}`}
                   data-testid={`health-field-${field}`}
-                  className="rounded-2xl border border-white/[0.07] bg-black/20 p-3.5 flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between"
+                  className="rounded-2xl border border-white/[0.07] bg-black/20 p-3.5 space-y-3"
                 >
-                  <div className="min-w-0 space-y-1">
-                    <div className="flex flex-wrap items-center gap-2">
-                      <span className="text-sm font-bold text-stone-200">
-                        {HEALTH_FIELD_LABELS[field][language]}
-                      </span>
-                      <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md border border-white/[0.08] bg-white/[0.03] text-stone-400">
-                        {healthStatusLabel(datum.status, language)}
-                      </span>
+                  <div className="flex flex-col sm:flex-row sm:items-center gap-3 sm:justify-between">
+                    <div className="min-w-0 space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-bold text-stone-200">
+                          {HEALTH_FIELD_LABELS[field][language]}
+                        </span>
+                        <span className="text-[10px] uppercase tracking-wider font-bold px-2 py-0.5 rounded-md border border-white/[0.08] bg-white/[0.03] text-stone-400">
+                          {healthStatusLabel(datum.status, language)}
+                        </span>
+                      </div>
+                      {valueLabel && (
+                        <p className="text-sm text-white font-semibold">
+                          {valueLabel}
+                        </p>
+                      )}
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone-500">
+                        {datum.source && (
+                          <span>
+                            {language === "bg"
+                              ? "Източник"
+                              : language === "es"
+                              ? "Procedencia"
+                              : "Source"}
+                            : {healthSourceLabel(datum.source, language)}
+                          </span>
+                        )}
+                        {datum.recordedAt && (
+                          <span>
+                            {language === "bg"
+                              ? "Записано"
+                              : language === "es"
+                              ? "Registrado"
+                              : "Recorded"}
+                            :{" "}
+                            <time dateTime={datum.recordedAt}>
+                              {healthRecordedAtLabel(datum.recordedAt, language)}
+                            </time>
+                          </span>
+                        )}
+                      </div>
                     </div>
-                    {valueLabel && (
-                      <p className="text-sm text-white font-semibold">
-                        {valueLabel}
-                      </p>
-                    )}
-                    <div className="flex flex-wrap gap-x-3 gap-y-1 text-[11px] text-stone-500">
-                      {datum.source && (
-                        <span>
-                          {language === "bg"
-                            ? "Източник"
-                            : language === "es"
-                            ? "Procedencia"
-                            : "Source"}
-                          : {healthSourceLabel(datum.source, language)}
-                        </span>
-                      )}
-                      {datum.recordedAt && (
-                        <span>
-                          {language === "bg"
-                            ? "Записано"
-                            : language === "es"
-                            ? "Registrado"
-                            : "Recorded"}
-                          :{" "}
-                          <time dateTime={datum.recordedAt}>
-                            {healthRecordedAtLabel(datum.recordedAt, language)}
-                          </time>
-                        </span>
-                      )}
+                    <div className="shrink-0 flex flex-wrap gap-2">
+                      <button
+                        id={`profile-edit-health-field-${field}`}
+                        type="button"
+                        onClick={() => beginHealthFieldCorrection(field, datum)}
+                        className="px-3 py-2 rounded-xl border border-emerald-500/25 bg-emerald-500/5 hover:bg-emerald-500/10 text-emerald-300 text-xs font-bold cursor-pointer transition-colors"
+                      >
+                        {language === "bg"
+                          ? "Коригирай"
+                          : language === "es"
+                          ? "Corregir"
+                          : "Correct"}
+                      </button>
+                      <button
+                        id={`profile-remove-health-field-${field}`}
+                        type="button"
+                        onClick={() => setPendingHealthFieldRemoval(field)}
+                        className="px-3 py-2 rounded-xl border border-rose-500/25 bg-rose-500/5 hover:bg-rose-500/10 text-rose-300 text-xs font-bold cursor-pointer transition-colors"
+                      >
+                        {language === "bg"
+                          ? "Премахни"
+                          : language === "es"
+                          ? "Eliminar"
+                          : "Remove"}
+                      </button>
                     </div>
                   </div>
-                  <button
-                    id={`profile-remove-health-field-${field}`}
-                    type="button"
-                    onClick={() => setPendingHealthFieldRemoval(field)}
-                    className="shrink-0 px-3 py-2 rounded-xl border border-rose-500/25 bg-rose-500/5 hover:bg-rose-500/10 text-rose-300 text-xs font-bold cursor-pointer transition-colors"
-                  >
-                    {language === "bg"
-                      ? "Премахни"
-                      : language === "es"
-                      ? "Eliminar"
-                      : "Remove"}
-                  </button>
+
+                  {isEditing && healthFieldEdit && (
+                    <div
+                      id={`profile-health-edit-panel-${field}`}
+                      className="rounded-xl border border-emerald-500/20 bg-emerald-500/[0.04] p-3 space-y-3"
+                    >
+                      <div className="space-y-1">
+                        <label
+                          htmlFor={`profile-health-edit-status-${field}`}
+                          className="block text-[11px] uppercase tracking-wider font-bold text-stone-400"
+                        >
+                          {language === "bg"
+                            ? "Статус"
+                            : language === "es"
+                            ? "Estado"
+                            : "Status"}
+                        </label>
+                        <select
+                          id={`profile-health-edit-status-${field}`}
+                          value={healthFieldEdit.status}
+                          onChange={(event) => {
+                            setHealthFieldEdit((current) =>
+                              current
+                                ? {
+                                    ...current,
+                                    status: event.target.value as HealthDataStatus,
+                                    value:
+                                      event.target.value === "known"
+                                        ? current.value
+                                        : "",
+                                  }
+                                : current,
+                            );
+                            setHealthFieldEditError(null);
+                          }}
+                          className="w-full px-3 py-2.5 bg-[#0B0F12] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                        >
+                          {HEALTH_STATUS_OPTIONS.map((status) => (
+                            <option key={status} value={status}>
+                              {healthStatusLabel(status, language)}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+
+                      {healthFieldEdit.status === "known" && (
+                        <div className="space-y-1">
+                          <label
+                            htmlFor={`profile-health-edit-value-${field}`}
+                            className="block text-[11px] uppercase tracking-wider font-bold text-stone-400"
+                          >
+                            {language === "bg"
+                              ? "Стойност"
+                              : language === "es"
+                              ? "Valor"
+                              : "Value"}
+                          </label>
+                          {NUMERIC_HEALTH_FIELDS.has(field) ? (
+                            <input
+                              id={`profile-health-edit-value-${field}`}
+                              type="number"
+                              min="0"
+                              step={field === "ageYears" ? "1" : "0.1"}
+                              value={healthFieldEdit.value}
+                              onChange={(event) => {
+                                setHealthFieldEdit((current) =>
+                                  current
+                                    ? { ...current, value: event.target.value }
+                                    : current,
+                                );
+                                setHealthFieldEditError(null);
+                              }}
+                              className="w-full px-3 py-2.5 bg-[#0B0F12] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                            />
+                          ) : (
+                            <select
+                              id={`profile-health-edit-value-${field}`}
+                              value={healthFieldEdit.value}
+                              onChange={(event) => {
+                                setHealthFieldEdit((current) =>
+                                  current
+                                    ? { ...current, value: event.target.value }
+                                    : current,
+                                );
+                                setHealthFieldEditError(null);
+                              }}
+                              className="w-full px-3 py-2.5 bg-[#0B0F12] border border-white/[0.08] rounded-xl text-sm text-white focus:outline-none focus:border-emerald-500/50"
+                            >
+                              <option value="">
+                                {language === "bg"
+                                  ? "Изберете стойност"
+                                  : language === "es"
+                                  ? "Selecciona un valor"
+                                  : "Select a value"}
+                              </option>
+                              {(knownOptions ?? []).map((option) => (
+                                <option key={option} value={option}>
+                                  {healthValueLabel(
+                                    field,
+                                    { status: "known", value: option },
+                                    language,
+                                  ) ?? option}
+                                </option>
+                              ))}
+                            </select>
+                          )}
+                        </div>
+                      )}
+
+                      {healthFieldEditError && (
+                        <p
+                          id={`profile-health-edit-error-${field}`}
+                          className="text-xs font-medium text-rose-300"
+                        >
+                          {healthFieldEditError}
+                        </p>
+                      )}
+
+                      <p className="text-[11px] text-stone-500 leading-relaxed">
+                        {language === "bg"
+                          ? "Запазването ще отбележи корекцията като посочена от вас с нова дата. Другите здравни данни няма да бъдат променени."
+                          : language === "es"
+                          ? "Al guardar, la corrección quedará registrada como declarada por ti con una fecha nueva. Los demás datos de salud no cambiarán."
+                          : "Saving records this correction as self-reported with a new date. Other health data will not change."}
+                      </p>
+
+                      <div className="flex flex-wrap gap-2">
+                        <button
+                          id={`profile-save-health-field-${field}`}
+                          type="button"
+                          onClick={saveHealthFieldCorrection}
+                          className="px-3 py-2 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs font-bold cursor-pointer transition-colors"
+                        >
+                          {language === "bg"
+                            ? "Запази корекцията"
+                            : language === "es"
+                            ? "Guardar corrección"
+                            : "Save correction"}
+                        </button>
+                        <button
+                          id={`profile-cancel-health-field-${field}`}
+                          type="button"
+                          onClick={cancelHealthFieldCorrection}
+                          className="px-3 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] hover:bg-white/[0.06] text-stone-300 text-xs font-bold cursor-pointer transition-colors"
+                        >
+                          {currentText.cancel}
+                        </button>
+                      </div>
+                    </div>
+                  )}
                 </div>
               );
             })}
