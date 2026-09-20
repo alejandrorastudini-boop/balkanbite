@@ -45,6 +45,10 @@ export interface AdultMaintenanceEnergyEstimate {
     year: 2023;
     doi: "10.17226/26818";
   };
+  modelError: {
+    metric: "mean_absolute_error";
+    kcalPerDay: number;
+  };
 }
 
 export interface AdultMaintenanceEnergyInsufficientData {
@@ -215,6 +219,10 @@ export function estimateAdultMaintenanceEnergy(
       report: "Dietary Reference Intakes for Energy",
       year: 2023,
       doi: "10.17226/26818",
+    },
+    modelError: {
+      metric: "mean_absolute_error",
+      kcalPerDay: physiologicalSex === "male" ? 266 : 191,
     },
   };
 }
