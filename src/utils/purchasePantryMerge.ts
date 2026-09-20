@@ -27,7 +27,17 @@ export interface RawReconciliationExtraItem {
 
 export interface PurchaseMergeResult {
   pantry: PantryItem[];
+  /**
+   * Accepted source IDs preserve idempotent workflow semantics: a repeated
+   * confirmation of a previously applied source is accepted as a no-op so the
+   * caller may safely clear it from the active shopping workflow.
+   */
   acceptedSourceIds: string[];
+  /**
+   * Only sources that changed pantry state during this call.
+   * This is the authoritative acquisition evidence for progression.
+   */
+  newlyAppliedSourceIds: string[];
   rejected: Array<{ sourceId: string; name: string; reason: 'invalid_purchase' | 'duplicate_source' | 'quantity_overflow' }>;
 }
 
@@ -64,6 +74,7 @@ export function mergePurchasesIntoPantry(
 ): PurchaseMergeResult {
   const working = pantry.map(item => ({ ...item }));
   const acceptedSourceIds: string[] = [];
+  const newlyAppliedSourceIds: string[] = [];
   const rejected: PurchaseMergeResult['rejected'] = [];
   const seen = new Set<string>();
   const duplicateIds = new Set(purchases.filter((item, index) => purchases.findIndex(other => other.sourceId === item.sourceId) !== index).map(item => item.sourceId));
@@ -132,8 +143,9 @@ export function mergePurchasesIntoPantry(
       });
     }
     acceptedSourceIds.push(purchase.sourceId);
+    newlyAppliedSourceIds.push(purchase.sourceId);
   }
-  return { pantry: working, acceptedSourceIds, rejected };
+  return { pantry: working, acceptedSourceIds, newlyAppliedSourceIds, rejected };
 }
 
 export function shoppingItemToPurchase(item: ShoppingItem): PantryPurchase {
