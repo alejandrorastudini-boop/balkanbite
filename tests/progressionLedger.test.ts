@@ -4,9 +4,11 @@ import {
   appendProgressionEvents,
   buildPurchaseProgressEvents,
   buildRecipeCookProgressEvent,
+  createProgressionActionId,
   eligibleProgressEventCount,
   isValidProgressionEvent,
   isValidProgressionTimestamp,
+  normalizeProgressionLedger,
   type ProgressionEventV1,
 } from "../src/utils/progressionLedger";
 
@@ -222,4 +224,53 @@ test("source references are bounded so derived event IDs remain valid", () => {
     }),
     null,
   );
+});
+
+
+test("normalizeProgressionLedger keeps only canonical valid events", () => {
+  const normalized = normalizeProgressionLedger([
+    {
+      version: 1,
+      eventId: "cook:valid",
+      type: "recipe_cook_inventory_applied",
+      occurredAt: NOW,
+      evidence: "deterministic_state_transition",
+      evidenceCount: 1,
+      hidden: "strip-me",
+    },
+    {
+      version: 1,
+      eventId: "invalid event",
+      type: "recipe_cook_inventory_applied",
+      occurredAt: NOW,
+      evidence: "deterministic_state_transition",
+      evidenceCount: 1,
+    },
+  ]);
+
+  assert.deepEqual(normalized, [
+    {
+      version: 1,
+      eventId: "cook:valid",
+      type: "recipe_cook_inventory_applied",
+      occurredAt: NOW,
+      evidence: "deterministic_state_transition",
+      evidenceCount: 1,
+    },
+  ]);
+});
+
+test("progression action IDs use opaque UUID source refs and fail closed", () => {
+  assert.equal(
+    createProgressionActionId(() => "123e4567-e89b-12d3-a456-426614174000"),
+    "123e4567-e89b-12d3-a456-426614174000",
+  );
+  assert.equal(createProgressionActionId(() => "contains spaces"), null);
+  assert.equal(
+    createProgressionActionId(() => {
+      throw new Error("rng unavailable");
+    }),
+    null,
+  );
+  assert.equal(createProgressionActionId(undefined), null);
 });
