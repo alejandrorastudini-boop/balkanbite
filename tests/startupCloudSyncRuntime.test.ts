@@ -192,7 +192,14 @@ test("App wiring keeps the shell independent from delayed inventory and gates cl
     appSource,
     /if\s*\([^)]*!?inventoryHydrated[^)]*\)\s*\{?\s*return\s*\(/
   );
-  assert.match(appSource, /\{inventoryIsProvisional\s*&&\s*\(/);
+  assert.match(
+    appSource,
+    /activeTab === "pantry" && inventoryIsProvisional && profile\.onboardingCompleted/
+  );
+  assert.doesNotMatch(
+    appSource,
+    /fixed left-4 right-4 top-20 z-\[90\]/
+  );
 
   assert.match(firebaseSyncSource, /getStartupCloudSyncState\(/);
   assert.match(firebaseSyncSource, /cloudInventoryWritesAllowed/);
