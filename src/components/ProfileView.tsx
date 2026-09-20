@@ -617,16 +617,54 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       </div>
 
-      <div className="bg-[#131A1F]/80 backdrop-blur-md border border-amber-500/20 rounded-3xl p-6 shadow-[0_8px_30px_rgba(245,158,11,0.08)] relative overflow-hidden group">
+      <div
+        id="profile-pro-concept-card"
+        className="bg-[#131A1F]/80 backdrop-blur-md border border-amber-500/20 rounded-3xl p-6 shadow-[0_8px_30px_rgba(245,158,11,0.08)] relative overflow-hidden group"
+      >
         <div className="absolute top-0 right-0 w-40 h-40 bg-amber-500/10 blur-3xl rounded-full -translate-y-1/2 translate-x-1/4 pointer-events-none group-hover:bg-amber-500/15 transition-all duration-700" />
         <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4 relative z-10">
           <div className="flex items-center gap-4">
-            <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center font-bold shadow-inner shrink-0"><Sparkles className="w-6 h-6" /></div>
-            <div><h2 className="text-lg font-bold text-white font-['Outfit'] tracking-wide">BalkanBite Pro</h2><span className="text-[10px] font-bold uppercase tracking-widest text-stone-400 flex items-center gap-1.5 mt-0.5">Subscription status unavailable</span></div>
+            <div className="w-12 h-12 rounded-xl bg-amber-500/10 text-amber-500 border border-amber-500/20 flex items-center justify-center font-bold shadow-inner shrink-0">
+              <Sparkles className="w-6 h-6" />
+            </div>
+            <div>
+              <h2 className="text-lg font-bold text-white font-['Outfit'] tracking-wide">
+                BalkanBite Pro
+              </h2>
+              <span
+                id="profile-pro-concept-status"
+                className="text-[10px] font-bold uppercase tracking-widest text-stone-400 flex items-center gap-1.5 mt-0.5"
+              >
+                {language === "bg"
+                  ? "Бъдеща концепция"
+                  : language === "es"
+                  ? "Concepto futuro"
+                  : "Future concept"}
+              </span>
+            </div>
           </div>
-          <button onClick={onOpenProModal} className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/[0.04] text-amber-400 text-sm font-bold border border-white/[0.08] hover:bg-white/[0.08] hover:border-amber-500/30 transition-all cursor-pointer text-center">{currentText.manageSub}</button>
+          <button
+            id="profile-pro-concept-btn"
+            onClick={onOpenProModal}
+            className="w-full sm:w-auto px-4 py-2.5 rounded-xl bg-white/[0.04] text-amber-400 text-sm font-bold border border-white/[0.08] hover:bg-white/[0.08] hover:border-amber-500/30 transition-all cursor-pointer text-center"
+          >
+            {language === "bg"
+              ? "Виж концепцията"
+              : language === "es"
+              ? "Ver concepto"
+              : "View concept"}
+          </button>
         </div>
-        <p className="text-sm text-stone-400 font-medium leading-relaxed mt-4 relative z-10">{currentText.proBenefits}</p>
+        <p
+          id="profile-pro-concept-copy"
+          className="text-sm text-stone-400 font-medium leading-relaxed mt-4 relative z-10"
+        >
+          {language === "bg"
+            ? "Няма активен Pro абонамент или плащане. Цена, лимити и бъдещи Pro функции все още не са определени."
+            : language === "es"
+            ? "No hay suscripción Pro ni cobro activos. El precio, los límites y las futuras funciones Pro aún no están definidos."
+            : "There is no active Pro subscription or billing. Pricing, limits, and future Pro features are not defined yet."}
+        </p>
       </div>
 
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-4 shadow-inner">
