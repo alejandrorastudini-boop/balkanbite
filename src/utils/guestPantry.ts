@@ -1,7 +1,5 @@
 import type { PantryItem } from "../types";
-import { SAMPLE_PANTRY } from "../data/initialData";
-
-const DEMO_PANTRY_ITEM_IDS = new Set(SAMPLE_PANTRY.map((item) => item.id));
+import { isLegacyDemoPantryItemId } from "./legacyDemoPantryIds";
 
 /**
  * Guest pantry state must come only from user-owned local data.
@@ -18,7 +16,7 @@ export function loadGuestPantry(raw: string | null): PantryItem[] {
     return parsed.filter((item): item is PantryItem => {
       if (!item || typeof item !== "object") return false;
       const id = (item as { id?: unknown }).id;
-      return typeof id === "string" && !DEMO_PANTRY_ITEM_IDS.has(id);
+      return typeof id === "string" && !isLegacyDemoPantryItemId(id);
     });
   } catch {
     return [];
