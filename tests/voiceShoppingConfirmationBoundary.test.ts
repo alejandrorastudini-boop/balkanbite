@@ -187,7 +187,7 @@ test("both full Voice and Chef modal wire the confirmed shopping callback", () =
   );
   assert.match(
     modalSource,
-    /onAddItemsToShoppingList:\s*\(items: any\[\]\) => void;/,
+    /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean;/,
   );
   assert.match(
     modalSource,
