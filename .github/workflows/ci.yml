@@ -41,6 +41,21 @@ jobs:
       - name: Build
         run: npm run build
 
+      - name: Bundle real serverless entrypoint
+        run: >
+          npx esbuild api/index.ts
+          --bundle
+          --platform=node
+          --format=cjs
+          --packages=external
+          --sourcemap
+          --outfile=dist/serverless-api.cjs
+
+      - name: Smoke real serverless cold start
+        env:
+          OPENAI_API_KEY: ""
+        run: node qa/runtime/serverless-health-smoke.mjs dist/serverless-api.cjs
+
   runtime-harness:
     needs: validate
     runs-on: ubuntu-24.04
