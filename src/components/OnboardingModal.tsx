@@ -346,23 +346,37 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 {language === "es" ? "Presupuesto Mensual de Alimentación Estimado" : "Monthly Grocery Budget"}
               </label>
               <div className="bg-white/[0.02] border border-white/[0.05] p-3 rounded-2xl space-y-2">
-                <div className="flex justify-between items-center text-xs font-bold text-white">
-                  <span>Presupuesto Aproximado:</span>
-                  <span className="text-emerald-400 text-sm font-black">{monthlyBudgetEUR} €/mes</span>
+                <div className="flex justify-between items-center gap-3 text-xs font-bold text-white">
+                  <span>
+                    {language === "bg"
+                      ? "По желание"
+                      : language === "es"
+                      ? "Opcional"
+                      : "Optional"}
+                  </span>
+                  <span className="text-[10px] text-stone-500 font-medium">
+                    EUR / {language === "bg" ? "месец" : language === "es" ? "mes" : "month"}
+                  </span>
                 </div>
                 <input
-                  type="range"
-                  min="150"
-                  max="800"
-                  step="25"
-                  value={monthlyBudgetEUR}
-                  onChange={(e) => setMonthlyBudgetEUR(Number(e.target.value))}
-                  className="w-full accent-emerald-500 cursor-pointer"
+                  id="onboarding-monthly-budget-eur"
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="decimal"
+                  value={monthlyBudgetEURInput}
+                  onChange={(event) =>
+                    setMonthlyBudgetEURInput(event.target.value)
+                  }
+                  placeholder={
+                    language === "bg"
+                      ? "Оставете празно, ако не искате да задавате бюджет"
+                      : language === "es"
+                      ? "Déjalo vacío si no quieres fijar un presupuesto"
+                      : "Leave blank if you do not want to set a budget"
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0F12] border border-white/[0.08] text-sm text-white placeholder-stone-500 focus:outline-none focus:border-emerald-500/50"
                 />
-                <div className="flex justify-between text-[10px] text-stone-500 font-medium">
-                  <span>150 €</span>
-                  <span>800 €</span>
-                </div>
               </div>
             </div>
 
