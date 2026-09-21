@@ -7,6 +7,11 @@ import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileCont
 import { withOpenAIJsonModeInstruction } from "./src/utils/openAIJsonMode.js";
 import { applyAiRecipeEstimateProvenance } from "./src/utils/aiRecipeProvenance.js";
 import { validateAiRecipeStructure } from "./src/utils/aiRecipeValidation.js";
+import { syncRecipesWithPantry } from "./src/utils/menuAutoPlanner.js";
+import {
+  buildWeeklyPlanAvailabilityPantry,
+  buildWeeklyPlanRecipePromptContext,
+} from "./src/utils/aiWeeklyPlanPantryAuthority.js";
 import {
   getFoodSafetyQuarantineMessage,
   isFoodSafetyReviewRequired,
@@ -615,6 +620,8 @@ app.post("/api/ai/generate-weekly-plan", async (req, res) => {
     }
 
     const culinaryProfile = buildAiCulinaryProfileContext(profile);
+    const recipePromptContext = buildWeeklyPlanRecipePromptContext(recipes);
+    const availabilityPantry = buildWeeklyPlanAvailabilityPantry(pantry);
 
     const today = new Date();
     const dates: string[] = [];
@@ -628,7 +635,7 @@ app.post("/api/ai/generate-weekly-plan", async (req, res) => {
 Think carefully and generate a complete, balanced 7-day weekly meal plan for the dates: ${JSON.stringify(dates)}.
 Language: ${language}.
 User Pantry Inventory: ${JSON.stringify(pantry)}.
-Available Recipes Pool: ${JSON.stringify(recipes.map((r: any) => ({ id: r.id, title: r.title, tags: r.tags, calories: r.calories, ingredients: r.ingredients } )))}.
+Available Recipes Pool: ${JSON.stringify(recipePromptContext)}.
 User culinary preferences (non-clinical): ${JSON.stringify(culinaryProfile)}.
 Do not infer disease, nutrient deficiency, calorie targets, weight-loss prescriptions or therapeutic diets from these preferences.
 
@@ -657,12 +664,18 @@ CRITICAL RULES:
     const normalizePlannedMeal = (meal: unknown, fallbackId: string) => {
       const withProvenance = applyAiRecipeEstimateProvenance(meal);
       const validated = validateAiRecipeStructure(withProvenance, fallbackId);
-      return validated
-        ? {
-            ...validated,
-            imageUrl: resolveRecipeImageUrl(validated),
-          }
-        : null;
+      if (!validated) return null;
+
+      const [syncedRecipe] = syncRecipesWithPantry(
+        [validated],
+        availabilityPantry as any,
+      );
+      const authoritativeRecipe = syncedRecipe || validated;
+
+      return {
+        ...authoritativeRecipe,
+        imageUrl: resolveRecipeImageUrl(authoritativeRecipe),
+      };
     };
 
     const mealPlan = rawPlan.flatMap((day: unknown, index: number) => {
