@@ -825,6 +825,9 @@ async function runManualShoppingScenario(context) {
     finalQuantity: null,
     finalUnit: null,
     finalCategory: null,
+    initialPurchaseAmountConfirmed: null,
+    finalPurchaseAmountConfirmed: null,
+    finalAmountOrigin: null,
     result: "running",
   };
 
@@ -917,6 +920,55 @@ async function runManualShoppingScenario(context) {
       evidence.finalCategory,
       "",
       "manual shopping must not invent Produce or another food category"
+    );
+
+    evidence.initialPurchaseAmountConfirmed = (
+      await page
+        .getByTestId("qa-manual-shopping-last-confirmed")
+        .textContent()
+    )?.trim();
+    evidence.finalAmountOrigin = (
+      await page.getByTestId("qa-manual-shopping-last-origin").textContent()
+    )?.trim();
+
+    assert.equal(
+      evidence.initialPurchaseAmountConfirmed,
+      "false",
+      "a newly planned shopping amount must not already be confirmed as purchased"
+    );
+    assert.equal(
+      evidence.finalAmountOrigin,
+      "user_entered",
+      "manual shopping amount origin must remain explicit"
+    );
+
+    await page
+      .locator("#shopping-purchase-amount-confirmation-note")
+      .waitFor({ state: "visible", timeout: 5_000 });
+
+    await page
+      .getByRole("button", {
+        name: "Confirm purchase of 2 kg of Tomatoes",
+        exact: true,
+      })
+      .click();
+
+    await page.waitForFunction(() => {
+      const node = document.querySelector(
+        '[data-testid="qa-manual-shopping-last-confirmed"]'
+      );
+      return node?.textContent?.trim() === "true";
+    });
+
+    evidence.finalPurchaseAmountConfirmed = (
+      await page
+        .getByTestId("qa-manual-shopping-last-confirmed")
+        .textContent()
+    )?.trim();
+    assert.equal(
+      evidence.finalPurchaseAmountConfirmed,
+      "true",
+      "checking the row must explicitly confirm the displayed purchased amount"
     );
 
     await page.screenshot({
