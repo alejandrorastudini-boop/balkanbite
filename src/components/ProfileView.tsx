@@ -49,7 +49,7 @@ interface ProfileViewProps {
   onOpenAuthModal?: () => void;
   language: Language;
   currency: Currency;
-  progressionSummary: ProgressionActivitySummaryV1;
+  progressionSummary?: ProgressionActivitySummaryV1;
 }
 
 
@@ -91,6 +91,12 @@ const HEALTH_FIELD_KNOWN_VALUES: Partial<
     "not_pregnant_or_lactating",
     "pregnant_or_lactating",
   ],
+};
+
+const EMPTY_PROGRESSION_SUMMARY: ProgressionActivitySummaryV1 = {
+  totalVerifiedEvents: 0,
+  confirmedPurchaseEvents: 0,
+  successfulCookEvents: 0,
 };
 
 const HEALTH_STATUS_OPTIONS: readonly HealthDataStatus[] = [
@@ -220,6 +226,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   progressionSummary,
 }) => {
   const currentText = t[language];
+  const safeProgressionSummary =
+    progressionSummary ?? EMPTY_PROGRESSION_SUMMARY;
   const [newDislike, setNewDislike] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showClearHealthDataConfirm, setShowClearHealthDataConfirm] = useState(false);
@@ -516,7 +524,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
               id="profile-progress-total"
               className="text-2xl font-extrabold text-emerald-300 font-['Outfit']"
             >
-              {progressionSummary.totalVerifiedEvents}
+              {safeProgressionSummary.totalVerifiedEvents}
             </div>
             <div className="text-xs text-stone-400 mt-1">
               {language === "bg"
@@ -534,7 +542,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 id="profile-progress-purchases"
                 className="text-xl font-extrabold text-white font-['Outfit']"
               >
-                {progressionSummary.confirmedPurchaseEvents}
+                {safeProgressionSummary.confirmedPurchaseEvents}
               </span>
             </div>
             <div className="text-xs text-stone-400 mt-2">
@@ -553,7 +561,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 id="profile-progress-cooks"
                 className="text-xl font-extrabold text-white font-['Outfit']"
               >
-                {progressionSummary.successfulCookEvents}
+                {safeProgressionSummary.successfulCookEvents}
               </span>
             </div>
             <div className="text-xs text-stone-400 mt-2">
@@ -566,7 +574,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           </div>
         </div>
 
-        {progressionSummary.totalVerifiedEvents === 0 && (
+        {safeProgressionSummary.totalVerifiedEvents === 0 && (
           <p
             id="profile-progress-zero-copy"
             className="text-xs text-stone-500 leading-relaxed"
