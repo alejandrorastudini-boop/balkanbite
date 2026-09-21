@@ -71,7 +71,13 @@ export function buildWeeklyPlanAvailabilityPantry(
   return pantry.flatMap((item) => {
     if (!item || typeof item !== "object" || Array.isArray(item)) return [];
     const record = item as Record<string, unknown>;
-    if (!hasValidPantryAcquisitionRequiredFields(record)) return [];
+    if (
+      !hasValidPantryAcquisitionRequiredFields({
+        name: record.name,
+        quantity: record.quantity,
+        unit: record.unit,
+      })
+    ) return [];
 
     return [{
       name: (record.name as string).trim(),
