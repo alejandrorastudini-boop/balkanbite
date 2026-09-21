@@ -1,23 +1,4 @@
-import { PantryItem, Recipe, ShoppingItem, UserProfile, MealPlanDay } from "../types";
-
-export const SAMPLE_PANTRY: PantryItem[] = [
-  { id: "sp-1", name: "Huevos frescos", quantity: 6, unit: "uds", category: "Dairy", expiryDaysLeft: 10, estimatedCostEUR: 1.80, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-2", name: "Queso crema tipo Philadelphia", quantity: 1, unit: "tarrina", category: "Dairy", expiryDaysLeft: 14, estimatedCostEUR: 1.65, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-3", name: "Queso parmesano", quantity: 1, unit: "porción", category: "Dairy", expiryDaysLeft: 20, estimatedCostEUR: 2.10, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-4", name: "Arroz", quantity: 1, unit: "paquete", category: "Pantry/Grains", expiryDaysLeft: 90, estimatedCostEUR: 1.20, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-5", name: "Lentejas", quantity: 1, unit: "paquete", category: "Pantry/Grains", expiryDaysLeft: 90, estimatedCostEUR: 1.15, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-6", name: "Macarrones", quantity: 1, unit: "paquete", category: "Pantry/Grains", expiryDaysLeft: 90, estimatedCostEUR: 0.95, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-7", name: "Calabacín", quantity: 2, unit: "uds", category: "Produce", expiryDaysLeft: 5, estimatedCostEUR: 1.10, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-8", name: "Pepino", quantity: 2, unit: "uds", category: "Produce", expiryDaysLeft: 6, estimatedCostEUR: 0.85, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-9", name: "Bacon ahumado", quantity: 1, unit: "paquete", category: "Meat/Fish", expiryDaysLeft: 8, estimatedCostEUR: 1.75, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-10", name: "Ajo en polvo", quantity: 1, unit: "bote", category: "Spices", expiryDaysLeft: 120, estimatedCostEUR: 0.90, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-11", name: "Aceite de oliva virgen", quantity: 1, unit: "botella", category: "Pantry/Grains", expiryDaysLeft: 180, estimatedCostEUR: 4.50, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-12", name: "Tomate", quantity: 4, unit: "uds", category: "Produce", expiryDaysLeft: 5, estimatedCostEUR: 1.50, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-13", name: "Pechugas de pollo", quantity: 2, unit: "filetes", category: "Meat/Fish", expiryDaysLeft: 4, estimatedCostEUR: 3.20, addedAt: new Date().toISOString().split("T")[0] },
-  { id: "sp-14", name: "Garbanzos", quantity: 2, unit: "botes", category: "Pantry/Grains", expiryDaysLeft: 120, estimatedCostEUR: 1.40, addedAt: new Date().toISOString().split("T")[0] },
-];
-
-export const INITIAL_PANTRY: PantryItem[] = SAMPLE_PANTRY;
+import { Recipe, ShoppingItem, UserProfile, MealPlanDay } from "../types";
 
 export const SAMPLE_RECIPES: Recipe[] = [
   {
