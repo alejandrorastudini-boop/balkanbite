@@ -33,7 +33,7 @@ test("fresh guest defaults cannot silently claim onboarding completion", () => {
   );
   assert.match(
     appSource,
-    /isOpen=\{!showLanding && !profile\.onboardingCompleted\}/,
+    /isOpen=\{\s*!showLanding\s*&&\s*\(!currentUser \|\| profileHydrated\)\s*&&\s*!profile\.onboardingCompleted\s*\}/,
   );
 });
 

@@ -141,6 +141,7 @@ export default function App() {
     loading: firebaseLoading,
     inventoryHydrated,
     inventoryIsProvisional,
+    inventorySyncError,
     canRenderApp,
     profileHydrated,
   } = useFirebaseSync(
@@ -1293,10 +1294,20 @@ export default function App() {
 
           {activeTab === "pantry" && inventoryIsProvisional && profile.onboardingCompleted && (
             <div
-              role="status"
-              className="mb-3 rounded-lg border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-center text-[11px] font-semibold text-amber-200/90"
+              role={inventorySyncError ? "alert" : "status"}
+              className={
+                inventorySyncError
+                  ? "mb-3 rounded-lg border border-red-500/30 bg-red-950/30 px-3 py-2 text-center text-[11px] font-semibold text-red-200/90"
+                  : "mb-3 rounded-lg border border-amber-500/30 bg-amber-950/30 px-3 py-2 text-center text-[11px] font-semibold text-amber-200/90"
+              }
             >
-              {profile.language === "es"
+              {inventorySyncError
+                ? profile.language === "es"
+                  ? "No se pudo sincronizar el inventario. Tus datos locales siguen en modo solo lectura para evitar sobrescribir la nube. Recarga la app para reintentar."
+                  : profile.language === "bg"
+                  ? "Инвентарът не можа да се синхронизира. Локалните данни остават само за четене, за да не се презапише облакът. Презаредете приложението, за да опитате отново."
+                  : "Inventory sync failed. Your local data remains read-only to avoid overwriting cloud data. Reload the app to try again."
+                : profile.language === "es"
                 ? "Sincronizando inventario…"
                 : profile.language === "bg"
                 ? "Синхронизиране на наличностите…"
@@ -1402,6 +1413,7 @@ export default function App() {
               onOpenAuthModal={() => setShowAuthModal(true)}
               language={profile.language}
               currency={profile.currency}
+              progressionSummary={progressionSummary}
               theme={theme}
             />
           )}
@@ -1464,7 +1476,11 @@ export default function App() {
         />
 
         <OnboardingModal
-          isOpen={!showLanding && !profile.onboardingCompleted}
+          isOpen={
+            !showLanding &&
+            (!currentUser || profileHydrated) &&
+            !profile.onboardingCompleted
+          }
           onComplete={(upd) => setProfile((prev) => ({ ...prev, ...upd }))}
           language={profile.language}
         />
