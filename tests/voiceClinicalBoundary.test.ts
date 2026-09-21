@@ -59,6 +59,9 @@ test("disease-specific therapeutic food advice is blocked", () => {
     "I was diagnosed with kidney disease. What foods should I avoid?",
     "Me diagnosticaron enfermedad renal. ¿Qué puedo comer?",
     "Имам диабет, какво да ям?",
+    "Diet for diabetes",
+    "Dieta para hipertensión",
+    "Диета за диабет",
   ];
 
   for (const text of cases) {
@@ -93,6 +96,9 @@ test("ordinary cooking and general non-clinical nutrition remain available", () 
     "What foods are high in iron?",
     "What is vitamin D?",
     "What is insulin?",
+    "What is diabetes?",
+    "¿Qué es la hipertensión?",
+    "Какво е диабет?",
     "¿Qué alimentos tienen fibra?",
     "Колко ориз да сготвя за двама?",
   ];
