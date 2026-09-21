@@ -127,7 +127,7 @@ const INTERPRETATION_TERMS = [
   /\bes .* (?:alto|bajo|normal)\b/u,
   /\bexplica mi\b/u,
   /\bтълкува(?:й|не)?\b/u,
-  /\bкакво означава\b/u,
+  /\bкакво означава(?:т)?\b/u,
   /\b(?:висок|нисък|нормален) ли е\b/u,
   /\bобясни ми\b/u,
 ];
