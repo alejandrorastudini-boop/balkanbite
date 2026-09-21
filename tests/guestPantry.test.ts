@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { SAMPLE_PANTRY } from "../src/data/initialData";
 import { loadGuestPantry } from "../src/utils/guestPantry";
+import { isLegacyDemoPantryItemId } from "../src/utils/legacyDemoPantryIds";
 import type { PantryItem } from "../src/types";
 
 const realItem: PantryItem = {
@@ -13,19 +13,36 @@ const realItem: PantryItem = {
   addedAt: "fixture",
 };
 
+const legacyDemoRow = (id: "sp-1" | "sp-14"): PantryItem => ({
+  id,
+  name: "Historical demo fixture",
+  quantity: 1,
+  unit: "fixture-unit",
+  category: "Other",
+  addedAt: "fixture",
+});
+
 test("missing or malformed guest pantry state stays empty", () => {
   assert.deepEqual(loadGuestPantry(null), []);
   assert.deepEqual(loadGuestPantry("not-json"), []);
   assert.deepEqual(loadGuestPantry(JSON.stringify({ pantry: [] })), []);
 });
 
-test("known demo pantry rows are never treated as guest inventory", () => {
-  assert.deepEqual(loadGuestPantry(JSON.stringify(SAMPLE_PANTRY)), []);
+test("historical demo pantry ids remain blocked without retaining demo food facts", () => {
+  assert.equal(isLegacyDemoPantryItemId("sp-1"), true);
+  assert.equal(isLegacyDemoPantryItemId("sp-14"), true);
+  assert.equal(isLegacyDemoPantryItemId("sp-15"), false);
+  assert.equal(isLegacyDemoPantryItemId("guest-real-rice"), false);
+
+  assert.deepEqual(
+    loadGuestPantry(JSON.stringify([legacyDemoRow("sp-1"), legacyDemoRow("sp-14")])),
+    [],
+  );
 });
 
 test("legacy demo rows are removed without deleting real guest items", () => {
   const loaded = loadGuestPantry(
-    JSON.stringify([SAMPLE_PANTRY[0], realItem, SAMPLE_PANTRY[1]]),
+    JSON.stringify([legacyDemoRow("sp-1"), realItem, legacyDemoRow("sp-14")]),
   );
 
   assert.deepEqual(loaded, [realItem]);
