@@ -55,12 +55,21 @@ function sanitizeItemsAffected(value: unknown): ChatItemsAffected | undefined {
   return sanitized;
 }
 
+const ITEM_ACTION_TYPES = new Set<ChatActionType>([
+  "ADD_ITEMS",
+  "REMOVE_ITEMS",
+  "ADD_SHOPPING",
+]);
+
 export function sanitizeChatActionMetadata(
   actionType: unknown,
   itemsAffected: unknown,
 ): Pick<ChatMessage, "actionType" | "itemsAffected"> {
   const safeActionType = asChatActionType(actionType);
-  const safeItemsAffected = sanitizeItemsAffected(itemsAffected);
+  const safeItemsAffected =
+    safeActionType && ITEM_ACTION_TYPES.has(safeActionType)
+      ? sanitizeItemsAffected(itemsAffected)
+      : undefined;
 
   return {
     ...(safeActionType ? { actionType: safeActionType } : {}),
