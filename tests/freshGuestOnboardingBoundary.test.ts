@@ -23,6 +23,8 @@ const runtimeQaGateSource = fs.readFileSync(
 
 test("fresh guest defaults cannot silently claim onboarding completion", () => {
   assert.equal(DEFAULT_PROFILE.onboardingCompleted, false);
+  assert.equal(DEFAULT_PROFILE.cookingSpeed, undefined);
+  assert.equal(DEFAULT_PROFILE.dietStyle, undefined);
   assert.equal(DEFAULT_PROFILE.healthGoal, undefined);
   assert.equal(DEFAULT_PROFILE.budgetTier, undefined);
   assert.match(

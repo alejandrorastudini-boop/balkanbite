@@ -428,8 +428,6 @@ export const DEFAULT_PROFILE: UserProfile = {
   name: "Balkan Explorer",
   language: "es",
   currency: "EUR",
-  cookingSpeed: "fast",
-  dietStyle: "mediterranean",
   disliked: [],
   onboardingCompleted: false,
 };

@@ -19,6 +19,8 @@ test("new signed-in profiles do not inherit guest completion or preferences", ()
   assert.deepEqual(profile.disliked, []);
   assert.equal(profile.monthlyBudgetEUR, undefined);
   assert.equal(profile.householdSize, undefined);
+  assert.equal(profile.cookingSpeed, undefined);
+  assert.equal(profile.dietStyle, undefined);
   assert.equal(profile.healthGoal, undefined);
   assert.equal(profile.budgetTier, undefined);
   assert.equal(profile.healthProfile, undefined);
@@ -44,6 +46,8 @@ test("remote profiles are rebuilt from allowed fields instead of merged with ano
   assert.deepEqual(profile.disliked, ["liver"]);
   assert.equal(profile.name, "User B");
   assert.equal(profile.language, "bg");
+  assert.equal(profile.cookingSpeed, "moderate");
+  assert.equal(profile.dietStyle, "vegetarian");
   assert.equal(profile.healthGoal, "balanced");
   assert.equal(profile.budgetTier, "strict_budget");
   assert.equal(profile.onboardingCompleted, true);
@@ -65,6 +69,8 @@ test("invalid or missing remote values resolve to neutral signed-in defaults", (
   assert.equal(profile.onboardingCompleted, false);
   assert.equal(profile.monthlyBudgetEUR, undefined);
   assert.equal(profile.householdSize, undefined);
+  assert.equal(profile.cookingSpeed, undefined);
+  assert.equal(profile.dietStyle, undefined);
   assert.equal(profile.healthGoal, undefined);
   assert.equal(profile.budgetTier, undefined);
   assert.equal("isProSubscriber" in profile, false);
@@ -96,6 +102,8 @@ test("Firestore profile serialization preserves unknowns as null, never undefine
   assert.equal(serialized.allergies, null);
   assert.equal(serialized.appliances, null);
   assert.equal(serialized.householdSize, null);
+  assert.equal(serialized.cookingSpeed, null);
+  assert.equal(serialized.dietStyle, null);
   assert.equal(serialized.cookingLevel, null);
   assert.equal(serialized.monthlyBudgetEUR, null);
   assert.equal(serialized.healthGoal, null);
@@ -433,5 +441,47 @@ test("legacy Pro subscriber booleans are ignored and cleared from cloud serializ
 
     const serialized = serializeUserProfileForFirestore(profile);
     assert.equal(serialized.isProSubscriber, null);
+  }
+});
+
+
+test("explicit ordinary and legacy culinary preferences round-trip without replacements", () => {
+  for (const input of [
+    { cookingSpeed: "fast", dietStyle: "mediterranean" },
+    { cookingSpeed: "elaborate", dietStyle: "vegetarian" },
+    { cookingSpeed: "moderate", dietStyle: "gluten_free" },
+    { cookingSpeed: "fast", dietStyle: "keto" },
+  ] as const) {
+    const profile = sanitizeRemoteUserProfile({
+      name: "Explicit culinary preference",
+      ...input,
+    });
+
+    assert.equal(profile.cookingSpeed, input.cookingSpeed);
+    assert.equal(profile.dietStyle, input.dietStyle);
+
+    const serialized = serializeUserProfileForFirestore(profile);
+    assert.equal(serialized.cookingSpeed, input.cookingSpeed);
+    assert.equal(serialized.dietStyle, input.dietStyle);
+  }
+});
+
+test("missing or invalid culinary preferences remain absent and serialize as null", () => {
+  for (const raw of [
+    {},
+    { cookingSpeed: "instant", dietStyle: "carnivore" },
+    { cookingSpeed: null, dietStyle: null },
+  ]) {
+    const profile = sanitizeRemoteUserProfile({
+      name: "Unknown culinary preference",
+      ...raw,
+    });
+
+    assert.equal(profile.cookingSpeed, undefined);
+    assert.equal(profile.dietStyle, undefined);
+
+    const serialized = serializeUserProfileForFirestore(profile);
+    assert.equal(serialized.cookingSpeed, null);
+    assert.equal(serialized.dietStyle, null);
   }
 });

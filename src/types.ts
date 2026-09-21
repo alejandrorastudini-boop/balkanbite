@@ -150,10 +150,10 @@ export interface UserProfile {
   name: string;
   language: Language;
   currency: Currency;
-  cookingSpeed: "fast" | "moderate" | "elaborate";
+  cookingSpeed?: "fast" | "moderate" | "elaborate";
   /** Deprecated until a purpose-specific user choice exists. Never default this field. */
   healthGoal?: "balanced" | "muscle" | "fat_loss" | "heart";
-  dietStyle: "all" | "mediterranean" | "vegetarian" | "vegan" | "keto" | "gluten_free";
+  dietStyle?: "all" | "mediterranean" | "vegetarian" | "vegan" | "keto" | "gluten_free";
   disliked: string[];
   allergies?: string[];
   householdSize?: number;
