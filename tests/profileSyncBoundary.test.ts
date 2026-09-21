@@ -19,6 +19,8 @@ test("new signed-in profiles do not inherit guest completion or preferences", ()
   assert.deepEqual(profile.disliked, []);
   assert.equal(profile.monthlyBudgetEUR, undefined);
   assert.equal(profile.householdSize, undefined);
+  assert.equal(profile.healthGoal, undefined);
+  assert.equal(profile.budgetTier, undefined);
   assert.equal(profile.healthProfile, undefined);
 });
 
@@ -42,6 +44,8 @@ test("remote profiles are rebuilt from allowed fields instead of merged with ano
   assert.deepEqual(profile.disliked, ["liver"]);
   assert.equal(profile.name, "User B");
   assert.equal(profile.language, "bg");
+  assert.equal(profile.healthGoal, "balanced");
+  assert.equal(profile.budgetTier, "strict_budget");
   assert.equal(profile.onboardingCompleted, true);
   assert.equal(profile.isProSubscriber, true);
   assert.equal("userId" in profile, false);
@@ -61,6 +65,8 @@ test("invalid or missing remote values resolve to neutral signed-in defaults", (
   assert.equal(profile.onboardingCompleted, false);
   assert.equal(profile.monthlyBudgetEUR, undefined);
   assert.equal(profile.householdSize, undefined);
+  assert.equal(profile.healthGoal, undefined);
+  assert.equal(profile.budgetTier, undefined);
   assert.equal(profile.isProSubscriber, false);
 });
 
@@ -92,6 +98,8 @@ test("Firestore profile serialization preserves unknowns as null, never undefine
   assert.equal(serialized.householdSize, null);
   assert.equal(serialized.cookingLevel, null);
   assert.equal(serialized.monthlyBudgetEUR, null);
+  assert.equal(serialized.healthGoal, null);
+  assert.equal(serialized.budgetTier, null);
   assert.equal(serialized.healthProfile, null);
   assert.equal(serialized.heightCm, null);
   assert.equal(serialized.weightKg, null);
@@ -380,4 +388,35 @@ test("removing the final HealthProfile field serializes the whole cloud profile 
 
   assert.equal(healthProfile, undefined);
   assert.equal(serialized.healthProfile, null);
+});
+
+
+test("historical explicit healthGoal and budgetTier round-trip without creating replacements", () => {
+  const profile = sanitizeRemoteUserProfile({
+    name: "Legacy preferences",
+    healthGoal: "heart",
+    budgetTier: "strict_budget",
+  });
+
+  assert.equal(profile.healthGoal, "heart");
+  assert.equal(profile.budgetTier, "strict_budget");
+
+  const serialized = serializeUserProfileForFirestore(profile);
+  assert.equal(serialized.healthGoal, "heart");
+  assert.equal(serialized.budgetTier, "strict_budget");
+});
+
+test("invalid historical preference values remain absent instead of becoming balanced", () => {
+  const profile = sanitizeRemoteUserProfile({
+    name: "Invalid preferences",
+    healthGoal: "whatever",
+    budgetTier: "cheap",
+  });
+
+  assert.equal(profile.healthGoal, undefined);
+  assert.equal(profile.budgetTier, undefined);
+
+  const serialized = serializeUserProfileForFirestore(profile);
+  assert.equal(serialized.healthGoal, null);
+  assert.equal(serialized.budgetTier, null);
 });
