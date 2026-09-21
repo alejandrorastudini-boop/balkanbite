@@ -84,8 +84,8 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
   const [speechSynthesisEnabled, setSpeechSynthesisEnabled] = useState(true);
-  const [pendingPantryItems, setPendingPantryItems] = useState<any[] | null>(null);
-  const [pendingPantryAction, setPendingPantryAction] = useState<"add" | "remove" | "shopping" | null>(null);
+  const [pendingItems, setPendingItems] = useState<any[] | null>(null);
+  const [pendingAction, setPendingAction] = useState<"add" | "remove" | "shopping" | null>(null);
 
   // Initialize welcome message when language changes if no messages exist
   useEffect(() => {
@@ -119,7 +119,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   // Auto-scroll to bottom of conversation
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages, isProcessing, pendingPantryItems]);
+  }, [chatMessages, isProcessing, pendingItems]);
 
   // Setup Web Speech API for voice dictation
   useEffect(() => {
@@ -224,9 +224,9 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     }
   };
 
-  const pendingPantryItemsAreComplete = Boolean(
-    pendingPantryItems?.length &&
-      pendingPantryItems.every((item) => {
+  const pendingItemsAreComplete = Boolean(
+    pendingItems?.length &&
+      pendingItems.every((item) => {
         if (!item || typeof item !== "object") return false;
         const name = typeof item.nameEn === "string" && item.nameEn.trim()
           ? item.nameEn.trim()
@@ -244,21 +244,21 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       })
   );
 
-  const confirmPendingPantryItems = () => {
+  const confirmPendingItems = () => {
     if (
-      !pendingPantryItems ||
-      !pendingPantryItemsAreComplete ||
-      !pendingPantryAction
+      !pendingItems ||
+      !pendingItemsAreComplete ||
+      !pendingAction
     ) return;
 
-    const confirmedItems = pendingPantryItems;
-    const action = pendingPantryAction;
+    const confirmedItems = pendingItems;
+    const action = pendingAction;
     const summary = confirmedItems
       .map((item) => `${item.quantity} ${item.unit} ${item.nameEn || item.name}`)
       .join(", ");
 
-    setPendingPantryItems(null);
-    setPendingPantryAction(null);
+    setPendingItems(null);
+    setPendingAction(null);
 
     if (action === "add") {
       onAddItemsToPantry(confirmedItems);
@@ -291,10 +291,10 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     speakText(confirmationText);
   };
 
-  const cancelPendingPantryItems = () => {
-    const action = pendingPantryAction;
-    setPendingPantryItems(null);
-    setPendingPantryAction(null);
+  const cancelPendingItems = () => {
+    const action = pendingAction;
+    setPendingItems(null);
+    setPendingAction(null);
     const cancellationText =
       action === "remove"
         ? language === "bg"
@@ -323,8 +323,8 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     if (!text || isProcessing) return;
 
     // A new message supersedes any unconfirmed extraction. Nothing pending is persisted.
-    setPendingPantryItems(null);
-    setPendingPantryAction(null);
+    setPendingItems(null);
+    setPendingAction(null);
 
     // Add user message
     const userMsg: ChatMessage = {
@@ -394,8 +394,8 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
 
       if (isPendingPantryMutation) {
         const action = effectiveActionType === "REMOVE_ITEMS" ? "remove" : "add";
-        setPendingPantryItems(effectiveItems);
-        setPendingPantryAction(action);
+        setPendingItems(effectiveItems);
+        setPendingAction(action);
         replyText =
           action === "remove"
             ? language === "bg"
@@ -592,33 +592,33 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
           );
         })}
 
-        {pendingPantryItems && (
+        {pendingItems && (
           <div className="rounded-2xl border border-amber-500/30 bg-amber-500/10 p-3 space-y-3">
             <div>
               <p className="text-xs font-bold text-amber-300">
                 {language === "bg"
-                  ? pendingPantryAction === "remove" ? "Потвърдете преди приспадане" : "Потвърдете преди запис"
+                  ? pendingAction === "remove" ? "Потвърдете преди приспадане" : "Потвърдете преди запис"
                   : language === "es"
-                  ? pendingPantryAction === "remove" ? "Confirma antes de descontar" : "Confirma antes de guardar"
-                  : pendingPantryAction === "remove" ? "Confirm before deducting" : "Confirm before saving"}
+                  ? pendingAction === "remove" ? "Confirma antes de descontar" : "Confirma antes de guardar"
+                  : pendingAction === "remove" ? "Confirm before deducting" : "Confirm before saving"}
               </p>
               <p className="text-[11px] text-stone-400 mt-1">
                 {language === "bg"
-                  ? pendingPantryAction === "remove"
+                  ? pendingAction === "remove"
                     ? "Това са данни, извлечени от AI. Количествата в килера още не са променени."
                     : "Това са данни, извлечени от AI. Нищо още не е записано в килера."
                   : language === "es"
-                  ? pendingPantryAction === "remove"
+                  ? pendingAction === "remove"
                     ? "Estos datos han sido extraídos por IA. Todavía no se ha descontado nada de la despensa."
                     : "Estos datos han sido extraídos por IA. Todavía no se ha guardado nada en la despensa."
-                  : pendingPantryAction === "remove"
+                  : pendingAction === "remove"
                     ? "These values were extracted by AI. Nothing has been deducted from the pantry yet."
                     : "These values were extracted by AI. Nothing has been saved to the pantry yet."}
               </p>
             </div>
 
             <div className="space-y-1.5">
-              {pendingPantryItems.map((item, idx) => {
+              {pendingItems.map((item, idx) => {
                 const name = item?.nameEn || item?.name || "?";
                 const quantity = typeof item?.quantity === "number" ? item.quantity : "?";
                 const unit = typeof item?.unit === "string" && item.unit.trim() ? item.unit : "?";
@@ -631,7 +631,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
               })}
             </div>
 
-            {!pendingPantryItemsAreComplete && (
+            {!pendingItemsAreComplete && (
               <p className="text-[11px] text-rose-300">
                 {language === "bg"
                   ? "Липсва количество или мерна единица. Отменете и ги посочете изрично."
@@ -644,17 +644,17 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             <div className="flex gap-2">
               <button
                 type="button"
-                onClick={cancelPendingPantryItems}
+                onClick={cancelPendingItems}
                 className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-bold text-stone-300 hover:bg-white/[0.08]"
               >
                 {language === "bg" ? "Отказ" : language === "es" ? "Cancelar" : "Cancel"}
               </button>
               <button
                 type="button"
-                disabled={!pendingPantryItemsAreComplete}
-                onClick={confirmPendingPantryItems}
+                disabled={!pendingItemsAreComplete}
+                onClick={confirmPendingItems}
                 className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5 ${
-                  pendingPantryItemsAreComplete
+                  pendingItemsAreComplete
                     ? "bg-emerald-500 text-stone-950 hover:bg-emerald-400"
                     : "bg-white/[0.04] text-stone-600 cursor-not-allowed"
                 }`}
