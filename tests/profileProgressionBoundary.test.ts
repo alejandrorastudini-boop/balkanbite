@@ -13,9 +13,9 @@ const appSource = fs.readFileSync(
 
 test("profile renders only the derived verified activity summary", () => {
   assert.match(profileSource, /profile-verified-activity-card/);
-  assert.match(profileSource, /progressionSummary\.totalVerifiedEvents/);
-  assert.match(profileSource, /progressionSummary\.confirmedPurchaseEvents/);
-  assert.match(profileSource, /progressionSummary\.successfulCookEvents/);
+  assert.match(profileSource, /safeProgressionSummary\.totalVerifiedEvents/);
+  assert.match(profileSource, /safeProgressionSummary\.confirmedPurchaseEvents/);
+  assert.match(profileSource, /safeProgressionSummary\.successfulCookEvents/);
   assert.match(appSource, /summarizeProgressionActivity\(progressionLedger\)/);
   assert.match(appSource, /progressionSummary=\{progressionSummary\}/);
 });
