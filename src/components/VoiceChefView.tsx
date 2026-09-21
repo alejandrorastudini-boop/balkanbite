@@ -624,23 +624,41 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             <div>
               <p className="text-xs font-bold text-amber-300">
                 {language === "bg"
-                  ? pendingAction === "remove" ? "Потвърдете преди приспадане" : "Потвърдете преди запис"
+                  ? pendingAction === "remove"
+                    ? "Потвърдете преди приспадане"
+                    : pendingAction === "shopping"
+                    ? "Потвърдете преди добавяне към списъка"
+                    : "Потвърдете преди запис"
                   : language === "es"
-                  ? pendingAction === "remove" ? "Confirma antes de descontar" : "Confirma antes de guardar"
-                  : pendingAction === "remove" ? "Confirm before deducting" : "Confirm before saving"}
+                  ? pendingAction === "remove"
+                    ? "Confirma antes de descontar"
+                    : pendingAction === "shopping"
+                    ? "Confirma antes de añadir a la lista"
+                    : "Confirma antes de guardar"
+                  : pendingAction === "remove"
+                  ? "Confirm before deducting"
+                  : pendingAction === "shopping"
+                  ? "Confirm before adding to shopping list"
+                  : "Confirm before saving"}
               </p>
               <p className="text-[11px] text-stone-400 mt-1">
                 {language === "bg"
                   ? pendingAction === "remove"
                     ? "Това са данни, извлечени от AI. Количествата в килера още не са променени."
+                    : pendingAction === "shopping"
+                    ? "Това са данни, извлечени от AI. Нищо още не е добавено към списъка за пазаруване."
                     : "Това са данни, извлечени от AI. Нищо още не е записано в килера."
                   : language === "es"
                   ? pendingAction === "remove"
                     ? "Estos datos han sido extraídos por IA. Todavía no se ha descontado nada de la despensa."
+                    : pendingAction === "shopping"
+                    ? "Estos datos han sido extraídos por IA. Todavía no se ha añadido nada a la lista de compra."
                     : "Estos datos han sido extraídos por IA. Todavía no se ha guardado nada en la despensa."
                   : pendingAction === "remove"
-                    ? "These values were extracted by AI. Nothing has been deducted from the pantry yet."
-                    : "These values were extracted by AI. Nothing has been saved to the pantry yet."}
+                  ? "These values were extracted by AI. Nothing has been deducted from the pantry yet."
+                  : pendingAction === "shopping"
+                  ? "These values were extracted by AI. Nothing has been added to the shopping list yet."
+                  : "These values were extracted by AI. Nothing has been saved to the pantry yet."}
               </p>
             </div>
 
