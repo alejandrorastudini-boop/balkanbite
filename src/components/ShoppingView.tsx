@@ -250,6 +250,19 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
             </button>
           )}
         </div>
+
+        {shoppingList.length > 0 && (
+          <p
+            id="shopping-purchase-amount-confirmation-note"
+            className="mt-3 text-[11px] text-stone-500 leading-relaxed relative z-10"
+          >
+            {language === "bg"
+              ? "Отбелязването на продукт потвърждава, че сте купили точно показаното количество и мерна единица."
+              : language === "es"
+              ? "Marcar un artículo confirma que compraste exactamente la cantidad y unidad mostradas."
+              : "Checking an item confirms that you bought exactly the quantity and unit shown."}
+          </p>
+        )}
       </div>
 
       {/* Action Bar */}
@@ -378,7 +391,22 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
               >
                 <div className="flex items-center gap-4">
                   <button
+                    type="button"
                     onClick={() => onToggleItem(item.id)}
+                    aria-label={
+                      language === "bg"
+                        ? `Потвърди покупката на ${item.quantity} ${displayUnit} ${displayName}`
+                        : language === "es"
+                        ? `Confirmar compra de ${item.quantity} ${displayUnit} de ${displayName}`
+                        : `Confirm purchase of ${item.quantity} ${displayUnit} of ${displayName}`
+                    }
+                    title={
+                      language === "bg"
+                        ? "Потвърждава точно показаното закупено количество"
+                        : language === "es"
+                        ? "Confirma la cantidad exacta comprada que se muestra"
+                        : "Confirms the exact displayed purchased amount"
+                    }
                     className={`w-6 h-6 rounded-lg border flex items-center justify-center transition-colors shrink-0 ${
                       item.checked
                         ? "bg-emerald-500 border-emerald-400 text-stone-950 shadow-[0_0_10px_rgba(16,185,129,0.3)]"
@@ -396,6 +424,18 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                       <span>
                         {item.quantity} {displayUnit}
                       </span>
+                      {item.amountOrigin === "ai_estimated" && (
+                        <span
+                          id={`shopping-ai-amount-estimate-${item.id}`}
+                          className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded bg-amber-500/10 text-amber-300 border border-amber-500/20"
+                        >
+                          {language === "bg"
+                            ? "AI оценка"
+                            : language === "es"
+                            ? "Estimación IA"
+                            : "AI estimate"}
+                        </span>
+                      )}
                       {displayCategory && (
                         <span className="text-[10px] uppercase font-bold tracking-widest px-2 py-0.5 rounded bg-white/[0.04] text-stone-300 border border-white/[0.08]">
                           {displayCategory}
@@ -557,7 +597,6 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
         onClose={() => setShowVoiceModal(false)}
         shoppingList={shoppingList}
         language={language}
-        currency={currency}
         onConfirmReconciliation={(res) => {
           if (onReconcileShopping) {
             onReconcileShopping(res);
