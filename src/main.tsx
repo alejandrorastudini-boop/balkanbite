@@ -3,6 +3,7 @@ import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import {
   isFreshGuestOnboardingQaRoute,
+  isManualShoppingQaRoute,
   isProfileHealthDataQaRoute,
   isRuntimeQaRoute,
   isStartupCloudSyncQaRoute,
@@ -27,6 +28,12 @@ async function bootstrap() {
   if (isFreshGuestOnboardingQaRoute()) {
     const {FreshGuestOnboardingQaHarness} = await import('./qa/FreshGuestOnboardingQaHarness.tsx');
     root.render(<FreshGuestOnboardingQaHarness />);
+    return;
+  }
+
+  if (isManualShoppingQaRoute()) {
+    const {ManualShoppingQaHarness} = await import('./qa/ManualShoppingQaHarness.tsx');
+    root.render(<ManualShoppingQaHarness />);
     return;
   }
 

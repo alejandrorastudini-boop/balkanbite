@@ -307,6 +307,12 @@ function freshGuestOnboardingUrl() {
   return url.toString();
 }
 
+function manualShoppingUrl() {
+  const url = new URL("/__qa/manual-shopping", previewUrl);
+  if (shareToken) url.searchParams.set("_vercel_share", shareToken);
+  return url.toString();
+}
+
 async function runProfileHealthDataControlScenario(context) {
   const page = await context.newPage();
   const evidence = {
@@ -804,6 +810,139 @@ async function runFreshGuestOnboardingScenario(context) {
   }
 }
 
+async function runManualShoppingScenario(context) {
+  const page = await context.newPage();
+  const evidence = {
+    scenario: "manual-shopping-explicit-amount",
+    url: manualShoppingUrl().replace(
+      /([?&]_vercel_share=)[^&]+/,
+      "$1[redacted]"
+    ),
+    initialQuantity: null,
+    initialUnit: null,
+    initialSubmitDisabled: null,
+    finalCount: null,
+    finalQuantity: null,
+    finalUnit: null,
+    finalCategory: null,
+    result: "running",
+  };
+
+  try {
+    await waitForExpectedDeployment(page);
+    await page.goto(manualShoppingUrl(), {
+      waitUntil: "domcontentloaded",
+      timeout: 30_000,
+    });
+
+    const root = page.getByTestId("qa-manual-shopping-root");
+    await root.waitFor({ state: "visible", timeout: 10_000 });
+    assert.equal(
+      ((await root.getAttribute("data-deployment-sha")) || "").trim(),
+      expectedSha,
+      "manual shopping QA must run against the exact expected build SHA"
+    );
+
+    await page.locator("#manual-shopping-open").click();
+    await page
+      .locator("#manual-shopping-name")
+      .waitFor({ state: "visible", timeout: 5_000 });
+
+    evidence.initialQuantity = await page
+      .locator("#manual-shopping-quantity")
+      .inputValue();
+    evidence.initialUnit = await page
+      .locator("#manual-shopping-unit")
+      .inputValue();
+    evidence.initialSubmitDisabled = await page
+      .locator("#manual-shopping-submit")
+      .isDisabled();
+
+    assert.equal(
+      evidence.initialQuantity,
+      "",
+      "manual shopping quantity must start unknown"
+    );
+    assert.equal(
+      evidence.initialUnit,
+      "",
+      "manual shopping unit must start unknown"
+    );
+    assert.equal(
+      evidence.initialSubmitDisabled,
+      true,
+      "manual shopping submit must be disabled until explicit amount and unit exist"
+    );
+
+    await page.locator("#manual-shopping-name").fill("Tomatoes");
+    await page.locator("#manual-shopping-quantity").fill("2");
+    assert.equal(
+      await page.locator("#manual-shopping-submit").isDisabled(),
+      true,
+      "quantity alone must not unlock manual shopping save"
+    );
+
+    await page.locator("#manual-shopping-unit").selectOption("kg");
+    assert.equal(
+      await page.locator("#manual-shopping-submit").isEnabled(),
+      true,
+      "explicit name quantity and unit must unlock manual shopping save"
+    );
+    await page.locator("#manual-shopping-submit").click();
+
+    await page.waitForFunction(() => {
+      const node = document.querySelector(
+        '[data-testid="qa-manual-shopping-count"]'
+      );
+      return node?.textContent?.trim() === "1";
+    });
+
+    evidence.finalCount = (
+      await page.getByTestId("qa-manual-shopping-count").textContent()
+    )?.trim();
+    evidence.finalQuantity = (
+      await page.getByTestId("qa-manual-shopping-last-quantity").textContent()
+    )?.trim();
+    evidence.finalUnit = (
+      await page.getByTestId("qa-manual-shopping-last-unit").textContent()
+    )?.trim();
+    evidence.finalCategory = (
+      await page.getByTestId("qa-manual-shopping-last-category").textContent()
+    )?.trim();
+
+    assert.equal(evidence.finalCount, "1");
+    assert.equal(evidence.finalQuantity, "2");
+    assert.equal(evidence.finalUnit, "kg");
+    assert.equal(
+      evidence.finalCategory,
+      "",
+      "manual shopping must not invent Produce or another food category"
+    );
+
+    await page.screenshot({
+      path: path.join(artifactDir, "manual-shopping-explicit-amount.png"),
+      fullPage: true,
+    });
+
+    evidence.result = "pass";
+    return evidence;
+  } catch (error) {
+    evidence.result = "fail";
+    evidence.error = error instanceof Error ? error.message : String(error);
+    await page
+      .screenshot({
+        path: path.join(artifactDir, "manual-shopping-explicit-amount-failure.png"),
+        fullPage: true,
+      })
+      .catch(() => {});
+    throw Object.assign(error instanceof Error ? error : new Error(String(error)), {
+      evidence,
+    });
+  } finally {
+    await page.close();
+  }
+}
+
 const browser = await chromium.launch({ headless: true });
 const context = await browser.newContext({
   viewport: { width: 390, height: 844 },
@@ -820,6 +959,7 @@ try {
     runScenario(context, "none"),
     runProfileHealthDataControlScenario(context),
     runFreshGuestOnboardingScenario(context),
+    runManualShoppingScenario(context),
   ]);
 } catch (error) {
   failure = error;

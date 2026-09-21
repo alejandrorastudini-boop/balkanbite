@@ -25,6 +25,7 @@ import {
   translateUnit,
   translateReason,
 } from "../utils/foodTranslator";
+import { hasValidManualShoppingRequiredFields } from "../utils/manualShoppingValidation";
 import { VoiceShoppingReconcileModal } from "./VoiceShoppingReconcileModal";
 
 interface ShoppingViewProps {
@@ -65,9 +66,8 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
   const [showVoiceModal, setShowVoiceModal] = useState(false);
   const [copied, setCopied] = useState(false);
   const [newItemName, setNewItemName] = useState("");
-  const [quantity, setQuantity] = useState<number>(1);
-  const [unit, setUnit] = useState<string>(language === "es" ? "uds" : "pcs");
-  const [category, setCategory] = useState<string>("Produce");
+  const [quantity, setQuantity] = useState<string>("");
+  const [unit, setUnit] = useState<string>("");
   const [estimatedCost, setEstimatedCost] = useState<string>("");
 
   const estimatedPricedItems = shoppingList.filter(
@@ -110,13 +110,22 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
 
   const handleCreate = (e: React.FormEvent) => {
     e.preventDefault();
-    if (!newItemName.trim()) return;
+
+    const parsedQuantity = Number(quantity);
+    const candidate = {
+      name: newItemName,
+      quantity: parsedQuantity,
+      unit,
+    };
+    if (!hasValidManualShoppingRequiredFields(candidate)) return;
 
     onAddItem({
       name: newItemName.trim(),
-      quantity: Number(quantity),
-      unit,
-      category,
+      quantity: parsedQuantity,
+      unit: unit.trim(),
+      // Manual shopping does not infer a food category from the item name.
+      // Blank remains unclassified until a later explicit/source-backed step.
+      category: "",
       ...(estimatedCost.trim() !== "" &&
       Number.isFinite(Number(estimatedCost)) &&
       Number(estimatedCost) > 0
@@ -125,7 +134,8 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
     });
 
     setNewItemName("");
-    setQuantity(1);
+    setQuantity("");
+    setUnit("");
     setEstimatedCost("");
     setShowAddModal(false);
   };
@@ -314,6 +324,8 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
           </button>
 
           <button
+            id="manual-shopping-open"
+            type="button"
             onClick={() => setShowAddModal(true)}
             className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-sm font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)]"
           >
@@ -438,6 +450,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                   {currentText.shoppingAddProduct}
                 </label>
                 <input
+                  id="manual-shopping-name"
                   type="text"
                   required
                   value={newItemName}
@@ -453,11 +466,13 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                     {currentText.qty}
                   </label>
                   <input
+                    id="manual-shopping-quantity"
                     type="number"
                     min="0.1"
                     step="any"
+                    required
                     value={quantity}
-                    onChange={(e) => setQuantity(Number(e.target.value))}
+                    onChange={(e) => setQuantity(e.target.value)}
                     className="w-full px-4 py-2.5 bg-black/40 border border-white/[0.08] rounded-xl text-sm font-medium text-white focus:outline-none focus:border-emerald-500/50 transition-colors"
                   />
                 </div>
@@ -467,10 +482,19 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                     {currentText.unit}
                   </label>
                   <select
+                    id="manual-shopping-unit"
+                    required
                     value={unit}
                     onChange={(e) => setUnit(e.target.value)}
                     className="w-full px-4 py-2.5 bg-black/40 border border-white/[0.08] rounded-xl text-sm font-medium text-white focus:outline-none focus:border-emerald-500/50 transition-colors"
                   >
+                    <option value="" disabled>
+                      {language === "es"
+                        ? "Selecciona unidad"
+                        : language === "bg"
+                        ? "Изберете мерна единица"
+                        : "Select unit"}
+                    </option>
                     <option value="uds">{language === "es" ? "Unidades (uds)" : "Units (pcs)"}</option>
                     <option value="kg">Kilogramos (kg)</option>
                     <option value="g">Gramos (g)</option>
@@ -508,8 +532,16 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                   {currentText.cancel}
                 </button>
                 <button
+                  id="manual-shopping-submit"
                   type="submit"
-                  className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-sm font-bold shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-colors"
+                  disabled={
+                    !hasValidManualShoppingRequiredFields({
+                      name: newItemName,
+                      quantity: Number(quantity),
+                      unit,
+                    })
+                  }
+                  className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-stone-950 text-sm font-bold shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-colors"
                 >
                   {currentText.add}
                 </button>
