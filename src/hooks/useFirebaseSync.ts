@@ -12,15 +12,13 @@ import {
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile } from "../types";
-import { INITIAL_PANTRY } from "../data/initialData";
+import { isLegacyDemoPantryItemId } from "../utils/legacyDemoPantryIds";
 import { getStartupCloudSyncState } from "../utils/startupCloudSync";
 import { findRemovedDocumentIds, getSyncedItemKey, selectCanonicalRemoteEntries } from "../utils/cloudCollectionSync";
 import { createSignedInProfileDefaults, sanitizeRemoteUserProfile, serializeUserProfileForFirestore } from "../utils/profileSyncBoundary";
 import { isStoredRecipeStructurallyValid } from "../utils/storedRecipeValidation";
 import { isStoredMealPlanDayStructurallyValid } from "../utils/storedMealPlanValidation";
 import { isStoredShoppingItemStructurallyValid } from "../utils/storedShoppingValidation";
-
-const DEMO_PANTRY_ITEM_IDS = new Set(INITIAL_PANTRY.map(item => item.id));
 
 const getInventoryDocumentId = (userId: string, itemId: string) =>
   `u_${encodeURIComponent(userId)}__${encodeURIComponent(itemId)}`;
@@ -340,7 +338,7 @@ export function useFirebaseSync(
     }, [localState, currentUser, loading, cloudInventoryWritesAllowed]);
   };
 
-  const isRealPantryItem = (item: PantryItem) => !DEMO_PANTRY_ITEM_IDS.has(item.id);
+  const isRealPantryItem = (item: PantryItem) => !isLegacyDemoPantryItemId(item.id);
 
   syncCollection(
     "inventory",
