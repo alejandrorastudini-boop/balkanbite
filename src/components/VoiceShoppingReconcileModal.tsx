@@ -13,7 +13,7 @@ import {
   Package,
   Clock,
 } from "lucide-react";
-import { Language, Currency, ShoppingItem } from "../types";
+import { Language, ShoppingItem } from "../types";
 import { translateFoodName, translateUnit } from "../utils/foodTranslator";
 import { extractExplicitReconciliationAmount } from "../utils/reconciliationTranscript";
 
@@ -33,7 +33,6 @@ interface VoiceShoppingReconcileModalProps {
   onClose: () => void;
   shoppingList: ShoppingItem[];
   language: Language;
-  currency: Currency;
   onConfirmReconciliation: (result: {
     purchasedItemIds: string[];
     itemsToAddToPantry: ReconciliationExtraItem[];
@@ -66,7 +65,6 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
   onClose,
   shoppingList,
   language,
-  currency,
   onConfirmReconciliation,
 }) => {
   const [transcript, setTranscript] = useState("");
@@ -77,9 +75,9 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
   const [step, setStep] = useState<"input" | "review">("input");
   const [reconciliationResult, setReconciliationResult] = useState<ReconciliationData | null>(null);
 
-  // Human-reviewed state. List rows may be preselected from the parser because
-  // their quantity/unit comes from the existing shopping list. AI-detected extra
-  // purchases are intentionally NOT preselected and require explicit confirmation.
+  // Human-reviewed state. Nothing is preselected from AI analysis: selecting
+  // a shopping-list row is the explicit confirmation that the displayed
+  // quantity/unit matches what was actually purchased.
   const [selectedPurchasedIds, setSelectedPurchasedIds] = useState<string[]>([]);
   const [selectedExtraItems, setSelectedExtraItems] = useState<ReconciliationExtraItem[]>([]);
 
@@ -276,11 +274,11 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
       };
       const validShoppingIds = new Set(shoppingList.map((item) => item.id));
       setReconciliationResult(reviewedData);
-      setSelectedPurchasedIds(
-        (data.purchasedItemIds || []).filter(
-          (id): id is string => typeof id === "string" && validShoppingIds.has(id)
-        )
-      );
+      // AI may propose purchased list IDs, but proposal is not confirmation.
+      // Start with no selected list rows so the user must explicitly confirm
+      // each displayed purchase amount/unit in the review step.
+      void validShoppingIds;
+      setSelectedPurchasedIds([]);
       // AI-proposed extras require an explicit user click in the review step.
       // Server/model quantity, unit, price and expiry are never trusted here.
       setSelectedExtraItems([]);
@@ -528,8 +526,12 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
                           : `Purchased from list (${selectedPurchasedIds.length})`}
                       </span>
                     </span>
-                    <span className="text-[11px] text-stone-500">
-                      {language === "es" ? "Cantidad/unidad de tu lista" : "Uses list quantity/unit"}
+                    <span className="text-[11px] text-stone-500 text-right max-w-[220px]">
+                      {language === "bg"
+                        ? "Изберете само ако показаното количество и мерна единица съвпадат с реално купеното."
+                        : language === "es"
+                        ? "Selecciona solo si la cantidad y unidad mostradas coinciden con lo que compraste."
+                        : "Select only if the shown quantity and unit match what you actually bought."}
                     </span>
                   </div>
 
@@ -567,11 +569,7 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
                               {translateUnit(item.unit, language)})
                             </span>
                           </div>
-                          <span className="text-[11px] font-bold text-emerald-400">
-                            {currency === "EUR"
-                              ? `€${item.estimatedPriceEUR.toFixed(2)}`
-                              : `$${(item.estimatedPriceEUR * 1.1).toFixed(2)}`}
-                          </span>
+
                         </div>
                       );
                     })}
