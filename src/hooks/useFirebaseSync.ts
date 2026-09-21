@@ -43,6 +43,7 @@ export function useFirebaseSync(
   // can finish in the background instead of holding a full-screen overlay.
   const [authReady, setAuthReady] = useState(false);
   const [inventoryHydratedUser, setInventoryHydratedUser] = useState<string | null>(null);
+  const [inventorySyncErrorUser, setInventorySyncErrorUser] = useState<string | null>(null);
   const [profileHydratedUser, setProfileHydratedUser] = useState<string | null>(null);
   const authSessionUserId = useRef<string | null | undefined>(undefined);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
@@ -66,6 +67,7 @@ export function useFirebaseSync(
       hydratedCollectionDocumentIds.current = {};
       hydratedInventoryActiveIds.current = new Set();
       setInventoryHydratedUser(null);
+      setInventorySyncErrorUser(null);
       setProfileHydratedUser(null);
 
       if (shouldClearCloudBackedLocalState) {
@@ -151,6 +153,26 @@ export function useFirebaseSync(
     useEffect(() => {
       if (!currentUser) return;
       const q = query(collection(db, collectionName), where("userId", "==", currentUser.uid));
+      let inventoryHydrationTimeout: ReturnType<typeof setTimeout> | null = null;
+
+      if (collectionName === "inventory") {
+        inventoryHydrationTimeout = setTimeout(() => {
+          if (
+            authSessionUserId.current === currentUser.uid &&
+            hydratedCollectionUser.current[collectionName] !== currentUser.uid
+          ) {
+            setInventorySyncErrorUser(currentUser.uid);
+          }
+        }, 12_000);
+      }
+
+      const clearInventoryHydrationTimeout = () => {
+        if (inventoryHydrationTimeout !== null) {
+          clearTimeout(inventoryHydrationTimeout);
+          inventoryHydrationTimeout = null;
+        }
+      };
+
       const unsub = onSnapshot(q, (snapshot) => {
         const remoteEntries = snapshot.docs
           .map(snapshotDoc => {
@@ -162,6 +184,8 @@ export function useFirebaseSync(
         // Mark hydration before allowing any subsequent local mutation to write to this collection.
         hydratedCollectionUser.current[collectionName] = currentUser.uid;
         if (collectionName === "inventory") {
+          clearInventoryHydrationTimeout();
+          setInventorySyncErrorUser(null);
           setInventoryHydratedUser(currentUser.uid);
         }
 
@@ -217,8 +241,21 @@ export function useFirebaseSync(
         if (shouldApplySnapshot && remoteJson !== JSON.stringify(localState)) {
           setLocalState(itemsWithoutUserId);
         }
+      }, (error) => {
+        if (
+          collectionName === "inventory" &&
+          authSessionUserId.current === currentUser.uid
+        ) {
+          clearInventoryHydrationTimeout();
+          setInventorySyncErrorUser(currentUser.uid);
+        }
+        console.error(`Failed to hydrate ${collectionName}:`, error);
       });
-      return unsub;
+
+      return () => {
+        clearInventoryHydrationTimeout();
+        unsub();
+      };
     }, [currentUser]);
 
     useEffect(() => {
@@ -377,6 +414,10 @@ export function useFirebaseSync(
   );
 
   const inventoryHydrated = !inventoryIsProvisional;
+  const inventorySyncError =
+    Boolean(currentUser) &&
+    inventoryIsProvisional &&
+    inventorySyncErrorUser === currentUser?.uid;
   const profileHydrated =
     !currentUser || profileHydratedUser === currentUser.uid;
 
@@ -390,6 +431,7 @@ export function useFirebaseSync(
     loading: !canRenderApp,
     inventoryHydrated,
     inventoryIsProvisional,
+    inventorySyncError,
     profileHydrated,
   };
 }
