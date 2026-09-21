@@ -295,7 +295,7 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
     assert.match(
       appSource,
       new RegExp(
-        `const ${handlerName} = [^\\n]*=> \\{\\n\\s*if \\(!requireAuthoritativeInventory\\(\\)\\) return;`
+        `const ${handlerName} = [^\\n]*=> \\{\\n\\s*if \\(!requireAuthoritativeInventory\\(\\)\\) return(?: false)?;`
       )
     );
   }

@@ -28,9 +28,10 @@ test("voice REMOVE_ITEMS are staged instead of deducted directly", () => {
 });
 
 test("confirmed voice mutation dispatches only the reviewed pending action", () => {
-  assert.match(
-    source,
-    /if \(action === "add"\)[\s\S]*onAddItemsToPantry\(confirmedItems\)[\s\S]*else if \(action === "remove"\)[\s\S]*onDeductItemsFromPantry\(confirmedItems\)/
-  );
+  assert.match(source, /const mutationSucceeded =/);
+  assert.match(source, /action === "add"/);
+  assert.match(source, /onAddItemsToPantry\(confirmedItems\)/);
+  assert.match(source, /action === "remove"/);
+  assert.match(source, /onDeductItemsFromPantry\(confirmedItems\)/);
   assert.match(source, /Nothing has been deducted from the pantry yet\./);
 });

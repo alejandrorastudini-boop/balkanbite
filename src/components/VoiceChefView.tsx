@@ -28,9 +28,9 @@ interface VoiceChefViewProps {
   chatMessages: ChatMessage[];
   onUpdateChatMessages: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
   onClearChat: () => void;
-  onAddItemsToPantry: (items: any[]) => void;
-  onAddItemsToShoppingList: (items: any[]) => void;
-  onDeductItemsFromPantry: (items: any[]) => void;
+  onAddItemsToPantry: (items: any[]) => boolean;
+  onAddItemsToShoppingList: (items: any[]) => boolean;
+  onDeductItemsFromPantry: (items: any[]) => boolean;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
@@ -253,19 +253,15 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       .map((item) => `${item.quantity} ${item.unit} ${item.nameEn || item.name}`)
       .join(", ");
 
-    setPendingItems(null);
-    setPendingAction(null);
-
-    if (action === "add") {
-      onAddItemsToPantry(confirmedItems);
-    } else if (action === "remove") {
-      onDeductItemsFromPantry(confirmedItems);
-    } else {
-      onAddItemsToShoppingList(confirmedItems);
-    }
-
-    const confirmationText =
+    const mutationSucceeded =
       action === "add"
+        ? onAddItemsToPantry(confirmedItems)
+        : action === "remove"
+        ? onDeductItemsFromPantry(confirmedItems)
+        : onAddItemsToShoppingList(confirmedItems);
+
+    const confirmationText = mutationSucceeded
+      ? action === "add"
         ? language === "bg"
           ? `Потвърдено. Добавих в килера: ${summary}.`
           : language === "es"
@@ -281,7 +277,29 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
         ? `Потвърдено. Добавих към списъка за пазаруване: ${summary}.`
         : language === "es"
         ? `Confirmado. Añadí a la lista de compra: ${summary}.`
-        : `Confirmed. Added to the shopping list: ${summary}.`;
+        : `Confirmed. Added to the shopping list: ${summary}.`
+      : action === "remove"
+      ? language === "bg"
+        ? "Не промених килера. Проверете продукта, количеството и мерната единица и опитайте отново."
+        : language === "es"
+        ? "No he descontado nada de la despensa. Revisa el producto, la cantidad y la unidad e inténtalo de nuevo."
+        : "I did not deduct anything from the pantry. Review the item, quantity, and unit and try again."
+      : action === "shopping"
+      ? language === "bg"
+        ? "Не добавих тези продукти към списъка за пазаруване. Проверете името, количеството и мерната единица и опитайте отново."
+        : language === "es"
+        ? "No he añadido estos productos a la lista de compra. Revisa el nombre, la cantidad y la unidad e inténtalo de nuevo."
+        : "I did not add these items to the shopping list. Review the name, quantity, and unit and try again."
+      : language === "bg"
+      ? "Не записах тези продукти в килера. Проверете името, количеството и мерната единица и опитайте отново."
+      : language === "es"
+      ? "No he guardado estos productos en la despensa. Revisa el nombre, la cantidad y la unidad e inténtalo de nuevo."
+      : "I did not save these items to the pantry. Review the name, quantity, and unit and try again.";
+
+    if (mutationSucceeded) {
+      setPendingItems(null);
+      setPendingAction(null);
+    }
 
     onUpdateChatMessages((prev) => [
       ...prev,

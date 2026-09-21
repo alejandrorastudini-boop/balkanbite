@@ -156,7 +156,7 @@ test("App rejects the whole confirmed voice-shopping batch if any row fails reva
   const rejectedIndex = handlerBlock.indexOf(
     "if (result.rejectedCount > 0)",
   );
-  const returnIndex = handlerBlock.indexOf("return;", rejectedIndex);
+  const returnIndex = handlerBlock.indexOf("return false;", rejectedIndex);
   const persistIndex = handlerBlock.indexOf(
     "setShoppingList((prev) => [...prev, ...result.items])",
   );
@@ -187,7 +187,7 @@ test("both full Voice and Chef modal wire the confirmed shopping callback", () =
   );
   assert.match(
     modalSource,
-    /onAddItemsToShoppingList:\s*\(items: any\[\]\) => void;/,
+    /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean;/,
   );
   assert.match(
     modalSource,
