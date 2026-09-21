@@ -69,6 +69,7 @@ import {
   parseMealLogCache,
 } from "./utils/verifiedMealLog";
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
+import { hasValidManualShoppingRequiredFields } from "./utils/manualShoppingValidation";
 import {
   getFoodSafetyQuarantine,
   getFoodSafetyQuarantineMessage,
@@ -949,8 +950,20 @@ export default function App() {
   };
 
   const handleAddShoppingItem = (item: Omit<ShoppingItem, "id" | "checked">) => {
+    if (!hasValidManualShoppingRequiredFields(item)) {
+      console.warn(
+        "Manual shopping item rejected because name, quantity or unit was not explicitly valid."
+      );
+      return;
+    }
+
     const newItem: ShoppingItem = {
       ...item,
+      name: item.name.trim(),
+      unit: item.unit.trim(),
+      // Blank category means unclassified; do not infer a food category.
+      category:
+        typeof item.category === "string" ? item.category.trim() : "",
       id: `shop-${Date.now()}`,
       checked: false,
     };
