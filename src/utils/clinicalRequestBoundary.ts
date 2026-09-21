@@ -34,9 +34,9 @@ const MEDICATION_NOUNS = [
 ];
 
 const MEDICATION_ACTIONS = [
-  /\b(take|taking|increase|decrease|reduce|change|adjust|stop|start|combine|mix|interact|interaction|safe|should i|can i|may i|how much)\b/,
-  /\b(tomar|tomo|tome|aumentar|subir|reducir|bajar|cambiar|ajustar|dejar|parar|empezar|mezclar|combinar|interaccion|seguro|puedo|debo|cuanto)\b/,
-  /прием|взем|увелич|намал|смен|промен|спр|започ|смес|комбинир|взаимодейств|безопас|може ли|трябва ли|колко/,
+  /\b(increase|decrease|reduce|change|adjust|stop|start|combine|mix|interact|interaction|safe|should i|can i|may i|how much|what dose|when should i take)\b/,
+  /\b(aumentar|subir|reducir|bajar|cambiar|ajustar|dejar|parar|empezar|mezclar|combinar|interaccion|seguro|puedo|debo|cuanto|que dosis|cuando debo tomar)\b/,
+  /увелич|намал|смен|промен|спр|започ|смес|комбинир|взаимодейств|безопас|може ли|трябва ли|колко|каква доза|кога да приемам/,
 ];
 
 const CONDITION_TERMS = [
@@ -47,8 +47,8 @@ const CONDITION_TERMS = [
 
 const DIAGNOSIS_CUES = [
   /\bdiagnos(e|is|ed|ing)?\b|\bdo i have\b|\bwhat disease do i have\b|\bwhat condition do i have\b/,
-  /\bdiagnostic|diagnostica|diagnosticar|tengo\b|\bque enfermedad tengo\b|\bque condicion tengo\b/,
-  /диагност|имам ли|какво заболяване имам|каква болест имам/,
+  /\bdiagnostica|diagnosticar|crees que tengo|puede ser|es esto\b|\bque enfermedad tengo\b|\bque condicion tengo\b/,
+  /диагност|имам ли|възможно ли е да имам|това .* ли е|какво заболяване имам|каква болест имам/,
 ];
 
 const TREATMENT_CUES = [
