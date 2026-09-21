@@ -52,8 +52,15 @@ test("signed-in onboarding waits for the authoritative profile snapshot", () => 
 
 test("guest onboarding remains available without cloud profile hydration", () => {
   const condition =
-    "!showLanding &&\n            (!currentUser || profileHydrated) &&\n            !profile.onboardingCompleted";
+    "!showLanding &&\n            !showAuthModal &&\n            (!currentUser || profileHydrated) &&\n            !profile.onboardingCompleted";
   assert.ok(appSource.includes(condition));
+});
+
+test("entry auth and onboarding overlays are mutually exclusive", () => {
+  assert.match(
+    appSource,
+    /isOpen=\{\s*!showLanding\s*&&\s*!showAuthModal\s*&&\s*\(!currentUser \|\| profileHydrated\)\s*&&\s*!profile\.onboardingCompleted\s*\}/,
+  );
 });
 
 test("inventory hydration failure never authorizes cloud writes", () => {
