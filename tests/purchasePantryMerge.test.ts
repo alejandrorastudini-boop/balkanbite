@@ -4,7 +4,7 @@ import { mergePurchasesIntoPantry, transferCheckedShoppingItems } from '../src/u
 import type { PantryItem, ShoppingItem } from '../src/types';
 const date = '2026-09-13';
 const stock = (quantity = 1, unit = 'kg', overrides: Partial<PantryItem> = {}): PantryItem => ({ id: 'p1', name: 'Tomate', quantity, unit, category: 'Produce', addedAt: date, ...overrides });
-const shop = (quantity = .5, unit = 'kg', overrides: Partial<ShoppingItem> = {}): ShoppingItem => ({ id: 's1', name: 'Tomate', quantity, unit, category: 'Produce', checked: true, estimatedPriceEUR: 0, ...overrides });
+const shop = (quantity = .5, unit = 'kg', overrides: Partial<ShoppingItem> = {}): ShoppingItem => ({ id: 's1', name: 'Tomate', quantity, unit, category: 'Produce', checked: true, purchaseAmountConfirmed: true, estimatedPriceEUR: 0, ...overrides });
 test('compatible purchase increases existing quantity; transfers only checked items', () => {
  const result = transferCheckedShoppingItems([stock(1,'uds')], [shop(2,'ud'),shop(3,'uds',{ id: 'pending', checked: false })], date);
  assert.equal(result.pantry.length, 1); assert.equal(result.pantry[0].quantity, 3); assert.equal(result.pantry[0].id, 'p1'); assert.equal(result.shoppingList.length, 1);
@@ -69,4 +69,37 @@ test('rejected purchases never appear as newly applied progression evidence', ()
  assert.deepEqual(result.acceptedSourceIds, []);
  assert.deepEqual(result.newlyAppliedSourceIds, []);
  assert.equal(result.rejected.length, 1);
+});
+
+
+test('checked shopping rows without explicit purchased-amount confirmation stay out of pantry', () => {
+ const historical = shop(.5, 'kg', { purchaseAmountConfirmed: undefined });
+ const result = transferCheckedShoppingItems([], [historical], date);
+
+ assert.equal(result.pantry.length, 0);
+ assert.equal(result.shoppingList.length, 1);
+ assert.deepEqual(result.acceptedSourceIds, []);
+ assert.deepEqual(result.newlyAppliedSourceIds, []);
+ assert.equal(result.rejected.length, 1);
+ assert.equal(result.rejected[0].reason, 'unconfirmed_amount');
+});
+
+test('explicit false purchase confirmation is not equivalent to confirmed', () => {
+ const result = transferCheckedShoppingItems([], [
+  shop(.5, 'kg', { purchaseAmountConfirmed: false }),
+ ], date);
+
+ assert.equal(result.pantry.length, 0);
+ assert.equal(result.shoppingList.length, 1);
+ assert.equal(result.rejected[0].reason, 'unconfirmed_amount');
+});
+
+test('unchecked rows do not need purchase confirmation because they are not transferred', () => {
+ const result = transferCheckedShoppingItems([], [
+  shop(.5, 'kg', { checked: false, purchaseAmountConfirmed: false }),
+ ], date);
+
+ assert.equal(result.pantry.length, 0);
+ assert.equal(result.shoppingList.length, 1);
+ assert.deepEqual(result.rejected, []);
 });

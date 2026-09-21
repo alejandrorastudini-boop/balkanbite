@@ -84,6 +84,13 @@ export interface ShoppingItem {
   category: string;
   estimatedPriceEUR?: number;
   checked: boolean;
+  /**
+   * Provenance of the planned list amount. This never makes the amount an
+   * authoritative purchase quantity by itself.
+   */
+  amountOrigin?: "user_entered" | "ai_estimated" | "deterministic_shortfall";
+  /** Explicit confirmation that the displayed quantity/unit was actually purchased. */
+  purchaseAmountConfirmed?: boolean;
   reason?: string;
 }
 

@@ -37,7 +37,7 @@ export interface PurchaseMergeResult {
    * purchase evidence suitable for progression/reward accounting.
    */
   newlyAppliedSourceIds: string[];
-  rejected: Array<{ sourceId: string; name: string; reason: 'invalid_purchase' | 'duplicate_source' | 'quantity_overflow' }>;
+  rejected: Array<{ sourceId: string; name: string; reason: 'invalid_purchase' | 'duplicate_source' | 'quantity_overflow' | 'unconfirmed_amount' }>;
 }
 
 export interface ShoppingReconciliationResult extends PurchaseMergeResult {
@@ -157,16 +157,44 @@ export function shoppingItemToPurchase(item: ShoppingItem): PantryPurchase {
   };
 }
 
-export function transferCheckedShoppingItems(pantry: PantryItem[], shoppingList: ShoppingItem[], acquiredAt: string) {
-  const result = mergePurchasesIntoPantry(pantry, shoppingList.filter(item => item.checked).map(shoppingItemToPurchase), acquiredAt);
+export function transferCheckedShoppingItems(
+  pantry: PantryItem[],
+  shoppingList: ShoppingItem[],
+  acquiredAt: string,
+) {
+  const checkedItems = shoppingList.filter((item) => item.checked);
+  const confirmedItems = checkedItems.filter(
+    (item) => item.purchaseAmountConfirmed === true,
+  );
+  const unconfirmed = checkedItems
+    .filter((item) => item.purchaseAmountConfirmed !== true)
+    .map((item) => ({
+      sourceId: `shopping:${item.id}`,
+      name: item.name,
+      reason: "unconfirmed_amount" as const,
+    }));
+
+  const result = mergePurchasesIntoPantry(
+    pantry,
+    confirmedItems.map(shoppingItemToPurchase),
+    acquiredAt,
+  );
   const accepted = new Set(result.acceptedSourceIds);
-  return { ...result, shoppingList: shoppingList.filter(item => !item.checked || !accepted.has(`shopping:${item.id}`)) };
+
+  return {
+    ...result,
+    rejected: [...result.rejected, ...unconfirmed],
+    shoppingList: shoppingList.filter(
+      (item) => !item.checked || !accepted.has(`shopping:${item.id}`),
+    ),
+  };
 }
 
 /**
  * Applies a human-confirmed shopping reconciliation without trusting AI-made
- * pantry defaults. Existing shopping rows remain the source of truth for their
- * own quantity/unit. Extra items must already contain an explicit valid name,
+ * pantry defaults. Purchased list IDs must come from explicit review selection;
+ * existing shopping rows then provide the quantity/unit the user confirmed in
+ * that review. Extra items must already contain an explicit valid name,
  * numeric quantity and unit in the review screen. AI-estimated cost/expiry are
  * deliberately not persisted for extras because they are not proof of what was
  * actually paid or of the product's real expiry date.
