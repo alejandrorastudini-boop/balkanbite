@@ -173,7 +173,7 @@ export function calculateRecipePantryScore(recipe: Recipe, pantry: PantryItem[])
   };
 }
 
-function syncExistingMealPlanWithPantry(
+export function syncMealPlanWithPantry(
   existingPlan: MealPlanDay[],
   pantry: PantryItem[],
 ): {
@@ -232,7 +232,7 @@ export function adaptMealPlanToPantry(
   const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
 
   if (syncedRecipes.length === 0) {
-    return syncExistingMealPlanWithPantry(existingPlan, pantry);
+    return syncMealPlanWithPantry(existingPlan, pantry);
   }
 
   const scoredRecipes = syncedRecipes.map((recipe) => {

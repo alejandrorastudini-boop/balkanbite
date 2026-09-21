@@ -36,7 +36,7 @@ import {
   DEFAULT_MEAL_PLAN,
 } from "./data/initialData";
 import { getRecipeImageUrl } from "./utils/recipeImages";
-import { adaptMealPlanToPantry, syncRecipesWithPantry } from "./utils/menuAutoPlanner";
+import { adaptMealPlanToPantry, syncMealPlanWithPantry, syncRecipesWithPantry } from "./utils/menuAutoPlanner";
 import { evaluateShoppingNeeds } from "./utils/shoppingAdvisor";
 import {
   deductRecipeIngredientsFromPantry,
@@ -757,7 +757,8 @@ export default function App() {
       if (!res.ok || !Array.isArray(data.mealPlan) || data.mealPlan.length === 0) {
         throw new Error(data?.error || "Weekly meal-plan generation returned no usable plan");
       }
-      setMealPlan(data.mealPlan);
+      const { newPlan } = syncMealPlanWithPantry(data.mealPlan, pantry);
+      setMealPlan(newPlan);
     } catch (err) {
       console.error("Failed to generate AI weekly menu; existing plan left unchanged:", err);
       alert(

@@ -615,6 +615,35 @@ app.post("/api/ai/generate-weekly-plan", async (req, res) => {
     }
 
     const culinaryProfile = buildAiCulinaryProfileContext(profile);
+    const recipePromptContext = Array.isArray(recipes)
+      ? recipes.flatMap((recipe: unknown) => {
+          if (!recipe || typeof recipe !== "object" || Array.isArray(recipe)) return [];
+          const record = recipe as Record<string, unknown>;
+          const ingredients = Array.isArray(record.ingredients)
+            ? record.ingredients.flatMap((ingredient: unknown) => {
+                if (
+                  !ingredient ||
+                  typeof ingredient !== "object" ||
+                  Array.isArray(ingredient)
+                ) return [];
+                const ingredientRecord = ingredient as Record<string, unknown>;
+                return [{
+                  name: ingredientRecord.name,
+                  amount: ingredientRecord.amount,
+                  unit: ingredientRecord.unit,
+                }];
+              })
+            : [];
+
+          return [{
+            id: record.id,
+            title: record.title,
+            tags: record.tags,
+            calories: record.calories,
+            ingredients,
+          }];
+        })
+      : [];
 
     const today = new Date();
     const dates: string[] = [];
@@ -628,7 +657,7 @@ app.post("/api/ai/generate-weekly-plan", async (req, res) => {
 Think carefully and generate a complete, balanced 7-day weekly meal plan for the dates: ${JSON.stringify(dates)}.
 Language: ${language}.
 User Pantry Inventory: ${JSON.stringify(pantry)}.
-Available Recipes Pool: ${JSON.stringify(recipes.map((r: any) => ({ id: r.id, title: r.title, tags: r.tags, calories: r.calories, ingredients: r.ingredients } )))}.
+Available Recipes Pool: ${JSON.stringify(recipePromptContext)}.
 User culinary preferences (non-clinical): ${JSON.stringify(culinaryProfile)}.
 Do not infer disease, nutrient deficiency, calorie targets, weight-loss prescriptions or therapeutic diets from these preferences.
 
