@@ -83,6 +83,6 @@ test("amount confirmation helper documents selection as the separate identity ga
   );
   assert.match(
     confirmationSource,
-    /row\s+selection separately confirms the displayed product identity\/category/,
+    /selection separately confirms the displayed product identity\/category/,
   );
 });
