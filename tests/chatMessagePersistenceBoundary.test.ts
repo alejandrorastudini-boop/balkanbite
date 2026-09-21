@@ -46,7 +46,7 @@ test("new assistant messages sanitize action metadata before persistence", () =>
   );
   assert.match(
     voiceSource,
-    /const safeActionMetadata = isPendingPantryMutation[\s\S]*sanitizeChatActionMetadata/,
+    /const safeActionMetadata = isPendingItemAction[\s\S]*sanitizeChatActionMetadata/,
   );
   assert.match(
     voiceSource,
