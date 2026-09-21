@@ -74,6 +74,15 @@ test("new assistant text ignores non-string model feedback", () => {
   );
 });
 
+test("chat item metadata uses neutral labels instead of claiming a mutation happened", () => {
+  assert.match(voiceSource, /getAffectedItemsLabel\(msg\.actionType\)/);
+  assert.match(voiceSource, /Detected for pantry addition:/);
+  assert.match(voiceSource, /Detected for pantry deduction:/);
+  assert.match(voiceSource, /Detected for shopping list:/);
+  assert.doesNotMatch(voiceSource, /✓ Added to pantry:/);
+  assert.doesNotMatch(voiceSource, /✓ Deducted:/);
+});
+
 test("recent AI conversation context is derived from sanitized chat state only", () => {
   assert.match(
     voiceSource,
