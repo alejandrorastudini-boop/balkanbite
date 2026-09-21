@@ -429,10 +429,8 @@ export const DEFAULT_PROFILE: UserProfile = {
   language: "es",
   currency: "EUR",
   cookingSpeed: "fast",
-  healthGoal: "balanced",
   dietStyle: "mediterranean",
   disliked: [],
-  budgetTier: "balanced",
   isProSubscriber: false,
   onboardingCompleted: false,
 };
