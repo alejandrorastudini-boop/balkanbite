@@ -1147,7 +1147,11 @@ export default function App() {
     } catch (err) {
       console.error("Failed to suggest shopping list:", err);
     } finally {
-      set  const handleVoiceAddItems = (items: any[]): boolean => {
+      setIsLoadingAi(false);
+    }
+  };
+
+  const handleVoiceAddItems = (items: any[]): boolean => {
     const { accepted, rejectedCount } = normalizeVoicePantryItems(items || []);
     const now = Date.now();
     const addedAt = new Date().toISOString().split("T")[0];
@@ -1209,10 +1213,6 @@ export default function App() {
 
     setPantry(result.pantry);
     return true;
-  };
-
-rn result.pantry;
-    });
   };
 
   const handleVoiceNavigateToRecipes = (query?: string) => {
