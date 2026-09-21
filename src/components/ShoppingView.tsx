@@ -450,6 +450,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                   {currentText.shoppingAddProduct}
                 </label>
                 <input
+                  id="manual-shopping-name"
                   type="text"
                   required
                   value={newItemName}
