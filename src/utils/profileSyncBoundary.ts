@@ -12,7 +12,7 @@ import {
 
 const LANGUAGES = new Set<Language>(["es", "en", "bg"]);
 const CURRENCIES = new Set<Currency>(["EUR", "USD"]);
-const COOKING_SPEEDS = new Set<UserProfile["cookingSpeed"]>([
+const COOKING_SPEEDS = new Set<NonNullable<UserProfile["cookingSpeed"]>>([
   "fast",
   "moderate",
   "elaborate",
@@ -23,7 +23,7 @@ const HEALTH_GOALS = new Set<NonNullable<UserProfile["healthGoal"]>>([
   "fat_loss",
   "heart",
 ]);
-const DIET_STYLES = new Set<UserProfile["dietStyle"]>([
+const DIET_STYLES = new Set<NonNullable<UserProfile["dietStyle"]>>([
   "all",
   "mediterranean",
   "vegetarian",
@@ -123,9 +123,14 @@ function sanitizeProfile(
   }
   if (
     typeof raw.cookingSpeed === "string" &&
-    COOKING_SPEEDS.has(raw.cookingSpeed as UserProfile["cookingSpeed"])
+    COOKING_SPEEDS.has(
+      raw.cookingSpeed as NonNullable<UserProfile["cookingSpeed"]>,
+    )
   ) {
-    profile.cookingSpeed = raw.cookingSpeed as UserProfile["cookingSpeed"];
+    profile.cookingSpeed =
+      raw.cookingSpeed as NonNullable<UserProfile["cookingSpeed"]>;
+  } else {
+    profile.cookingSpeed = undefined;
   }
   if (
     typeof raw.healthGoal === "string" &&
@@ -138,9 +143,12 @@ function sanitizeProfile(
   }
   if (
     typeof raw.dietStyle === "string" &&
-    DIET_STYLES.has(raw.dietStyle as UserProfile["dietStyle"])
+    DIET_STYLES.has(raw.dietStyle as NonNullable<UserProfile["dietStyle"]>)
   ) {
-    profile.dietStyle = raw.dietStyle as UserProfile["dietStyle"];
+    profile.dietStyle =
+      raw.dietStyle as NonNullable<UserProfile["dietStyle"]>;
+  } else {
+    profile.dietStyle = undefined;
   }
 
   const disliked = cleanStringArray(raw.disliked);
@@ -202,9 +210,9 @@ export function serializeUserProfileForFirestore(
     name: safeProfile.name,
     language: safeProfile.language,
     currency: safeProfile.currency,
-    cookingSpeed: safeProfile.cookingSpeed,
+    cookingSpeed: safeProfile.cookingSpeed ?? null,
     healthGoal: safeProfile.healthGoal ?? null,
-    dietStyle: safeProfile.dietStyle,
+    dietStyle: safeProfile.dietStyle ?? null,
     disliked: [...safeProfile.disliked],
     allergies: safeProfile.allergies ? [...safeProfile.allergies] : null,
     householdSize: safeProfile.householdSize ?? null,
