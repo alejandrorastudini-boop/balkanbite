@@ -679,6 +679,7 @@ export default function App() {
       ...item,
       id: `s-advisor-${Date.now()}-${idx}`,
       checked: false,
+      purchaseAmountConfirmed: false,
     }));
     setShoppingList((prev) => [...newItems, ...prev]);
   };
@@ -860,6 +861,8 @@ export default function App() {
       ...item,
       id: `shop-${Date.now()}-${idx}`,
       checked: false,
+      amountOrigin: "deterministic_shortfall",
+      purchaseAmountConfirmed: false,
       reason:
         profile.language === "bg"
           ? `Необходимо за ${recipeTitle}`
@@ -941,7 +944,17 @@ export default function App() {
 
   const handleToggleShoppingItem = (id: string) => {
     setShoppingList((prev) =>
-      prev.map((i) => (i.id === id ? { ...i, checked: !i.checked } : i))
+      prev.map((item) => {
+        if (item.id !== id) return item;
+        const checked = !item.checked;
+        return {
+          ...item,
+          checked,
+          // Checking is the explicit human confirmation that the exact
+          // quantity/unit displayed on the row was actually purchased.
+          purchaseAmountConfirmed: checked,
+        };
+      })
     );
   };
 
@@ -966,6 +979,8 @@ export default function App() {
         typeof item.category === "string" ? item.category.trim() : "",
       id: `shop-${Date.now()}`,
       checked: false,
+      amountOrigin: "user_entered",
+      purchaseAmountConfirmed: false,
     };
     setShoppingList((prev) => [...prev, newItem]);
   };
@@ -1131,6 +1146,8 @@ export default function App() {
             // until the user records an actual price during purchase.
             estimatedPriceEUR: undefined,
             checked: false,
+            amountOrigin: "ai_estimated",
+            purchaseAmountConfirmed: false,
             reason: typeof candidate.reason === "string" ? candidate.reason : undefined,
           }];
         });
