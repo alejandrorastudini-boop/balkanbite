@@ -64,6 +64,7 @@ import {
 import { getUserLocalWorkspaceKey, parseArrayCache } from "./utils/localWorkspaceScope";
 import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
 import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext";
+import { parseStoredRecipeCache } from "./utils/storedRecipeValidation";
 import {
   buildVerifiedMealLog,
   parseMealLogCache,
@@ -90,19 +91,14 @@ export default function App() {
   );
 
   const [recipes, setRecipes] = useState<Recipe[]>(() => {
-    try {
-      const saved = localStorage.getItem("balkanbite_recipes");
-      const list: Recipe[] = saved ? JSON.parse(saved) : INITIAL_RECIPES;
-      return list.map((r: Recipe) => ({
-        ...r,
-        imageUrl: getRecipeImageUrl(r),
-      }));
-    } catch {
-      return INITIAL_RECIPES.map((r: Recipe) => ({
-        ...r,
-        imageUrl: getRecipeImageUrl(r),
-      }));
-    }
+    const list =
+      parseStoredRecipeCache(localStorage.getItem("balkanbite_recipes")) ??
+      INITIAL_RECIPES;
+
+    return list.map((recipe) => ({
+      ...recipe,
+      imageUrl: getRecipeImageUrl(recipe),
+    }));
   });
 
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() => {
@@ -326,9 +322,8 @@ export default function App() {
     if (firebaseLoading || workspaceScope === "guest") return;
 
     const guestRecipes =
-      parseArrayCache<Recipe>(
-        localStorage.getItem("balkanbite_recipes")
-      ) ?? INITIAL_RECIPES;
+      parseStoredRecipeCache(localStorage.getItem("balkanbite_recipes")) ??
+      INITIAL_RECIPES;
     setRecipes(
       guestRecipes.map((recipe) => ({
         ...recipe,

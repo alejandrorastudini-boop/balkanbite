@@ -16,6 +16,7 @@ import { INITIAL_PANTRY } from "../data/initialData";
 import { getStartupCloudSyncState } from "../utils/startupCloudSync";
 import { findRemovedDocumentIds, getSyncedItemKey, selectCanonicalRemoteEntries } from "../utils/cloudCollectionSync";
 import { createSignedInProfileDefaults, sanitizeRemoteUserProfile, serializeUserProfileForFirestore } from "../utils/profileSyncBoundary";
+import { isStoredRecipeStructurallyValid } from "../utils/storedRecipeValidation";
 
 const DEMO_PANTRY_ITEM_IDS = new Set(INITIAL_PANTRY.map(item => item.id));
 
@@ -350,7 +351,14 @@ export function useFirebaseSync(
   // For authenticated sessions an empty remote collection is authoritative.
   // This prevents guest/previous-account data from leaking into a new account
   // and lets remote deletions propagate back to this device.
-  syncCollection("recipes", recipes, setRecipes, () => true, true);
+  syncCollection(
+    "recipes",
+    recipes,
+    setRecipes,
+    () => true,
+    true,
+    isStoredRecipeStructurallyValid
+  );
   syncCollection("mealPlans", mealPlan, setMealPlan, () => true, true);
   syncCollection("shoppingList", shoppingList, setShoppingList, () => true, true);
 
