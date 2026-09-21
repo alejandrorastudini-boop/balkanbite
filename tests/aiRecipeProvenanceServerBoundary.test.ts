@@ -15,10 +15,14 @@ function endpointSection(startMarker: string, endMarker: string): string {
   return serverSource.slice(start, end);
 }
 
-test("both recipe AI endpoints share the canonical estimate provenance boundary", () => {
+test("both recipe AI endpoints compose provenance with the structural recipe gate", () => {
   assert.match(
     serverSource,
     /applyAiRecipeEstimateProvenance.*aiRecipeProvenance\.js/,
+  );
+  assert.match(
+    serverSource,
+    /validateAiRecipeStructure.*aiRecipeValidation\.js/,
   );
 
   const recipes = endpointSection(
@@ -31,21 +35,57 @@ test("both recipe AI endpoints share the canonical estimate provenance boundary"
   );
 
   assert.match(recipes, /applyAiRecipeEstimateProvenance\(rec\)/);
+  assert.match(
+    recipes,
+    /validateAiRecipeStructure\(\s*withProvenance,\s*`ai-rec-/,
+  );
   assert.match(weekly, /applyAiRecipeEstimateProvenance\(meal\)/);
+  assert.match(
+    weekly,
+    /validateAiRecipeStructure\(withProvenance, fallbackId\)/,
+  );
 });
 
-test("weekly plan normalizes breakfast lunch and dinner before response", () => {
+test("weekly plan requires exact requested dates and three valid meals per day", () => {
   const weekly = endpointSection(
     'app.post("/api/ai/generate-weekly-plan"',
     '// Endpoint: AI Smart Weekly Shopping List Proposal',
   );
 
-  assert.match(weekly, /breakfast:\s*normalizePlannedMeal\(day\.breakfast\)/);
-  assert.match(weekly, /lunch:\s*normalizePlannedMeal\(day\.lunch\)/);
-  assert.match(weekly, /dinner:\s*normalizePlannedMeal\(day\.dinner\)/);
+  assert.match(weekly, /record\.date !== expectedDate/);
   assert.match(
     weekly,
-    /imageUrl:\s*resolveRecipeImageUrl\(withProvenance\)/,
+    /normalizePlannedMeal\(\s*record\.breakfast,[\s\S]*ai-plan-\$\{expectedDate\}-breakfast/,
+  );
+  assert.match(
+    weekly,
+    /normalizePlannedMeal\(\s*record\.lunch,[\s\S]*ai-plan-\$\{expectedDate\}-lunch/,
+  );
+  assert.match(
+    weekly,
+    /normalizePlannedMeal\(\s*record\.dinner,[\s\S]*ai-plan-\$\{expectedDate\}-dinner/,
+  );
+  assert.match(weekly, /if \(!breakfast \|\| !lunch \|\| !dinner\) return \[\]/);
+  assert.match(
+    weekly,
+    /rawPlan\.length !== dates\.length \|\| mealPlan\.length !== dates\.length/,
+  );
+  assert.match(
+    weekly,
+    /status\(502\)[\s\S]*incomplete or invalid plan[\s\S]*mealPlan: \[\]/,
+  );
+});
+
+test("recipe endpoint never returns a structurally invalid object as usable", () => {
+  const recipes = endpointSection(
+    'app.post("/api/ai/generate-recipes"',
+    '// Endpoint: AI Smart 7-Day Weekly Meal Plan',
+  );
+
+  assert.match(recipes, /if \(!validated\) return \[\]/);
+  assert.match(
+    recipes,
+    /enrichedRecipes\.length === 0[\s\S]*status\(502\)[\s\S]*recipes: \[\]/,
   );
 });
 

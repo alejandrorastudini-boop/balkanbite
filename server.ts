@@ -6,6 +6,7 @@ import dotenv from "dotenv";
 import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileContext.js";
 import { withOpenAIJsonModeInstruction } from "./src/utils/openAIJsonMode.js";
 import { applyAiRecipeEstimateProvenance } from "./src/utils/aiRecipeProvenance.js";
+import { validateAiRecipeStructure } from "./src/utils/aiRecipeValidation.js";
 import {
   getFoodSafetyQuarantineMessage,
   isFoodSafetyReviewRequired,
@@ -556,17 +557,26 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
         recipes: [],
       });
     }
-    const enrichedRecipes = rawList
-      .map((rec: any, idx: number) => {
-        const withProvenance = applyAiRecipeEstimateProvenance(rec);
-        if (!withProvenance) return null;
-        return {
-          ...withProvenance,
-          id: withProvenance.id || `ai-rec-${Date.now()}-${idx}`,
-          imageUrl: resolveRecipeImageUrl(withProvenance),
-        };
-      })
-      .filter(Boolean);
+    const enrichedRecipes = rawList.flatMap((rec: any, idx: number) => {
+      const withProvenance = applyAiRecipeEstimateProvenance(rec);
+      const validated = validateAiRecipeStructure(
+        withProvenance,
+        `ai-rec-${Date.now()}-${idx}`,
+      );
+      if (!validated) return [];
+
+      return [{
+        ...validated,
+        imageUrl: resolveRecipeImageUrl(validated),
+      }];
+    });
+
+    if (enrichedRecipes.length === 0) {
+      return res.status(502).json({
+        error: "Recipe generation returned no structurally valid recipes",
+        recipes: [],
+      });
+    }
 
     return res.json({
       recipes: enrichedRecipes,
@@ -643,23 +653,47 @@ CRITICAL RULES:
 
     const parsed = JSON.parse(response.text || "[]");
     const rawPlan = Array.isArray(parsed) ? parsed : [];
-    
-    const normalizePlannedMeal = (meal: unknown) => {
+
+    const normalizePlannedMeal = (meal: unknown, fallbackId: string) => {
       const withProvenance = applyAiRecipeEstimateProvenance(meal);
-      return withProvenance
+      const validated = validateAiRecipeStructure(withProvenance, fallbackId);
+      return validated
         ? {
-            ...withProvenance,
-            imageUrl: resolveRecipeImageUrl(withProvenance),
+            ...validated,
+            imageUrl: resolveRecipeImageUrl(validated),
           }
-        : undefined;
+        : null;
     };
 
-    const mealPlan = rawPlan.map((day: any) => ({
-      date: day.date,
-      breakfast: normalizePlannedMeal(day.breakfast),
-      lunch: normalizePlannedMeal(day.lunch),
-      dinner: normalizePlannedMeal(day.dinner),
-    }));
+    const mealPlan = rawPlan.flatMap((day: unknown, index: number) => {
+      if (!day || typeof day !== "object" || Array.isArray(day)) return [];
+      const record = day as Record<string, unknown>;
+      const expectedDate = dates[index];
+      if (!expectedDate || record.date !== expectedDate) return [];
+
+      const breakfast = normalizePlannedMeal(
+        record.breakfast,
+        `ai-plan-${expectedDate}-breakfast`,
+      );
+      const lunch = normalizePlannedMeal(
+        record.lunch,
+        `ai-plan-${expectedDate}-lunch`,
+      );
+      const dinner = normalizePlannedMeal(
+        record.dinner,
+        `ai-plan-${expectedDate}-dinner`,
+      );
+
+      if (!breakfast || !lunch || !dinner) return [];
+      return [{ date: expectedDate, breakfast, lunch, dinner }];
+    });
+
+    if (rawPlan.length !== dates.length || mealPlan.length !== dates.length) {
+      return res.status(502).json({
+        error: "Weekly meal-plan generation returned an incomplete or invalid plan",
+        mealPlan: [],
+      });
+    }
 
     return res.json({ mealPlan, source: "openai_gpt_5_6_luna" });
   } catch (err: any) {
