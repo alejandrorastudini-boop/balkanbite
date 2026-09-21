@@ -151,7 +151,8 @@ export interface UserProfile {
   language: Language;
   currency: Currency;
   cookingSpeed: "fast" | "moderate" | "elaborate";
-  healthGoal: "balanced" | "muscle" | "fat_loss" | "heart";
+  /** Deprecated until a purpose-specific user choice exists. Never default this field. */
+  healthGoal?: "balanced" | "muscle" | "fat_loss" | "heart";
   dietStyle: "all" | "mediterranean" | "vegetarian" | "vegan" | "keto" | "gluten_free";
   disliked: string[];
   allergies?: string[];
@@ -160,7 +161,8 @@ export interface UserProfile {
   appliances?: string[];
   monthlyBudgetEUR?: number;
   healthProfile?: HealthProfile;
-  budgetTier: "strict_budget" | "balanced" | "flexible";
+  /** Deprecated until the user explicitly chooses a budget style. Never default this field. */
+  budgetTier?: "strict_budget" | "balanced" | "flexible";
   isProSubscriber: boolean;
   onboardingCompleted: boolean;
 }

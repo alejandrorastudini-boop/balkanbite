@@ -17,7 +17,7 @@ const COOKING_SPEEDS = new Set<UserProfile["cookingSpeed"]>([
   "moderate",
   "elaborate",
 ]);
-const HEALTH_GOALS = new Set<UserProfile["healthGoal"]>([
+const HEALTH_GOALS = new Set<NonNullable<UserProfile["healthGoal"]>>([
   "balanced",
   "muscle",
   "fat_loss",
@@ -31,7 +31,7 @@ const DIET_STYLES = new Set<UserProfile["dietStyle"]>([
   "keto",
   "gluten_free",
 ]);
-const BUDGET_TIERS = new Set<UserProfile["budgetTier"]>([
+const BUDGET_TIERS = new Set<NonNullable<UserProfile["budgetTier"]>>([
   "strict_budget",
   "balanced",
   "flexible",
@@ -130,9 +130,12 @@ function sanitizeProfile(
   }
   if (
     typeof raw.healthGoal === "string" &&
-    HEALTH_GOALS.has(raw.healthGoal as UserProfile["healthGoal"])
+    HEALTH_GOALS.has(raw.healthGoal as NonNullable<UserProfile["healthGoal"]>)
   ) {
-    profile.healthGoal = raw.healthGoal as UserProfile["healthGoal"];
+    profile.healthGoal =
+      raw.healthGoal as NonNullable<UserProfile["healthGoal"]>;
+  } else {
+    profile.healthGoal = undefined;
   }
   if (
     typeof raw.dietStyle === "string" &&
@@ -174,9 +177,12 @@ function sanitizeProfile(
 
   if (
     typeof raw.budgetTier === "string" &&
-    BUDGET_TIERS.has(raw.budgetTier as UserProfile["budgetTier"])
+    BUDGET_TIERS.has(raw.budgetTier as NonNullable<UserProfile["budgetTier"]>)
   ) {
-    profile.budgetTier = raw.budgetTier as UserProfile["budgetTier"];
+    profile.budgetTier =
+      raw.budgetTier as NonNullable<UserProfile["budgetTier"]>;
+  } else {
+    profile.budgetTier = undefined;
   }
 
   if (typeof raw.isProSubscriber === "boolean") {
@@ -201,7 +207,7 @@ export function serializeUserProfileForFirestore(
     language: safeProfile.language,
     currency: safeProfile.currency,
     cookingSpeed: safeProfile.cookingSpeed,
-    healthGoal: safeProfile.healthGoal,
+    healthGoal: safeProfile.healthGoal ?? null,
     dietStyle: safeProfile.dietStyle,
     disliked: [...safeProfile.disliked],
     allergies: safeProfile.allergies ? [...safeProfile.allergies] : null,
@@ -213,7 +219,7 @@ export function serializeUserProfileForFirestore(
     // Clear legacy flat body metrics on the next successful profile write.
     heightCm: null,
     weightKg: null,
-    budgetTier: safeProfile.budgetTier,
+    budgetTier: safeProfile.budgetTier ?? null,
     isProSubscriber: safeProfile.isProSubscriber,
     onboardingCompleted: safeProfile.onboardingCompleted,
   };
