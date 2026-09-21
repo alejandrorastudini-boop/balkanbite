@@ -81,5 +81,8 @@ test("App sanitizes historical meal-log caches instead of type-casting stored ar
   );
   assert.doesNotMatch(appSource, /parseArrayCache<MealLog>/);
   assert.match(verifiedMealLogSource, /sanitizeStoredMealLog/);
-  assert.match(verifiedMealLogSource, /nutritionDataStatus:\s*"unknown"/);
+  assert.match(
+    verifiedMealLogSource,
+    /candidate\.nutritionDataStatus === "estimated" \? "estimated" : "unknown"/,
+  );
 });
