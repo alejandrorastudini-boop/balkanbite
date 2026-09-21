@@ -550,8 +550,8 @@ export default function App() {
   const updatePantryAndReconcileMenu = (
     newPantryItemsToAdd: PantryItem[],
     showToast = true
-  ) => {
-    if (!requireAuthoritativeInventory()) return;
+  ): boolean => {
+    if (!requireAuthoritativeInventory()) return false;
 
     setPantry((prevPantry) => {
       const updatedPantry = [...newPantryItemsToAdd, ...prevPantry];
@@ -574,6 +574,7 @@ export default function App() {
       }
       return updatedPantry;
     });
+    return true;
   };
 
   const shoppingDiagnostic = useMemo(() => {
@@ -1146,11 +1147,7 @@ export default function App() {
     } catch (err) {
       console.error("Failed to suggest shopping list:", err);
     } finally {
-      setIsLoadingAi(false);
-    }
-  };
-
-  const handleVoiceAddItems = (items: any[]) => {
+      set  const handleVoiceAddItems = (items: any[]): boolean => {
     const { accepted, rejectedCount } = normalizeVoicePantryItems(items || []);
     const now = Date.now();
     const addedAt = new Date().toISOString().split("T")[0];
@@ -1160,22 +1157,22 @@ export default function App() {
       addedAt,
     }));
 
-    if (parsed.length > 0) {
-      updatePantryAndReconcileMenu(parsed, true);
-    }
-
     if (rejectedCount > 0) {
       alert(
         profile.language === "bg"
-          ? `Не запазих ${rejectedCount} продукт(а), защото липсва потвърдено количество или мерна единица. Кажете количеството и мерната единица и опитайте отново.`
+          ? `Не запазих партидата, защото ${rejectedCount} продукт(а) нямат потвърдено количество или мерна единица.`
           : profile.language === "es"
-          ? `No guardé ${rejectedCount} producto(s) porque faltaba una cantidad o unidad confirmada. Indica la cantidad y la unidad e inténtalo de nuevo.`
-          : `I did not save ${rejectedCount} item(s) because a confirmed quantity or unit was missing. Provide the quantity and unit and try again.`
+          ? `No guardé el lote porque ${rejectedCount} producto(s) no tenían una cantidad o unidad confirmada.`
+          : `I did not save the batch because ${rejectedCount} item(s) were missing a confirmed quantity or unit.`
       );
+      return false;
     }
+
+    if (parsed.length === 0) return false;
+    return updatePantryAndReconcileMenu(parsed, true);
   };
 
-  const handleVoiceAddShoppingItems = (items: any[]) => {
+  const handleVoiceAddShoppingItems = (items: any[]): boolean => {
     const now = Date.now();
     const result = buildConfirmedVoiceShoppingItems(
       items || [],
@@ -1190,27 +1187,31 @@ export default function App() {
           ? `No añadí el lote porque ${result.rejectedCount} producto(s) no tenían un nombre, cantidad o unidad válidos.`
           : `I did not add the batch because ${result.rejectedCount} item(s) were missing a valid name, quantity, or unit.`
       );
-      return;
+      return false;
     }
 
-    if (result.items.length > 0) {
-      setShoppingList((prev) => [...prev, ...result.items]);
-    }
+    if (result.items.length === 0) return false;
+    setShoppingList((prev) => [...prev, ...result.items]);
+    return true;
   };
 
-  const handleVoiceDeductItems = (items: any[]) => {
-    if (!requireAuthoritativeInventory()) return;
-    setPantry((currentPantry) => {
-      const result = deductVoiceItemsFromPantry(currentPantry, items || []);
+  const handleVoiceDeductItems = (items: any[]): boolean => {
+    if (!requireAuthoritativeInventory()) return false;
 
-      if (result.issues.length > 0) {
-        console.warn(
-          "Voice pantry consumption skipped for unresolved items",
-          result.issues
-        );
-      }
+    const result = deductVoiceItemsFromPantry(pantry, items || []);
+    if (result.issues.length > 0 || result.deductions.length === 0) {
+      console.warn(
+        "Voice pantry consumption skipped for unresolved items",
+        result.issues
+      );
+      return false;
+    }
 
-      return result.pantry;
+    setPantry(result.pantry);
+    return true;
+  };
+
+rn result.pantry;
     });
   };
 
