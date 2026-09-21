@@ -431,6 +431,5 @@ export const DEFAULT_PROFILE: UserProfile = {
   cookingSpeed: "fast",
   dietStyle: "mediterranean",
   disliked: [],
-  isProSubscriber: false,
   onboardingCompleted: false,
 };
