@@ -71,3 +71,15 @@ test("verified meal-log boundary requires complete non-negative nutrition", () =
     );
   }
 });
+
+
+test("App sanitizes historical meal-log caches instead of type-casting stored arrays", () => {
+  assert.match(appSource, /parseMealLogCache\(localStorage\.getItem\("balkanbite_meallogs"\)\)/);
+  assert.match(
+    appSource,
+    /parseMealLogCache\([\s\S]*getUserLocalWorkspaceKey\([\s\S]*"balkanbite_meallogs"/,
+  );
+  assert.doesNotMatch(appSource, /parseArrayCache<MealLog>/);
+  assert.match(verifiedMealLogSource, /sanitizeStoredMealLog/);
+  assert.match(verifiedMealLogSource, /nutritionDataStatus:\s*"unknown"/);
+});
