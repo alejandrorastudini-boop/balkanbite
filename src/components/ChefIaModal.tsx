@@ -2,6 +2,7 @@ import React, { useEffect } from "react";
 import { X, Sparkles, ChefHat, Maximize2 } from "lucide-react";
 import { Language, PantryItem, MealLog, ChatMessage } from "../types";
 import { VoiceChefView } from "./VoiceChefView";
+import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 
 interface ChefIaModalProps {
   isOpen: boolean;
@@ -16,6 +17,7 @@ interface ChefIaModalProps {
   onDeductItemsFromPantry: (items: any[]) => void;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => void;
+  foodSafety: FoodSafetyQuarantine;
   language: Language;
 }
 
@@ -32,6 +34,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
   onDeductItemsFromPantry,
   onNavigateToRecipes,
   onLogMeal,
+  foodSafety,
   language,
 }) => {
   // Prevent scrolling background when modal is open
@@ -112,6 +115,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
               onClose();
             }}
             onLogMeal={onLogMeal}
+            foodSafety={foodSafety}
             language={language}
           />
         </div>
