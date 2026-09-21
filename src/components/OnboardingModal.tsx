@@ -31,13 +31,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   // Form State
   const [name, setName] = useState("");
-  const [householdSize, setHouseholdSize] = useState<number>(2);
-  const [cookingSpeed, setCookingSpeed] = useState<"fast" | "moderate" | "elaborate">("fast");
+  const [householdSize, setHouseholdSize] = useState<number | null>(null);
+  const [cookingSpeed, setCookingSpeed] = useState<
+    "fast" | "moderate" | "elaborate" | null
+  >(null);
   const [dietStyle, setDietStyle] = useState<
-    "all" | "mediterranean" | "vegetarian" | "vegan"
-  >("mediterranean");
+    "all" | "mediterranean" | "vegetarian" | "vegan" | null
+  >(null);
   const [selectedAppliances, setSelectedAppliances] = useState<string[]>([]);
-  const [monthlyBudgetEUR, setMonthlyBudgetEUR] = useState<number>(350);
+  const [monthlyBudgetEURInput, setMonthlyBudgetEURInput] = useState("");
 
   const toggleAppliance = (appliance: string) => {
     setSelectedAppliances((prev) =>
@@ -46,7 +48,23 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   };
 
   const finish = () => {
+    if (
+      householdSize === null ||
+      cookingSpeed === null ||
+      dietStyle === null
+    ) {
+      return;
+    }
+
     const trimmedName = name.trim();
+    const trimmedBudget = monthlyBudgetEURInput.trim();
+    const parsedBudget =
+      trimmedBudget.length > 0 ? Number(trimmedBudget) : undefined;
+    const hasValidBudget =
+      parsedBudget === undefined ||
+      (Number.isFinite(parsedBudget) && parsedBudget >= 0);
+
+    if (!hasValidBudget) return;
 
     onComplete({
       ...(trimmedName ? { name: trimmedName } : {}),
@@ -54,7 +72,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       cookingSpeed,
       dietStyle,
       appliances: selectedAppliances,
-      monthlyBudgetEUR,
+      ...(parsedBudget !== undefined
+        ? { monthlyBudgetEUR: parsedBudget }
+        : {}),
       onboardingCompleted: true,
     });
   };
@@ -129,34 +149,41 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 <Users className="w-3.5 h-3.5 text-emerald-400" />
                 {language === "es" ? "¿Cuántas personas comen en casa?" : "Household size"}
               </label>
-              <div className="grid grid-cols-4 gap-2">
-                {[
-                  { count: 1, label: "1 (Solo)" },
-                  { count: 2, label: "2 (Pareja)" },
-                  { count: 3, label: "3-4 (Familia)" },
-                  { count: 5, label: "5+ (Grande)" },
-                ].map((opt) => (
-                  <button
-                    key={opt.count}
-                    type="button"
-                    onClick={() => setHouseholdSize(opt.count)}
-                    className={`p-2.5 rounded-xl border text-center transition-all text-xs font-bold ${
-                      householdSize === opt.count
-                        ? "bg-emerald-500/20 border-emerald-500/50 text-emerald-300 shadow-md"
-                        : "bg-white/[0.02] border-white/[0.05] text-stone-400 hover:text-white"
-                    }`}
-                  >
-                    {opt.label}
-                  </button>
-                ))}
-              </div>
+              <input
+                id="onboarding-household-size"
+                type="number"
+                min="1"
+                step="1"
+                inputMode="numeric"
+                value={householdSize ?? ""}
+                onChange={(event) => {
+                  const raw = event.target.value.trim();
+                  if (!raw) {
+                    setHouseholdSize(null);
+                    return;
+                  }
+                  const parsed = Number(raw);
+                  setHouseholdSize(
+                    Number.isInteger(parsed) && parsed >= 1 ? parsed : null,
+                  );
+                }}
+                placeholder={
+                  language === "bg"
+                    ? "Напр. 2"
+                    : language === "es"
+                    ? "Ej. 2"
+                    : "e.g. 2"
+                }
+                className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-sm text-white placeholder-stone-500 focus:outline-none focus:border-emerald-500/50"
+              />
             </div>
 
             <button
               id="onboarding-next-step-1"
               type="button"
               onClick={() => setStep(2)}
-              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 mt-4 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
+              disabled={householdSize === null}
+              className="w-full py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 mt-4 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
             >
               <span>{language === "bg" ? "Напред" : language === "es" ? "Siguiente" : "Next"}</span>
               <ArrowRight className="w-3.5 h-3.5" />
@@ -181,6 +208,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 ].map((opt) => (
                   <button
                     key={opt.id}
+                    id={`onboarding-diet-${opt.id}`}
                     type="button"
                     onClick={() => setDietStyle(opt.id as any)}
                     className={`p-2.5 rounded-xl border text-left text-xs font-bold transition-all ${
@@ -218,7 +246,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 id="onboarding-next-step-2"
                 type="button"
                 onClick={() => setStep(3)}
-                className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
+                disabled={dietStyle === null}
+                className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
               >
                 <span>{language === "bg" ? "Напред" : language === "es" ? "Siguiente" : "Next"}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -243,6 +272,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 ].map((opt) => (
                   <button
                     key={opt.id}
+                    id={`onboarding-cooking-${opt.id}`}
                     type="button"
                     onClick={() => setCookingSpeed(opt.id as any)}
                     className={`p-2.5 rounded-xl border text-center text-xs font-bold transition-all ${
@@ -270,7 +300,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 id="onboarding-next-step-3"
                 type="button"
                 onClick={() => setStep(4)}
-                className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
+                disabled={cookingSpeed === null}
+                className="flex-1 py-3 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-40 disabled:cursor-not-allowed text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-all"
               >
                 <span>{language === "bg" ? "Напред" : language === "es" ? "Siguiente" : "Next"}</span>
                 <ArrowRight className="w-3.5 h-3.5" />
@@ -315,23 +346,37 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 {language === "es" ? "Presupuesto Mensual de Alimentación Estimado" : "Monthly Grocery Budget"}
               </label>
               <div className="bg-white/[0.02] border border-white/[0.05] p-3 rounded-2xl space-y-2">
-                <div className="flex justify-between items-center text-xs font-bold text-white">
-                  <span>Presupuesto Aproximado:</span>
-                  <span className="text-emerald-400 text-sm font-black">{monthlyBudgetEUR} €/mes</span>
+                <div className="flex justify-between items-center gap-3 text-xs font-bold text-white">
+                  <span>
+                    {language === "bg"
+                      ? "По желание"
+                      : language === "es"
+                      ? "Opcional"
+                      : "Optional"}
+                  </span>
+                  <span className="text-[10px] text-stone-500 font-medium">
+                    EUR / {language === "bg" ? "месец" : language === "es" ? "mes" : "month"}
+                  </span>
                 </div>
                 <input
-                  type="range"
-                  min="150"
-                  max="800"
-                  step="25"
-                  value={monthlyBudgetEUR}
-                  onChange={(e) => setMonthlyBudgetEUR(Number(e.target.value))}
-                  className="w-full accent-emerald-500 cursor-pointer"
+                  id="onboarding-monthly-budget-eur"
+                  type="number"
+                  min="0"
+                  step="1"
+                  inputMode="decimal"
+                  value={monthlyBudgetEURInput}
+                  onChange={(event) =>
+                    setMonthlyBudgetEURInput(event.target.value)
+                  }
+                  placeholder={
+                    language === "bg"
+                      ? "Оставете празно, ако не искате да задавате бюджет"
+                      : language === "es"
+                      ? "Déjalo vacío si no quieres fijar un presupuesto"
+                      : "Leave blank if you do not want to set a budget"
+                  }
+                  className="w-full px-3.5 py-2.5 rounded-xl bg-[#0B0F12] border border-white/[0.08] text-sm text-white placeholder-stone-500 focus:outline-none focus:border-emerald-500/50"
                 />
-                <div className="flex justify-between text-[10px] text-stone-500 font-medium">
-                  <span>150 €</span>
-                  <span>800 €</span>
-                </div>
               </div>
             </div>
 

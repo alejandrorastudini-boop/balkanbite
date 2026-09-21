@@ -100,3 +100,44 @@ test("onboarding navigation labels follow the selected language", () => {
     /language === "bg" \? "Започни" : language === "es" \? "Comenzar Experiencia" : "Start Experience"/,
   );
 });
+
+
+test("onboarding does not preselect household culinary preferences or budget", () => {
+  assert.match(
+    onboardingSource,
+    /useState<number \| null>\(null\)/,
+  );
+  assert.match(
+    onboardingSource,
+    /"fast" \| "moderate" \| "elaborate" \| null[\s\S]*>\(null\)/,
+  );
+  assert.match(
+    onboardingSource,
+    /"all" \| "mediterranean" \| "vegetarian" \| "vegan" \| null[\s\S]*>\(null\)/,
+  );
+  assert.match(
+    onboardingSource,
+    /monthlyBudgetEURInput, setMonthlyBudgetEURInput\] = useState\(""\)/,
+  );
+  assert.doesNotMatch(onboardingSource, /useState<number>\(350\)/);
+  assert.doesNotMatch(onboardingSource, /type="range"/);
+  assert.doesNotMatch(onboardingSource, /3-4 \(Familia\)|5\+ \(Grande\)/);
+});
+
+test("onboarding requires explicit household diet and cooking choices", () => {
+  assert.match(onboardingSource, /disabled=\{householdSize === null\}/);
+  assert.match(onboardingSource, /disabled=\{dietStyle === null\}/);
+  assert.match(onboardingSource, /disabled=\{cookingSpeed === null\}/);
+  assert.match(onboardingSource, /id="onboarding-household-size"/);
+  assert.match(onboardingSource, /id=\{\`onboarding-diet-\$\{opt\.id\}\`\}/);
+  assert.match(onboardingSource, /id=\{\`onboarding-cooking-\$\{opt\.id\}\`\}/);
+});
+
+test("blank onboarding budget stays absent instead of becoming zero or a default", () => {
+  assert.match(onboardingSource, /trimmedBudget\.length > 0 \? Number\(trimmedBudget\) : undefined/);
+  assert.match(
+    onboardingSource,
+    /\.\.\.\(parsedBudget !== undefined[\s\S]*\? \{ monthlyBudgetEUR: parsedBudget \}[\s\S]*: \{\}\)/,
+  );
+  assert.match(onboardingSource, /Leave blank if you do not want to set a budget/);
+});

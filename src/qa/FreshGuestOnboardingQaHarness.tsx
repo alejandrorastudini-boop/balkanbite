@@ -25,6 +25,22 @@ export const FreshGuestOnboardingQaHarness: React.FC = () => {
       <span data-testid="qa-fresh-guest-onboarding-completed" className="sr-only">
         {String(profile.onboardingCompleted)}
       </span>
+      <span data-testid="qa-fresh-guest-household-size" className="sr-only">
+        {profile.householdSize === undefined
+          ? "absent"
+          : String(profile.householdSize)}
+      </span>
+      <span data-testid="qa-fresh-guest-diet-style" className="sr-only">
+        {profile.dietStyle}
+      </span>
+      <span data-testid="qa-fresh-guest-cooking-speed" className="sr-only">
+        {profile.cookingSpeed}
+      </span>
+      <span data-testid="qa-fresh-guest-budget" className="sr-only">
+        {profile.monthlyBudgetEUR === undefined
+          ? "absent"
+          : String(profile.monthlyBudgetEUR)}
+      </span>
       <OnboardingModal
         isOpen={!profile.onboardingCompleted}
         language="en"
