@@ -87,18 +87,10 @@ test("inventory listener has both timeout and explicit error exits from endless 
 });
 
 test("a later successful inventory snapshot clears the failure and becomes authoritative", () => {
-  const clearErrorIndex = firebaseSyncSource.indexOf(
-    "setInventorySyncErrorUser(null)",
+  assert.match(
+    firebaseSyncSource,
+    /if \(collectionName === "inventory"\) \{\s*clearInventoryHydrationTimeout\(\);\s*setInventorySyncErrorUser\(null\);\s*setInventoryHydratedUser\(currentUser\.uid\);\s*\}/,
   );
-  const successBlock = firebaseSyncSource.slice(
-    Math.max(0, clearErrorIndex - 180),
-    clearErrorIndex + 220,
-  );
-
-  assert.ok(clearErrorIndex >= 0);
-  assert.match(successBlock, /clearInventoryHydrationTimeout\(\)/);
-  assert.match(successBlock, /setInventorySyncErrorUser\(null\)/);
-  assert.match(successBlock, /setInventoryHydratedUser\(currentUser\.uid\)/);
 });
 
 test("inventory sync failure is shown as read-only failure instead of a permanent syncing claim", () => {
