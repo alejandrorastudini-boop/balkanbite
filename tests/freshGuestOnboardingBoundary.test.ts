@@ -23,6 +23,8 @@ const runtimeQaGateSource = fs.readFileSync(
 
 test("fresh guest defaults cannot silently claim onboarding completion", () => {
   assert.equal(DEFAULT_PROFILE.onboardingCompleted, false);
+  assert.equal(DEFAULT_PROFILE.healthGoal, undefined);
+  assert.equal(DEFAULT_PROFILE.budgetTier, undefined);
   assert.match(
     appSource,
     /parseGuestProfileCache\(localStorage\.getItem\("balkanbite_profile"\)\)\s*\?\?\s*DEFAULT_PROFILE/,
