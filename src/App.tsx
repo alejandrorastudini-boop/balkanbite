@@ -64,7 +64,10 @@ import {
 import { getUserLocalWorkspaceKey, parseArrayCache } from "./utils/localWorkspaceScope";
 import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
 import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext";
-import { buildVerifiedMealLog } from "./utils/verifiedMealLog";
+import {
+  buildVerifiedMealLog,
+  parseMealLogCache,
+} from "./utils/verifiedMealLog";
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
 import {
   getFoodSafetyQuarantine,
@@ -123,14 +126,9 @@ export default function App() {
     }
   });
 
-  const [mealLogs, setMealLogs] = useState<MealLog[]>(() => {
-    try {
-      const saved = localStorage.getItem("balkanbite_meallogs");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [mealLogs, setMealLogs] = useState<MealLog[]>(() =>
+    parseMealLogCache(localStorage.getItem("balkanbite_meallogs"))
+  );
 
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
     try {
@@ -291,14 +289,14 @@ export default function App() {
       if (workspaceScope === currentUser.uid) return;
 
       setMealLogs(
-        parseArrayCache<MealLog>(
+        parseMealLogCache(
           localStorage.getItem(
             getUserLocalWorkspaceKey(
               "balkanbite_meallogs",
               currentUser.uid
             )
           )
-        ) ?? []
+        )
       );
       setChatMessages(
         parseArrayCache<ChatMessage>(
@@ -347,9 +345,7 @@ export default function App() {
       ) ?? DEFAULT_MEAL_PLAN
     );
     setMealLogs(
-      parseArrayCache<MealLog>(
-        localStorage.getItem("balkanbite_meallogs")
-      ) ?? []
+      parseMealLogCache(localStorage.getItem("balkanbite_meallogs"))
     );
     setChatMessages(
       parseArrayCache<ChatMessage>(

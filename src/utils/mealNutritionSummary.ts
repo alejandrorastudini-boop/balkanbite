@@ -13,7 +13,17 @@ export interface DailyNutritionSummary {
   unverifiedLogCount: number;
 }
 
-function hasValidVerifiedNutrition(log: MealLog): boolean {
+type MealLogWithVerifiedNutrition = MealLog & {
+  nutritionDataStatus: "verified";
+  calories: number;
+  proteinG: number;
+  carbsG: number;
+  fatG: number;
+};
+
+function hasValidVerifiedNutrition(
+  log: MealLog,
+): log is MealLogWithVerifiedNutrition {
   return (
     log.nutritionDataStatus === "verified" &&
     [log.calories, log.proteinG, log.carbsG, log.fatG].every(

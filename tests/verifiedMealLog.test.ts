@@ -1,6 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { buildVerifiedMealLog } from "../src/utils/verifiedMealLog";
+import {
+  buildVerifiedMealLog,
+  parseMealLogCache,
+  sanitizeStoredMealLog,
+} from "../src/utils/verifiedMealLog";
 
 const base = {
   id: "log-1",
@@ -94,4 +98,164 @@ test("invalid date or timestamp rejects the log", () => {
     }),
     null,
   );
+});
+
+
+test("legacy unknown zero nutrition preserves meal history but removes invented numbers", () => {
+  const result = sanitizeStoredMealLog({
+    id: "legacy-1",
+    date: "2026-09-19",
+    timestamp: "2026-09-19T18:00:00.000Z",
+    mealType: "dinner",
+    manualName: "Soup",
+    nutritionDataStatus: "unknown",
+    calories: 0,
+    proteinG: 0,
+    carbsG: 0,
+    fatG: 0,
+  });
+
+  assert.deepEqual(result, {
+    id: "legacy-1",
+    date: "2026-09-19",
+    mealType: "dinner",
+    manualName: "Soup",
+    nutritionDataStatus: "unknown",
+    timestamp: "2026-09-19T18:00:00.000Z",
+  });
+  assert.equal("calories" in (result ?? {}), false);
+  assert.equal("proteinG" in (result ?? {}), false);
+});
+
+test("stored verified complete nutrition is preserved exactly", () => {
+  const result = sanitizeStoredMealLog({
+    id: "verified-cache-1",
+    date: "2026-09-19",
+    timestamp: "2026-09-19T12:00:00+03:00",
+    mealType: "lunch",
+    recipeId: "recipe-1",
+    nutritionDataStatus: "verified",
+    calories: 420,
+    proteinG: 20,
+    carbsG: 55,
+    fatG: 12,
+  });
+
+  assert.deepEqual(result, {
+    id: "verified-cache-1",
+    date: "2026-09-19",
+    mealType: "lunch",
+    recipeId: "recipe-1",
+    nutritionDataStatus: "verified",
+    calories: 420,
+    proteinG: 20,
+    carbsG: 55,
+    fatG: 12,
+    timestamp: "2026-09-19T12:00:00+03:00",
+  });
+});
+
+test("stored verified label with incomplete nutrition degrades to unknown", () => {
+  const result = sanitizeStoredMealLog({
+    id: "broken-verified",
+    date: "2026-09-19",
+    timestamp: "2026-09-19T12:00:00.000Z",
+    mealType: "lunch",
+    nutritionDataStatus: "verified",
+    calories: 420,
+    proteinG: 20,
+    carbsG: 55,
+  });
+
+  assert.deepEqual(result, {
+    id: "broken-verified",
+    date: "2026-09-19",
+    mealType: "lunch",
+    nutritionDataStatus: "unknown",
+    timestamp: "2026-09-19T12:00:00.000Z",
+  });
+});
+
+test("estimated cache rows preserve provenance label but not numeric macros", () => {
+  const result = sanitizeStoredMealLog({
+    id: "estimated-1",
+    date: "2026-09-19",
+    timestamp: "2026-09-19T08:00:00.000Z",
+    mealType: "breakfast",
+    nutritionDataStatus: "estimated",
+    calories: 350,
+    proteinG: 12,
+    carbsG: 45,
+    fatG: 10,
+  });
+
+  assert.deepEqual(result, {
+    id: "estimated-1",
+    date: "2026-09-19",
+    mealType: "breakfast",
+    nutritionDataStatus: "estimated",
+    timestamp: "2026-09-19T08:00:00.000Z",
+  });
+});
+
+test("meal-log cache parser sanitizes rows and drops structurally invalid history", () => {
+  const raw = JSON.stringify([
+    {
+      id: "valid-history",
+      date: "2026-09-18",
+      timestamp: "2026-09-18T19:00:00.000Z",
+      mealType: "dinner",
+      manualName: " Dinner ",
+      nutritionDataStatus: "unknown",
+      calories: 0,
+      proteinG: 0,
+      carbsG: 0,
+      fatG: 0,
+    },
+    {
+      id: "",
+      date: "today",
+      timestamp: "invalid",
+      mealType: "brunch",
+    },
+  ]);
+
+  assert.deepEqual(parseMealLogCache(raw), [
+    {
+      id: "valid-history",
+      date: "2026-09-18",
+      mealType: "dinner",
+      manualName: "Dinner",
+      nutritionDataStatus: "unknown",
+      timestamp: "2026-09-18T19:00:00.000Z",
+    },
+  ]);
+  assert.deepEqual(parseMealLogCache("not-json"), []);
+  assert.deepEqual(parseMealLogCache('{"logs":[]}'), []);
+  assert.deepEqual(parseMealLogCache(null), []);
+});
+
+
+test("stored verified label with invalid numeric nutrition degrades to unknown", () => {
+  for (const calories of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const result = sanitizeStoredMealLog({
+      id: "invalid-stored-verified",
+      date: "2026-09-19",
+      timestamp: "2026-09-19T12:00:00.000Z",
+      mealType: "lunch",
+      nutritionDataStatus: "verified",
+      calories,
+      proteinG: 20,
+      carbsG: 55,
+      fatG: 10,
+    });
+
+    assert.deepEqual(result, {
+      id: "invalid-stored-verified",
+      date: "2026-09-19",
+      mealType: "lunch",
+      nutritionDataStatus: "unknown",
+      timestamp: "2026-09-19T12:00:00.000Z",
+    });
+  }
 });

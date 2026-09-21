@@ -68,3 +68,39 @@ test("individual calorie display follows the same verified boundary", () => {
   assert.equal(verifiedMealCalories(log("estimated", "estimated", 123)), null);
   assert.equal(verifiedMealCalories(log("unknown", "unknown", 0)), null);
 });
+
+
+test("unknown meal history can omit nutrition fields entirely", () => {
+  const unknown: MealLog = {
+    id: "unknown-without-macros",
+    date: "2026-09-19",
+    mealType: "dinner",
+    manualName: "Soup",
+    nutritionDataStatus: "unknown",
+    timestamp: "2026-09-19T19:00:00.000Z",
+  };
+
+  assert.deepEqual(summarizeVerifiedMealNutrition([unknown]), {
+    totals: null,
+    verifiedLogCount: 0,
+    unverifiedLogCount: 1,
+  });
+  assert.equal(verifiedMealCalories(unknown), null);
+});
+
+test("verified status without all numeric fields cannot enter totals", () => {
+  const incomplete: MealLog = {
+    id: "verified-incomplete",
+    date: "2026-09-19",
+    mealType: "lunch",
+    nutritionDataStatus: "verified",
+    calories: 300,
+    proteinG: 20,
+    timestamp: "2026-09-19T12:00:00.000Z",
+  };
+
+  const summary = summarizeVerifiedMealNutrition([incomplete]);
+  assert.equal(summary.totals, null);
+  assert.equal(summary.verifiedLogCount, 0);
+  assert.equal(summary.unverifiedLogCount, 1);
+});
