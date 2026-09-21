@@ -66,6 +66,7 @@ import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
 import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext";
 import { parseStoredRecipeCache } from "./utils/storedRecipeValidation";
 import { parseStoredMealPlanCache } from "./utils/storedMealPlanValidation";
+import { parseStoredShoppingCache } from "./utils/storedShoppingValidation";
 import {
   buildVerifiedMealLog,
   parseMealLogCache,
@@ -102,18 +103,9 @@ export default function App() {
     }));
   });
 
-  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() => {
-    try {
-      const saved = localStorage.getItem("balkanbite_shopping");
-      // A missing saved list is unknown/empty, not permission to seed fabricated
-      // basket items or prices. Users add or confirm every shopping item.
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      // Invalid saved data must not be replaced with an authoritative-looking
-      // sample basket or prices.
-      return [];
-    }
-  });
+  const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() =>
+    parseStoredShoppingCache(localStorage.getItem("balkanbite_shopping")) ?? []
+  );
 
   const [mealPlan, setMealPlan] = useState<MealPlanDay[]>(() =>
     parseStoredMealPlanCache(localStorage.getItem("balkanbite_mealplan")) ??
@@ -328,9 +320,7 @@ export default function App() {
       }))
     );
     setShoppingList(
-      parseArrayCache<ShoppingItem>(
-        localStorage.getItem("balkanbite_shopping")
-      ) ?? []
+      parseStoredShoppingCache(localStorage.getItem("balkanbite_shopping")) ?? []
     );
     setMealPlan(
       parseStoredMealPlanCache(localStorage.getItem("balkanbite_mealplan")) ??

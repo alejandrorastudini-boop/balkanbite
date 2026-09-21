@@ -18,6 +18,7 @@ import { findRemovedDocumentIds, getSyncedItemKey, selectCanonicalRemoteEntries 
 import { createSignedInProfileDefaults, sanitizeRemoteUserProfile, serializeUserProfileForFirestore } from "../utils/profileSyncBoundary";
 import { isStoredRecipeStructurallyValid } from "../utils/storedRecipeValidation";
 import { isStoredMealPlanDayStructurallyValid } from "../utils/storedMealPlanValidation";
+import { isStoredShoppingItemStructurallyValid } from "../utils/storedShoppingValidation";
 
 const DEMO_PANTRY_ITEM_IDS = new Set(INITIAL_PANTRY.map(item => item.id));
 
@@ -368,7 +369,14 @@ export function useFirebaseSync(
     true,
     isStoredMealPlanDayStructurallyValid
   );
-  syncCollection("shoppingList", shoppingList, setShoppingList, () => true, true);
+  syncCollection(
+    "shoppingList",
+    shoppingList,
+    setShoppingList,
+    () => true,
+    true,
+    isStoredShoppingItemStructurallyValid
+  );
 
   const inventoryHydrated = !inventoryIsProvisional;
   const profileHydrated =
