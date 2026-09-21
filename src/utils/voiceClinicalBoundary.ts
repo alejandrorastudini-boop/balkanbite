@@ -40,12 +40,12 @@ const MEDICATION_TERMS = [
   /\binsulina\b/u,
   /\bmetformina\b/u,
   /\bwarfarina\b/u,
-  /\bлекарств(?:о|а)\b/u,
-  /\bмедикамент(?:и)?\b/u,
-  /\bантибиотик(?:и)?\b/u,
-  /\bинсулин\b/u,
-  /\bметформин\b/u,
-  /\bварфарин\b/u,
+  /лекарств(?:о|а)/u,
+  /медикамент(?:и)?/u,
+  /антибиотик(?:и)?/u,
+  /инсулин/u,
+  /метформин/u,
+  /варфарин/u,
 ];
 
 const SUPPLEMENT_TERMS = [
@@ -53,8 +53,8 @@ const SUPPLEMENT_TERMS = [
   /\bvitamin\b/u,
   /\bsuplemento\b/u,
   /\bvitamina\b/u,
-  /\bдобавк(?:а|и)\b/u,
-  /\bвитамин\b/u,
+  /добавк(?:а|и)/u,
+  /витамин/u,
 ];
 
 const DOSE_OR_INTERACTION_TERMS = [
@@ -74,11 +74,11 @@ const DOSE_OR_INTERACTION_TERMS = [
   /\binteracci(?:on|ones)\b/u,
   /\binteractua\b/u,
   /\bcon comida\b/u,
-  /\bдоз(?:а|ировка)\b/u,
-  /\bколко да (?:вземам|приемам)\b/u,
-  /\bмога ли да (?:вземам|приемам|спра|сменя|увелича|намаля)\b/u,
-  /\bвзаимодейства\b/u,
-  /\bс храна\b/u,
+  /доз(?:а|ировка)/u,
+  /колко да (?:вземам|приемам)/u,
+  /мога ли да (?:вземам|приемам|спра|сменя|увелича|намаля)/u,
+  /взаимодейства/u,
+  /с храна/u,
 ];
 
 const DIAGNOSIS_OR_TREATMENT_TERMS = [
@@ -92,10 +92,10 @@ const DIAGNOSIS_OR_TREATMENT_TERMS = [
   /\bque enfermedad tengo\b/u,
   /\btratamiento medico\b/u,
   /\btratamiento para\b/u,
-  /\bдиагноз(?:а|ирай|иране)\b/u,
-  /\bкакво заболяване имам\b/u,
-  /\bмедицинско лечение\b/u,
-  /\bлечение на\b/u,
+  /диагноз(?:а|ирай|иране)/u,
+  /какво заболяване имам/u,
+  /медицинско лечение/u,
+  /лечение на/u,
 ];
 
 const LAB_CONTEXT_TERMS = [
@@ -110,11 +110,11 @@ const LAB_CONTEXT_TERMS = [
   /\bmi hba1c\b/u,
   /\bmi creatinina\b/u,
   /\bmi colesterol\b/u,
-  /\bлабораторн(?:и|ия) резултат(?:и)?\b/u,
-  /\bкръвн(?:и|о)(?: ми)? изследван(?:ия|е)\b/u,
-  /\bмоят hba1c\b/u,
-  /\bмоята креатинин\b/u,
-  /\bмоят холестерол\b/u,
+  /лабораторн(?:и|ия) резултат(?:и)?/u,
+  /кръвн(?:и|о)(?: ми)? изследван(?:ия|е)/u,
+  /моят hba1c/u,
+  /моят креатинин/u,
+  /моят холестерол/u,
 ];
 
 const INTERPRETATION_TERMS = [
@@ -126,20 +126,20 @@ const INTERPRETATION_TERMS = [
   /\bque significa\b/u,
   /\bes .* (?:alto|bajo|normal)\b/u,
   /\bexplica mi\b/u,
-  /\bтълкува(?:й|не)?\b/u,
-  /\bкакво означава(?:т)?\b/u,
-  /\b(?:висок|нисък|нормален) ли е\b/u,
-  /\bобясни ми\b/u,
+  /тълкува(?:й|не)?/u,
+  /какво означава(?:т)?/u,
+  /(?:висок|нисък|нормален) ли е/u,
+  /обясни ми/u,
 ];
 
 const PERSONAL_CONDITION_TERMS = [
-  /\bi (?:have|was diagnosed with) (?:diabetes|kidney disease|celiac disease|hypertension|cancer|crohn(?:'s)?|ulcerative colitis|gout|liver disease)\b/u,
-  /\bmy (?:diabetes|kidney disease|celiac disease|hypertension|cancer|crohn(?:'s)?|ulcerative colitis|gout|liver disease)\b/u,
+  /\bi (?:have|was diagnosed with) (?:diabetes|kidney disease|celiac disease|hypertension|cancer|crohn(?:s)?|ulcerative colitis|gout|liver disease)\b/u,
+  /\bmy (?:diabetes|kidney disease|celiac disease|hypertension|cancer|crohn(?:s)?|ulcerative colitis|gout|liver disease)\b/u,
   /\b(?:tengo|me diagnosticaron) (?:diabetes|enfermedad renal|celiaquia|hipertension|cancer|crohn|colitis ulcerosa|gota|enfermedad hepatica)\b/u,
   /\bmi (?:diabetes|enfermedad renal|celiaquia|hipertension|cancer|crohn|colitis ulcerosa|gota|enfermedad hepatica)\b/u,
-  /\b(?:имам|диагностициран съм с|диагностицирана съм с) (?:диабет|бъбречно заболяване|цьолиакия|хипертония|рак|болест на крон|улцерозен колит|подагра|чернодробно заболяване)\b/u,
-  /\bмоят (?:диабет|рак)\b/u,
-  /\bмоята (?:хипертония|цьолиакия|подагра)\b/u,
+  /(?:имам|диагностициран съм с|диагностицирана съм с) (?:диабет|бъбречно заболяване|цьолиакия|хипертония|рак|болест на крон|улцерозен колит|подагра|чернодробно заболяване)/u,
+  /моят (?:диабет|рак)/u,
+  /моята (?:хипертония|цьолиакия|подагра)/u,
 ];
 
 const FOOD_ADVICE_TERMS = [
@@ -152,10 +152,10 @@ const FOOD_ADVICE_TERMS = [
   /\bque puedo comer\b/u,
   /\bque alimentos debo evitar\b/u,
   /\bdieta para\b/u,
-  /\bкакво да ям\b/u,
-  /\bкакво мога да ям\b/u,
-  /\bкакви храни да избягвам\b/u,
-  /\bдиета за\b/u,
+  /какво да ям/u,
+  /какво мога да ям/u,
+  /какви храни да избягвам/u,
+  /диета за/u,
 ];
 
 const PREGNANCY_LACTATION_TERMS = [
@@ -166,8 +166,8 @@ const PREGNANCY_LACTATION_TERMS = [
   /\bembarazo\b/u,
   /\blactancia\b/u,
   /\bamamantando\b/u,
-  /\bбременн(?:а|ост)\b/u,
-  /\bкърм(?:я|ене)\b/u,
+  /бременн(?:а|ост)/u,
+  /кърм(?:я|ене)/u,
 ];
 
 const CLINICAL_NUTRITION_ACTION_TERMS = [
@@ -180,10 +180,10 @@ const CLINICAL_NUTRITION_ACTION_TERMS = [
   /\bdebo tomar\b/u,
   /\bsuplemento\b/u,
   /\bvitamina\b/u,
-  /\bда избягвам\b/u,
-  /\bда приемам\b/u,
-  /\bдобавк(?:а|и)\b/u,
-  /\bвитамин\b/u,
+  /да избягвам/u,
+  /да приемам/u,
+  /добавк(?:а|и)/u,
+  /витамин/u,
 ];
 
 /**
