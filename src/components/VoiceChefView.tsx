@@ -20,6 +20,7 @@ import { ChatMessage, Language, PantryItem, MealLog } from "../types";
 import { t } from "../utils/translations";
 import { parseDeterministicRemovalIntent } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
+import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
 
 interface VoiceChefViewProps {
   pantry: PantryItem[];
@@ -49,6 +50,34 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   language,
 }) => {
   const currentText = t[language];
+  const getAffectedItemsLabel = (actionType: ChatMessage["actionType"]) => {
+    if (actionType === "ADD_ITEMS") {
+      return language === "es"
+        ? "Detectado para añadir a despensa:"
+        : language === "bg"
+        ? "Открито за добавяне в килера:"
+        : "Detected for pantry addition:";
+    }
+    if (actionType === "REMOVE_ITEMS") {
+      return language === "es"
+        ? "Detectado para descontar de despensa:"
+        : language === "bg"
+        ? "Открито за приспадане от килера:"
+        : "Detected for pantry deduction:";
+    }
+    if (actionType === "ADD_SHOPPING") {
+      return language === "es"
+        ? "Detectado para lista de compra:"
+        : language === "bg"
+        ? "Открито за списъка за пазаруване:"
+        : "Detected for shopping list:";
+    }
+    return language === "es"
+      ? "Elementos relacionados:"
+      : language === "bg"
+      ? "Свързани продукти:"
+      : "Related items:";
+  };
   const [inputText, setInputText] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -329,14 +358,18 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       const effectiveActionType = deterministicRemoval?.actionType || data.actionType;
       const effectiveItems = deterministicRemoval?.items || data.items;
 
-      let replyText =
-        data.spokenFeedback ||
-        data.message ||
-        (language === "bg"
+      const fallbackReply =
+        language === "bg"
           ? "Разбрах! Обработих вашето запитване."
           : language === "es"
           ? "¡Entendido! He procesado tu consulta."
-          : "Got it! Processed your request.");
+          : "Got it! Processed your request.";
+      let replyText =
+        typeof data.spokenFeedback === "string" && data.spokenFeedback.trim()
+          ? data.spokenFeedback
+          : typeof data.message === "string" && data.message.trim()
+          ? data.message
+          : fallbackReply;
 
       if (deterministicRemoval) {
         const summary = deterministicRemoval.items
@@ -387,12 +420,15 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             : `${replyText} I did not save nutrition values because there is not yet a verified source for that calculation.`;
       }
 
+      const safeActionMetadata = isPendingPantryMutation
+        ? {}
+        : sanitizeChatActionMetadata(effectiveActionType, effectiveItems);
+
       const aiMsg: ChatMessage = {
         id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         sender: "assistant",
         text: replyText,
-        actionType: isPendingPantryMutation ? undefined : effectiveActionType,
-        itemsAffected: isPendingPantryMutation ? undefined : effectiveItems,
+        ...safeActionMetadata,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
 
@@ -514,17 +550,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
                     {msg.itemsAffected && msg.itemsAffected.length > 0 && (
                       <div className={`mt-2 pt-2 border-t space-y-1 ${isAi ? "border-white/[0.1]" : "border-stone-950/20"}`}>
                         <span className={`text-[9px] font-bold uppercase tracking-wider block ${isAi ? "text-emerald-400" : "text-stone-950/80"}`}>
-                          {msg.actionType === "ADD_ITEMS"
-                            ? language === "es"
-                              ? "✓ Añadido a despensa:"
-                              : language === "bg"
-                              ? "✓ Добавено в килера:"
-                              : "✓ Added to pantry:"
-                            : language === "es"
-                            ? "✓ Descontado:"
-                            : language === "bg"
-                            ? "✓ Извадено:"
-                            : "✓ Deducted:"}
+                          {getAffectedItemsLabel(msg.actionType)}
                         </span>
                         <div className="flex flex-wrap gap-1.5">
                           {msg.itemsAffected.map((item, idx) => (

@@ -195,12 +195,20 @@ export interface MealLog {
   timestamp: string;
 }
 
+export type ChatActionType =
+  | "MEAL_LOG"
+  | "RECIPE_RECOMMENDATION"
+  | "ADD_ITEMS"
+  | "REMOVE_ITEMS"
+  | "ADD_SHOPPING"
+  | "ANSWER";
+
 export interface ChatMessage {
   id: string;
   sender: "user" | "assistant";
   text: string;
   timestamp: string;
-  actionType?: "pantry_update" | "shopping_list_add" | "recipe_suggest" | "meal_log";
+  actionType?: ChatActionType;
   itemsAffected?: Array<{ name: string; quantity: number; unit: string }>;
   suggestedRecipe?: Recipe;
   loggedMeal?: MealLog;

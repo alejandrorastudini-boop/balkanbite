@@ -61,12 +61,13 @@ import {
   parseGuestProfileCache,
   parseUserProfileCache,
 } from "./utils/profileSyncBoundary";
-import { getUserLocalWorkspaceKey, parseArrayCache } from "./utils/localWorkspaceScope";
+import { getUserLocalWorkspaceKey } from "./utils/localWorkspaceScope";
 import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
 import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext";
 import { parseStoredRecipeCache } from "./utils/storedRecipeValidation";
 import { parseStoredMealPlanCache } from "./utils/storedMealPlanValidation";
 import { parseStoredShoppingCache } from "./utils/storedShoppingValidation";
+import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
   buildVerifiedMealLog,
   parseMealLogCache,
@@ -116,14 +117,9 @@ export default function App() {
     parseMealLogCache(localStorage.getItem("balkanbite_meallogs"))
   );
 
-  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() => {
-    try {
-      const saved = localStorage.getItem("balkanbite_chat_messages");
-      return saved ? JSON.parse(saved) : [];
-    } catch {
-      return [];
-    }
-  });
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
+    parseChatMessageCache(localStorage.getItem("balkanbite_chat_messages"))
+  );
 
   const [progressionLedger, setProgressionLedger] = useState<ProgressionLedgerV1>(
     () => parseProgressionLedgerCache(localStorage.getItem("balkanbite_progression"))
@@ -285,14 +281,14 @@ export default function App() {
         )
       );
       setChatMessages(
-        parseArrayCache<ChatMessage>(
+        parseChatMessageCache(
           localStorage.getItem(
             getUserLocalWorkspaceKey(
               "balkanbite_chat_messages",
               currentUser.uid
             )
           )
-        ) ?? []
+        )
       );
       setProgressionLedger(
         parseProgressionLedgerCache(
@@ -330,9 +326,7 @@ export default function App() {
       parseMealLogCache(localStorage.getItem("balkanbite_meallogs"))
     );
     setChatMessages(
-      parseArrayCache<ChatMessage>(
-        localStorage.getItem("balkanbite_chat_messages")
-      ) ?? []
+      parseChatMessageCache(localStorage.getItem("balkanbite_chat_messages"))
     );
     setProgressionLedger(
       parseProgressionLedgerCache(localStorage.getItem("balkanbite_progression"))
