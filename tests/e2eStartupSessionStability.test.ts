@@ -15,6 +15,11 @@ const firebaseSyncSource = readFileSync(
   "utf8",
 );
 
+const startupCloudSyncSource = readFileSync(
+  new URL("../src/utils/startupCloudSync.ts", import.meta.url),
+  "utf8",
+);
+
 test("ProfileView cannot crash when progression summary is temporarily absent", () => {
   assert.match(
     profileSource,
@@ -65,7 +70,7 @@ test("inventory hydration failure never authorizes cloud writes", () => {
     /setInventorySyncErrorUser\(currentUser\.uid\)[\s\S]{0,180}setInventoryHydratedUser\(currentUser\.uid\)/,
   );
   assert.match(
-    firebaseSyncSource,
+    startupCloudSyncSource,
     /cloudInventoryWritesAllowed:[\s\S]*inventoryHydratedUser === currentUserId/,
   );
 });
