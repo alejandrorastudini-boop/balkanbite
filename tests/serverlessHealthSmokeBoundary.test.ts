@@ -15,7 +15,7 @@ test("CI bundles the real Vercel serverless entrypoint", () => {
   assert.match(workflow, /npx esbuild api\/index\.ts/);
   assert.match(workflow, /--platform=node/);
   assert.match(workflow, /--format=cjs/);
-  assert.match(workflow, /--outfile=\/tmp\/balkanbite-api\.cjs/);
+  assert.match(workflow, /--outfile=dist\/serverless-api\.cjs/);
 });
 
 test("CI executes the serverless health smoke after bundling", () => {
@@ -26,7 +26,7 @@ test("CI executes the serverless health smoke after bundling", () => {
   assert.ok(smokeIndex > bundleIndex);
   assert.match(
     workflow,
-    /node qa\/runtime\/serverless-health-smoke\.mjs \/tmp\/balkanbite-api\.cjs/,
+    /node qa\/runtime\/serverless-health-smoke\.mjs dist\/serverless-api\.cjs/,
   );
 });
 
