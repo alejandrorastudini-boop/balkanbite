@@ -397,15 +397,24 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             : `Got it. Deducted from your pantry: ${summary}.`;
       }
 
-      // Both additions and deductions are staged for explicit user confirmation.
-      // AI interpretation is never promoted directly into authoritative inventory.
-      const isPendingPantryMutation =
-        (effectiveActionType === "ADD_ITEMS" || effectiveActionType === "REMOVE_ITEMS") &&
+      // Pantry and shopping item extraction stays pending until explicit human
+      // confirmation. Model output alone never changes pantry or shopping state.
+      const isPendingItemAction =
+        (
+          effectiveActionType === "ADD_ITEMS" ||
+          effectiveActionType === "REMOVE_ITEMS" ||
+          effectiveActionType === "ADD_SHOPPING"
+        ) &&
         Array.isArray(effectiveItems) &&
         effectiveItems.length > 0;
 
-      if (isPendingPantryMutation) {
-        const action = effectiveActionType === "REMOVE_ITEMS" ? "remove" : "add";
+      if (isPendingItemAction) {
+        const action =
+          effectiveActionType === "REMOVE_ITEMS"
+            ? "remove"
+            : effectiveActionType === "ADD_SHOPPING"
+            ? "shopping"
+            : "add";
         setPendingItems(effectiveItems);
         setPendingAction(action);
         replyText =
@@ -415,11 +424,17 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
               : language === "es"
               ? "He detectado los productos que quieres descontar. Revisa cantidad y unidad y confirma antes de modificar la despensa."
               : "I detected the items to deduct. Review quantity and unit, then confirm before I change the pantry."
+            : action === "shopping"
+            ? language === "bg"
+              ? "Разпознах продуктите за списъка за пазаруване. Проверете количеството и мерната единица и потвърдете, преди да ги добавя."
+              : language === "es"
+              ? "He detectado los productos para la lista de compra. Revisa cantidad y unidad y confirma antes de añadirlos."
+              : "I detected the items for your shopping list. Review quantity and unit, then confirm before I add them."
             : language === "bg"
             ? "Разпознах продуктите по-долу. Проверете количеството и мерната единица и потвърдете, преди да ги запиша в килера."
             : language === "es"
             ? "He detectado los productos de abajo. Revisa la cantidad y la unidad y confirma antes de guardarlos en la despensa."
-            : "I detected the items below. Review the quantity and unit, then confirm before I save them to the pantry.";
+            : "I detected the items below. Review quantity and unit, then confirm before I save them to the pantry.";
       } else if (
         effectiveActionType === "MEAL_LOG" &&
         data.mealLog?.nutritionVerified === true
@@ -434,7 +449,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             : `${replyText} I did not save nutrition values because there is not yet a verified source for that calculation.`;
       }
 
-      const safeActionMetadata = isPendingPantryMutation
+      const safeActionMetadata = isPendingItemAction
         ? {}
         : sanitizeChatActionMetadata(effectiveActionType, effectiveItems);
 
