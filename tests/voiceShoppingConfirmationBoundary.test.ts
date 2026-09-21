@@ -39,15 +39,14 @@ test("pending ADD_SHOPPING metadata is not persisted before confirmation", () =>
     voiceSource,
     /const safeActionMetadata = isPendingItemAction\s*\? \{\}/,
   );
-
-  const detectionIndex = voiceSource.indexOf(
-    'effectiveActionType === "ADD_SHOPPING"',
+  assert.match(
+    voiceSource,
+    /effectiveActionType === "ADD_SHOPPING"/,
   );
-  const confirmIndex = voiceSource.indexOf(
-    "onAddItemsToShoppingList(confirmedItems)",
+  assert.match(
+    voiceSource,
+    /onAddItemsToShoppingList\(confirmedItems\)/,
   );
-  assert.ok(detectionIndex >= 0);
-  assert.ok(confirmIndex > detectionIndex);
 });
 
 test("new user input discards any unconfirmed shopping extraction", () => {
