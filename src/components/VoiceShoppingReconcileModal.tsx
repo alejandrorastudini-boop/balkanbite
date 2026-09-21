@@ -80,6 +80,8 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
   // quantity/unit matches what was actually purchased.
   const [selectedPurchasedIds, setSelectedPurchasedIds] = useState<string[]>([]);
   const [selectedExtraItems, setSelectedExtraItems] = useState<ReconciliationExtraItem[]>([]);
+  const hasExplicitConfirmation =
+    selectedPurchasedIds.length > 0 || selectedExtraItems.length > 0;
 
   const recognitionRef = useRef<any>(null);
   const isListeningRef = useRef(false);
@@ -311,7 +313,7 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
   };
 
   const handleConfirmAndSave = () => {
-    if (!reconciliationResult || isSaving) return;
+    if (!reconciliationResult || isSaving || !hasExplicitConfirmation) return;
     const reconciliationId = reconciliationIdRef.current;
     if (!reconciliationId) return;
 
@@ -741,7 +743,7 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
 
               <button
                 type="button"
-                disabled={isSaving}
+                disabled={isSaving || !hasExplicitConfirmation}
                 onClick={handleConfirmAndSave}
                 className="px-5 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs font-extrabold flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] cursor-pointer disabled:opacity-50"
               >
