@@ -20,6 +20,7 @@ import { ChatMessage, Language, PantryItem, MealLog } from "../types";
 import { t } from "../utils/translations";
 import { parseDeterministicRemovalIntent } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
+import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
 
 interface VoiceChefViewProps {
   pantry: PantryItem[];
@@ -329,14 +330,18 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       const effectiveActionType = deterministicRemoval?.actionType || data.actionType;
       const effectiveItems = deterministicRemoval?.items || data.items;
 
-      let replyText =
-        data.spokenFeedback ||
-        data.message ||
-        (language === "bg"
+      const fallbackReply =
+        language === "bg"
           ? "Разбрах! Обработих вашето запитване."
           : language === "es"
           ? "¡Entendido! He procesado tu consulta."
-          : "Got it! Processed your request.");
+          : "Got it! Processed your request.";
+      let replyText =
+        typeof data.spokenFeedback === "string" && data.spokenFeedback.trim()
+          ? data.spokenFeedback
+          : typeof data.message === "string" && data.message.trim()
+          ? data.message
+          : fallbackReply;
 
       if (deterministicRemoval) {
         const summary = deterministicRemoval.items
@@ -387,12 +392,15 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             : `${replyText} I did not save nutrition values because there is not yet a verified source for that calculation.`;
       }
 
+      const safeActionMetadata = isPendingPantryMutation
+        ? {}
+        : sanitizeChatActionMetadata(effectiveActionType, effectiveItems);
+
       const aiMsg: ChatMessage = {
         id: `ai-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         sender: "assistant",
         text: replyText,
-        actionType: isPendingPantryMutation ? undefined : effectiveActionType,
-        itemsAffected: isPendingPantryMutation ? undefined : effectiveItems,
+        ...safeActionMetadata,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
       };
 
