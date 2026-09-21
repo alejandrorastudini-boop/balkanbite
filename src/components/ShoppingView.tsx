@@ -324,6 +324,8 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
           </button>
 
           <button
+            id="manual-shopping-open"
+            type="button"
             onClick={() => setShowAddModal(true)}
             className="px-4 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-sm font-bold flex items-center gap-2 transition-colors cursor-pointer shadow-[0_0_15px_rgba(16,185,129,0.3)]"
           >
