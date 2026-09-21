@@ -31,13 +31,15 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
   // Form State
   const [name, setName] = useState("");
-  const [householdSize, setHouseholdSize] = useState<number>(2);
-  const [cookingSpeed, setCookingSpeed] = useState<"fast" | "moderate" | "elaborate">("fast");
+  const [householdSize, setHouseholdSize] = useState<number | null>(null);
+  const [cookingSpeed, setCookingSpeed] = useState<
+    "fast" | "moderate" | "elaborate" | null
+  >(null);
   const [dietStyle, setDietStyle] = useState<
-    "all" | "mediterranean" | "vegetarian" | "vegan"
-  >("mediterranean");
+    "all" | "mediterranean" | "vegetarian" | "vegan" | null
+  >(null);
   const [selectedAppliances, setSelectedAppliances] = useState<string[]>([]);
-  const [monthlyBudgetEUR, setMonthlyBudgetEUR] = useState<number>(350);
+  const [monthlyBudgetEURInput, setMonthlyBudgetEURInput] = useState("");
 
   const toggleAppliance = (appliance: string) => {
     setSelectedAppliances((prev) =>
@@ -46,7 +48,23 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   };
 
   const finish = () => {
+    if (
+      householdSize === null ||
+      cookingSpeed === null ||
+      dietStyle === null
+    ) {
+      return;
+    }
+
     const trimmedName = name.trim();
+    const trimmedBudget = monthlyBudgetEURInput.trim();
+    const parsedBudget =
+      trimmedBudget.length > 0 ? Number(trimmedBudget) : undefined;
+    const hasValidBudget =
+      parsedBudget === undefined ||
+      (Number.isFinite(parsedBudget) && parsedBudget >= 0);
+
+    if (!hasValidBudget) return;
 
     onComplete({
       ...(trimmedName ? { name: trimmedName } : {}),
@@ -54,7 +72,9 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
       cookingSpeed,
       dietStyle,
       appliances: selectedAppliances,
-      monthlyBudgetEUR,
+      ...(parsedBudget !== undefined
+        ? { monthlyBudgetEUR: parsedBudget }
+        : {}),
       onboardingCompleted: true,
     });
   };
