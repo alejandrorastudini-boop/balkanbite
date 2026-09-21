@@ -234,3 +234,28 @@ test("meal-log cache parser sanitizes rows and drops structurally invalid histor
   assert.deepEqual(parseMealLogCache('{"logs":[]}'), []);
   assert.deepEqual(parseMealLogCache(null), []);
 });
+
+
+test("stored verified label with invalid numeric nutrition degrades to unknown", () => {
+  for (const calories of [-1, Number.NaN, Number.POSITIVE_INFINITY]) {
+    const result = sanitizeStoredMealLog({
+      id: "invalid-stored-verified",
+      date: "2026-09-19",
+      timestamp: "2026-09-19T12:00:00.000Z",
+      mealType: "lunch",
+      nutritionDataStatus: "verified",
+      calories,
+      proteinG: 20,
+      carbsG: 55,
+      fatG: 10,
+    });
+
+    assert.deepEqual(result, {
+      id: "invalid-stored-verified",
+      date: "2026-09-19",
+      mealType: "lunch",
+      nutritionDataStatus: "unknown",
+      timestamp: "2026-09-19T12:00:00.000Z",
+    });
+  }
+});
