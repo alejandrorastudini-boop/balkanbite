@@ -65,6 +65,7 @@ import { getUserLocalWorkspaceKey, parseArrayCache } from "./utils/localWorkspac
 import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
 import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext";
 import { parseStoredRecipeCache } from "./utils/storedRecipeValidation";
+import { parseStoredMealPlanCache } from "./utils/storedMealPlanValidation";
 import {
   buildVerifiedMealLog,
   parseMealLogCache,
@@ -114,14 +115,10 @@ export default function App() {
     }
   });
 
-  const [mealPlan, setMealPlan] = useState<MealPlanDay[]>(() => {
-    try {
-      const saved = localStorage.getItem("balkanbite_mealplan");
-      return saved ? JSON.parse(saved) : DEFAULT_MEAL_PLAN;
-    } catch {
-      return DEFAULT_MEAL_PLAN;
-    }
-  });
+  const [mealPlan, setMealPlan] = useState<MealPlanDay[]>(() =>
+    parseStoredMealPlanCache(localStorage.getItem("balkanbite_mealplan")) ??
+    DEFAULT_MEAL_PLAN
+  );
 
   const [mealLogs, setMealLogs] = useState<MealLog[]>(() =>
     parseMealLogCache(localStorage.getItem("balkanbite_meallogs"))
@@ -336,9 +333,8 @@ export default function App() {
       ) ?? []
     );
     setMealPlan(
-      parseArrayCache<MealPlanDay>(
-        localStorage.getItem("balkanbite_mealplan")
-      ) ?? DEFAULT_MEAL_PLAN
+      parseStoredMealPlanCache(localStorage.getItem("balkanbite_mealplan")) ??
+        DEFAULT_MEAL_PLAN
     );
     setMealLogs(
       parseMealLogCache(localStorage.getItem("balkanbite_meallogs"))
