@@ -29,6 +29,7 @@ interface VoiceChefViewProps {
   onUpdateChatMessages: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
   onClearChat: () => void;
   onAddItemsToPantry: (items: any[]) => void;
+  onAddItemsToShoppingList: (items: any[]) => void;
   onDeductItemsFromPantry: (items: any[]) => void;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => void;
@@ -43,6 +44,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   onUpdateChatMessages,
   onClearChat,
   onAddItemsToPantry,
+  onAddItemsToShoppingList,
   onDeductItemsFromPantry,
   onNavigateToRecipes,
   onLogMeal,
@@ -83,7 +85,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   const [isProcessing, setIsProcessing] = useState(false);
   const [speechSynthesisEnabled, setSpeechSynthesisEnabled] = useState(true);
   const [pendingPantryItems, setPendingPantryItems] = useState<any[] | null>(null);
-  const [pendingPantryAction, setPendingPantryAction] = useState<"add" | "remove" | null>(null);
+  const [pendingPantryAction, setPendingPantryAction] = useState<"add" | "remove" | "shopping" | null>(null);
 
   // Initialize welcome message when language changes if no messages exist
   useEffect(() => {
