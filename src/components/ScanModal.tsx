@@ -98,10 +98,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
   const confirmationText =
     language === "es"
-      ? "Cada campo rellenado es una sugerencia revisable del análisis de imagen con IA o de la consulta de código de barras, no un dato verificado de la despensa. El nombre, la categoría, el coste y la caducidad siguen sin estar verificados incluso después de confirmar la cantidad y la unidad; los valores desconocidos permanecen vacíos. Cada confirmación se aplica solo al valor de cantidad o unidad que se muestra en ese momento. Confirma ambos por separado antes de añadir el alimento."
+      ? "Cada campo rellenado es una sugerencia revisable del análisis de imagen con IA o de la consulta de código de barras. Confirma cantidad y unidad por separado. Después, al seleccionar la fila, confirmas explícitamente el nombre y la categoría que ves para guardarlos en la despensa. El coste y la caducidad siguen siendo solo sugerencias y no se guardan. Si el nombre o la categoría no son correctos, elimina el candidato e introduce el alimento manualmente."
       : language === "bg"
-      ? "Всяко попълнено поле е предложение за преглед от анализа на изображението с ИИ или справката по баркод, а не потвърден факт за килера. Името, категорията, цената и срокът на годност остават непроверени дори след потвърждаване на количеството и мерната единица; неизвестните стойности остават празни. Всяко потвърждение важи само за показаната в момента стойност за количество или мерна единица. Потвърдете и двете поотделно, преди да добавите продукта."
-      : "Every populated field is a reviewable suggestion from AI image analysis or barcode lookup, not a verified pantry fact. Product name, category, cost, and expiry are unverified suggestions even after quantity and unit are confirmed; unknown values stay blank. Both quantity and unit must be confirmed before this candidate can be added. Each confirmation applies only to the quantity or unit value currently shown. You must explicitly confirm both before the item can be added to the pantry.";
+      ? "Всяко попълнено поле е предложение за преглед от анализа на изображението с ИИ или справката по баркод. Потвърдете количеството и мерната единица поотделно. След това, когато изберете реда, изрично потвърждавате показаните име и категория за запис в килера. Цената и срокът на годност остават само предложения и не се запазват. Ако името или категорията не са правилни, премахнете предложението и въведете продукта ръчно."
+      : "Every populated field is a reviewable suggestion from AI image analysis or barcode lookup. Confirm quantity and unit separately. Then selecting the row explicitly confirms the displayed name and category for pantry persistence. Cost and expiry remain suggestions only and are not saved. If the name or category is wrong, remove the candidate and enter the food manually.";
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
@@ -302,6 +302,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
           return item;
         }
         setErrorMsg(null);
+        // Selecting the reviewed row confirms the displayed identity/category;
+        // deselecting withdraws that confirmation.
         return { ...item, selected: !item.selected };
       })
     );
@@ -341,9 +343,10 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   };
 
   const handleSaveToPantry = () => {
-    // Treat selection as presentation state only. Recheck both confirmations at
-    // the persistence boundary so no stale or future UI path can save a candidate
-    // whose quantity and unit were not explicitly reviewed.
+    // Row selection is the user's explicit confirmation of the displayed
+    // product identity/category. Recheck quantity/unit confirmations at the
+    // persistence boundary so no stale or future UI path can save a candidate
+    // whose reviewed amount changed after selection.
     const selected = scannedItems.filter(
       (item) => item.selected && isScannedItemConfirmed(item)
     );

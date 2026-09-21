@@ -5,8 +5,9 @@ import {
 
 /**
  * Capture output is only a review candidate. Quantity and unit must each be
- * explicitly confirmed by the user before the candidate can cross the pantry
- * persistence boundary, even when the scanner supplied both values.
+ * explicitly confirmed before the row can become selectable. ScanModal row
+ * selection separately confirms the displayed product identity/category before
+ * the candidate may cross the pantry persistence boundary.
  */
 export const isConfirmedScanCandidate = (
   candidate: SafeScanCandidate,
