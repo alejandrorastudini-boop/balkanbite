@@ -5,6 +5,7 @@ import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
 import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileContext.js";
 import { withOpenAIJsonModeInstruction } from "./src/utils/openAIJsonMode.js";
+import { applyAiRecipeEstimateProvenance } from "./src/utils/aiRecipeProvenance.js";
 import {
   getFoodSafetyQuarantineMessage,
   isFoodSafetyReviewRequired,
@@ -555,16 +556,17 @@ Return strictly a JSON array of 6 to 8 recipe objects conforming to this schema:
         recipes: [],
       });
     }
-    const enrichedRecipes = rawList.map((rec: any, idx: number) => ({
-      ...rec,
-      // LLM-produced nutrition and price figures are planning estimates, never
-      // authoritative calculations. Arbitrary health scores are discarded.
-      healthScore: undefined,
-      nutritionDataStatus: "estimated",
-      costDataStatus: "estimated",
-      id: rec.id || `ai-rec-${Date.now()}-${idx}`,
-      imageUrl: resolveRecipeImageUrl(rec),
-    }));
+    const enrichedRecipes = rawList
+      .map((rec: any, idx: number) => {
+        const withProvenance = applyAiRecipeEstimateProvenance(rec);
+        if (!withProvenance) return null;
+        return {
+          ...withProvenance,
+          id: withProvenance.id || `ai-rec-${Date.now()}-${idx}`,
+          imageUrl: resolveRecipeImageUrl(withProvenance),
+        };
+      })
+      .filter(Boolean);
 
     return res.json({
       recipes: enrichedRecipes,
@@ -642,12 +644,21 @@ CRITICAL RULES:
     const parsed = JSON.parse(response.text || "[]");
     const rawPlan = Array.isArray(parsed) ? parsed : [];
     
-    // Ensure image URLs are resolved for each meal
+    const normalizePlannedMeal = (meal: unknown) => {
+      const withProvenance = applyAiRecipeEstimateProvenance(meal);
+      return withProvenance
+        ? {
+            ...withProvenance,
+            imageUrl: resolveRecipeImageUrl(withProvenance),
+          }
+        : undefined;
+    };
+
     const mealPlan = rawPlan.map((day: any) => ({
       date: day.date,
-      breakfast: day.breakfast ? { ...day.breakfast, imageUrl: resolveRecipeImageUrl(day.breakfast) } : undefined,
-      lunch: day.lunch ? { ...day.lunch, imageUrl: resolveRecipeImageUrl(day.lunch) } : undefined,
-      dinner: day.dinner ? { ...day.dinner, imageUrl: resolveRecipeImageUrl(day.dinner) } : undefined,
+      breakfast: normalizePlannedMeal(day.breakfast),
+      lunch: normalizePlannedMeal(day.lunch),
+      dinner: normalizePlannedMeal(day.dinner),
     }));
 
     return res.json({ mealPlan, source: "openai_gpt_5_6_luna" });
