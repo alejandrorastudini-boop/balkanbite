@@ -11,6 +11,10 @@ import {
   getFoodSafetyQuarantineMessage,
   isFoodSafetyReviewRequired,
 } from "./src/utils/foodSafetyQuarantine.js";
+import {
+  evaluateClinicalRequestBoundary,
+  getClinicalRequestBlockedMessage,
+} from "./src/utils/clinicalRequestBoundary.js";
 
 dotenv.config();
 
@@ -286,6 +290,22 @@ app.post("/api/ai/parse-intent", async (req, res) => {
     return res.status(400).json({ error: "Transcript is required" });
   }
 
+  const normalizedLanguage =
+    language === "bg" ? "bg" : language === "es" ? "es" : "en";
+  const clinicalBoundary = evaluateClinicalRequestBoundary(transcript);
+  if (clinicalBoundary.blocked) {
+    return res.json({
+      success: true,
+      actionType: "ANSWER",
+      spokenFeedback: getClinicalRequestBlockedMessage(normalizedLanguage),
+      items: [],
+      mealLog: null,
+      clinicalGuidanceBlocked: true,
+      clinicalBoundaryVersion: clinicalBoundary.version,
+      clinicalBoundaryReasons: clinicalBoundary.reasons,
+    });
+  }
+
   try {
     if (!hasOpenAIKey()) {
       return res.status(503).json({
@@ -312,7 +332,7 @@ Determine the user's intent:
 3. "ADD_ITEMS": User bought or has ingredients to add.
 4. "REMOVE_ITEMS": User cooked or used up ingredients.
 5. "ADD_SHOPPING": User wants to add items to grocery list.
-6. "ANSWER": General medical/nutritional guidance or chat.
+6. "ANSWER": Cooking help, app help, general food questions, or general non-clinical nutrition education/chat.
 
 IMPORTANT RULES:
 - Provide a warm, helpful, complete "spokenFeedback" in ${language === "bg" ? "Bulgarian" : language === "es" ? "Spanish" : "English"}.
@@ -320,6 +340,7 @@ IMPORTANT RULES:
 - IF user asks what to eat/cook for dinner or lunch: Offer a mix of options. Some recipes can rely on ingredients they already have in their pantry (${JSON.stringify(currentPantry.map((p: any) => p.name))}), and others can suggest purchasing 1-2 complementary fresh ingredients to complete a delicious meal. Always take into account what they've already eaten today!
 - IF user reports meals, do not calculate or invent calories, protein, carbs, fat, or other nutrition values. Set "mealLog" to null and explain that nutrition logging needs verified data before it can be saved.
 - Never claim that a meal, pantry item, or nutrition value was saved unless the client explicitly confirms that action.
+- Do not provide diagnosis, treatment/cure guidance, medication or dose recommendations/changes, medication-food interaction advice, interpretation of lab results, disease-specific therapeutic nutrition advice, or personalized clinical guidance for pregnancy/lactation. Explicit requests in these areas are blocked before this prompt.
 
 Return strictly JSON format:
 {
