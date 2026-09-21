@@ -220,6 +220,14 @@ export function assessVoiceClinicalBoundary(
   }
 
   const text = normalize(transcript);
+
+  if (
+    hasAny(text, PREGNANCY_LACTATION_TERMS) &&
+    hasAny(text, CLINICAL_NUTRITION_ACTION_TERMS)
+  ) {
+    return { blocked: true, reason: "pregnancy_lactation_clinical" };
+  }
+
   const hasMedication = hasAny(text, MEDICATION_TERMS);
   const hasSupplement = hasAny(text, SUPPLEMENT_TERMS);
   const hasDoseOrInteraction = hasAny(text, DOSE_OR_INTERACTION_TERMS);
@@ -244,13 +252,6 @@ export function assessVoiceClinicalBoundary(
     hasAny(text, FOOD_ADVICE_TERMS)
   ) {
     return { blocked: true, reason: "disease_specific_advice" };
-  }
-
-  if (
-    hasAny(text, PREGNANCY_LACTATION_TERMS) &&
-    hasAny(text, CLINICAL_NUTRITION_ACTION_TERMS)
-  ) {
-    return { blocked: true, reason: "pregnancy_lactation_clinical" };
   }
 
   return { blocked: false };
