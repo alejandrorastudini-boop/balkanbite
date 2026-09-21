@@ -272,12 +272,10 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
         ...data,
         extraPurchasedItems: reviewedExtras,
       };
-      const validShoppingIds = new Set(shoppingList.map((item) => item.id));
       setReconciliationResult(reviewedData);
       // AI may propose purchased list IDs, but proposal is not confirmation.
       // Start with no selected list rows so the user must explicitly confirm
       // each displayed purchase amount/unit in the review step.
-      void validShoppingIds;
       setSelectedPurchasedIds([]);
       // AI-proposed extras require an explicit user click in the review step.
       // Server/model quantity, unit, price and expiry are never trusted here.
