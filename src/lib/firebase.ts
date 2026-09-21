@@ -10,21 +10,19 @@ import {
 } from "firebase/auth";
 import {
   initializeFirestore,
-  persistentLocalCache,
-  persistentMultipleTabManager,
+  memoryLocalCache,
 } from "firebase/firestore";
 import firebaseConfig from "../../firebase-applet-config.json";
 
 const app = initializeApp(firebaseConfig);
 export const auth = getAuth(app);
 
-// Persist Firestore locally so returning users can hydrate profile/inventory from
-// IndexedDB immediately while the SDK refreshes from the server in background.
-// Multi-tab coordination avoids the old single-tab persistence limitation.
+// Keep Firestore's SDK cache in memory. BalkanBite owns its scoped local
+// persistence separately, while cloud-backed inventory remains provisional
+// until the authoritative Firestore snapshot hydrates. This avoids making
+// browser persistent-storage quota part of the critical runtime path.
 export const db = initializeFirestore(app, {
-  localCache: persistentLocalCache({
-    tabManager: persistentMultipleTabManager(),
-  }),
+  localCache: memoryLocalCache(),
 });
 
 export const googleProvider = new GoogleAuthProvider();
