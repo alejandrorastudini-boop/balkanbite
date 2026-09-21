@@ -156,7 +156,7 @@ test("App rejects the whole confirmed voice-shopping batch if any row fails reva
   const rejectedIndex = handlerBlock.indexOf(
     "if (result.rejectedCount > 0)",
   );
-  const returnIndex = handlerBlock.indexOf("return;", rejectedIndex);
+  const returnIndex = handlerBlock.indexOf("return false;", rejectedIndex);
   const persistIndex = handlerBlock.indexOf(
     "setShoppingList((prev) => [...prev, ...result.items])",
   );
