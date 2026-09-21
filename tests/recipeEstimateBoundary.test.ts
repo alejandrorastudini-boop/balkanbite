@@ -8,11 +8,16 @@ const recipeViewSource = readFileSync(
   "utf8"
 );
 const typesSource = readFileSync(new URL("../src/types.ts", import.meta.url), "utf8");
+const provenanceSource = readFileSync(
+  new URL("../src/utils/aiRecipeProvenance.ts", import.meta.url),
+  "utf8"
+);
 
 test("AI recipe nutrition and cost carry explicit estimate provenance", () => {
-  assert.match(serverSource, /nutritionDataStatus:\s*"estimated"/);
-  assert.match(serverSource, /costDataStatus:\s*"estimated"/);
-  assert.match(serverSource, /healthScore:\s*undefined/);
+  assert.match(provenanceSource, /nutritionDataStatus:\s*"estimated"/);
+  assert.match(provenanceSource, /costDataStatus:\s*"estimated"/);
+  assert.match(provenanceSource, /healthScore:\s*_discardedHealthScore/);
+  assert.match(serverSource, /applyAiRecipeEstimateProvenance/);
   assert.match(
     serverSource,
     /Estimate cost per serving for planning only\. It is NOT live, exact, or verified market pricing/
