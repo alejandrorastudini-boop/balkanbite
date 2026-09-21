@@ -111,7 +111,7 @@ const LAB_CONTEXT_TERMS = [
   /\bmi creatinina\b/u,
   /\bmi colesterol\b/u,
   /лабораторн(?:и|ия) резултат(?:и)?/u,
-  /кръвн(?:и|о)(?: ми)? изследван(?:ия|е)/u,
+  /кръвн(?:и(?:те)?|о)(?: ми)? изследван(?:ия|е)/u,
   /моят hba1c/u,
   /моят креатинин/u,
   /моят холестерол/u,
@@ -132,14 +132,33 @@ const INTERPRETATION_TERMS = [
   /обясни ми/u,
 ];
 
-const PERSONAL_CONDITION_TERMS = [
-  /\bi (?:have|was diagnosed with) (?:diabetes|kidney disease|celiac disease|hypertension|cancer|crohn(?:s)?|ulcerative colitis|gout|liver disease)\b/u,
-  /\bmy (?:diabetes|kidney disease|celiac disease|hypertension|cancer|crohn(?:s)?|ulcerative colitis|gout|liver disease)\b/u,
-  /\b(?:tengo|me diagnosticaron) (?:diabetes|enfermedad renal|celiaquia|hipertension|cancer|crohn|colitis ulcerosa|gota|enfermedad hepatica)\b/u,
-  /\bmi (?:diabetes|enfermedad renal|celiaquia|hipertension|cancer|crohn|colitis ulcerosa|gota|enfermedad hepatica)\b/u,
-  /(?:имам|диагностициран съм с|диагностицирана съм с) (?:диабет|бъбречно заболяване|цьолиакия|хипертония|рак|болест на крон|улцерозен колит|подагра|чернодробно заболяване)/u,
-  /моят (?:диабет|рак)/u,
-  /моята (?:хипертония|цьолиакия|подагра)/u,
+const CLINICAL_CONDITION_TERMS = [
+  /\bdiabetes\b/u,
+  /\bkidney disease\b/u,
+  /\bchronic kidney disease\b/u,
+  /\bceliac disease\b/u,
+  /\bhypertension\b/u,
+  /\bcancer\b/u,
+  /\bcrohn(?:s)?\b/u,
+  /\bulcerative colitis\b/u,
+  /\bgout\b/u,
+  /\bliver disease\b/u,
+  /\benfermedad renal\b/u,
+  /\bceliaquia\b/u,
+  /\bhipertension\b/u,
+  /\bcancer\b/u,
+  /\bcolitis ulcerosa\b/u,
+  /\bgota\b/u,
+  /\benfermedad hepatica\b/u,
+  /диабет/u,
+  /бъбречно заболяване/u,
+  /цьолиакия/u,
+  /хипертония/u,
+  /рак/u,
+  /болест на крон/u,
+  /улцерозен колит/u,
+  /подагра/u,
+  /чернодробно заболяване/u,
 ];
 
 const FOOD_ADVICE_TERMS = [
@@ -221,7 +240,7 @@ export function assessVoiceClinicalBoundary(
   }
 
   if (
-    hasAny(text, PERSONAL_CONDITION_TERMS) &&
+    hasAny(text, CLINICAL_CONDITION_TERMS) &&
     hasAny(text, FOOD_ADVICE_TERMS)
   ) {
     return { blocked: true, reason: "disease_specific_advice" };
