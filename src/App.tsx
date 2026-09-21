@@ -1014,11 +1014,22 @@ export default function App() {
     );
 
     if (result.rejected.length > 0) {
-      alert(profile.language === "es"
-        ? "Algunos artículos siguen en la lista: revisa su nombre, cantidad y unidad antes de transferirlos."
-        : profile.language === "bg"
-        ? "Някои продукти остават в списъка: проверете името, количеството и мерната единица."
-        : "Some items remain on the list: check their name, quantity and unit before transferring.");
+      const hasUnconfirmedAmount = result.rejected.some(
+        (item) => item.reason === "unconfirmed_amount"
+      );
+      alert(
+        hasUnconfirmedAmount
+          ? profile.language === "bg"
+            ? "Някои вече отбелязани продукти са от по-стара версия или нямат потвърдено купено количество. Махнете отметката и я поставете отново само ако показаното количество и мерна единица съвпадат с реално купеното."
+            : profile.language === "es"
+            ? "Algunos artículos ya marcados son antiguos o no tienen la cantidad comprada confirmada. Desmárcalos y vuelve a marcarlos solo si la cantidad y unidad mostradas coinciden con lo que compraste."
+            : "Some already-checked items are historical or do not have a confirmed purchased amount. Uncheck and check them again only if the shown quantity and unit match what you actually bought."
+          : profile.language === "bg"
+          ? "Някои продукти остават в списъка: проверете името, количеството и мерната единица."
+          : profile.language === "es"
+          ? "Algunos artículos siguen en la lista: revisa su nombre, cantidad y unidad antes de transferirlos."
+          : "Some items remain on the list: check their name, quantity and unit before transferring."
+      );
     }
   };
 
