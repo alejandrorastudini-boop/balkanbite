@@ -1478,6 +1478,7 @@ export default function App() {
         <OnboardingModal
           isOpen={
             !showLanding &&
+            !showAuthModal &&
             (!currentUser || profileHydrated) &&
             !profile.onboardingCompleted
           }
