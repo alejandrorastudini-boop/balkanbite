@@ -96,7 +96,6 @@ export function createSignedInProfileDefaults(
     cookingLevel: undefined,
     monthlyBudgetEUR: undefined,
     healthProfile: undefined,
-    isProSubscriber: false,
     onboardingCompleted: false,
   };
 }
@@ -185,9 +184,6 @@ function sanitizeProfile(
     profile.budgetTier = undefined;
   }
 
-  if (typeof raw.isProSubscriber === "boolean") {
-    profile.isProSubscriber = raw.isProSubscriber;
-  }
   if (typeof raw.onboardingCompleted === "boolean") {
     profile.onboardingCompleted = raw.onboardingCompleted;
   }
@@ -220,7 +216,8 @@ export function serializeUserProfileForFirestore(
     heightCm: null,
     weightKg: null,
     budgetTier: safeProfile.budgetTier ?? null,
-    isProSubscriber: safeProfile.isProSubscriber,
+    // Deprecated mock/commercial field. No entitlement system exists.
+    isProSubscriber: null,
     onboardingCompleted: safeProfile.onboardingCompleted,
   };
 }
