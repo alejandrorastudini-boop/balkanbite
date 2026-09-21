@@ -49,12 +49,12 @@ jobs:
           --format=cjs
           --packages=external
           --sourcemap
-          --outfile=/tmp/balkanbite-api.cjs
+          --outfile=dist/serverless-api.cjs
 
       - name: Smoke real serverless cold start
         env:
           OPENAI_API_KEY: ""
-        run: node qa/runtime/serverless-health-smoke.mjs /tmp/balkanbite-api.cjs
+        run: node qa/runtime/serverless-health-smoke.mjs dist/serverless-api.cjs
 
   runtime-harness:
     needs: validate
