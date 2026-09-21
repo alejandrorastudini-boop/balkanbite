@@ -681,29 +681,58 @@ async function runFreshGuestOnboardingScenario(context) {
       "fresh guest must begin with onboarding incomplete"
     );
 
-    await page
-      .locator("#onboarding-next-step-1")
-      .waitFor({ state: "visible", timeout: 5_000 });
+    const step1Next = page.locator("#onboarding-next-step-1");
+    await step1Next.waitFor({ state: "visible", timeout: 5_000 });
+    assert.equal(
+      await step1Next.isDisabled(),
+      true,
+      "household size must not be silently preselected"
+    );
+    assert.equal(
+      await page.locator("#onboarding-household-size").inputValue(),
+      "",
+      "household size must start unknown"
+    );
 
     await page.screenshot({
       path: path.join(artifactDir, "fresh-guest-onboarding-before.png"),
       fullPage: true,
     });
 
-    await page.locator("#onboarding-next-step-1").click();
-    await page
-      .locator("#onboarding-next-step-2")
-      .waitFor({ state: "visible", timeout: 5_000 });
+    await page.locator("#onboarding-household-size").fill("4");
+    assert.equal(await step1Next.isEnabled(), true);
+    await step1Next.click();
 
-    await page.locator("#onboarding-next-step-2").click();
-    await page
-      .locator("#onboarding-next-step-3")
-      .waitFor({ state: "visible", timeout: 5_000 });
+    const step2Next = page.locator("#onboarding-next-step-2");
+    await step2Next.waitFor({ state: "visible", timeout: 5_000 });
+    assert.equal(
+      await step2Next.isDisabled(),
+      true,
+      "diet style must not be silently preselected"
+    );
+    await page.locator("#onboarding-diet-all").click();
+    assert.equal(await step2Next.isEnabled(), true);
+    await step2Next.click();
 
-    await page.locator("#onboarding-next-step-3").click();
+    const step3Next = page.locator("#onboarding-next-step-3");
+    await step3Next.waitFor({ state: "visible", timeout: 5_000 });
+    assert.equal(
+      await step3Next.isDisabled(),
+      true,
+      "cooking speed must not be silently preselected"
+    );
+    await page.locator("#onboarding-cooking-moderate").click();
+    assert.equal(await step3Next.isEnabled(), true);
+    await step3Next.click();
+
     await page
       .locator("#onboarding-finish")
       .waitFor({ state: "visible", timeout: 5_000 });
+    assert.equal(
+      await page.locator("#onboarding-monthly-budget-eur").inputValue(),
+      "",
+      "monthly budget must start unknown and remain optional"
+    );
     await page.locator("#onboarding-finish").click();
 
     await page.waitForFunction(() => {
@@ -722,6 +751,26 @@ async function runFreshGuestOnboardingScenario(context) {
       evidence.finalCompleted,
       "true",
       "completing the culinary onboarding must explicitly mark it complete"
+    );
+    assert.equal(
+      (await page.getByTestId("qa-fresh-guest-household-size").textContent())?.trim(),
+      "4",
+      "explicit household size must persist exactly"
+    );
+    assert.equal(
+      (await page.getByTestId("qa-fresh-guest-diet-style").textContent())?.trim(),
+      "all",
+      "explicit diet style must persist exactly"
+    );
+    assert.equal(
+      (await page.getByTestId("qa-fresh-guest-cooking-speed").textContent())?.trim(),
+      "moderate",
+      "explicit cooking speed must persist exactly"
+    );
+    assert.equal(
+      (await page.getByTestId("qa-fresh-guest-budget").textContent())?.trim(),
+      "absent",
+      "blank optional budget must remain absent"
     );
     assert.equal(
       await page
