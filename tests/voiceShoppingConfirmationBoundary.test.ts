@@ -144,6 +144,29 @@ test("App defensively rebuilds confirmed voice-shopping rows", () => {
   );
 });
 
+test("App rejects the whole confirmed voice-shopping batch if any row fails revalidation", () => {
+  const handlerStart = appSource.indexOf(
+    "const handleVoiceAddShoppingItems",
+  );
+  const handlerEnd = appSource.indexOf(
+    "const handleVoiceDeductItems",
+    handlerStart,
+  );
+  const handlerBlock = appSource.slice(handlerStart, handlerEnd);
+
+  const rejectedIndex = handlerBlock.indexOf(
+    "if (result.rejectedCount > 0)",
+  );
+  const returnIndex = handlerBlock.indexOf("return;", rejectedIndex);
+  const persistIndex = handlerBlock.indexOf(
+    "setShoppingList((prev) => [...prev, ...result.items])",
+  );
+
+  assert.ok(rejectedIndex >= 0);
+  assert.ok(returnIndex > rejectedIndex);
+  assert.ok(persistIndex > returnIndex);
+});
+
 test("both full Voice and Chef modal wire the confirmed shopping callback", () => {
   const fullVoiceStart = appSource.indexOf('{activeTab === "voice"');
   const fullVoiceEnd = appSource.indexOf(
