@@ -30,14 +30,26 @@ export const ManualShoppingQaHarness: React.FC = () => {
       <span data-testid="qa-manual-shopping-last-category" className="sr-only">
         {items.at(-1)?.category ?? ""}
       </span>
+      <span data-testid="qa-manual-shopping-last-confirmed" className="sr-only">
+        {String(items.at(-1)?.purchaseAmountConfirmed === true)}
+      </span>
+      <span data-testid="qa-manual-shopping-last-origin" className="sr-only">
+        {items.at(-1)?.amountOrigin ?? ""}
+      </span>
 
       <ShoppingView
         shoppingList={items}
         onToggleItem={(id) =>
           setItems((current) =>
-            current.map((item) =>
-              item.id === id ? { ...item, checked: !item.checked } : item,
-            ),
+            current.map((item) => {
+              if (item.id !== id) return item;
+              const checked = !item.checked;
+              return {
+                ...item,
+                checked,
+                purchaseAmountConfirmed: checked,
+              };
+            }),
           )
         }
         onDeleteItem={(id) =>
@@ -50,6 +62,8 @@ export const ManualShoppingQaHarness: React.FC = () => {
               ...item,
               id: `qa-shopping-${current.length + 1}`,
               checked: false,
+              amountOrigin: "user_entered",
+              purchaseAmountConfirmed: false,
             },
           ])
         }
