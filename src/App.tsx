@@ -50,6 +50,7 @@ import {
   type RawReconciliationExtraItem,
 } from "./utils/purchasePantryMerge";
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
+import { buildConfirmedVoiceShoppingItems } from "./utils/safeVoiceShoppingCapture";
 import {
   getUserPantryCacheKey,
   parseUserPantryCache,
@@ -1174,6 +1175,29 @@ export default function App() {
     }
   };
 
+  const handleVoiceAddShoppingItems = (items: any[]) => {
+    const now = Date.now();
+    const result = buildConfirmedVoiceShoppingItems(
+      items || [],
+      (index) => `shop-voice-${now}-${index}`
+    );
+
+    if (result.rejectedCount > 0) {
+      alert(
+        profile.language === "bg"
+          ? `Не добавих списъка, защото ${result.rejectedCount} продукт(а) нямат валидно име, количество или мерна единица.`
+          : profile.language === "es"
+          ? `No añadí el lote porque ${result.rejectedCount} producto(s) no tenían un nombre, cantidad o unidad válidos.`
+          : `I did not add the batch because ${result.rejectedCount} item(s) were missing a valid name, quantity, or unit.`
+      );
+      return;
+    }
+
+    if (result.items.length > 0) {
+      setShoppingList((prev) => [...prev, ...result.items]);
+    }
+  };
+
   const handleVoiceDeductItems = (items: any[]) => {
     if (!requireAuthoritativeInventory()) return;
     setPantry((currentPantry) => {
@@ -1356,6 +1380,7 @@ export default function App() {
               onUpdateChatMessages={setChatMessages}
               onClearChat={() => setChatMessages([])}
               onAddItemsToPantry={handleVoiceAddItems}
+              onAddItemsToShoppingList={handleVoiceAddShoppingItems}
               onDeductItemsFromPantry={handleVoiceDeductItems}
               onNavigateToRecipes={handleVoiceNavigateToRecipes}
               onLogMeal={handleLogMeal}
@@ -1407,6 +1432,7 @@ export default function App() {
           onUpdateChatMessages={setChatMessages}
           onClearChat={() => setChatMessages([])}
           onAddItemsToPantry={handleVoiceAddItems}
+          onAddItemsToShoppingList={handleVoiceAddShoppingItems}
           onDeductItemsFromPantry={handleVoiceDeductItems}
           onNavigateToRecipes={handleVoiceNavigateToRecipes}
           onLogMeal={handleLogMeal}

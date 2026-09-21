@@ -14,6 +14,7 @@ interface ChefIaModalProps {
   onUpdateChatMessages: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
   onClearChat: () => void;
   onAddItemsToPantry: (items: any[]) => void;
+  onAddItemsToShoppingList: (items: any[]) => void;
   onDeductItemsFromPantry: (items: any[]) => void;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => void;
@@ -31,6 +32,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
   onUpdateChatMessages,
   onClearChat,
   onAddItemsToPantry,
+  onAddItemsToShoppingList,
   onDeductItemsFromPantry,
   onNavigateToRecipes,
   onLogMeal,
@@ -109,6 +111,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
             onUpdateChatMessages={onUpdateChatMessages}
             onClearChat={onClearChat}
             onAddItemsToPantry={onAddItemsToPantry}
+            onAddItemsToShoppingList={onAddItemsToShoppingList}
             onDeductItemsFromPantry={onDeductItemsFromPantry}
             onNavigateToRecipes={(q) => {
               onNavigateToRecipes(q);
