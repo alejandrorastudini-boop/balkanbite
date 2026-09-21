@@ -50,6 +50,34 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   language,
 }) => {
   const currentText = t[language];
+  const getAffectedItemsLabel = (actionType: ChatMessage["actionType"]) => {
+    if (actionType === "ADD_ITEMS") {
+      return language === "es"
+        ? "Detectado para añadir a despensa:"
+        : language === "bg"
+        ? "Открито за добавяне в килера:"
+        : "Detected for pantry addition:";
+    }
+    if (actionType === "REMOVE_ITEMS") {
+      return language === "es"
+        ? "Detectado para descontar de despensa:"
+        : language === "bg"
+        ? "Открито за приспадане от килера:"
+        : "Detected for pantry deduction:";
+    }
+    if (actionType === "ADD_SHOPPING") {
+      return language === "es"
+        ? "Detectado para lista de compra:"
+        : language === "bg"
+        ? "Открито за списъка за пазаруване:"
+        : "Detected for shopping list:";
+    }
+    return language === "es"
+      ? "Elementos relacionados:"
+      : language === "bg"
+      ? "Свързани продукти:"
+      : "Related items:";
+  };
   const [inputText, setInputText] = useState("");
   const [isListening, setIsListening] = useState(false);
   const [isProcessing, setIsProcessing] = useState(false);
@@ -522,17 +550,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
                     {msg.itemsAffected && msg.itemsAffected.length > 0 && (
                       <div className={`mt-2 pt-2 border-t space-y-1 ${isAi ? "border-white/[0.1]" : "border-stone-950/20"}`}>
                         <span className={`text-[9px] font-bold uppercase tracking-wider block ${isAi ? "text-emerald-400" : "text-stone-950/80"}`}>
-                          {msg.actionType === "ADD_ITEMS"
-                            ? language === "es"
-                              ? "✓ Añadido a despensa:"
-                              : language === "bg"
-                              ? "✓ Добавено в килера:"
-                              : "✓ Added to pantry:"
-                            : language === "es"
-                            ? "✓ Descontado:"
-                            : language === "bg"
-                            ? "✓ Извадено:"
-                            : "✓ Deducted:"}
+                          {getAffectedItemsLabel(msg.actionType)}
                         </span>
                         <div className="flex flex-wrap gap-1.5">
                           {msg.itemsAffected.map((item, idx) => (
