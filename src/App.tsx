@@ -1410,6 +1410,7 @@ export default function App() {
           onDeductItemsFromPantry={handleVoiceDeductItems}
           onNavigateToRecipes={handleVoiceNavigateToRecipes}
           onLogMeal={handleLogMeal}
+          foodSafety={foodSafetyQuarantine}
           language={profile.language}
         />
 
