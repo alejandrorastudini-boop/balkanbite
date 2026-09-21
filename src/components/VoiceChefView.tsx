@@ -245,11 +245,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   );
 
   const confirmPendingItems = () => {
-    if (
-      !pendingItems ||
-      !pendingItemsAreComplete ||
-      !pendingAction
-    ) return;
+    if (!pendingItems || !pendingItemsAreComplete || !pendingAction) return;
 
     const confirmedItems = pendingItems;
     const action = pendingAction;
@@ -262,8 +258,10 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
 
     if (action === "add") {
       onAddItemsToPantry(confirmedItems);
-    } else {
+    } else if (action === "remove") {
       onDeductItemsFromPantry(confirmedItems);
+    } else {
+      onAddItemsToShoppingList(confirmedItems);
     }
 
     const confirmationText =
@@ -273,11 +271,17 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
           : language === "es"
           ? `Confirmado. Añadí a la despensa: ${summary}.`
           : `Confirmed. Added to the pantry: ${summary}.`
+        : action === "remove"
+        ? language === "bg"
+          ? `Потвърдено. Приспаднах от килера: ${summary}.`
+          : language === "es"
+          ? `Confirmado. He descontado de la despensa: ${summary}.`
+          : `Confirmed. Deducted from the pantry: ${summary}.`
         : language === "bg"
-        ? `Потвърдено. Приспаднах от килера: ${summary}.`
+        ? `Потвърдено. Добавих към списъка за пазаруване: ${summary}.`
         : language === "es"
-        ? `Confirmado. He descontado de la despensa: ${summary}.`
-        : `Confirmed. Deducted from the pantry: ${summary}.`;
+        ? `Confirmado. Añadí a la lista de compra: ${summary}.`
+        : `Confirmed. Added to the shopping list: ${summary}.`;
 
     onUpdateChatMessages((prev) => [
       ...prev,
@@ -295,6 +299,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     const action = pendingAction;
     setPendingItems(null);
     setPendingAction(null);
+
     const cancellationText =
       action === "remove"
         ? language === "bg"
@@ -302,11 +307,18 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
           : language === "es"
           ? "Cancelado. No he descontado nada de la despensa."
           : "Cancelled. I did not deduct anything from the pantry."
+        : action === "shopping"
+        ? language === "bg"
+          ? "Отменено. Не добавих нищо към списъка за пазаруване."
+          : language === "es"
+          ? "Cancelado. No añadí nada a la lista de compra."
+          : "Cancelled. I did not add anything to the shopping list."
         : language === "bg"
         ? "Отменено. Не записах тези продукти в килера."
         : language === "es"
         ? "Cancelado. No guardé esos productos en la despensa."
         : "Cancelled. I did not save those items to the pantry.";
+
     onUpdateChatMessages((prev) => [
       ...prev,
       {
