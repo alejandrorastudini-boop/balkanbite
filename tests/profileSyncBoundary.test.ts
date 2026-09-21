@@ -15,7 +15,7 @@ test("new signed-in profiles do not inherit guest completion or preferences", ()
 
   assert.equal(profile.name, "Alex");
   assert.equal(profile.onboardingCompleted, false);
-  assert.equal(profile.isProSubscriber, false);
+  assert.equal("isProSubscriber" in profile, false);
   assert.deepEqual(profile.disliked, []);
   assert.equal(profile.monthlyBudgetEUR, undefined);
   assert.equal(profile.householdSize, undefined);
@@ -47,7 +47,7 @@ test("remote profiles are rebuilt from allowed fields instead of merged with ano
   assert.equal(profile.healthGoal, "balanced");
   assert.equal(profile.budgetTier, "strict_budget");
   assert.equal(profile.onboardingCompleted, true);
-  assert.equal(profile.isProSubscriber, true);
+  assert.equal("isProSubscriber" in profile, false);
   assert.equal("userId" in profile, false);
   assert.equal("createdAt" in profile, false);
   assert.equal("arbitrarySecret" in profile, false);
@@ -67,7 +67,7 @@ test("invalid or missing remote values resolve to neutral signed-in defaults", (
   assert.equal(profile.householdSize, undefined);
   assert.equal(profile.healthGoal, undefined);
   assert.equal(profile.budgetTier, undefined);
-  assert.equal(profile.isProSubscriber, false);
+  assert.equal("isProSubscriber" in profile, false);
 });
 
 test("profile caches are user-scoped and malformed caches stay unavailable", () => {
@@ -101,6 +101,7 @@ test("Firestore profile serialization preserves unknowns as null, never undefine
   assert.equal(serialized.healthGoal, null);
   assert.equal(serialized.budgetTier, null);
   assert.equal(serialized.healthProfile, null);
+  assert.equal(serialized.isProSubscriber, null);
   assert.equal(serialized.heightCm, null);
   assert.equal(serialized.weightKg, null);
   assert.equal(
@@ -149,7 +150,6 @@ test("Firestore serialization never emits undefined when required runtime fields
     dietStyle: undefined,
     disliked: undefined,
     budgetTier: undefined,
-    isProSubscriber: undefined,
     onboardingCompleted: undefined,
   } as unknown as Parameters<typeof serializeUserProfileForFirestore>[0];
 
@@ -419,4 +419,19 @@ test("invalid historical preference values remain absent instead of becoming bal
   const serialized = serializeUserProfileForFirestore(profile);
   assert.equal(serialized.healthGoal, null);
   assert.equal(serialized.budgetTier, null);
+});
+
+
+test("legacy Pro subscriber booleans are ignored and cleared from cloud serialization", () => {
+  for (const legacyValue of [true, false]) {
+    const profile = sanitizeRemoteUserProfile({
+      name: "Legacy commercial state",
+      isProSubscriber: legacyValue,
+    });
+
+    assert.equal("isProSubscriber" in profile, false);
+
+    const serialized = serializeUserProfileForFirestore(profile);
+    assert.equal(serialized.isProSubscriber, null);
+  }
 });

@@ -49,7 +49,7 @@ test("weekly AI planning is not gated by a non-existent commercial entitlement",
   assert.doesNotMatch(appSource, /if \(!profile\.isProSubscriber\)/);
   assert.doesNotMatch(appSource, /isPro=\{/);
   assert.doesNotMatch(appSource, /isProSubscriber:\s*!prev\.isProSubscriber/);
-  assert.match(initialDataSource, /isProSubscriber:\s*false/);
+  assert.doesNotMatch(initialDataSource, /isProSubscriber/);
 
   const start = appSource.indexOf("const handleGenerateAiWeekPlan");
   const end = appSource.indexOf("const handleResetApp", start);
@@ -284,4 +284,10 @@ test("scan copy explicitly preserves human confirmation authority", () => {
   assert.match(translationsSource, /Confirma cada alimento antes de añadirlo/);
   assert.match(translationsSource, /AI може да греши/);
   assert.match(translationsSource, /Потвърдете всеки продукт преди добавяне/);
+});
+
+
+test("canonical profile schema contains no mock Pro subscription state", () => {
+  assert.doesNotMatch(initialDataSource, /isProSubscriber/);
+  assert.doesNotMatch(appSource, /profile\.isProSubscriber/);
 });

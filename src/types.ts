@@ -163,7 +163,6 @@ export interface UserProfile {
   healthProfile?: HealthProfile;
   /** Deprecated until the user explicitly chooses a budget style. Never default this field. */
   budgetTier?: "strict_budget" | "balanced" | "flexible";
-  isProSubscriber: boolean;
   onboardingCompleted: boolean;
 }
 
