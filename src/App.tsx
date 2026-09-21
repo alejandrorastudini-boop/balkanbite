@@ -1182,18 +1182,19 @@ export default function App() {
       (index) => `shop-voice-${now}-${index}`
     );
 
-    if (result.items.length > 0) {
-      setShoppingList((prev) => [...prev, ...result.items]);
-    }
-
     if (result.rejectedCount > 0) {
       alert(
         profile.language === "bg"
-          ? `Не добавих ${result.rejectedCount} продукт(а) към списъка, защото липсва валидно име, количество или мерна единица.`
+          ? `Не добавих списъка, защото ${result.rejectedCount} продукт(а) нямат валидно име, количество или мерна единица.`
           : profile.language === "es"
-          ? `No añadí ${result.rejectedCount} producto(s) a la lista porque faltaba un nombre, cantidad o unidad válidos.`
-          : `I did not add ${result.rejectedCount} item(s) to the shopping list because a valid name, quantity, or unit was missing.`
+          ? `No añadí el lote porque ${result.rejectedCount} producto(s) no tenían un nombre, cantidad o unidad válidos.`
+          : `I did not add the batch because ${result.rejectedCount} item(s) were missing a valid name, quantity, or unit.`
       );
+      return;
+    }
+
+    if (result.items.length > 0) {
+      setShoppingList((prev) => [...prev, ...result.items]);
     }
   };
 
