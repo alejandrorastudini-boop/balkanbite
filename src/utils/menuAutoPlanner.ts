@@ -1,5 +1,4 @@
 import { PantryItem, Recipe, MealPlanDay, UserProfile } from "../types";
-import { SAMPLE_RECIPES, INITIAL_RECIPES } from "../data/initialData";
 import { assessTotalAvailability, areUnitsCompatible } from "./quantityUnits";
 import { areReviewedBulgarianFoodAliases } from "./bulgarianFoodAliases";
 
@@ -102,9 +101,7 @@ export function isIngredientQuantityAvailable(
  * means the pantry has enough compatible quantity, not just a name match.
  */
 export function syncRecipesWithPantry(recipes: Recipe[], pantry: PantryItem[]): Recipe[] {
-  const pool = recipes.length > 0 ? recipes : [...INITIAL_RECIPES, ...SAMPLE_RECIPES];
-
-  return pool.map((recipe) => {
+  return recipes.map((recipe) => {
     const updatedIngredients = recipe.ingredients.map((ing) => ({
       ...ing,
       inPantry: isIngredientQuantityAvailable(
@@ -176,6 +173,45 @@ export function calculateRecipePantryScore(recipe: Recipe, pantry: PantryItem[])
   };
 }
 
+function syncExistingMealPlanWithPantry(
+  existingPlan: MealPlanDay[],
+  pantry: PantryItem[],
+): {
+  newPlan: MealPlanDay[];
+  readyToCookMealsCount: number;
+  perishableSavedCount: number;
+} {
+  let readyToCookMealsCount = 0;
+  let perishableSavedCount = 0;
+
+  const syncPlannedRecipe = (recipe?: Recipe): Recipe | undefined => {
+    if (!recipe) return undefined;
+
+    const [syncedRecipe] = syncRecipesWithPantry([recipe], pantry);
+    const score = calculateRecipePantryScore(syncedRecipe, pantry);
+
+    if (score.matchPercentage === 100) readyToCookMealsCount++;
+    perishableSavedCount += score.perishableUsedCount;
+
+    return syncedRecipe;
+  };
+
+  const newPlan = existingPlan.map((day) => ({
+    ...day,
+    ...(day.breakfast
+      ? { breakfast: syncPlannedRecipe(day.breakfast) }
+      : {}),
+    ...(day.lunch ? { lunch: syncPlannedRecipe(day.lunch) } : {}),
+    ...(day.dinner ? { dinner: syncPlannedRecipe(day.dinner) } : {}),
+  }));
+
+  return {
+    newPlan,
+    readyToCookMealsCount,
+    perishableSavedCount,
+  };
+}
+
 /**
  * Intelligently adapts or regenerates the 7-day meal plan based on the current pantry inventory.
  * Prioritizes:
@@ -194,6 +230,10 @@ export function adaptMealPlanToPantry(
   perishableSavedCount: number;
 } {
   const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
+
+  if (syncedRecipes.length === 0) {
+    return syncExistingMealPlanWithPantry(existingPlan, pantry);
+  }
 
   const scoredRecipes = syncedRecipes.map((recipe) => {
     const scoreData = calculateRecipePantryScore(recipe, pantry);
