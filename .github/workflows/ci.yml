@@ -38,6 +38,11 @@ jobs:
       - name: Tests
         run: npm test
 
+      - name: Validate named Firestore release script offline
+        run: |
+          node --check qa/security/firestore-release-github.mjs
+          node --test qa/security/firestore-release-core.test.mjs
+
       - name: Build
         run: npm run build
 
