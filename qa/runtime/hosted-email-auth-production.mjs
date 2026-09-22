@@ -38,6 +38,7 @@ const documentRoot =
 let browser;
 let primaryError = null;
 let isolationIdToken = "";
+let isolationUid = "";
 
 async function identity(path, body, { allowFailure = false } = {}) {
   const response = await fetch(
@@ -173,6 +174,63 @@ async function deleteOwnedQaDocuments(idToken, uid) {
   assert.equal(verify.status, 404, "Synthetic profile remains or cannot verify cleanup");
 }
 
+
+async function verifyHostedCollectionIsolation(ownerToken, ownerUid, secondToken, secondUid) {
+  const headers = (token) => ({
+    authorization: "Bearer " + token,
+    "content-type": "application/json",
+  });
+  const logicalId = "qa-" + runId + "-" + attempt + "-" + randomBytes(4).toString("hex");
+  const scopedId = (uid, id) =>
+    "u_" + encodeURIComponent(uid) + "__" + encodeURIComponent(id);
+  for (const collectionName of ["inventory", "recipes", "mealPlans", "shoppingList"]) {
+    const itemId = collectionName === "mealPlans" ? "2099-12-31" : logicalId;
+    const firstId = scopedId(ownerUid, itemId);
+    const secondId = scopedId(secondUid, itemId);
+    assert.notEqual(firstId, secondId, "Cross-user document IDs must differ");
+    const base = firestoreBase + "/documents/" + collectionName + "/";
+    const ownerUrl = base + encodeURIComponent(firstId);
+    const secondUrl = base + encodeURIComponent(secondId);
+    const fields = (uid) => ({
+      userId: { stringValue: uid },
+      ...(collectionName === "mealPlans"
+        ? { date: { stringValue: itemId } }
+        : { id: { stringValue: itemId } }),
+      qaSyntheticOnly: { booleanValue: true },
+    });
+    const createOwner = await fetch(ownerUrl, {
+      method: "PATCH",
+      headers: headers(ownerToken),
+      body: JSON.stringify({ fields: fields(ownerUid) }),
+    });
+    assert.equal(createOwner.status, 200,
+      "Owner create failed for " + collectionName + ": HTTP " + createOwner.status);
+    const ownRead = await fetch(ownerUrl, { headers: headers(ownerToken) });
+    assert.equal(ownRead.status, 200, "Owner read failed for " + collectionName);
+    const crossRead = await fetch(ownerUrl, { headers: headers(secondToken) });
+    assert.equal(crossRead.status, 403, "Cross-user read not denied for " + collectionName);
+    const crossWrite = await fetch(ownerUrl + "?updateMask.fieldPaths=qaCrossUserProbe", {
+      method: "PATCH",
+      headers: headers(secondToken),
+      body: JSON.stringify({ fields: { qaCrossUserProbe: { booleanValue: true } } }),
+    });
+    assert.equal(crossWrite.status, 403, "Cross-user update not denied for " + collectionName);
+    const createSecond = await fetch(secondUrl, {
+      method: "PATCH",
+      headers: headers(secondToken),
+      body: JSON.stringify({ fields: fields(secondUid) }),
+    });
+    assert.equal(createSecond.status, 200,
+      "Second owner create failed for " + collectionName + ": HTTP " + createSecond.status);
+    const secondRead = await fetch(secondUrl, { headers: headers(secondToken) });
+    assert.equal(secondRead.status, 200, "Second owner read failed for " + collectionName);
+    const reverseCrossRead = await fetch(secondUrl, { headers: headers(ownerToken) });
+    assert.equal(reverseCrossRead.status, 403,
+      "Reverse cross-user read not denied for " + collectionName);
+  }
+  console.log("Hosted owner isolation passed for all four synced collections.");
+}
+
 async function removeSyntheticAccount(targetEmail, targetPassword) {
   assert.equal(targetEmail, email, "Refusing to clean a different account");
   assert.equal(targetPassword, password, "Refusing to use unrelated credentials");
@@ -287,7 +345,9 @@ try {
   });
   isolationIdToken = String(isolationSignup.payload.idToken || "");
   assert.ok(isolationIdToken, "Missing isolation account token");
-  assert.notEqual(String(isolationSignup.payload.localId), ownerUid);
+  isolationUid = String(isolationSignup.payload.localId || "");
+  assert.ok(isolationUid, "Missing isolation account UID");
+  assert.notEqual(isolationUid, ownerUid);
 
   const crossRead = await fetch(ownerProfileUrl, {
     headers: { authorization: `Bearer ${isolationIdToken}` },
@@ -360,13 +420,22 @@ try {
     .locator("#auth-notice-message")
     .waitFor({ state: "visible", timeout: 15_000 });
 
+  await verifyHostedCollectionIsolation(
+    String(backendLogin.payload.idToken), ownerUid, isolationIdToken, isolationUid,
+  );
   console.log(
-    "Hosted production auth E2E passed: signup -> owned profile hydration -> authenticated UI -> logout -> login -> logout -> password reset notice.",
+    "Hosted production auth E2E passed: signup -> profile -> UI -> logout -> login -> reset -> four collection owner-isolation checks.",
   );
 } catch (error) {
   primaryError = error;
 } finally {
   if (isolationIdToken) {
+    try {
+      if (isolationUid) await deleteOwnedQaDocuments(isolationIdToken, isolationUid);
+    } catch (isolationDocumentsError) {
+      if (!primaryError) primaryError = isolationDocumentsError;
+      else console.error("Isolation document cleanup also failed:", isolationDocumentsError);
+    }
     try {
       await identity("accounts:delete", { idToken: isolationIdToken });
       const verifyIsolation = await identity("accounts:signInWithPassword", {
