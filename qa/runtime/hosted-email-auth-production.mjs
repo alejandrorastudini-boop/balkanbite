@@ -21,6 +21,8 @@ const attempt = process.env.GITHUB_RUN_ATTEMPT || "1";
 const email = `balkanbite-ci-${runId}-${attempt}@example.com`;
 const password = `Bb-${randomBytes(16).toString("base64url")}-A1!`;
 const displayName = "BalkanBite CI QA";
+const isolationEmail = `balkanbite-ci-${runId}-${attempt}-isolation@example.com`;
+const isolationPassword = `Bb-${randomBytes(16).toString("base64url")}-B2!`;
 
 const firebaseConfig = JSON.parse(
   readFileSync(new URL("../../firebase-applet-config.json", import.meta.url), "utf8"),
@@ -35,6 +37,7 @@ const documentRoot =
 
 let browser;
 let primaryError = null;
+let isolationIdToken = "";
 
 async function identity(path, body, { allowFailure = false } = {}) {
   const response = await fetch(
@@ -268,6 +271,48 @@ try {
     "New authenticated account did not create its owned Firestore profile",
   );
 
+  // Test the hosted rules with a second synthetic Auth identity. Neither
+  // identity uses an actual customer account or pre-existing Firestore data.
+  const ownerUid = String(backendLogin.payload.localId);
+  const ownerProfileUrl =
+    `${firestoreBase}/documents/users/${encodeURIComponent(ownerUid)}`;
+  const anonymousRead = await fetch(ownerProfileUrl);
+  assert.ok([401, 403].includes(anonymousRead.status),
+    `Unauthenticated profile read unexpectedly returned HTTP ${anonymousRead.status}`);
+
+  const isolationSignup = await identity("accounts:signUp", {
+    email: isolationEmail,
+    password: isolationPassword,
+    returnSecureToken: true,
+  });
+  isolationIdToken = String(isolationSignup.payload.idToken || "");
+  assert.ok(isolationIdToken, "Missing isolation account token");
+  assert.notEqual(String(isolationSignup.payload.localId), ownerUid);
+
+  const crossRead = await fetch(ownerProfileUrl, {
+    headers: { authorization: `Bearer ${isolationIdToken}` },
+  });
+  assert.equal(crossRead.status, 403,
+    `Cross-user profile read unexpectedly returned HTTP ${crossRead.status}`);
+
+  // If rules regress, this updateMask limits any accidental write to a
+  // throwaway field on the first synthetic account's throwaway profile.
+  const crossWrite = await fetch(
+    `${ownerProfileUrl}?updateMask.fieldPaths=qaIsolationProbe`,
+    {
+      method: "PATCH",
+      headers: {
+        authorization: `Bearer ${isolationIdToken}`,
+        "content-type": "application/json",
+      },
+      body: JSON.stringify({
+        fields: { qaIsolationProbe: { booleanValue: true } },
+      }),
+    },
+  );
+  assert.equal(crossWrite.status, 403,
+    `Cross-user profile update unexpectedly returned HTTP ${crossWrite.status}`);
+
   const onboardingCompletedInQa = await completeOnboardingIfVisible(page);
   console.log(
     onboardingCompletedInQa
@@ -321,6 +366,22 @@ try {
 } catch (error) {
   primaryError = error;
 } finally {
+  if (isolationIdToken) {
+    try {
+      await identity("accounts:delete", { idToken: isolationIdToken });
+      const verifyIsolation = await identity("accounts:signInWithPassword", {
+        email: isolationEmail,
+        password: isolationPassword,
+        returnSecureToken: true,
+      }, { allowFailure: true });
+      assert.equal(verifyIsolation.response.ok, false,
+        "Synthetic isolation account remains after cleanup");
+      console.log("Synthetic second Auth account removed.");
+    } catch (isolationCleanupError) {
+      if (!primaryError) primaryError = isolationCleanupError;
+      else console.error("Isolation account cleanup also failed:", isolationCleanupError);
+    }
+  }
   try {
     const removed = await removeSyntheticAccount(email, password);
     if (removed) {
