@@ -18,8 +18,7 @@ const firestoreBase =
   `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)`;
 
 let browser;
-let idToken = "";
-let uid = "";
+let primaryError = null;
 
 async function identity(path, body, { allowFailure = false } = {}) {
   const response = await fetch(
@@ -49,128 +48,62 @@ async function openAuth(page) {
   await page.locator("#auth-modal-overlay").waitFor({ state: "visible" });
 }
 
-async function ensureCleanupToken() {
-  if (idToken && uid) return true;
+async function removeSyntheticAccount(targetEmail, targetPassword) {
   const login = await identity(
     "accounts:signInWithPassword",
-    { email, password, returnSecureToken: true },
+    { email: targetEmail, password: targetPassword, returnSecureToken: true },
     { allowFailure: true },
   );
   if (!login.response.ok) return false;
-  idToken = String(login.payload.idToken || "");
-  uid = String(login.payload.localId || "");
-  return Boolean(idToken && uid);
-}
 
-async function firestoreRequest(path, options = {}) {
-  return fetch(`${firestoreBase}/${path}`, {
-    ...options,
-    headers: {
-      authorization: `Bearer ${idToken}`,
-      "content-type": "application/json",
-      ...(options.headers || {}),
+  const token = String(login.payload.idToken || "");
+  const localId = String(login.payload.localId || "");
+  assert.ok(token);
+  assert.ok(localId);
+
+  const profileDelete = await fetch(
+    `${firestoreBase}/documents/users/${encodeURIComponent(localId)}`,
+    {
+      method: "DELETE",
+      headers: { authorization: `Bearer ${token}` },
     },
-  });
-}
-
-async function cleanupOwnedCollection(collectionId) {
-  const response = await firestoreRequest("documents:runQuery", {
-    method: "POST",
-    body: JSON.stringify({
-      structuredQuery: {
-        from: [{ collectionId }],
-        where: {
-          fieldFilter: {
-            field: { fieldPath: "userId" },
-            op: "EQUAL",
-            value: { stringValue: uid },
-          },
-        },
-      },
-    }),
-  });
-  assert.equal(response.ok, true, `Firestore query failed for ${collectionId}`);
-  const rows = await response.json();
-
-  for (const row of rows) {
-    const name = row?.document?.name;
-    if (!name) continue;
-    const deleteResponse = await fetch(
-      `https://firestore.googleapis.com/v1/${name}`,
-      {
-        method: "DELETE",
-        headers: { authorization: `Bearer ${idToken}` },
-      },
-    );
-    assert.equal(
-      deleteResponse.ok,
-      true,
-      `Firestore cleanup failed for ${name}`,
+  );
+  if (!profileDelete.ok && profileDelete.status !== 404) {
+    const detail = await profileDelete.text();
+    throw new Error(
+      `Synthetic profile cleanup failed: HTTP ${profileDelete.status} ${detail}`,
     );
   }
 
-  const verify = await firestoreRequest("documents:runQuery", {
-    method: "POST",
-    body: JSON.stringify({
-      structuredQuery: {
-        from: [{ collectionId }],
-        where: {
-          fieldFilter: {
-            field: { fieldPath: "userId" },
-            op: "EQUAL",
-            value: { stringValue: uid },
-          },
-        },
-      },
-    }),
-  });
-  assert.equal(verify.ok, true, `Firestore verify failed for ${collectionId}`);
-  const verifyRows = await verify.json();
-  assert.equal(
-    verifyRows.some((row) => Boolean(row?.document)),
-    false,
-    `${collectionId} still contains synthetic QA rows`,
-  );
-}
-
-async function cleanupSyntheticAccount() {
-  if (!(await ensureCleanupToken())) return;
-
-  for (const collectionId of [
-    "inventory",
-    "recipes",
-    "mealPlans",
-    "shoppingList",
-  ]) {
-    await cleanupOwnedCollection(collectionId);
-  }
-
-  const profileDelete = await firestoreRequest(
-    `documents/users/${encodeURIComponent(uid)}`,
-    { method: "DELETE" },
-  );
-  assert.equal(
-    profileDelete.ok || profileDelete.status === 404,
-    true,
-    "Synthetic profile cleanup failed",
-  );
-
-  const deletion = await identity("accounts:delete", { idToken });
-  assert.equal(deletion.response.ok, true);
+  await identity("accounts:delete", { idToken: token });
 
   const verifyLogin = await identity(
     "accounts:signInWithPassword",
-    { email, password, returnSecureToken: true },
+    { email: targetEmail, password: targetPassword, returnSecureToken: true },
     { allowFailure: true },
   );
   assert.equal(
     verifyLogin.response.ok,
     false,
-    "Synthetic Firebase Auth user still exists after cleanup",
+    `Synthetic Firebase Auth user still exists: ${targetEmail}`,
   );
+  return true;
+}
+
+async function cleanupStaleCiAccounts() {
+  for (const staleRunId of ["35715738785", "35716484997"]) {
+    const staleEmail = `balkanbite-ci-${staleRunId}-1@example.com`;
+    const stalePassword = `Bb-${staleRunId}-1-A1!`;
+    const removed = await removeSyntheticAccount(staleEmail, stalePassword);
+    if (removed) {
+      console.log(`Removed stale synthetic QA account from run ${staleRunId}.`);
+    }
+  }
 }
 
 try {
+  await cleanupStaleCiAccounts();
+
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
     viewport: { width: 1280, height: 900 },
@@ -201,11 +134,9 @@ try {
     password,
     returnSecureToken: true,
   });
-  idToken = String(backendLogin.payload.idToken || "");
-  uid = String(backendLogin.payload.localId || "");
   assert.equal(backendLogin.payload.email, email);
-  assert.ok(idToken);
-  assert.ok(uid);
+  assert.ok(backendLogin.payload.idToken);
+  assert.ok(backendLogin.payload.localId);
 
   await page
     .locator("#onboarding-household-size")
@@ -263,11 +194,20 @@ try {
   console.log(
     "Hosted production auth E2E passed: signup -> onboarding -> authenticated UI -> logout -> login -> logout -> password reset notice.",
   );
+} catch (error) {
+  primaryError = error;
 } finally {
   try {
-    await cleanupSyntheticAccount();
-    console.log("Synthetic hosted-auth QA account and owned cloud data removed.");
-  } finally {
-    if (browser) await browser.close();
+    const removed = await removeSyntheticAccount(email, password);
+    if (removed) {
+      console.log("Synthetic hosted-auth QA profile and Auth user removed.");
+    }
+  } catch (cleanupError) {
+    if (!primaryError) primaryError = cleanupError;
+    else console.error("Cleanup also failed:", cleanupError);
   }
+
+  if (browser) await browser.close();
 }
+
+if (primaryError) throw primaryError;
