@@ -22,9 +22,15 @@ export const auth = getAuth(app);
 // persistence separately, while cloud-backed inventory remains provisional
 // until the authoritative Firestore snapshot hydrates. This avoids making
 // browser persistent-storage quota part of the critical runtime path.
-export const db = initializeFirestore(app, {
-  localCache: memoryLocalCache(),
-});
+// AI Studio provisioned this named Firestore database in the Firebase project.
+// Do not silently fall back to '(default)': that database does not exist.
+export const FIRESTORE_DATABASE_ID = "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6";
+
+export const db = initializeFirestore(
+  app,
+  { localCache: memoryLocalCache() },
+  FIRESTORE_DATABASE_ID,
+);
 
 export const googleProvider = new GoogleAuthProvider();
 
