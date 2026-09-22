@@ -1,21 +1,37 @@
 import assert from "node:assert/strict";
+import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
 import { chromium } from "playwright";
 
-const productionUrl =
-  process.env.QA_PRODUCTION_URL || "https://balkanbite.vercel.app";
+// A hosted test creates real synthetic Auth users and owned Firestore documents.
+// It must never run during routine PR validation or silently target production.
+assert.equal(process.env.QA_ALLOW_HOSTED_WRITES, "true",
+  "Explicit QA_ALLOW_HOSTED_WRITES=true required to create hosted test accounts");
+const productionUrl = process.env.QA_HOSTED_TARGET_URL;
+assert.ok(productionUrl, "Explicit QA_HOSTED_TARGET_URL required");
+const target = new URL(productionUrl);
+assert.equal(target.protocol, "https:", "Hosted QA requires HTTPS");
+assert.ok(target.hostname.endsWith(".vercel.app"),
+  "Hosted QA target must be an approved Vercel deployment");
+assert.ok(target.hostname !== "balkanbite.vercel.app" ||
+  process.env.QA_ALLOW_PRODUCTION_TARGET === "true",
+  "Production target requires a separate QA_ALLOW_PRODUCTION_TARGET=true");
 const runId = process.env.GITHUB_RUN_ID || String(Date.now());
 const attempt = process.env.GITHUB_RUN_ATTEMPT || "1";
 const email = `balkanbite-ci-${runId}-${attempt}@example.com`;
-const password = `Bb-${runId}-${attempt}-A1!`;
+const password = `Bb-${randomBytes(16).toString("base64url")}-A1!`;
 const displayName = "BalkanBite CI QA";
 
 const firebaseConfig = JSON.parse(
   readFileSync(new URL("../../firebase-applet-config.json", import.meta.url), "utf8"),
 );
 const identityBase = "https://identitytoolkit.googleapis.com/v1";
+const firestoreDatabaseId =
+  "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6";
 const firestoreBase =
-  `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/(default)`;
+  `https://firestore.googleapis.com/v1/projects/${firebaseConfig.projectId}/databases/${firestoreDatabaseId}`;
+const documentRoot =
+  `projects/${firebaseConfig.projectId}/databases/${firestoreDatabaseId}/documents`;
 
 let browser;
 let primaryError = null;
