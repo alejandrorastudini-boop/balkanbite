@@ -11,7 +11,7 @@ test("Firestore cache stays memory-only so browser quota is not a critical runti
   assert.match(firebaseSource, /memoryLocalCache/);
   assert.match(
     firebaseSource,
-    /initializeFirestore\(app, \{[\s\S]*localCache:\s*memoryLocalCache\(\)[\s\S]*\}\)/,
+    /initializeFirestore\(\s*app,\s*\{\s*localCache:\s*memoryLocalCache\(\),?\s*\},\s*FIRESTORE_DATABASE_ID,?\s*\)/,
   );
   assert.doesNotMatch(firebaseSource, /persistentLocalCache/);
   assert.doesNotMatch(firebaseSource, /persistentMultipleTabManager/);

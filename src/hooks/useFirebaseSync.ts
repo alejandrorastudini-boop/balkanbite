@@ -14,14 +14,11 @@ import { onAuthStateChanged, User } from "firebase/auth";
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile } from "../types";
 import { isLegacyDemoPantryItemId } from "../utils/legacyDemoPantryIds";
 import { getStartupCloudSyncState } from "../utils/startupCloudSync";
-import { findRemovedDocumentIds, getSyncedItemKey, selectCanonicalRemoteEntries } from "../utils/cloudCollectionSync";
+import { findRemovedDocumentIds, getScopedDocumentId, getSyncedItemKey, selectCanonicalRemoteEntries } from "../utils/cloudCollectionSync";
 import { createSignedInProfileDefaults, sanitizeRemoteUserProfile, serializeUserProfileForFirestore } from "../utils/profileSyncBoundary";
 import { isStoredRecipeStructurallyValid } from "../utils/storedRecipeValidation";
 import { isStoredMealPlanDayStructurallyValid } from "../utils/storedMealPlanValidation";
 import { isStoredShoppingItemStructurallyValid } from "../utils/storedShoppingValidation";
-
-const getInventoryDocumentId = (userId: string, itemId: string) =>
-  `u_${encodeURIComponent(userId)}__${encodeURIComponent(itemId)}`;
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -194,7 +191,8 @@ export function useFirebaseSync(
         if (collectionName !== "inventory") {
           const selected = selectCanonicalRemoteEntries(
             collectionName,
-            remoteEntries
+            remoteEntries,
+            (logicalId) => getScopedDocumentId(currentUser.uid, logicalId)
           );
           hydratedCollectionDocumentIds.current[collectionName] = new Set(
             selected.trackedDocumentIds
@@ -212,7 +210,7 @@ export function useFirebaseSync(
           const byLogicalId = new Map<string, { documentId: string; item: any }>();
           remoteEntries.forEach(entry => {
             const logicalId = String(entry.item.id || entry.documentId);
-            const expectedScopedId = getInventoryDocumentId(currentUser.uid, logicalId);
+            const expectedScopedId = getScopedDocumentId(currentUser.uid, logicalId);
             const existing = byLogicalId.get(logicalId);
             const entryIsScoped = entry.documentId === expectedScopedId;
             const existingIsScoped = existing?.documentId === expectedScopedId;
@@ -288,8 +286,11 @@ export function useFirebaseSync(
 
         const currentCollectionDocumentIds = !isInventory
           ? new Set(
-              persistableItems.map(
-                (item) => getSyncedItemKey(collectionName, item)!
+              persistableItems.map((item) =>
+                getScopedDocumentId(
+                  currentUser.uid,
+                  getSyncedItemKey(collectionName, item)!
+                )
               )
             )
           : new Set<string>();
@@ -329,9 +330,7 @@ export function useFirebaseSync(
         const batch = writeBatch(db);
         persistableItems.forEach(item => {
           const logicalId = getSyncedItemKey(collectionName, item)!;
-          const documentId = isInventory
-            ? getInventoryDocumentId(currentUser.uid, logicalId)
-            : logicalId;
+          const documentId = getScopedDocumentId(currentUser.uid, logicalId);
           const docRef = doc(db, collectionName, documentId);
           batch.set(
             docRef,
@@ -351,7 +350,7 @@ export function useFirebaseSync(
           const docRef = doc(
             db,
             collectionName,
-            getInventoryDocumentId(currentUser.uid, itemId)
+            getScopedDocumentId(currentUser.uid, itemId)
           );
           batch.set(
             docRef,

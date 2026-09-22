@@ -12,6 +12,9 @@ const directDocumentKey = (value: unknown): string | undefined => {
   return key && !key.includes("/") ? key : undefined;
 };
 
+export const getScopedDocumentId = (userId: string, logicalId: string) =>
+  `u_${encodeURIComponent(userId)}__${encodeURIComponent(logicalId)}`;
+
 /**
  * Stable logical key for a synced item. Meal-plan days are keyed by date;
  * the other current collection models carry an explicit id.
@@ -28,7 +31,6 @@ export function getSyncedItemKey(
   }
 
   if (collectionName === "inventory") {
-    // Inventory document IDs are user-scoped with encodeURIComponent later.
     return nonBlank(record.id);
   }
 
@@ -58,6 +60,8 @@ export interface RemoteCollectionEntry<T = Record<string, unknown>> {
 export function selectCanonicalRemoteEntries<T>(
   collectionName: string,
   remoteEntries: readonly RemoteCollectionEntry<T>[],
+  canonicalDocumentIdForKey: (logicalKey: string) => string = (logicalKey) =>
+    logicalKey,
 ): {
   entries: RemoteCollectionEntry<T>[];
   trackedDocumentIds: string[];
@@ -70,8 +74,10 @@ export function selectCanonicalRemoteEntries<T>(
   for (const entry of validEntries) {
     const logicalKey = getSyncedItemKey(collectionName, entry.item)!;
     const existing = byLogicalKey.get(logicalKey);
-    const entryIsCanonical = entry.documentId === logicalKey;
-    const existingIsCanonical = existing?.documentId === logicalKey;
+    const canonicalDocumentId = canonicalDocumentIdForKey(logicalKey);
+    const entryIsCanonical = entry.documentId === canonicalDocumentId;
+    const existingIsCanonical =
+      existing?.documentId === canonicalDocumentId;
 
     if (!existing || (entryIsCanonical && !existingIsCanonical)) {
       byLogicalKey.set(logicalKey, entry);

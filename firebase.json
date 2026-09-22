@@ -1,7 +1,7 @@
 {
   "firestore": [
     {
-      "database": "(default)",
+      "database": "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6",
       "rules": "firestore.rules"
     }
   ]

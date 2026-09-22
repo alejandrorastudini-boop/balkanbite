@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   findRemovedDocumentIds,
+  getScopedDocumentId,
   getSyncedItemKey,
   selectCanonicalRemoteEntries,
 } from "../src/utils/cloudCollectionSync";
@@ -36,35 +37,58 @@ test("unknown or unsafe direct document identities remain unresolved", () => {
   assert.equal(getSyncedItemKey("shoppingList", { id: "a/b" }), undefined);
   assert.equal(getSyncedItemKey("mealPlans", { date: "2026/09/20" }), undefined);
 
-  // Inventory IDs are encoded into a scoped document ID by the hook.
   assert.equal(getSyncedItemKey("inventory", { id: "legacy/a" }), "legacy/a");
 });
 
+test("scoped document ids isolate identical logical ids across users", () => {
+  assert.equal(
+    getScopedDocumentId("user-a", "2026-09-20"),
+    "u_user-a__2026-09-20",
+  );
+  assert.equal(
+    getScopedDocumentId("user-b", "2026-09-20"),
+    "u_user-b__2026-09-20",
+  );
+  assert.notEqual(
+    getScopedDocumentId("user-a", "shared-id"),
+    getScopedDocumentId("user-b", "shared-id"),
+  );
+  assert.equal(
+    getScopedDocumentId("user/a", "item/a"),
+    "u_user%2Fa__item%2Fa",
+  );
+});
 
-test("canonical remote rows win over legacy duplicates without tracking malformed rows", () => {
-  const selected = selectCanonicalRemoteEntries("mealPlans", [
-    {
-      documentId: "undefined",
-      item: { date: "2026-09-20", lunch: { id: "legacy" } },
-    },
-    {
-      documentId: "2026-09-20",
-      item: { date: "2026-09-20", lunch: { id: "canonical" } },
-    },
-    {
-      documentId: "broken",
-      item: { lunch: { id: "missing-date" } },
-    },
-  ]);
+
+test("scoped canonical remote rows win over legacy duplicates without tracking malformed rows", () => {
+  const scopedId = getScopedDocumentId("user-a", "2026-09-20");
+  const selected = selectCanonicalRemoteEntries(
+    "mealPlans",
+    [
+      {
+        documentId: "2026-09-20",
+        item: { date: "2026-09-20", lunch: { id: "legacy" } },
+      },
+      {
+        documentId: scopedId,
+        item: { date: "2026-09-20", lunch: { id: "canonical" } },
+      },
+      {
+        documentId: "broken",
+        item: { lunch: { id: "missing-date" } },
+      },
+    ],
+    (logicalKey) => getScopedDocumentId("user-a", logicalKey),
+  );
 
   assert.deepEqual(selected.entries, [
     {
-      documentId: "2026-09-20",
+      documentId: scopedId,
       item: { date: "2026-09-20", lunch: { id: "canonical" } },
     },
   ]);
   assert.deepEqual(selected.trackedDocumentIds, [
-    "undefined",
     "2026-09-20",
+    scopedId,
   ]);
 });
