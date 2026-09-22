@@ -3,6 +3,7 @@ import path from "path";
 import fs from "fs";
 import { createServer as createViteServer } from "vite";
 import dotenv from "dotenv";
+import { parse as legacyUrlParse } from "node:url";
 import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileContext.js";
 import { withOpenAIJsonModeInstruction } from "./src/utils/openAIJsonMode.js";
 import { applyAiRecipeEstimateProvenance } from "./src/utils/aiRecipeProvenance.js";
@@ -189,6 +190,13 @@ app.get("/api/health", (_req, res) => {
     aiModel: OPENAI_MODEL,
   });
 });
+
+if (process.env.VERCEL_ENV === "preview") {
+  app.get("/api/__qa/dep0169", (req, res) => {
+    const parsed = legacyUrlParse(req.url || "/api/__qa/dep0169");
+    res.json({ diagnostic: "legacy-url-parse-called", pathname: parsed.pathname ?? null });
+  });
+}
 
 function resolveRecipeImageUrl(recipe: any): string {
   if (recipe && recipe.imageUrl && typeof recipe.imageUrl === "string" && recipe.imageUrl.trim().length > 0) {
