@@ -38,6 +38,9 @@ jobs:
       - name: Tests
         run: npm test
 
+      - name: Check hosted QA script syntax without running it
+        run: node --check qa/runtime/hosted-email-auth-production.mjs
+
       - name: Build
         run: npm run build
 
