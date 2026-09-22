@@ -38,6 +38,9 @@ jobs:
       - name: Tests
         run: npm test
 
+      - name: Check hosted QA script syntax without running it
+        run: node --check qa/runtime/hosted-email-auth-production.mjs
+
       - name: Build
         run: npm run build
 
@@ -77,6 +80,9 @@ jobs:
         run: |
           npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.55.0
           npx playwright install --with-deps chromium
+
+      # Hosted Auth/Firestore E2E requires an explicitly approved target and
+      # enabled owner-scoped rules. Never run account-creating QA on every PR.
 
       - name: Build preview-only QA harness
         env:
