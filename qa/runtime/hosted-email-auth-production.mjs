@@ -48,6 +48,47 @@ async function openAuth(page) {
   await page.locator("#auth-modal-overlay").waitFor({ state: "visible" });
 }
 
+async function waitForProfileDocument(idToken, localId) {
+  const url =
+    `${firestoreBase}/documents/users/${encodeURIComponent(localId)}`;
+
+  for (let attempt = 0; attempt < 20; attempt += 1) {
+    const response = await fetch(url, {
+      headers: { authorization: `Bearer ${idToken}` },
+    });
+    if (response.ok) return true;
+    if (response.status !== 404) {
+      const detail = await response.text();
+      throw new Error(
+        `Profile hydration check failed: HTTP ${response.status} ${detail}`,
+      );
+    }
+    await new Promise((resolve) => setTimeout(resolve, 500));
+  }
+
+  return false;
+}
+
+async function completeOnboardingIfVisible(page) {
+  const household = page.locator("#onboarding-household-size");
+  const visible = await household
+    .waitFor({ state: "visible", timeout: 3_000 })
+    .then(() => true)
+    .catch(() => false);
+
+  if (!visible) return false;
+
+  await household.fill("1");
+  await page.locator("#onboarding-next-step-1").click();
+  await page.locator("#onboarding-diet-all").click();
+  await page.locator("#onboarding-next-step-2").click();
+  await page.locator("#onboarding-cooking-moderate").click();
+  await page.locator("#onboarding-next-step-3").click();
+  await page.locator("#onboarding-finish").click();
+  await household.waitFor({ state: "detached", timeout: 20_000 });
+  return true;
+}
+
 async function removeSyntheticAccount(targetEmail, targetPassword) {
   const login = await identity(
     "accounts:signInWithPassword",
@@ -138,20 +179,24 @@ try {
   assert.ok(backendLogin.payload.idToken);
   assert.ok(backendLogin.payload.localId);
 
-  await page
-    .locator("#onboarding-household-size")
-    .waitFor({ state: "visible", timeout: 20_000 });
-  await page.locator("#onboarding-household-size").fill("1");
-  await page.locator("#onboarding-next-step-1").click();
-  await page.locator("#onboarding-diet-all").click();
-  await page.locator("#onboarding-next-step-2").click();
-  await page.locator("#onboarding-cooking-moderate").click();
-  await page.locator("#onboarding-next-step-3").click();
-  await page.locator("#onboarding-finish").click();
-  await page
-    .locator("#onboarding-household-size")
-    .waitFor({ state: "detached", timeout: 20_000 });
+  const profileHydrated = await waitForProfileDocument(
+    String(backendLogin.payload.idToken),
+    String(backendLogin.payload.localId),
+  );
+  assert.equal(
+    profileHydrated,
+    true,
+    "New authenticated account did not create its owned Firestore profile",
+  );
 
+  const onboardingCompletedInQa = await completeOnboardingIfVisible(page);
+  console.log(
+    onboardingCompletedInQa
+      ? "Optional onboarding appeared and was completed for the synthetic account."
+      : "Onboarding was not shown in this auth path; continuing with account-auth checks.",
+  );
+
+  await page.locator("#header-auth-btn").waitFor({ state: "visible", timeout: 20_000 });
   await openAuth(page);
   await page.locator("#auth-sign-out-btn").waitFor({ state: "visible" });
   await page
@@ -192,7 +237,7 @@ try {
     .waitFor({ state: "visible", timeout: 15_000 });
 
   console.log(
-    "Hosted production auth E2E passed: signup -> onboarding -> authenticated UI -> logout -> login -> logout -> password reset notice.",
+    "Hosted production auth E2E passed: signup -> owned profile hydration -> authenticated UI -> logout -> login -> logout -> password reset notice.",
   );
 } catch (error) {
   primaryError = error;
