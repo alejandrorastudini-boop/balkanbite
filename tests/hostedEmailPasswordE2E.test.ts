@@ -6,6 +6,8 @@ const firebaseConfig = JSON.parse(
   readFileSync(new URL("../firebase-applet-config.json", import.meta.url), "utf8"),
 ) as { apiKey: string };
 
+// Hosted account mutations are manual-only; the default PR test suite stays local.
+const hostedTest = process.env.QA_ALLOW_HOSTED_AUTH === "true" ? test : test.skip;
 const apiBase = "https://identitytoolkit.googleapis.com/v1";
 const runId = process.env.GITHUB_RUN_ID ?? "local";
 const runAttempt = process.env.GITHUB_RUN_ATTEMPT ?? "1";
@@ -39,7 +41,7 @@ const post = async (
   return payload;
 };
 
-test("cleanup synthetic browser-auth account if present", async () => {
+hostedTest("cleanup synthetic browser-auth account if present", async () => {
   const browserEmail = "balkanbite.browser.e2e.20260922@example.com";
   const browserPassword = ["BbBrowser", "E2E-2026!"].join("");
 
@@ -77,7 +79,7 @@ test("cleanup synthetic browser-auth account if present", async () => {
   );
 });
 
-test("hosted Firebase email/password signup, login, reset request, and cleanup", async () => {
+hostedTest("hosted Firebase email/password signup, login, reset request, and cleanup", async () => {
   let cleanupToken = "";
 
   try {
