@@ -78,6 +78,7 @@ console.log("Named Firestore release:", RELEASE_NAME);
 console.log("Hosted ruleset:", originalRulesetName);
 console.log("Hosted SHA-256:", currentHash);
 console.log("Repository rules SHA-256:", desiredHash);
+console.log("Git release-request SHA-256:", sha256(source));
 console.log("Backup captured before any mutation.");
 if (mode === "inspect") {
   console.log("INSPECT COMPLETE: no rules were modified.");
