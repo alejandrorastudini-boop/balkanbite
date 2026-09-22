@@ -39,6 +39,44 @@ const post = async (
   return payload;
 };
 
+test("cleanup synthetic browser-auth account if present", async () => {
+  const browserEmail = "balkanbite.browser.e2e.20260922@example.com";
+  const browserPassword = ["BbBrowser", "E2E-2026!"].join("");
+
+  const response = await fetch(
+    `${apiBase}/accounts:signInWithPassword?key=${encodeURIComponent(firebaseConfig.apiKey)}`,
+    {
+      method: "POST",
+      headers: { "content-type": "application/json" },
+      body: JSON.stringify({
+        email: browserEmail,
+        password: browserPassword,
+        returnSecureToken: true,
+      }),
+    },
+  );
+  const payload = (await response.json()) as {
+    idToken?: string;
+    error?: { message?: string };
+  };
+
+  if (!response.ok) {
+    assert.ok(
+      payload.error?.message === "INVALID_LOGIN_CREDENTIALS" ||
+        payload.error?.message === "EMAIL_NOT_FOUND",
+      `unexpected cleanup login failure: ${payload.error?.message ?? response.status}`,
+    );
+    return;
+  }
+
+  assert.equal(typeof payload.idToken, "string");
+  await post(
+    "accounts:delete",
+    { idToken: payload.idToken },
+    "browser-auth cleanup failed",
+  );
+});
+
 test("hosted Firebase email/password signup, login, reset request, and cleanup", async () => {
   let cleanupToken = "";
 
