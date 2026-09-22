@@ -194,7 +194,7 @@ app.get("/api/health", (_req, res) => {
 if (process.env.VERCEL_ENV === "preview") {
   app.get("/api/__qa/dep0169", (req, res) => {
     const parsed = legacyUrlParse(req.url || "/api/__qa/dep0169");
-    res.json({ diagnostic: "legacy-url-parse-called", pathname: parsed.pathname ?? null });
+    res.json({ diagnostic: "legacy-url-parse-called", pathname: parsed.pathname ?? null, node: process.version, execArgv: process.execArgv });
   });
 }
 
