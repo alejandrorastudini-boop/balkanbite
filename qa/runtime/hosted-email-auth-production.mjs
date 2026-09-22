@@ -227,6 +227,16 @@ async function verifyHostedCollectionIsolation(ownerToken, ownerUid, secondToken
     const reverseCrossRead = await fetch(secondUrl, { headers: headers(ownerToken) });
     assert.equal(reverseCrossRead.status, 403,
       "Reverse cross-user read not denied for " + collectionName);
+    // An attacker must not be able to reserve an unoccupied document ID
+    // in a different user's namespace while claiming their own userId.
+    const squatUrl = base + encodeURIComponent(scopedId(ownerUid, logicalId + "-squat"));
+    const squatAttempt = await fetch(squatUrl, {
+      method: "PATCH",
+      headers: headers(secondToken),
+      body: JSON.stringify({ fields: fields(secondUid) }),
+    });
+    assert.equal(squatAttempt.status, 403,
+      "Cross-user namespace squatting not denied for " + collectionName);
   }
   console.log("Hosted owner isolation passed for all four synced collections.");
 }
