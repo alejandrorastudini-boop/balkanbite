@@ -105,61 +105,110 @@ async function completeOnboardingIfVisible(page) {
   return true;
 }
 
+// Delete only documents owned by the synthetic user authenticated below.
+// A rules failure is reported, but must never prevent deleting the Auth user.
+async function deleteOwnedQaDocuments(idToken, uid) {
+  const headers = { authorization: `Bearer ${idToken}` };
+  const collections = ["inventory", "recipes", "mealPlans", "shoppingList"];
+  const listOwned = async (collection) => {
+    const response = await fetch(`${firestoreBase}/documents:runQuery`, {
+      method: "POST",
+      headers: { ...headers, "content-type": "application/json" },
+      body: JSON.stringify({
+        structuredQuery: {
+          from: [{ collectionId: collection }],
+          where: {
+            fieldFilter: {
+              field: { fieldPath: "userId" },
+              op: "EQUAL",
+              value: { stringValue: uid },
+            },
+          },
+        },
+      }),
+    });
+    if (!response.ok) {
+      throw new Error(`Cannot list synthetic ${collection} documents: HTTP ${response.status} ${await response.text()}`);
+    }
+    const results = await response.json();
+    assert.ok(Array.isArray(results), "Unexpected Firestore runQuery response");
+    const prefix = `${documentRoot}/${collection}/`;
+    return results.flatMap((result) => {
+      const name = result?.document?.name;
+      if (!name) return [];
+      assert.ok(name.startsWith(prefix), "Refusing unscoped QA document");
+      assert.ok(!name.slice(prefix.length).includes("/"), "Refusing nested QA document");
+      return [name];
+    });
+  };
+  for (const collection of collections) {
+    const docs = await listOwned(collection);
+    for (const name of docs) {
+      const deletion = await fetch(`https://firestore.googleapis.com/v1/${name}`, {
+        method: "DELETE",
+        headers,
+      });
+      if (!deletion.ok && deletion.status !== 404) {
+        throw new Error(`Synthetic document deletion failed: HTTP ${deletion.status} ${await deletion.text()}`);
+      }
+    }
+    assert.equal((await listOwned(collection)).length, 0,
+      `Synthetic ${collection} documents remain after cleanup`);
+  }
+  const profileUrl = `${firestoreBase}/documents/users/${encodeURIComponent(uid)}`;
+  const profile = await fetch(profileUrl, { headers });
+  if (profile.status !== 404) {
+    if (!profile.ok) {
+      throw new Error(`Synthetic profile lookup failed: HTTP ${profile.status} ${await profile.text()}`);
+    }
+    const deleted = await fetch(profileUrl, { method: "DELETE", headers });
+    if (!deleted.ok && deleted.status !== 404) {
+      throw new Error(`Synthetic profile deletion failed: HTTP ${deleted.status} ${await deleted.text()}`);
+    }
+  }
+  const verify = await fetch(profileUrl, { headers });
+  assert.equal(verify.status, 404, "Synthetic profile remains or cannot verify cleanup");
+}
+
 async function removeSyntheticAccount(targetEmail, targetPassword) {
+  assert.equal(targetEmail, email, "Refusing to clean a different account");
+  assert.equal(targetPassword, password, "Refusing to use unrelated credentials");
   const login = await identity(
     "accounts:signInWithPassword",
     { email: targetEmail, password: targetPassword, returnSecureToken: true },
     { allowFailure: true },
   );
   if (!login.response.ok) return false;
-
   const token = String(login.payload.idToken || "");
   const localId = String(login.payload.localId || "");
   assert.ok(token);
   assert.ok(localId);
-
-  const profileDelete = await fetch(
-    `${firestoreBase}/documents/users/${encodeURIComponent(localId)}`,
-    {
-      method: "DELETE",
-      headers: { authorization: `Bearer ${token}` },
-    },
-  );
-  if (!profileDelete.ok && profileDelete.status !== 404) {
-    const detail = await profileDelete.text();
-    throw new Error(
-      `Synthetic profile cleanup failed: HTTP ${profileDelete.status} ${detail}`,
-    );
+  const errors = [];
+  try {
+    await deleteOwnedQaDocuments(token, localId);
+  } catch (error) {
+    errors.push(error);
   }
-
-  await identity("accounts:delete", { idToken: token });
-
-  const verifyLogin = await identity(
-    "accounts:signInWithPassword",
-    { email: targetEmail, password: targetPassword, returnSecureToken: true },
-    { allowFailure: true },
-  );
-  assert.equal(
-    verifyLogin.response.ok,
-    false,
-    `Synthetic Firebase Auth user still exists: ${targetEmail}`,
-  );
+  try {
+    await identity("accounts:delete", { idToken: token });
+    const verifyLogin = await identity(
+      "accounts:signInWithPassword",
+      { email: targetEmail, password: targetPassword, returnSecureToken: true },
+      { allowFailure: true },
+    );
+    assert.equal(verifyLogin.response.ok, false,
+      `Synthetic Firebase Auth user still exists: ${targetEmail}`);
+  } catch (error) {
+    errors.push(error);
+  }
+  if (errors.length) {
+    throw new AggregateError(errors,
+      "Synthetic cleanup incomplete: check owned documents and Auth account");
+  }
   return true;
 }
 
-async function cleanupStaleCiAccounts() {
-  for (const staleRunId of ["35715738785", "35716484997"]) {
-    const staleEmail = `balkanbite-ci-${staleRunId}-1@example.com`;
-    const stalePassword = `Bb-${staleRunId}-1-A1!`;
-    const removed = await removeSyntheticAccount(staleEmail, stalePassword);
-    if (removed) {
-      console.log(`Removed stale synthetic QA account from run ${staleRunId}.`);
-    }
-  }
-}
-
 try {
-  await cleanupStaleCiAccounts();
 
   browser = await chromium.launch({ headless: true });
   const context = await browser.newContext({
