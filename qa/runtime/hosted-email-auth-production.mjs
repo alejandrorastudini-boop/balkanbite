@@ -150,6 +150,14 @@ try {
     viewport: { width: 1280, height: 900 },
   });
   const page = await context.newPage();
+  page.on("console", (message) => {
+    if (["warning", "error"].includes(message.type())) {
+      console.log(`[browser:${message.type()}] ${message.text()}`);
+    }
+  });
+  page.on("pageerror", (error) => {
+    console.log(`[browser:pageerror] ${error.stack || error.message}`);
+  });
 
   await page.goto(productionUrl, {
     waitUntil: "domcontentloaded",
@@ -183,6 +191,12 @@ try {
     String(backendLogin.payload.idToken),
     String(backendLogin.payload.localId),
   );
+  if (!profileHydrated) {
+    console.log(
+      "DIAGNOSTIC: Firebase Auth succeeded but users/{uid} was not created by the live client within 10 seconds.",
+    );
+    await page.waitForTimeout(2_000);
+  }
   assert.equal(
     profileHydrated,
     true,
