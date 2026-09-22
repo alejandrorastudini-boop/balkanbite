@@ -78,10 +78,8 @@ jobs:
           npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.55.0
           npx playwright install --with-deps chromium
 
-      - name: Run hosted production email auth E2E
-        env:
-          QA_PRODUCTION_URL: https://balkanbite.vercel.app
-        run: node qa/runtime/hosted-email-auth-production.mjs
+      # Hosted Auth/Firestore E2E requires an explicitly approved target and
+      # enabled owner-scoped rules. Never run account-creating QA on every PR.
 
       - name: Build preview-only QA harness
         env:
