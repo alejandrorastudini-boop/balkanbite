@@ -38,3 +38,15 @@ test("client creates the named Firestore instance with its in-memory cache", () 
   assert.doesNotMatch(firebaseSource, /getFirestore\(app\)/);
   assert.doesNotMatch(firebaseSource, /export const db = initializeFirestore\(app,\s*\{[^}]+\}\);/s);
 });
+
+test("Firebase SDK resolves the configured named instance rather than the default one", async () => {
+  // Singleton lookups are local: no network calls or hosted rule changes.
+  const [{ auth, db, FIRESTORE_DATABASE_ID }, { getFirestore }] =
+    await Promise.all([
+      import("../src/lib/firebase.ts"),
+      import("firebase/firestore"),
+    ]);
+  assert.equal(FIRESTORE_DATABASE_ID, EXPECTED_DATABASE_ID);
+  assert.strictEqual(getFirestore(auth.app, EXPECTED_DATABASE_ID), db);
+  assert.notStrictEqual(getFirestore(auth.app), db);
+});
