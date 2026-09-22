@@ -13,30 +13,36 @@ service cloud.firestore {
       return request.auth != null && request.resource.data.userId == request.auth.uid;
     }
 
+    // Prevent an authenticated account from reserving another user's document ID.
+    function ownsDocumentNamespace(documentId) {
+      return request.auth != null &&
+        documentId.matches('^u_' + request.auth.uid + '__.+$');
+    }
+
     match /users/{userId} {
       allow read, write: if isOwner(userId);
     }
 
     match /inventory/{itemId} {
-      allow create: if ownsIncomingDocument();
+      allow create: if ownsIncomingDocument() && ownsDocumentNamespace(itemId);
       allow read, delete: if ownsExistingDocument();
       allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
 
     match /recipes/{recipeId} {
-      allow create: if ownsIncomingDocument();
+      allow create: if ownsIncomingDocument() && ownsDocumentNamespace(recipeId);
       allow read, delete: if ownsExistingDocument();
       allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
 
     match /mealPlans/{planId} {
-      allow create: if ownsIncomingDocument();
+      allow create: if ownsIncomingDocument() && ownsDocumentNamespace(planId);
       allow read, delete: if ownsExistingDocument();
       allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
 
     match /shoppingList/{itemId} {
-      allow create: if ownsIncomingDocument();
+      allow create: if ownsIncomingDocument() && ownsDocumentNamespace(itemId);
       allow read, delete: if ownsExistingDocument();
       allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
