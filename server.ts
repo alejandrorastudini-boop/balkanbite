@@ -18,6 +18,7 @@ import {
 
 dotenv.config();
 
+// Preview-only runtime diagnostic for GitHub issue #166; never merge to main.
 if (process.env.VERCEL_ENV === "preview") {
   process.on("warning", (warning) => {
     if ((warning as NodeJS.ErrnoException).code === "DEP0169") {
