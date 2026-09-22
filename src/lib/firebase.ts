@@ -6,7 +6,8 @@ import {
   signOut,
   signInWithEmailAndPassword,
   createUserWithEmailAndPassword,
-  updateProfile
+  updateProfile,
+  sendPasswordResetEmail
 } from "firebase/auth";
 import {
   initializeFirestore,
@@ -52,6 +53,10 @@ export const signUpWithEmail = async (email: string, pass: string, name: string)
 export const loginWithEmail = async (email: string, pass: string) => {
   const userCredential = await signInWithEmailAndPassword(auth, email, pass);
   return userCredential.user;
+};
+
+export const resetPassword = async (email: string) => {
+  await sendPasswordResetEmail(auth, email);
 };
 
 export const logout = () => signOut(auth);
