@@ -1,0 +1,46 @@
+name: One-time synthetic hosted Firebase E2E
+
+on:
+  push:
+    branches:
+      - qa/hosted-email-auth-e2e
+    paths:
+      - "qa/runtime/hosted-run-request.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: balkanbite-one-time-hosted-qa
+  cancel-in-progress: false
+
+jobs:
+  hosted-owner-isolation:
+    if: github.ref == 'refs/heads/qa/hosted-email-auth-e2e'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout QA-only harness
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configure Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Verify one-time opt-in, deployed commit and exact named database
+        run: node qa/runtime/validate-hosted-run-request.mjs
+
+      - name: Install isolated Playwright runtime
+        run: |
+          npm install --no-audit --no-fund
+          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.55.0
+          npx playwright install --with-deps chromium
+
+      - name: Run hosted synthetic A/B QA and verify cleanup
+        env:
+          QA_ALLOW_HOSTED_WRITES: "true"
+          QA_HOSTED_TARGET_URL: "https://balkanbite.vercel.app"
+          QA_ALLOW_PRODUCTION_TARGET: "true"
+        run: node qa/runtime/hosted-email-auth-production.mjs
