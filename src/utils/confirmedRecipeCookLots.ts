@@ -89,8 +89,7 @@ export function confirmRecipeCookWithLots(
   if (input.ingredients.some(ingredient =>
     !ingredient || typeof ingredient.name !== "string" || !ingredient.name.trim() ||
     typeof ingredient.unit !== "string" || !ingredient.unit.trim() ||
-    typeof ingredient.amount !== "number" || !Number.isFinite(ingredient.amount) ||
-    false
+    typeof ingredient.amount !== "number" || !Number.isFinite(ingredient.amount)
   )) return review(state, "confirmation", "invalid-ingredient");
   const requestSignature = JSON.stringify({
     version: 1,
