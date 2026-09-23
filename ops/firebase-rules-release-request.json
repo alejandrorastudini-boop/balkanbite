@@ -1,5 +1,8 @@
 {
-  "mode": "inspect",
+  "mode": "publish",
   "projectId": "gen-lang-client-0319723351",
-  "databaseId": "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6"
+  "databaseId": "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6",
+  "rulesSha256": "29f342b32c4fd2c2e19de93e4a4f63f385110ca3545f8296458429a260aac929",
+  "expectedHostedRulesetName": "projects/gen-lang-client-0319723351/rulesets/6f1e65c6-4a18-44b9-b521-803b81b71b36",
+  "expectedHostedRulesSha256": "31ac3a80c037da8a9bafede6bd8ad5db34e408eefee747fdb68c0a0553f2ffb9"
 }

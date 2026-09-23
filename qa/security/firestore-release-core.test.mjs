@@ -3,7 +3,7 @@ import { test } from "node:test";
 import {
   PROJECT_ID, DATABASE_ID, RELEASE_NAME, sha256,
   verifyFirebaseTarget, requireReleaseName, getSingleSource,
-  isKnownDenyAll, verifyReleaseRequest,
+  isKnownDenyAll, verifyReleaseRequest, verifyHostedBaseline,
 } from "./firestore-release-core.mjs";
 
 const rules = "rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /{document=**} { allow read, write: if false; }\n  }\n}\n";
@@ -54,8 +54,24 @@ test("publication requires a request tied to the exact checked-in source", () =>
     projectId: PROJECT_ID,
     databaseId: DATABASE_ID,
     rulesSha256: sha256("sample rules\n"),
+    expectedHostedRulesSha256: sha256(rules.trim()),
+    expectedHostedRulesetName: "projects/" + PROJECT_ID + "/rulesets/inspected-original",
   };
   verifyReleaseRequest(manifest, "sample rules\n");
+  verifyHostedBaseline(
+    manifest, manifest.expectedHostedRulesetName, manifest.expectedHostedRulesSha256,
+  );
+  assert.throws(() => verifyHostedBaseline(
+    manifest, "projects/" + PROJECT_ID + "/rulesets/unexpected",
+    manifest.expectedHostedRulesSha256,
+  ));
+  assert.throws(() => verifyHostedBaseline(
+    manifest, manifest.expectedHostedRulesetName, sha256("unexpected hosted rules"),
+  ));
+  assert.throws(() => verifyReleaseRequest({
+    ...manifest, expectedHostedRulesSha256: "",
+  }, "sample rules\n"));
+
   assert.throws(() => verifyReleaseRequest(manifest, "changed"));
   assert.throws(() => verifyReleaseRequest({
     ...manifest, databaseId: "other",

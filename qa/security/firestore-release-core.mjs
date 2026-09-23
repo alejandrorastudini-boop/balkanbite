@@ -61,4 +61,16 @@ export function verifyReleaseRequest(manifest, localSource) {
     "Expected full SHA-256 of firestore.rules");
   assert.equal(manifest.rulesSha256, sha256(localSource),
     "Rules source has changed since the release was requested");
+  assert.match(String(manifest.expectedHostedRulesSha256 || ""), /^[a-f0-9]{64}$/,
+    "Expected inspected hosted rules SHA-256");
+  assert.match(String(manifest.expectedHostedRulesetName || ""),
+    new RegExp("^projects/" + PROJECT_ID + "/rulesets/[^/]+$"),
+    "Expected inspected hosted ruleset name");
+}
+
+export function verifyHostedBaseline(manifest, actualRulesetName, actualRulesSha256) {
+  assert.equal(actualRulesetName, manifest.expectedHostedRulesetName,
+    "Hosted ruleset changed after the reviewed inspection");
+  assert.equal(actualRulesSha256, manifest.expectedHostedRulesSha256,
+    "Hosted rules source changed after the reviewed inspection");
 }
