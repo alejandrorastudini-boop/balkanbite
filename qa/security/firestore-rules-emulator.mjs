@@ -92,6 +92,13 @@ try {
     deductions: [{ pantryItemId: "rice", quantity: 100, unit: "g" }],
     createdAt: serverTimestamp(),
   };
+  const absentOwnerJournal = doc(alice, "cookConfirmations", "u_alice__not-created");
+  const missing = await assertSucceeds(getDoc(absentOwnerJournal));
+  assert.equal(missing.exists(), false);
+  await assertFails(getDoc(doc(bob, "cookConfirmations", "u_alice__not-created")));
+  await assertFails(getDoc(doc(stranger, "cookConfirmations", "u_alice__not-created")));
+  await assertFails(getDoc(doc(alice, "cookConfirmations", "u_bob__not-created")));
+
   await assertSucceeds(setDoc(aliceCook, validCook));
   await assertSucceeds(getDoc(aliceCook));
   await assertFails(getDoc(doc(bob, "cookConfirmations", "u_alice__cook-qa-1")));
