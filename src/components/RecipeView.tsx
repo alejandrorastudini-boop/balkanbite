@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Sparkles,
   Clock,
@@ -54,6 +54,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const [cookFeedback, setCookFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [pendingCookRecipe, setPendingCookRecipe] = useState<Recipe | null>(null);
+  const cookConfirmationConsumed = useRef(false);
 
   const filters = [
     { id: "all", label: language === "es" ? "Todos" : language === "bg" ? "Всички" : "All" },
@@ -123,12 +124,15 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   };
 
   const requestCookConfirmation = (recipe: Recipe) => {
+    if (pendingCookRecipe) return;
+    cookConfirmationConsumed.current = false;
     setCookFeedback(null);
     setPendingCookRecipe(recipe);
   };
 
   const confirmPendingCook = () => {
-    if (!pendingCookRecipe) return;
+    if (!pendingCookRecipe || cookConfirmationConsumed.current) return;
+    cookConfirmationConsumed.current = true;
     const outcome = handleCook(pendingCookRecipe);
     if (outcome.success) setSelectedRecipe(null);
     setPendingCookRecipe(null);
