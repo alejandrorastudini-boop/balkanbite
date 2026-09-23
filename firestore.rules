@@ -29,6 +29,35 @@ service cloud.firestore {
       allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
 
+    // Candidate immutable, owner-scoped journal. This path does not itself
+    // prove that inventory was deducted: the eventual writer must transact
+    // the journal creation and stock updates against current remote state.
+    match /cookConfirmations/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'cookConfirmationId', 'mealId', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'cookConfirmationId', 'mealId', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.cookConfirmationId is string &&
+        request.resource.data.cookConfirmationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.cookConfirmationId &&
+        request.resource.data.mealId is string &&
+        request.resource.data.mealId.size() > 0 &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.deductions is list &&
+        request.resource.data.deductions.size() > 0 &&
+        request.resource.data.createdAt is timestamp;
+      allow read: if ownsExistingDocument();
+      allow update, delete: if false;
+    }
+
     match /recipes/{recipeId} {
       allow create: if ownsIncomingDocument() && ownsDocumentNamespace(recipeId);
       allow read, delete: if ownsExistingDocument();
