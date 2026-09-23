@@ -54,7 +54,11 @@ service cloud.firestore {
         request.resource.data.deductions is list &&
         request.resource.data.deductions.size() > 0 &&
         request.resource.data.createdAt is timestamp;
-      allow read: if ownsExistingDocument();
+      // A first cook must be able to check that its own journal ID is absent.
+      // Never reveal another account's existing or missing journal entries.
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
       allow update, delete: if false;
     }
 
