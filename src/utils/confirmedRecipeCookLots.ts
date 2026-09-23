@@ -14,9 +14,11 @@ import {
  * Callers must supply a stable confirmation ID and persist the returned
  * pantry + consumption records together under their actual authority boundary.
  */
+export type RecordedRecipeCook = ConsumptionRecord & { requestSignature?: string };
+
 export interface ConfirmedRecipeCookState {
   pantry: PantryItem[];
-  consumptionRecords: ConsumptionRecord[];
+  consumptionRecords: RecordedRecipeCook[];
 }
 
 export interface ConfirmRecipeCookInput {
@@ -81,9 +83,26 @@ export function confirmRecipeCookWithLots(
     return review(state, "confirmation", "invalid-or-unconfirmed");
   }
 
-  const prior = state.consumptionRecords.find(record => record.cookConfirmationId === id);
+  // Keep the exact confirmed recipe request alongside its stock allocations.
+  // A prior ID without that signature cannot be replayed safely by this bridge.
+  // Signature is canonical JSON, not a cryptographic authorization token.
+  if (input.ingredients.some(ingredient =>
+    !ingredient || typeof ingredient.name !== "string" || !ingredient.name.trim() ||
+    typeof ingredient.unit !== "string" || !ingredient.unit.trim() ||
+    typeof ingredient.amount !== "number" || !Number.isFinite(ingredient.amount) ||
+    ingredient.amount <= 0
+  )) return review(state, "confirmation", "invalid-ingredient");
+  const requestSignature = JSON.stringify({
+    version: 1,
+    mealId,
+    ingredients: input.ingredients.map(({ name, amount, unit }) => ({ name, amount, unit })),
+  });
+
+  const previous = state.consumptionRecords.filter(record => record.cookConfirmationId === id);
+  if (previous.length > 1) return review(state, "confirmation", "ambiguous-confirmation-id");
+  const prior = previous[0];
   if (prior) {
-    if (prior.mealId !== mealId) {
+    if (prior.mealId !== mealId || prior.requestSignature !== requestSignature) {
       return review(state, "confirmation", "confirmation-id-conflict");
     }
     return {
@@ -158,13 +177,14 @@ export function confirmRecipeCookWithLots(
     return review(state, "confirmation", "allocation-mismatch");
   }
 
+  const signedRecord: RecordedRecipeCook = { ...verified.record, requestSignature };
   return {
     outcome: "recorded",
     state: {
       pantry: preview.pantry,
-      consumptionRecords: verified.state.consumptionRecords,
+      consumptionRecords: [...cloneState(state).consumptionRecords, signedRecord],
     },
-    record: verified.record,
+    record: signedRecord,
     allocations: preview.deductions,
   };
 }
