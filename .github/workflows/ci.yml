@@ -61,6 +61,38 @@ jobs:
           OPENAI_API_KEY: ""
         run: node qa/runtime/serverless-health-smoke.mjs dist/serverless-api.cjs
 
+  dep0169-diagnostic:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 8
+    steps:
+      - name: Checkout
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configure Node 24
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "24"
+          package-manager-cache: false
+
+      - name: Install dependencies
+        run: npm install --no-audit --no-fund
+
+      - name: Bundle serverless entrypoint with Express included
+        run: >
+          npx esbuild api/index.ts
+          --bundle
+          --platform=node
+          --format=cjs
+          --external:vite
+          --sourcemap
+          --outfile=dist/dep0169-api.cjs
+
+      - name: Trace cold-start health request
+        env:
+          OPENAI_API_KEY: ""
+          NODE_OPTIONS: "--trace-deprecation"
+        run: node qa/runtime/serverless-health-smoke.mjs dist/dep0169-api.cjs
+
   runtime-harness:
     needs: validate
     runs-on: ubuntu-24.04

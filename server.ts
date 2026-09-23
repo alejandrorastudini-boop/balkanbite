@@ -18,6 +18,14 @@ import {
 
 dotenv.config();
 
+if (process.env.VERCEL_ENV === "preview") {
+  process.on("warning", (warning) => {
+    if ((warning as NodeJS.ErrnoException).code === "DEP0169") {
+      console.warn("BALKANBITE_DEP0169_TRACE\n" + (warning.stack ?? String(warning)));
+    }
+  });
+}
+
 const app = express();
 const PORT = 3000;
 const OPENAI_MODEL = "gpt-5.6-luna" as const;
