@@ -14,6 +14,8 @@ interface HeaderProps {
   onGoToLanding?: () => void;
   currentUser?: User | null;
   onOpenAuthModal?: () => void;
+  onOpenProfile?: () => void;
+  activeTab?: string;
   onOpenShoppingAdvisor?: () => void;
   shoppingUrgencyLevel?: "urgent" | "recommended" | "optimal";
   shoppingBadgeCount?: number;
@@ -29,6 +31,8 @@ export const Header: React.FC<HeaderProps> = ({
   onGoToLanding,
   currentUser,
   onOpenAuthModal,
+  onOpenProfile,
+  activeTab,
   onOpenShoppingAdvisor,
   shoppingUrgencyLevel = "optimal",
   shoppingBadgeCount = 0,
@@ -329,14 +333,25 @@ export const Header: React.FC<HeaderProps> = ({
             </button>
           )}
 
-          {/* Cloud Auth / Account button - compact avatar/icon on mobile, full on desktop */}
-          {onOpenAuthModal && (
+          {/* Profile / Account button - top right */}
+          {(onOpenProfile || onOpenAuthModal) && (
             <button
-              id="header-auth-btn"
+              id="header-profile-btn"
+              data-auth-btn="header-auth-btn"
               type="button"
-              onClick={onOpenAuthModal}
-              className={`w-7 h-7 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border transition-colors cursor-pointer shrink-0 text-xs font-bold flex items-center justify-center sm:gap-2 ${
-                currentUser
+              onClick={() => {
+                if (onOpenProfile) {
+                  onOpenProfile();
+                } else if (onOpenAuthModal) {
+                  onOpenAuthModal();
+                }
+              }}
+              className={`w-7 h-7 sm:w-auto sm:px-2.5 sm:py-1.5 rounded-lg sm:rounded-xl border transition-all cursor-pointer shrink-0 text-xs font-bold flex items-center justify-center sm:gap-2 ${
+                activeTab === "profile"
+                  ? isDark
+                    ? "bg-emerald-500/20 border-emerald-500 text-emerald-300 ring-2 ring-emerald-500/30"
+                    : "bg-emerald-100 border-emerald-500 text-emerald-900 ring-2 ring-emerald-500/20 shadow-xs"
+                  : currentUser
                   ? isDark
                     ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400 hover:bg-emerald-500/20"
                     : "bg-emerald-50 border-emerald-400 text-emerald-900 hover:bg-emerald-100 font-extrabold"
@@ -345,13 +360,18 @@ export const Header: React.FC<HeaderProps> = ({
                   : "bg-slate-100 border-slate-300 text-slate-800 hover:bg-slate-200 font-bold"
               }`}
               title={
-                currentUser
-                  ? currentUser.email || "Cuenta de Google"
-                  : language === "es"
-                  ? "Iniciar sesión con Google"
+                language === "es"
+                  ? "Ver Perfil de Usuario"
                   : language === "bg"
-                  ? "Вход с Google"
-                  : "Sign In with Google"
+                  ? "Виж потребителския профил"
+                  : "View User Profile"
+              }
+              aria-label={
+                language === "es"
+                  ? "Perfil"
+                  : language === "bg"
+                  ? "Профил"
+                  : "Profile"
               }
             >
               {currentUser?.photoURL ? (
@@ -364,8 +384,10 @@ export const Header: React.FC<HeaderProps> = ({
               ) : (
                 <UserIcon className="w-3.5 h-3.5 sm:w-4 sm:h-4 text-emerald-600 shrink-0" />
               )}
-              <span className="hidden sm:inline truncate max-w-[70px]">
-                {currentUser ? (currentUser.displayName?.split(" ")[0] || "Perfil") : "Google"}
+              <span className="hidden sm:inline truncate max-w-[85px]">
+                {currentUser
+                  ? currentUser.displayName?.split(" ")[0] || currentText.navProfile
+                  : currentText.navProfile}
               </span>
             </button>
           )}

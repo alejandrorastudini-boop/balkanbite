@@ -287,18 +287,31 @@ export const PantryView: React.FC<PantryViewProps> = ({
           type="button"
           onClick={() => setShowScanModal(true)}
           disabled={inventoryIsProvisional}
-          className="px-4 py-2.5 bg-stone-800/80 hover:bg-stone-700/80 backdrop-blur-md border border-white/[0.08] text-white text-sm font-bold rounded-xl flex items-center gap-2 transition-all shadow-sm cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
-          title={currentText.scanCameraBtn || "Escanear Nevera / Ticket"}
+          className="px-3 sm:px-4 py-2 sm:py-2.5 bg-stone-800/90 hover:bg-stone-700/90 border border-emerald-500/30 hover:border-emerald-400 text-white rounded-xl flex items-center gap-1.5 sm:gap-2 transition-all shadow-sm hover:shadow-[0_0_15px_rgba(16,185,129,0.15)] cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed group"
+          title={
+            currentText.scanCameraTooltip ||
+            (language === "es"
+              ? "Haz una foto a tu despensa o nevera para registrar ingredientes con la cámara"
+              : "Take a photo of your pantry or fridge to detect ingredients")
+          }
+          aria-label={currentText.scanCameraBtn || "Escanear Despensa"}
         >
-          <Camera className="w-4 h-4 text-stone-300" />
-          <span className="hidden sm:inline">{currentText.scanCameraBtn || "Escanear"}</span>
+          <Camera className="w-4 h-4 text-emerald-400 shrink-0 group-hover:scale-110 transition-transform" />
+          <div className="flex flex-col text-left leading-none">
+            <span className="text-xs sm:text-sm font-bold tracking-tight text-stone-100">
+              {currentText.scanCameraShort || (language === "es" ? "Escanear despensa" : "Scan pantry")}
+            </span>
+            <span className="text-[9px] font-semibold text-emerald-400/90 mt-0.5 hidden xs:inline sm:inline">
+              {currentText.scanCameraBadge || (language === "es" ? "Ticket • Despensa • Nevera" : "Ticket • Pantry • Fridge")}
+            </span>
+          </div>
         </button>
 
         <button
           id="pantry-add-item-btn"
           onClick={() => setShowAddModal(true)}
           disabled={inventoryIsProvisional}
-          className="px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-sm font-bold rounded-xl flex items-center gap-2 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
+          className="px-3 sm:px-4 py-2.5 bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs sm:text-sm font-bold rounded-xl flex items-center gap-1.5 transition-all shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_20px_rgba(16,185,129,0.5)] cursor-pointer shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
         >
           <Plus className="w-4 h-4" />
           <span className="hidden sm:inline">{currentText.addItem}</span>
@@ -316,6 +329,17 @@ export const PantryView: React.FC<PantryViewProps> = ({
             <Trash2 className="w-4 h-4" />
           </button>
         )}
+      </div>
+
+      {/* Helper hint explaining scanner purpose */}
+      <div className="flex items-center gap-1.5 text-[11px] text-stone-400 px-1 -mt-0.5">
+        <Camera className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+        <span>
+          {currentText.pantryScanHint ||
+            (language === "es"
+              ? "Foto a tu despensa o nevera"
+              : "Photo of your pantry or fridge")}
+        </span>
       </div>
 
       {/* Category filter pills */}
@@ -345,12 +369,35 @@ export const PantryView: React.FC<PantryViewProps> = ({
           <p className="text-sm text-stone-400 max-w-xs mx-auto font-medium">
             {currentText.emptyPantry}
           </p>
-          <button
-            onClick={() => setShowAddModal(true)}
-            className="text-sm text-emerald-400 hover:text-emerald-300 font-bold tracking-wide transition-colors"
-          >
-            + {currentText.addItem}
-          </button>
+          <div className="flex flex-wrap items-center justify-center gap-3 pt-2">
+            <button
+              id="pantry-empty-add-btn"
+              type="button"
+              onClick={() => setShowAddModal(true)}
+              disabled={inventoryIsProvisional}
+              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-stone-950 bg-emerald-500 hover:bg-emerald-400 transition-colors flex items-center gap-1.5 cursor-pointer shadow-sm disabled:opacity-40 disabled:cursor-not-allowed"
+            >
+              <Plus className="w-4 h-4" />
+              <span>{currentText.addItem}</span>
+            </button>
+            <button
+              id="pantry-empty-scan-btn"
+              type="button"
+              onClick={() => setShowScanModal(true)}
+              disabled={inventoryIsProvisional}
+              className="px-4 py-2.5 rounded-xl text-xs sm:text-sm font-bold text-emerald-300 hover:text-white bg-emerald-500/10 hover:bg-emerald-500/20 border border-emerald-500/30 transition-colors flex items-center gap-1.5 cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
+              title={currentText.scanCameraTooltip}
+            >
+              <Camera className="w-4 h-4 text-emerald-400" />
+              <span>
+                {language === "es"
+                  ? "Escanear ticket de compra, despensa o nevera"
+                  : language === "bg"
+                  ? "Сканирай касова бележка, килер или хладилник"
+                  : "Scan grocery receipt, pantry, or fridge photo"}
+              </span>
+            </button>
+          </div>
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
