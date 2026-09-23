@@ -1489,6 +1489,7 @@ export default function App() {
         <AuthModal
           isOpen={showAuthModal}
           onClose={() => setShowAuthModal(false)}
+          onSignedOut={() => setShowLanding(true)}
           currentUser={currentUser}
           language={profile.language}
           onGuestAccess={() => setShowAuthModal(false)}

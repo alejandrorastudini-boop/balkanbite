@@ -29,6 +29,7 @@ import { t } from "../utils/translations";
 interface AuthModalProps {
   isOpen: boolean;
   onClose: () => void;
+  onSignedOut?: () => void;
   currentUser: User | null;
   language: Language;
   onGuestAccess?: () => void;
@@ -39,6 +40,7 @@ type AuthMode = "login" | "signup";
 export const AuthModal: React.FC<AuthModalProps> = ({
   isOpen,
   onClose,
+  onSignedOut,
   currentUser,
   language,
   onGuestAccess,
@@ -281,6 +283,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   const handleSignOut = async () => {
     try {
       await logout();
+      onSignedOut?.();
       onClose();
     } catch (err) {
       console.error("Sign out failed:", err);
