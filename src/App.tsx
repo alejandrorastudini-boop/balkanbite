@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useMemo } from "react";
 import { Header } from "./components/Header";
 import { BottomNav, TabType } from "./components/BottomNav";
+import { HomeView } from "./components/HomeView";
 import { PantryView } from "./components/PantryView";
 import { RecipeView } from "./components/RecipeView";
 import { VoiceChefView } from "./components/VoiceChefView";
@@ -160,7 +161,7 @@ export default function App() {
   const [pantryScope, setPantryScope] = useState<string>("guest");
   const [profileScope, setProfileScope] = useState<string>("guest");
   const [workspaceScope, setWorkspaceScope] = useState<string>("guest");
-  const [activeTab, setActiveTab] = useState<TabType>("pantry");
+  const [activeTab, setActiveTab] = useState<TabType>("home");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
   const [voiceSearchQuery, setVoiceSearchQuery] = useState<string>("");
@@ -1267,6 +1268,8 @@ export default function App() {
           onGoToLanding={() => setShowLanding(true)}
           currentUser={currentUser}
           onOpenAuthModal={() => setShowAuthModal(true)}
+          onOpenProfile={() => setActiveTab("profile")}
+          activeTab={activeTab}
           onOpenShoppingAdvisor={handleOpenShoppingAdvisor}
           shoppingUrgencyLevel={
             inventoryIsProvisional ? undefined : shoppingDiagnostic.urgencyLevel
@@ -1289,6 +1292,24 @@ export default function App() {
             onAddMissingToShoppingList={handleAddMultipleShoppingItems}
             onGoToShoppingTab={() => setActiveTab("shopping")}
             theme={theme}
+            />
+          )}
+
+          {activeTab === "home" && (
+            <HomeView
+              pantry={pantry}
+              recipes={recipes}
+              shoppingList={shoppingList}
+              mealPlan={mealPlan}
+              profile={profile}
+              progressionSummary={progressionSummary}
+              onNavigateToTab={setActiveTab}
+              onOpenChefIa={() => setShowChefIaModal(true)}
+              onCookRecipe={handleCookRecipe}
+              onOpenShoppingAdvisor={handleOpenShoppingAdvisor}
+              language={profile.language}
+              currency={profile.currency}
+              theme={theme}
             />
           )}
 

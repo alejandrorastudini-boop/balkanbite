@@ -1,9 +1,9 @@
 import React from "react";
-import { Layers, ChefHat, ShoppingCart, User, Calendar } from "lucide-react";
+import { Home, Layers, ChefHat, ShoppingCart, Calendar } from "lucide-react";
 import { Language } from "../types";
 import { t } from "../utils/translations";
 
-export type TabType = "pantry" | "recipes" | "mealPlan" | "shopping" | "profile" | "voice";
+export type TabType = "home" | "pantry" | "recipes" | "mealPlan" | "shopping" | "profile" | "voice";
 
 interface BottomNavProps {
   activeTab: TabType;
@@ -27,6 +27,11 @@ export const BottomNav: React.FC<BottomNavProps> = ({
 
   const navItems = [
     {
+      id: "home" as TabType,
+      label: currentText.navHome || (language === "es" ? "Inicio" : language === "bg" ? "Начало" : "Home"),
+      icon: Home,
+    },
+    {
       id: "pantry" as TabType,
       label: currentText.navPantry,
       icon: Layers,
@@ -49,11 +54,6 @@ export const BottomNav: React.FC<BottomNavProps> = ({
       id: "recipes" as TabType,
       label: currentText.navRecipes,
       icon: ChefHat,
-    },
-    {
-      id: "profile" as TabType,
-      label: currentText.navProfile,
-      icon: User,
     },
   ];
 
