@@ -80,7 +80,9 @@ retest. A GitHub Actions green build is not proof of hosted functionality.
   "mode": "publish",
   "projectId": "gen-lang-client-0319723351",
   "databaseId": "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6",
-  "rulesSha256": "<sha256 of current firestore.rules bytes>"
+  "rulesSha256": "<sha256 of current firestore.rules bytes>",
+  "expectedHostedRulesetName": "<full inspected projects/.../rulesets/... name>",
+  "expectedHostedRulesSha256": "<sha256 of inspected normalized hosted rules>"
 }
 ```
 
@@ -97,3 +99,23 @@ with `rulesetName` set to the backup's prior ruleset. Verify the live
 release afterwards. Do not delete existing rulesets during rollback;
 a rollback changes policy, not user documents. Any irreversible operations,
 extra spending, or broader IAM grants require a separate decision.
+
+## Verified initial inspection (2026-09-23)
+
+Read-only GitHub Actions inspection run #1 (`35827155241`) succeeded using the
+restricted Google service account. The GitHub backup artifact
+`named-firestore-rules-before-35827155241` contains the original deny-all
+source and the named release's original immutable ruleset reference. The
+project, database ID, live ruleset name and SHA-256 were checked against
+this artifact. The repo source SHA-256 used in the release request is the
+**raw file SHA-256**, not the normalized source SHA-256 printed separately.
+
+The controlled initial publication is submitted through a reviewable PR to
+`ops/firebase-rules-release-request.json`, with both the inspected hosted
+ruleset name and inspected normalized hosted source hash pinned. The workflow
+refuses publication if the live source or ruleset changes before the run.
+The push event on merge to `main` intentionally triggers one controlled
+publication; a green test on the PR itself does not make any live changes.
+
+After publication, inspect the live release and run the synthetic hosted A/B
+QA. Do not classify hosted sync as functional based on the Rules API alone.
