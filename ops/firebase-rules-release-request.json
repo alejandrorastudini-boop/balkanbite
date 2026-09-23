@@ -1,5 +1,6 @@
 {
-  "mode": "inspect",
+  "mode": "publish",
   "projectId": "gen-lang-client-0319723351",
-  "databaseId": "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6"
+  "databaseId": "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6",
+  "rulesSha256": "e1cad13cb208615b2fe8520c7f300bf09cac1637eadce3820a13f128b3a43927"
 }
