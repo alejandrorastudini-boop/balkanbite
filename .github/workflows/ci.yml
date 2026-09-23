@@ -41,6 +41,9 @@ jobs:
       - name: Check hosted QA script syntax without running it
         run: node --check qa/runtime/hosted-email-auth-production.mjs
 
+      - name: Check one-time hosted QA request validator syntax
+        run: node --check qa/runtime/validate-hosted-run-request.mjs
+
       - name: Build
         run: npm run build
 
