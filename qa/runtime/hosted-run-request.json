@@ -1,0 +1,7 @@
+{
+  "mode": "one-time-synthetic-hosted-e2e",
+  "projectId": "gen-lang-client-0319723351",
+  "databaseId": "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6",
+  "targetUrl": "https://balkanbite.vercel.app",
+  "productionCommit": "0b783d45c05759918c6a0bb222992c27f6db9f5d"
+}
