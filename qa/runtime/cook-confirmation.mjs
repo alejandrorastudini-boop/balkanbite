@@ -72,14 +72,14 @@ try {
   // Failure from the recipe drawer must not silently close that drawer.
   await page.locator("#recipe-card-qa-rice-insufficient")
     .getByRole("button", { name: "Recipe & Steps" }).click();
-  await page.getByRole("heading", { name: "QA Rice Insufficient" }).waitFor({ state: "visible" });
+  await page.locator("div.fixed.inset-0").getByRole("heading", { name: "QA Rice Insufficient" }).waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Cook This Meal" }).last().click();
   await confirmTitle.waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Yes, deduct" }).click();
   await page.waitForFunction(() =>
     document.querySelector('[data-testid="qa-cook-attempts"]')?.textContent?.trim() === "3");
   assert.equal(await number("qa-cook-stock"), 150);
-  await page.getByRole("heading", { name: "QA Rice Insufficient" }).waitFor({ state: "visible" });
+  await page.locator("div.fixed.inset-0").getByRole("heading", { name: "QA Rice Insufficient" }).waitFor({ state: "visible" });
   await page.locator('p[role="alert"]').filter({ hasText: "cannot be safely deducted" })
     .waitFor({ state: "visible" });
   evidence.failedDrawerCookKeepsRecipeOpen = true;
