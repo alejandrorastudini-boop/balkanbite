@@ -401,6 +401,11 @@ try {
   await page
     .locator("#auth-modal-overlay")
     .waitFor({ state: "detached", timeout: 10_000 });
+  // Sign-out must return to the account landing; otherwise a guest onboarding
+  // overlay can make the login button unreachable.
+  await page.locator("#landing-login-top-btn").waitFor({
+    state: "visible", timeout: 15_000,
+  });
 
   await openAuth(page);
   await page.locator("#auth-tab-login").click();
@@ -421,6 +426,11 @@ try {
   await page
     .locator("#auth-modal-overlay")
     .waitFor({ state: "detached", timeout: 10_000 });
+  // Sign-out must return to the account landing; otherwise a guest onboarding
+  // overlay can make the login button unreachable.
+  await page.locator("#landing-login-top-btn").waitFor({
+    state: "visible", timeout: 15_000,
+  });
 
   await openAuth(page);
   await page.locator("#auth-tab-login").click();
