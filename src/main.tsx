@@ -7,6 +7,7 @@ import {
   isProfileHealthDataQaRoute,
   isRuntimeQaRoute,
   isStartupCloudSyncQaRoute,
+  isCookConfirmationQaRoute,
 } from './qa/runtimeQaGate';
 import './index.css';
 
@@ -16,6 +17,12 @@ async function bootstrap() {
   if (isStartupCloudSyncQaRoute()) {
     const {StartupCloudSyncQaHarness} = await import('./qa/StartupCloudSyncQaHarness.tsx');
     root.render(<StartupCloudSyncQaHarness />);
+    return;
+  }
+
+  if (isCookConfirmationQaRoute()) {
+    const {CookConfirmationQaHarness} = await import("./qa/CookConfirmationQaHarness.tsx");
+    root.render(<CookConfirmationQaHarness />);
     return;
   }
 
