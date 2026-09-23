@@ -5,7 +5,7 @@ import { GoogleAuth } from "google-auth-library";
 import {
   PROJECT_ID, DATABASE_ID, RELEASE_NAME, sha256,
   verifyFirebaseTarget, requireReleaseName, getSingleSource,
-  isKnownDenyAll, normalizeRules, verifyReleaseRequest,
+  isKnownDenyAll, normalizeRules, verifyReleaseRequest, verifyHostedBaseline,
 } from "./firestore-release-core.mjs";
 
 const apiRoot = "https://firebaserules.googleapis.com/v1/";
@@ -90,6 +90,12 @@ if (normalizeRules(hostedSource) === normalizeRules(source)) {
   process.exit(0);
 }
 
+// Require the exact pre-release snapshot recovered by the read-only inspection.
+verifyHostedBaseline(
+  manifest || JSON.parse(readFileSync(requestFile, "utf8")),
+  originalRulesetName,
+  currentHash,
+);
 assert.ok(isKnownDenyAll(hostedSource),
   "Hosted rules are not the expected deny-all baseline. Refusing to overwrite.");
 
@@ -103,6 +109,11 @@ assert.match(String(created?.name || ""),
 assert.equal(created.attachment_point || created.attachmentPoint, attachmentPoint,
   "Created ruleset has the wrong attachment point");
 console.log("New immutable ruleset created:", created.name);
+
+// Recheck just before publication; avoid knowingly clobbering an intervening release.
+const immediatelyBeforePublish = await api("GET", RELEASE_NAME);
+assert.equal(requireReleaseName(immediatelyBeforePublish), originalRulesetName,
+  "Hosted release changed during the publication preparation");
 
 let changedRelease = false;
 try {
@@ -130,20 +141,30 @@ try {
   console.log("Propagation and authenticated E2E still require separate verification.");
 } catch (error) {
   console.error("Publication verification failed:", error.message);
-  if (changedRelease) {
-    try {
+  // A PATCH may succeed server-side even if the response is lost. Inspect
+  // the live release before deciding whether rollback is safe.
+  try {
+    const current = await api("GET", RELEASE_NAME);
+    const currentRulesetName = requireReleaseName(current);
+    if (currentRulesetName === created.name) {
       const restored = await api("PATCH", RELEASE_NAME, {
         release: { name: RELEASE_NAME, rulesetName: originalRulesetName },
         updateMask: "rulesetName",
       });
       requireReleaseName(restored);
       assert.equal(restored.rulesetName, originalRulesetName);
-      console.error("Original release restored:", originalRulesetName);
-    } catch (rollbackError) {
-      console.error("CRITICAL: automatic rollback failed:", rollbackError.message);
+      const confirmedRollback = await api("GET", RELEASE_NAME);
+      assert.equal(requireReleaseName(confirmedRollback), originalRulesetName,
+        "Rollback returned successfully but live release is not restored");
+      console.error("Original release restored and verified:", originalRulesetName);
+    } else if (currentRulesetName === originalRulesetName) {
+      console.error("Original rules are still live; no rollback needed.");
+    } else {
+      console.error("CRITICAL: an external ruleset is live. Refusing to overwrite it.");
     }
-  } else {
-    console.error("Release update did not complete; inspect the live release before retrying.");
+  } catch (rollbackError) {
+    console.error("CRITICAL: could not inspect or restore live release:",
+      rollbackError.message);
   }
   throw error;
 }
