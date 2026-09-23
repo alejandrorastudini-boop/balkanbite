@@ -110,6 +110,13 @@ jobs:
           QA_ARTIFACT_DIR: artifacts/runtime-qa-local
         run: node qa/runtime/startup-cloud-sync.mjs
 
+      - name: Run real cook confirmation browser acceptance
+        env:
+          QA_PREVIEW_URL: http://127.0.0.1:4173
+          QA_EXPECTED_SHA: ${{ github.sha }}
+          QA_ARTIFACT_DIR: artifacts/runtime-qa-local
+        run: node qa/runtime/cook-confirmation.mjs
+
       - name: Upload local browser evidence
         if: always()
         uses: actions/upload-artifact@ea165f8d65b6e75b540449e92b4886f43607fa02 # v4.6.2
