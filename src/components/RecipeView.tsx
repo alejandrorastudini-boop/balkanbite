@@ -53,6 +53,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [cookFeedback, setCookFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
+  const [pendingCookRecipe, setPendingCookRecipe] = useState<Recipe | null>(null);
 
   const filters = [
     { id: "all", label: language === "es" ? "Todos" : language === "bg" ? "Всички" : "All" },
@@ -110,7 +111,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
       pantry
     );
 
-  const handleCook = (recipe: Recipe) => {
+  const handleCook = (recipe: Recipe): RecipeCookOutcome => {
     const outcome = onCookRecipe(recipe);
     setCookFeedback(
       getRecipeCookFeedback(outcome, language, currentText.recipeCookSuccess)
@@ -118,6 +119,19 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
     setTimeout(() => {
       setCookFeedback(null);
     }, 4000);
+    return outcome;
+  };
+
+  const requestCookConfirmation = (recipe: Recipe) => {
+    setCookFeedback(null);
+    setPendingCookRecipe(recipe);
+  };
+
+  const confirmPendingCook = () => {
+    if (!pendingCookRecipe) return;
+    const outcome = handleCook(pendingCookRecipe);
+    if (outcome.success) setSelectedRecipe(null);
+    setPendingCookRecipe(null);
   };
 
   return (
@@ -393,7 +407,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
               <div className="grid grid-cols-2 gap-2 pt-1 border-t border-stone-700/50">
                 <button
                   id={`cook-btn-${recipe.id}`}
-                  onClick={() => handleCook(recipe)}
+                  onClick={() => requestCookConfirmation(recipe)}
                   className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-md shadow-emerald-950/40"
                 >
                   <ChefHat className="w-3.5 h-3.5" />
@@ -542,6 +556,12 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
               </div>
             </div>
 
+            {cookFeedback?.kind === "error" && (
+              <p role="alert" className="text-sm text-amber-300 border border-amber-500/30 bg-amber-500/10 rounded-xl p-3">
+                {cookFeedback.text}
+              </p>
+            )}
+
             {/* Bottom Actions */}
             <div className="pt-4 mt-2 border-t border-white/[0.04] flex items-center justify-between gap-3">
               <button
@@ -557,8 +577,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  handleCook(selectedRecipe);
-                  setSelectedRecipe(null);
+                  requestCookConfirmation(selectedRecipe);
                 }}
                 className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-sm font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transition-all cursor-pointer"
               >
@@ -586,6 +605,21 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
         confirmText={currentText.clear}
         cancelText={currentText.cancel}
         danger={true}
+      />
+      {/* The cook button stages intent; only explicit confirmation can mutate stock. */}
+      <ConfirmModal
+        isOpen={pendingCookRecipe !== null}
+        onClose={() => setPendingCookRecipe(null)}
+        onConfirm={confirmPendingCook}
+        title={language === "es" ? "¿Ya has cocinado esta receta?" : language === "bg" ? "Сготви ли тази рецепта?" : "Have you cooked this recipe?"}
+        description={language === "es"
+          ? "Confirma solo si ya la has cocinado. Se descontarán las cantidades indicadas de la despensa. Si algún ingrediente no se puede verificar, no se descontará nada."
+          : language === "bg"
+          ? "Потвърди само ако вече си приготвил рецептата. Посочените количества ще бъдат приспаднати от наличностите. Ако някоя съставка не може да бъде проверена, няма да се приспада нищо."
+          : "Confirm only if you have cooked it. The stated amounts will be deducted from your pantry. If any ingredient cannot be verified, nothing will be deducted."}
+        confirmText={language === "es" ? "Sí, descontar" : language === "bg" ? "Да, приспадни" : "Yes, deduct"}
+        cancelText={language === "es" ? "Cancelar" : language === "bg" ? "Отказ" : "Cancel"}
+        danger={false}
       />
     </div>
   );
