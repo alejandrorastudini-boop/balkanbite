@@ -60,20 +60,6 @@ try {
   assert.equal((await stock(alice, "alice", "rice-old")).cookRevision, 1);
   assert.equal((await stock(alice, "alice", "rice-new")).cookRevision, 1);
 
-  // Reproduce the legacy snapshot writer's merge-batch after a committed cook:
-  // it cannot resurrect the original 200 g or delete a versioned lot.
-  const staleBatch = writeBatch(alice);
-  staleBatch.set(inventory(alice, "alice", "rice-new"), {
-    id: "rice-new", userId: "alice", quantity: 0.2, unit: "kg",
-  }, { merge: true });
-  await assertFails(staleBatch.commit());
-  await assertFails(deleteDoc(inventory(alice, "alice", "rice-old")));
-  await assertFails(setDoc(inventory(alice, "alice", "rice-new"), {
-    id: "rice-new", userId: "alice", quantity: 0.2, unit: "kg", cookRevision: 1,
-  }, { merge: true }));
-  assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.15) < 1e-9);
-  assert.equal((await stock(alice, "alice", "rice-old"))._deleted, true);
-
   const replay = await persistConfirmedCookAtomically(alice, {
     userId: "alice", confirmation: cook,
   });
@@ -103,6 +89,20 @@ try {
   assert.equal(nextCook.outcome, "recorded");
   assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.1) < 1e-9);
   assert.equal((await stock(alice, "alice", "rice-new")).cookRevision, 2);
+
+  // Reproduce the legacy snapshot writer's merge-batch after a committed cook:
+  // it cannot resurrect the original 200 g or delete a versioned lot.
+  const staleBatch = writeBatch(alice);
+  staleBatch.set(inventory(alice, "alice", "rice-new"), {
+    id: "rice-new", userId: "alice", quantity: 0.2, unit: "kg",
+  }, { merge: true });
+  await assertFails(staleBatch.commit());
+  await assertFails(deleteDoc(inventory(alice, "alice", "rice-old")));
+  await assertFails(setDoc(inventory(alice, "alice", "rice-new"), {
+    id: "rice-new", userId: "alice", quantity: 0.2, unit: "kg", cookRevision: 1,
+  }, { merge: true }));
+  assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.1) < 1e-9);
+  assert.equal((await stock(alice, "alice", "rice-old"))._deleted, true);
 
   await createStock(alice, "alice", "shortage", 20, "g");
   const shortage = await persistConfirmedCookAtomically(alice, {
