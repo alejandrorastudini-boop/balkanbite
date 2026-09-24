@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { initializeTestEnvironment, assertFails } from "@firebase/rules-unit-testing";
-import { deleteDoc, doc, getDoc, setDoc, writeBatch } from "firebase/firestore";
+import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
+import { deleteDoc, doc, getDoc, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import {
   persistConfirmedCookAtomically,
   cookAllocationSignature,
@@ -41,6 +41,16 @@ async function isRecorded(db, uid, id) {
 }
 
 try {
+  // Isolate plain owner revision 1 -> 2 from cook/journal transactions.
+  const revisionProbe = inventory(alice, "alice", "qa-revision-probe");
+  await assertSucceeds(setDoc(revisionProbe, {
+    id: "qa-revision-probe", userId: "alice", quantity: 20, unit: "g",
+    cookRevision: 1, _deleted: false,
+  }));
+  await assertSucceeds(updateDoc(revisionProbe, { quantity: 15, cookRevision: 2 }));
+  assert.equal((await getDoc(revisionProbe)).data().cookRevision, 2);
+  console.log("PASS: isolated owner inventory revision 1 -> 2");
+
   await createStock(alice, "alice", "rice-old", 100, "g");
   await createStock(alice, "alice", "rice-new", 0.2, "kg");
   const cook = confirmation("qa-cook-1", "qa-meal-1", [
