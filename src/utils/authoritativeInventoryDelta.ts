@@ -89,7 +89,11 @@ export function planAuthoritativeInventoryDelta(
 
   if (!safeId(input.userId) ||
       input.remoteOwnerUserId !== input.userId ||
-      input.remoteSnapshotComplete !== true) {
+      input.remoteSnapshotComplete !== true ||
+      !Array.isArray(input.remote) ||
+      !Array.isArray(input.desired) ||
+      !Array.isArray(input.explicitlyRemovedIds) ||
+      !Array.isArray(input.observedBeforeEdit)) {
     return {
       outcome: "needs-review",
       issues: [{ pantryItemId: "authority", reason: "authority-unavailable" }],
