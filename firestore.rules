@@ -23,10 +23,30 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // Unversioned inventory remains compatible with the current client.
+    // After a cook transaction first versions a lot, stale snapshot/batch
+    // writes may not overwrite it without advancing the observed revision.
+    // Direct deletion of versioned lots is blocked: use a versioned tombstone.
+    function validStockRevisionTransition() {
+      let oldRevision = resource.data.get('cookRevision', 0);
+      let newRevision = request.resource.data.get('cookRevision', 0);
+      return oldRevision is int && oldRevision >= 0 &&
+        newRevision is int &&
+        ((oldRevision == 0 && newRevision == 0) ||
+         newRevision == oldRevision + 1);
+    }
+
     match /inventory/{itemId} {
-      allow create: if ownsIncomingDocument() && ownsDocumentNamespace(itemId);
-      allow read, delete: if ownsExistingDocument();
-      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(itemId) &&
+        request.resource.data.get('cookRevision', 0) is int &&
+        request.resource.data.get('cookRevision', 0) >= 0 &&
+        request.resource.data.get('cookRevision', 0) <= 1;
+      allow read: if ownsExistingDocument();
+      allow delete: if ownsExistingDocument() &&
+        resource.data.get('cookRevision', 0) == 0;
+      allow update: if ownsExistingDocument() && ownsIncomingDocument() &&
+        validStockRevisionTransition();
     }
 
     // Candidate immutable, owner-scoped journal. This path does not itself
