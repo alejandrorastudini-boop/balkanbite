@@ -100,6 +100,8 @@ try {
   assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.1) < 1e-9);
   assert.equal((await stock(alice, "alice", "rice-new")).cookRevision, 2);
 
+  console.log("PASS: second cook advances already-versioned stock");
+
   // Reproduce the legacy snapshot writer's merge-batch after a committed cook:
   // it cannot resurrect the original 200 g or delete a versioned lot.
   const staleBatch = writeBatch(alice);
@@ -113,6 +115,8 @@ try {
   }, { merge: true }));
   assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.1) < 1e-9);
   assert.equal((await stock(alice, "alice", "rice-old"))._deleted, true);
+
+  console.log("PASS: stale batch and direct writes rejected; original quantities preserved");
 
   await createStock(alice, "alice", "shortage", 20, "g");
   const shortage = await persistConfirmedCookAtomically(alice, {
@@ -135,6 +139,8 @@ try {
   assert.equal((await stock(alice, "alice", "shortage")).quantity, 20);
   assert.equal(await isRecorded(alice, "alice", "qa-volume"), false);
 
+  console.log("PASS: shortage and incompatible-unit rejection");
+
   // An authenticated user can only write to their own namespace.
   await createStock(bob, "bob", "rice-old", 250, "g");
   await assertFails(persistConfirmedCookAtomically(bob, {
@@ -151,6 +157,8 @@ try {
   }));
   assert.equal((await stock(bob, "bob", "rice-old")).quantity, 250);
 
+  console.log("PASS: cross-account and guest writes denied");
+
   const bobCook = await persistConfirmedCookAtomically(bob, {
     userId: "bob",
     confirmation: confirmation("qa-cook-1", "bob-meal", [
@@ -159,6 +167,8 @@ try {
   });
   assert.equal(bobCook.outcome, "recorded");
   assert.equal((await stock(bob, "bob", "rice-old")).quantity, 225);
+
+  console.log("PASS: separate Bob cook after access denials");
 
   // Two different confirmations race to consume the same 100g lot.
   await createStock(alice, "alice", "race", 100, "g");
