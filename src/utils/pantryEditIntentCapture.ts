@@ -13,14 +13,9 @@ export interface FirestoreInventorySnapshotEvidence {
   documents: readonly {
     documentId: string;
     hasPendingWrites: boolean;
-    data: {
-      userId: unknown;
-      id: unknown;
-      quantity: unknown;
-      unit: unknown;
-      cookRevision?: unknown;
-      _deleted?: unknown;
-    };
+    // Firestore DocumentData is schemaless at this boundary. Every field
+    // is validated at runtime instead of asserting required TS properties.
+    data: Record<string, unknown>;
   }[];
 }
 
