@@ -120,6 +120,7 @@ export async function persistConfirmedCookAtomically(
     }
 
     const stock = [];
+    const revisions = new Map<string, number>();
     for (const { id, ref } of stockRefs) {
       const snapshot = await tx.get(ref);
       if (!snapshot.exists()) return reject("stock-not-found", id);
@@ -128,9 +129,12 @@ export async function persistConfirmedCookAtomically(
           data.id !== id ||
           data._deleted === true ||
           !validQuantity(data.quantity) ||
-          typeof data.unit !== "string") {
+          typeof data.unit !== "string" ||
+          !Number.isInteger(data.cookRevision ?? 0) ||
+          (data.cookRevision ?? 0) < 0) {
         return reject("invalid-stock", id);
       }
+      revisions.set(id, (data.cookRevision ?? 0) as number);
       stock.push({ id, quantity: data.quantity as number, unit: data.unit as string });
     }
 
@@ -149,9 +153,11 @@ export async function persistConfirmedCookAtomically(
       if (quantity === undefined || !Number.isFinite(quantity) || quantity < 0) {
         return reject("invalid-stock", id);
       }
+      const cookRevision = revisions.get(id);
+      if (cookRevision === undefined) return reject("invalid-stock", id);
       tx.update(ref, quantity === 0
-        ? { quantity: 0, _deleted: true, deletedAt: serverTimestamp() }
-        : { quantity, _deleted: false, deletedAt: null });
+        ? { quantity: 0, cookRevision: cookRevision + 1, _deleted: true, deletedAt: serverTimestamp() }
+        : { quantity, cookRevision: cookRevision + 1, _deleted: false, deletedAt: null });
     }
     tx.set(journalRef, {
       userId, cookConfirmationId: cookId,
