@@ -19,6 +19,7 @@ import { createSignedInProfileDefaults, sanitizeRemoteUserProfile, serializeUser
 import { isStoredRecipeStructurallyValid } from "../utils/storedRecipeValidation";
 import { isStoredMealPlanDayStructurallyValid } from "../utils/storedMealPlanValidation";
 import { isStoredShoppingItemStructurallyValid } from "../utils/storedShoppingValidation";
+import { capturePantryEditIntent, verifyServerInventoryForEdits, type InventoryEditAuthority } from "../utils/pantryEditIntentCapture";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -47,6 +48,11 @@ export function useFirebaseSync(
   const lastHydratedCollectionJson = useRef<Record<string, string>>({});
   const hydratedCollectionDocumentIds = useRef<Record<string, Set<string>>>({});
   const hydratedInventoryActiveIds = useRef<Set<string>>(new Set());
+  // Read-only verified owner snapshot for future revision-aware UI intents.
+  // The current legacy bulk inventory writer is deliberately not changed here.
+  const inventoryEditAuthority = useRef<InventoryEditAuthority>({
+    status: "unavailable", reason: "unverified-snapshot",
+  });
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -63,6 +69,9 @@ export function useFirebaseSync(
       lastHydratedCollectionJson.current = {};
       hydratedCollectionDocumentIds.current = {};
       hydratedInventoryActiveIds.current = new Set();
+      inventoryEditAuthority.current = {
+        status: "unavailable", reason: "unverified-snapshot",
+      };
       setInventoryHydratedUser(null);
       setInventorySyncErrorUser(null);
       setProfileHydratedUser(null);
@@ -170,7 +179,19 @@ export function useFirebaseSync(
         }
       };
 
-      const unsub = onSnapshot(q, (snapshot) => {
+      const unsub = onSnapshot(q, { includeMetadataChanges: collectionName === "inventory" }, (snapshot) => {
+        if (collectionName === "inventory") {
+          inventoryEditAuthority.current = verifyServerInventoryForEdits({
+            userId: currentUser.uid,
+            fromCache: snapshot.metadata.fromCache,
+            hasPendingWrites: snapshot.metadata.hasPendingWrites,
+            documents: snapshot.docs.map(snapshotDoc => ({
+              documentId: snapshotDoc.id,
+              hasPendingWrites: snapshotDoc.metadata.hasPendingWrites,
+              data: snapshotDoc.data(),
+            })),
+          });
+        }
         const remoteEntries = snapshot.docs
           .map(snapshotDoc => {
             const { userId, ...item } = snapshotDoc.data() as any;
@@ -246,6 +267,9 @@ export function useFirebaseSync(
         ) {
           clearInventoryHydrationTimeout();
           setInventorySyncErrorUser(currentUser.uid);
+          inventoryEditAuthority.current = {
+            status: "unavailable", reason: "unverified-snapshot",
+          };
         }
         console.error(`Failed to hydrate ${collectionName}:`, error);
       });
@@ -412,6 +436,17 @@ export function useFirebaseSync(
     isStoredShoppingItemStructurallyValid
   );
 
+  // A capture returns the ORIGINAL server-confirmed lot the user saw,
+  // never a newly substituted remote quantity. This is read-only; actual
+  // writes must later use the verified transactional inventory writer.
+  const captureInventoryEditBaseline = (item: PantryItem) => {
+    if (!currentUser || inventoryHydratedUser !== currentUser.uid ||
+        authSessionUserId.current !== currentUser.uid) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+    }
+    return capturePantryEditIntent(inventoryEditAuthority.current, currentUser.uid, item);
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -432,5 +467,6 @@ export function useFirebaseSync(
     inventoryIsProvisional,
     inventorySyncError,
     profileHydrated,
+    captureInventoryEditBaseline,
   };
 }
