@@ -23,6 +23,14 @@ const request = (
   remote: baseline,
   desired,
   explicitlyRemovedIds,
+  // Test fixture captures the actual baseline at the point of the UI edit.
+  observedBeforeEdit: baseline
+    .filter(row => explicitlyRemovedIds.includes(row.id) ||
+      desired.some(item => item.id === row.id && item.quantity !== row.quantity))
+    .map(row => ({
+      pantryItemId: row.id, quantity: row.quantity, unit: row.unit,
+      cookRevision: row.cookRevision ?? 0,
+    })),
 });
 
 test("unchanged hydrated pantry generates NO batch or transactional writes", () => {
@@ -131,6 +139,9 @@ test("missing legacy revision requires authoritative snapshot to become zero", (
     remote,
     desired: [{ ...remote[0], quantity: 80 }],
     explicitlyRemovedIds: [],
+    observedBeforeEdit: [{
+      pantryItemId: "legacy", quantity: 90, unit: "g", cookRevision: 0,
+    }],
   };
   assert.deepEqual(planAuthoritativeInventoryDelta(req), {
     outcome: "ready",
@@ -172,5 +183,51 @@ test("duplicate remote stock identities and unknown explicit removals block all 
     assert.deepEqual(unknownRemoval.adjustments, []);
     assert.ok(unknownRemoval.issues.some(issue =>
       issue.reason === "ambiguous-removal"));
+  }
+});
+
+test("a changed or removed lot requires the user's actual pre-edit baseline", () => {
+  const edit = request([{ ...baseline[0], quantity: 75 }, { ...baseline[1] }]);
+  const missing = planAuthoritativeInventoryDelta({ ...edit, observedBeforeEdit: [] });
+  assert.equal(missing.outcome, "needs-review");
+  if (missing.outcome === "needs-review") {
+    assert.deepEqual(missing.adjustments, []);
+    assert.equal(missing.issues[0]?.reason, "unverified-intent-baseline");
+  }
+  const staleRevision = planAuthoritativeInventoryDelta({
+    ...edit,
+    observedBeforeEdit: [{
+      pantryItemId: "lot-1", quantity: 100, unit: "g", cookRevision: 1,
+    }],
+  });
+  assert.equal(staleRevision.outcome, "needs-review");
+  if (staleRevision.outcome === "needs-review") {
+    assert.deepEqual(staleRevision.adjustments, []);
+    assert.equal(staleRevision.issues[0]?.reason, "stale-intent-baseline");
+  }
+  const removal = request([{ ...baseline[1] }], ["lot-1"]);
+  const staleQuantity = planAuthoritativeInventoryDelta({
+    ...removal,
+    observedBeforeEdit: [{
+      pantryItemId: "lot-1", quantity: 120, unit: "g", cookRevision: 2,
+    }],
+  });
+  assert.equal(staleQuantity.outcome, "needs-review");
+  if (staleQuantity.outcome === "needs-review") {
+    assert.deepEqual(staleQuantity.adjustments, []);
+    assert.equal(staleQuantity.issues[0]?.reason, "stale-intent-baseline");
+  }
+});
+
+test("a valid old intent cannot silently adopt a newer remote stock revision", () => {
+  const edit = request([{ ...baseline[0], quantity: 75 }, { ...baseline[1] }]);
+  const newlySynced = planAuthoritativeInventoryDelta({
+    ...edit,
+    remote: [{ ...baseline[0], cookRevision: 3 }, baseline[1]],
+  });
+  assert.equal(newlySynced.outcome, "needs-review");
+  if (newlySynced.outcome === "needs-review") {
+    assert.equal(newlySynced.issues[0]?.reason, "stale-intent-baseline");
+    assert.deepEqual(newlySynced.adjustments, []);
   }
 });
