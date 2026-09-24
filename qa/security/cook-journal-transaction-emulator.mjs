@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertFails } from "@firebase/rules-unit-testing";
-import { doc, getDoc, setDoc } from "firebase/firestore";
+import { deleteDoc, doc, getDoc, setDoc, writeBatch } from "firebase/firestore";
 import {
   persistConfirmedCookAtomically,
   cookAllocationSignature,
@@ -57,6 +57,22 @@ try {
   assert.equal(await isRecorded(alice, "alice", "qa-cook-1"), true);
   assert.equal((await getDoc(journal(alice, "alice", "qa-cook-1"))).data().requestSignature,
     cookAllocationSignature(cook));
+  assert.equal((await stock(alice, "alice", "rice-old")).cookRevision, 1);
+  assert.equal((await stock(alice, "alice", "rice-new")).cookRevision, 1);
+
+  // Reproduce the legacy snapshot writer's merge-batch after a committed cook:
+  // it cannot resurrect the original 200 g or delete a versioned lot.
+  const staleBatch = writeBatch(alice);
+  staleBatch.set(inventory(alice, "alice", "rice-new"), {
+    id: "rice-new", userId: "alice", quantity: 0.2, unit: "kg",
+  }, { merge: true });
+  await assertFails(staleBatch.commit());
+  await assertFails(deleteDoc(inventory(alice, "alice", "rice-old")));
+  await assertFails(setDoc(inventory(alice, "alice", "rice-new"), {
+    id: "rice-new", userId: "alice", quantity: 0.2, unit: "kg", cookRevision: 1,
+  }, { merge: true }));
+  assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.15) < 1e-9);
+  assert.equal((await stock(alice, "alice", "rice-old"))._deleted, true);
 
   const replay = await persistConfirmedCookAtomically(alice, {
     userId: "alice", confirmation: cook,
@@ -76,6 +92,17 @@ try {
     assert.equal(conflict.outcome, "needs-review");
   }
   assert.equal((await getDoc(journal(alice, "alice", "qa-cook-1"))).data().mealId, "qa-meal-1");
+
+  // A second fresh transaction may consume the newly versioned remainder.
+  const nextCook = await persistConfirmedCookAtomically(alice, {
+    userId: "alice",
+    confirmation: confirmation("qa-cook-2", "qa-meal-2", [
+      allocation("rice-more", "rice-new", 50, "g"),
+    ]),
+  });
+  assert.equal(nextCook.outcome, "recorded");
+  assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.1) < 1e-9);
+  assert.equal((await stock(alice, "alice", "rice-new")).cookRevision, 2);
 
   await createStock(alice, "alice", "shortage", 20, "g");
   const shortage = await persistConfirmedCookAtomically(alice, {
