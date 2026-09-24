@@ -21,6 +21,9 @@ export interface InventoryDeltaRequest {
   remote: readonly RemoteStockRow[];
   desired: readonly PantryItem[];
   explicitlyRemovedIds: readonly string[];
+  // Snapshot captured when the user initiated each edit or explicit removal.
+  // Never substitute the newer remote state for the user's original baseline.
+  observedBeforeEdit: readonly VerifiedStockExpectation[];
 }
 
 export interface PlannedStockAdjustment {
@@ -37,7 +40,9 @@ export type InventoryDeltaIssue =
   | "unexpected-omission"
   | "ambiguous-removal"
   | "unsupported-edit"
-  | "invalid-quantity";
+  | "invalid-quantity"
+  | "unverified-intent-baseline"
+  | "stale-intent-baseline";
 
 export type InventoryDeltaPlan =
   | {
@@ -95,6 +100,18 @@ export function planAuthoritativeInventoryDelta(
   const remote = new Map<string, RemoteStockRow>();
   const desired = new Map<string, PantryItem>();
   const removals = new Set<string>();
+  const observed = new Map<string, VerifiedStockExpectation>();
+  for (const origin of input.observedBeforeEdit) {
+    if (!origin || !safeId(origin.pantryItemId) ||
+        !validQuantity(origin.quantity) ||
+        typeof origin.unit !== "string" || !origin.unit.trim() ||
+        !validRevision(origin.cookRevision) ||
+        observed.has(origin.pantryItemId)) {
+      fail(origin?.pantryItemId ?? "unknown", "unverified-intent-baseline");
+      continue;
+    }
+    observed.set(origin.pantryItemId, origin);
+  }
 
   for (const row of input.remote) {
     if (!row || !safeId(row.id) || remote.has(row.id)) {
@@ -144,20 +161,34 @@ export function planAuthoritativeInventoryDelta(
       unit: stock.unit,
       cookRevision: stock.cookRevision ?? 0,
     };
+    if (local && !removed && identicalExceptQuantity(stock, local) &&
+        stock.quantity === local.quantity) {
+      unchangedIds.push(id);
+      continue;
+    }
+    if (local && !removed && !identicalExceptQuantity(stock, local)) {
+      fail(id, "unsupported-edit");
+      continue;
+    }
+    const origin = observed.get(id);
+    if (!origin) {
+      fail(id, "unverified-intent-baseline");
+      continue;
+    }
+    if (origin.quantity !== stock.quantity ||
+        origin.unit !== stock.unit ||
+        origin.cookRevision !== (stock.cookRevision ?? 0)) {
+      fail(id, "stale-intent-baseline");
+      continue;
+    }
     if (removed) {
       adjustments.push({ pantryItemId: id, expected, adjustment: { kind: "remove" } });
     } else if (local) {
-      if (!identicalExceptQuantity(stock, local)) {
-        fail(id, "unsupported-edit");
-      } else if (stock.quantity === local.quantity) {
-        unchangedIds.push(id);
-      } else {
-        adjustments.push({
-          pantryItemId: id,
-          expected,
-          adjustment: { kind: "set-quantity", quantity: local.quantity },
-        });
-      }
+      adjustments.push({
+        pantryItemId: id,
+        expected,
+        adjustment: { kind: "set-quantity", quantity: local.quantity },
+      });
     }
   }
   for (const id of desired.keys()) {
