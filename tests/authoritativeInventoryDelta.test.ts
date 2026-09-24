@@ -150,3 +150,27 @@ test("missing legacy revision requires authoritative snapshot to become zero", (
     assert.deepEqual(invalid.adjustments, []);
   }
 });
+
+test("duplicate remote stock identities and unknown explicit removals block all writes", () => {
+  const duplicate = planAuthoritativeInventoryDelta({
+    ...request([{ ...baseline[0], quantity: 75 }, { ...baseline[1] }]),
+    remote: [baseline[0], { ...baseline[0], quantity: 40 }, baseline[1]],
+  });
+  assert.equal(duplicate.outcome, "needs-review");
+  if (duplicate.outcome === "needs-review") {
+    assert.ok(duplicate.issues.some(issue =>
+      issue.reason === "invalid-or-duplicate-id"));
+    assert.deepEqual(duplicate.adjustments, []);
+  }
+
+  const unknownRemoval = planAuthoritativeInventoryDelta(
+    request([{ ...baseline[0], quantity: 75 }, { ...baseline[1] }],
+      ["unknown-remote-id"]),
+  );
+  assert.equal(unknownRemoval.outcome, "needs-review");
+  if (unknownRemoval.outcome === "needs-review") {
+    assert.deepEqual(unknownRemoval.adjustments, []);
+    assert.ok(unknownRemoval.issues.some(issue =>
+      issue.reason === "ambiguous-removal"));
+  }
+});
