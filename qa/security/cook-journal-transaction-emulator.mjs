@@ -187,6 +187,24 @@ try {
     Number(await isRecorded(alice, "alice", "qa-race-b"));
   assert.equal(journalCount, 1);
 
+  // Two independently authenticated clients submit the SAME stable confirmation
+  // simultaneously. At most one stock mutation and one journal entry may occur.
+  const aliceSecondDevice = environment.authenticatedContext("alice").firestore();
+  await createStock(alice, "alice", "shared-confirmation", 100, "g");
+  const sharedCook = confirmation("qa-shared-confirmation", "qa-shared-meal", [
+    allocation("shared-ingredient", "shared-confirmation", 60, "g"),
+  ]);
+  const simultaneous = await Promise.all([
+    persistConfirmedCookAtomically(alice, { userId: "alice", confirmation: sharedCook }),
+    persistConfirmedCookAtomically(aliceSecondDevice, { userId: "alice", confirmation: sharedCook }),
+  ]);
+  assert.deepEqual(simultaneous.map(result => result.outcome).sort(),
+    ["already-recorded", "recorded"]);
+  assert.equal((await stock(alice, "alice", "shared-confirmation")).quantity, 40);
+  assert.equal((await stock(alice, "alice", "shared-confirmation")).cookRevision, 1);
+  assert.equal(await isRecorded(aliceSecondDevice, "alice", "qa-shared-confirmation"), true);
+  console.log("PASS: simultaneous same-ID cook from two clients has one deduction and one journal");
+
   console.log("PASS: atomic owner-scoped cook inventory+journal, replay, conflicts, multi-lot, A/B isolation.");
 } finally {
   await environment.cleanup();
