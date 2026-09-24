@@ -23,8 +23,8 @@ interface PantryViewProps {
   pantry: PantryItem[];
   onAddItem: (item: Omit<PantryItem, "id" | "addedAt">) => void;
   onAddMultipleItems?: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => void;
-  onUpdateQuantity: (id: string, newQty: number) => void;
-  onDeleteItem: (id: string) => void;
+  onUpdateQuantity: (id: string, newQty: number, viewed: PantryItem) => void;
+  onDeleteItem: (id: string, viewed: PantryItem) => void;
   onClearAll: () => void;
   onOpenVoiceTab: () => void;
   language: Language;
@@ -453,7 +453,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   </div>
 
                   <button
-                    onClick={() => onDeleteItem(item.id)}
+                    onClick={() => onDeleteItem(item.id, item)}
                     disabled={inventoryIsProvisional}
                     className="text-stone-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all opacity-60 group-hover:opacity-100 disabled:opacity-30 disabled:cursor-not-allowed"
                     title={currentText.delete}
@@ -470,7 +470,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
                       onClick={() =>
                         onUpdateQuantity(
                           item.id,
-                          Math.max(0, item.quantity - (item.unit === "g" ? 50 : 1))
+                          Math.max(0, item.quantity - (item.unit === "g" ? 50 : 1)),
+                          item
                         )
                       }
                       className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
@@ -486,7 +487,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
                       onClick={() =>
                         onUpdateQuantity(
                           item.id,
-                          item.quantity + (item.unit === "g" ? 50 : 1)
+                          item.quantity + (item.unit === "g" ? 50 : 1),
+                          item
                         )
                       }
                       className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
