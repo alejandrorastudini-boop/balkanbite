@@ -20,6 +20,8 @@ import { isStoredRecipeStructurallyValid } from "../utils/storedRecipeValidation
 import { isStoredMealPlanDayStructurallyValid } from "../utils/storedMealPlanValidation";
 import { isStoredShoppingItemStructurallyValid } from "../utils/storedShoppingValidation";
 import { capturePantryEditIntent, verifyServerInventoryForEdits, type InventoryEditAuthority } from "../utils/pantryEditIntentCapture";
+import { submitVerifiedPantryEdit, type VerifiedPantryEditCommandResult } from "../utils/verifiedPantryEditCommand";
+import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "../utils/inventoryAdjustmentFirestore";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -53,6 +55,7 @@ export function useFirebaseSync(
   const inventoryEditAuthority = useRef<InventoryEditAuthority>({
     status: "unavailable", reason: "unverified-snapshot",
   });
+  const inFlightInventoryEdits = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -72,6 +75,7 @@ export function useFirebaseSync(
       inventoryEditAuthority.current = {
         status: "unavailable", reason: "unverified-snapshot",
       };
+      inFlightInventoryEdits.current = new Set();
       setInventoryHydratedUser(null);
       setInventorySyncErrorUser(null);
       setProfileHydratedUser(null);
@@ -447,6 +451,41 @@ export function useFirebaseSync(
     return capturePantryEditIntent(inventoryEditAuthority.current, currentUser.uid, item);
   };
 
+  // Signed-in manual +/- and delete use the exact rendered item as the
+  // click-time baseline. Do not optimistically set pantry on success: the
+  // owner-filtered Firestore listener will supply committed remote state.
+  // This narrow path is not a release gate for the remaining bulk writer.
+  const submitInventoryEdit = async (
+    viewed: PantryItem,
+    adjustment: InventoryAdjustment,
+  ): Promise<VerifiedPantryEditCommandResult | {
+    outcome: "needs-review"; reason: "in-flight" | "unverified-authority";
+  }> => {
+    const uid = currentUser?.uid;
+    if (!uid || inventoryHydratedUser !== uid ||
+        authSessionUserId.current !== uid) {
+      return { outcome: "needs-review", reason: "unverified-authority" };
+    }
+    if (inFlightInventoryEdits.current.has(viewed.id)) {
+      return { outcome: "needs-review", reason: "in-flight" };
+    }
+    inFlightInventoryEdits.current.add(viewed.id);
+    try {
+      return await submitVerifiedPantryEdit({
+        authority: inventoryEditAuthority.current,
+        viewed,
+        adjustment,
+        getCurrentUserId: () =>
+          typeof authSessionUserId.current === "string"
+            ? authSessionUserId.current : null,
+        persist: (userId, expected, edit) =>
+          persistVerifiedInventoryAdjustment(db, userId, expected, edit),
+      });
+    } finally {
+      inFlightInventoryEdits.current.delete(viewed.id);
+    }
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -468,5 +507,6 @@ export function useFirebaseSync(
     inventorySyncError,
     profileHydrated,
     captureInventoryEditBaseline,
+    submitInventoryEdit,
   };
 }
