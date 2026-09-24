@@ -97,7 +97,13 @@ export async function persistConfirmedCookAtomically(
     id, ref: doc(db, "inventory", getScopedDocumentId(userId, id)),
   }));
 
-  return runTransaction(db, async tx => {
+  // Rules reject an outdated cookRevision before the SDK always exposes a
+  // retryable ABORTED status. Retry a bounded number of permission-denied
+  // commits from scratch, forcing another authoritative journal+stock read.
+  // Persistent authorization failures still propagate; never weaken rules.
+  for (let outerAttempt = 0; outerAttempt < 3; outerAttempt++) {
+    try {
+      return await runTransaction(db, async tx => {
     const prior = await tx.get(journalRef);
     if (prior.exists()) {
       const data = prior.data();
@@ -167,5 +173,11 @@ export async function persistConfirmedCookAtomically(
       createdAt: serverTimestamp(),
     });
     return { outcome: "recorded" as const, record: checked.record };
-  }, { maxAttempts: 5 });
+      }, { maxAttempts: 5 });
+    } catch (error) {
+      if ((error as { code?: unknown } | null)?.code !== "permission-denied" ||
+          outerAttempt === 2) throw error;
+    }
+  }
+  throw new Error("Cook transaction retry exhausted");
 }
