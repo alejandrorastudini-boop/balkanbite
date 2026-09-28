@@ -5,6 +5,8 @@ on:
     paths:
       - "firestore.rules"
       - "qa/security/**"
+      - "src/utils/confirmedCookFirestore.ts"
+      - "src/utils/inventoryAdjustmentFirestore.ts"
       - ".github/workflows/firestore-rules.yml"
   workflow_dispatch:
 
@@ -45,4 +47,4 @@ jobs:
           --only firestore
           --project demo-balkanbite-rules
           --config firebase.json
-          "node qa/security/firestore-rules-emulator.mjs"
+          "node qa/security/firestore-rules-emulator.mjs && node --import tsx qa/security/cook-journal-transaction-emulator.mjs && node --import tsx qa/security/inventory-adjustment-emulator.mjs"

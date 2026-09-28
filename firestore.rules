@@ -23,10 +23,63 @@ service cloud.firestore {
       allow read, write: if isOwner(userId);
     }
 
+    // Unversioned inventory remains compatible with the current client.
+    // After a cook transaction first versions a lot, stale snapshot/batch
+    // writes may not overwrite it without advancing the observed revision.
+    // Direct deletion of versioned lots is blocked: use a versioned tombstone.
+    function validStockRevisionTransition() {
+      let oldRevision = resource.data.get('cookRevision', 0);
+      let newRevision = request.resource.data.get('cookRevision', 0);
+      return oldRevision is int && oldRevision >= 0 &&
+        newRevision is int &&
+        ((oldRevision == 0 && newRevision == 0) ||
+         newRevision == oldRevision + 1);
+    }
+
     match /inventory/{itemId} {
-      allow create: if ownsIncomingDocument() && ownsDocumentNamespace(itemId);
-      allow read, delete: if ownsExistingDocument();
-      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(itemId) &&
+        request.resource.data.get('cookRevision', 0) is int &&
+        request.resource.data.get('cookRevision', 0) >= 0 &&
+        request.resource.data.get('cookRevision', 0) <= 1;
+      allow read: if ownsExistingDocument();
+      allow delete: if ownsExistingDocument() &&
+        resource.data.get('cookRevision', 0) == 0;
+      allow update: if ownsExistingDocument() && ownsIncomingDocument() &&
+        validStockRevisionTransition();
+    }
+
+    // Candidate immutable, owner-scoped journal. This path does not itself
+    // prove that inventory was deducted: the eventual writer must transact
+    // the journal creation and stock updates against current remote state.
+    match /cookConfirmations/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'cookConfirmationId', 'mealId', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'cookConfirmationId', 'mealId', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.cookConfirmationId is string &&
+        request.resource.data.cookConfirmationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.cookConfirmationId &&
+        request.resource.data.mealId is string &&
+        request.resource.data.mealId.size() > 0 &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.deductions is list &&
+        request.resource.data.deductions.size() > 0 &&
+        request.resource.data.createdAt is timestamp;
+      // A first cook must be able to check that its own journal ID is absent.
+      // Never reveal another account's existing or missing journal entries.
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update, delete: if false;
     }
 
     match /recipes/{recipeId} {
