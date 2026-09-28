@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Header } from "./components/Header";
 import { BottomNav, TabType } from "./components/BottomNav";
 import { HomeView } from "./components/HomeView";
@@ -146,6 +146,7 @@ export default function App() {
     canRenderApp,
     profileHydrated,
     submitInventoryEdit,
+    submitInventoryCreations,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -162,6 +163,7 @@ export default function App() {
   const [pantryScope, setPantryScope] = useState<string>("guest");
   const [profileScope, setProfileScope] = useState<string>("guest");
   const [workspaceScope, setWorkspaceScope] = useState<string>("guest");
+  const pendingSignedInCreations = useRef<{ userId: string; ids: Set<string> } | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
