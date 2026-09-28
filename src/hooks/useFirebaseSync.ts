@@ -22,6 +22,7 @@ import { isStoredShoppingItemStructurallyValid } from "../utils/storedShoppingVa
 import { capturePantryEditIntent, verifyServerInventoryForEdits, type InventoryEditAuthority } from "../utils/pantryEditIntentCapture";
 import { submitVerifiedPantryEdit, type VerifiedPantryEditCommandResult } from "../utils/verifiedPantryEditCommand";
 import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "../utils/inventoryAdjustmentFirestore";
+import { persistNewInventoryItems, type InventoryCreationOutcome } from "../utils/inventoryCreationFirestore";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -56,6 +57,7 @@ export function useFirebaseSync(
     status: "unavailable", reason: "unverified-snapshot",
   });
   const inFlightInventoryEdits = useRef<Set<string>>(new Set());
+  const inventoryCreationInFlight = useRef(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -76,6 +78,7 @@ export function useFirebaseSync(
         status: "unavailable", reason: "unverified-snapshot",
       };
       inFlightInventoryEdits.current = new Set();
+      inventoryCreationInFlight.current = false;
       setInventoryHydratedUser(null);
       setInventorySyncErrorUser(null);
       setProfileHydratedUser(null);
@@ -486,6 +489,27 @@ export function useFirebaseSync(
     }
   };
 
+  const submitInventoryCreations = async (
+    items: readonly PantryItem[],
+  ): Promise<InventoryCreationOutcome | {
+    outcome: "needs-review"; reason: "unverified-authority" | "in-flight";
+  }> => {
+    const uid = currentUser?.uid;
+    if (!uid || inventoryHydratedUser !== uid ||
+        authSessionUserId.current !== uid) {
+      return { outcome: "needs-review", reason: "unverified-authority" };
+    }
+    if (inventoryCreationInFlight.current) {
+      return { outcome: "needs-review", reason: "in-flight" };
+    }
+    inventoryCreationInFlight.current = true;
+    try {
+      return await persistNewInventoryItems(db, uid, items);
+    } finally {
+      inventoryCreationInFlight.current = false;
+    }
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -508,5 +532,6 @@ export function useFirebaseSync(
     profileHydrated,
     captureInventoryEditBaseline,
     submitInventoryEdit,
+    submitInventoryCreations,
   };
 }
