@@ -608,9 +608,11 @@ export default function App() {
     reconcilePantryDerivedState(pantry, true);
   }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
 
-  const dispatchSignedInPantryCreations = (items: PantryItem[]) => {
+  const dispatchSignedInPantryCreations = async (
+    items: PantryItem[],
+  ): Promise<boolean> => {
     const uid = currentUser?.uid;
-    if (!uid || items.length === 0) return;
+    if (!uid || items.length === 0) return false;
     if (pendingSignedInCreations.current) {
       alert(
         profile.language === "bg"
@@ -619,25 +621,28 @@ export default function App() {
           ? "Espera a que termine el alta actual."
           : "Wait for the current pantry addition to finish."
       );
-      return;
+      return false;
     }
 
     const ids = new Set(items.map(item => item.id));
     pendingSignedInCreations.current = { userId: uid, ids };
 
-    void submitInventoryCreations(items).then(result => {
-      if (result.outcome === "created") return;
+    try {
+      const result = await submitInventoryCreations(items);
+      if (result.outcome === "created") return true;
       pendingSignedInCreations.current = null;
-      if (result.reason === "in-flight") return;
-      console.warn("Signed-in pantry creation needs review:", result.reason);
-      alert(
-        profile.language === "bg"
-          ? "Продуктите не бяха добавени. Проверете текущите наличности и опитайте отново."
-          : profile.language === "es"
-          ? "No se añadieron los alimentos. Revisa la despensa actual e inténtalo de nuevo."
-          : "The pantry items were not added. Review current stock and try again."
-      );
-    }).catch(error => {
+      if (result.reason !== "in-flight") {
+        console.warn("Signed-in pantry creation needs review:", result.reason);
+        alert(
+          profile.language === "bg"
+            ? "Продуктите не бяха добавени. Проверете текущите наличности и опитайте отново."
+            : profile.language === "es"
+            ? "No se añadieron los alimentos. Revisa la despensa actual e inténtalo de nuevo."
+            : "The pantry items were not added. Review current stock and try again."
+        );
+      }
+      return false;
+    } catch (error) {
       pendingSignedInCreations.current = null;
       console.error("Signed-in pantry creation failed:", error);
       alert(
@@ -647,7 +652,8 @@ export default function App() {
           ? "No se pudieron añadir los alimentos. No hemos modificado las existencias."
           : "The pantry items could not be added. Your stock has not been changed."
       );
-    });
+      return false;
+    }
   };
 
   const shoppingDiagnostic = useMemo(() => {
@@ -764,7 +770,7 @@ export default function App() {
       addedAt: new Date().toISOString().split("T")[0],
     };
     if (currentUser) {
-      dispatchSignedInPantryCreations([newItem]);
+      void dispatchSignedInPantryCreations([newItem]);
       return;
     }
     updatePantryAndReconcileMenu([newItem], true);
@@ -781,7 +787,7 @@ export default function App() {
       addedAt: acquiredAt,
     }));
     if (currentUser) {
-      dispatchSignedInPantryCreations(newItems);
+      void dispatchSignedInPantryCreations(newItems);
       return;
     }
     updatePantryAndReconcileMenu(newItems, true);
