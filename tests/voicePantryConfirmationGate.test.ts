@@ -14,9 +14,9 @@ test("voice ADD_ITEMS are staged instead of persisted directly", () => {
 });
 
 test("voice pantry persistence exists only behind explicit confirmation", () => {
-  assert.match(source, /const confirmPendingItems = \(\) =>/);
+  assert.match(source, /const confirmPendingItems = async \(\) =>/);
   assert.match(source, /onAddItemsToPantry\(confirmedItems\)/);
-  assert.match(source, /disabled=\{!pendingItemsAreComplete\}/);
+  assert.match(source, /disabled=\{!pendingItemsAreComplete \|\| isConfirmingPendingItems\}/);
   assert.match(source, /Nothing has been saved to the pantry yet\./);
 });
 
@@ -28,7 +28,8 @@ test("voice REMOVE_ITEMS are staged instead of deducted directly", () => {
 });
 
 test("confirmed voice mutation dispatches only the reviewed pending action", () => {
-  assert.match(source, /const mutationSucceeded =/);
+  assert.match(source, /let mutationSucceeded = false;/);
+  assert.match(source, /mutationSucceeded = await Promise\.resolve\(/);
   assert.match(source, /action === "add"/);
   assert.match(source, /onAddItemsToPantry\(confirmedItems\)/);
   assert.match(source, /action === "remove"/);
