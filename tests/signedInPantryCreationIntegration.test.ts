@@ -71,13 +71,18 @@ test("sync hook uses creation primitive with current signed-in owner and has an 
   assert.doesNotMatch(submit, /setPantry\(/);
 });
 
-test("voice pantry addition remains explicitly outside this migration", () => {
+test("signed-in voice pantry addition awaits the same confirmed creation path while guest remains local", () => {
   const start = appSource.indexOf("const handleVoiceAddItems");
   const end = appSource.indexOf("const handleVoiceAddShoppingItems", start);
   assert.ok(start >= 0 && end > start);
   const handler = appSource.slice(start, end);
+  assert.match(handler, /const handleVoiceAddItems = async/);
+  assert.match(handler, /if \(!requireAuthoritativeInventory\(\)\) return false;/);
+  assert.match(
+    handler,
+    /if \(currentUser\) \{\s*return dispatchSignedInPantryCreations\(parsed\);\s*\}/,
+  );
   assert.match(handler, /return updatePantryAndReconcileMenu\(parsed, true\);/);
-  assert.doesNotMatch(handler, /submitInventoryCreations/);
 });
 
 test("inventory server confirmation requires non-cache snapshot with zero pending writes", () => {
