@@ -86,3 +86,28 @@ test("signed-in manual path still requires authoritative inventory startup gate"
     /if \(!requireAuthoritativeInventory\(\)\) return;/,
   );
 });
+
+test("remote committed inventory snapshot is recorded before local hydration and bulk writer echo check", () => {
+  const snapshotStart = syncSource.indexOf(
+    "const remoteJson = JSON.stringify(itemsWithoutUserId)",
+  );
+  const applySnapshot = syncSource.indexOf(
+    "setLocalState(itemsWithoutUserId)",
+    snapshotStart,
+  );
+  assert.ok(snapshotStart >= 0 && applySnapshot > snapshotStart);
+  const snapshotBlock = syncSource.slice(snapshotStart, applySnapshot);
+  assert.match(
+    snapshotBlock,
+    /lastHydratedCollectionJson\.current\[collectionName\] = remoteJson;/,
+  );
+
+  const saveStart = syncSource.indexOf("const save = async () => {", applySnapshot);
+  const batchStart = syncSource.indexOf("const batch = writeBatch(db)", saveStart);
+  assert.ok(saveStart >= 0 && batchStart > saveStart);
+  const preBatch = syncSource.slice(saveStart, batchStart);
+  assert.match(
+    preBatch,
+    /lastHydratedCollectionJson\.current\[collectionName\] ===\s*JSON\.stringify\(itemsToPersist\)[\s\S]*return;/,
+  );
+});
