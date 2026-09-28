@@ -19,15 +19,15 @@ test("voice mutation callbacks return explicit sync or awaited boolean results t
   for (const source of [voiceSource, modalSource]) {
     assert.match(
       source,
-      /onAddItemsToPantry:\s*\(items: any\[\]\) => boolean \\| Promise<boolean>;/,
+      /onAddItemsToPantry:\s*\(items: any\[\]\) => boolean \| Promise<boolean>;/,
     );
     assert.match(
       source,
-      /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean \\| Promise<boolean>;/,
+      /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean \| Promise<boolean>;/,
     );
     assert.match(
       source,
-      /onDeductItemsFromPantry:\s*\(items: any\[\]\) => boolean \\| Promise<boolean>;/,
+      /onDeductItemsFromPantry:\s*\(items: any\[\]\) => boolean \| Promise<boolean>;/,
     );
   }
 });
@@ -37,7 +37,7 @@ test("App returns false when confirmed pantry add cannot be authoritatively appl
   const end = appSource.indexOf("const handleVoiceAddShoppingItems", start);
   const block = appSource.slice(start, end);
 
-  assert.match(block, /\(items: any\[\]\): boolean/);
+  assert.match(block, /const handleVoiceAddItems = async \(items: any\[\]\): Promise<boolean>/);
   assert.match(block, /if \(rejectedCount > 0\)[\s\S]*return false;/);
   assert.match(block, /if \(parsed\.length === 0\) return false;/);
   assert.match(block, /return updatePantryAndReconcileMenu\(parsed, true\);/);
@@ -89,7 +89,8 @@ test("VoiceChefView keeps the pending batch when App rejects the mutation", () =
   const end = voiceSource.indexOf("const cancelPendingItems", start);
   const block = voiceSource.slice(start, end);
 
-  assert.match(block, /let mutationSucceeded = false;/);\n  assert.match(block, /mutationSucceeded = await Promise\\.resolve\\(/);
+  assert.match(block, /let mutationSucceeded = false;/);
+  assert.match(block, /mutationSucceeded = await Promise\\.resolve\\(/);
   assert.match(block, /onAddItemsToPantry\(confirmedItems\)/);
   assert.match(block, /onDeductItemsFromPantry\(confirmedItems\)/);
   assert.match(block, /onAddItemsToShoppingList\(confirmedItems\)/);
