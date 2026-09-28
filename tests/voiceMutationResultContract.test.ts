@@ -15,19 +15,19 @@ const modalSource = readFileSync(
   "utf8",
 );
 
-test("voice mutation callbacks return explicit boolean results through both UI surfaces", () => {
+test("voice mutation callbacks return explicit sync or awaited boolean results through both UI surfaces", () => {
   for (const source of [voiceSource, modalSource]) {
     assert.match(
       source,
-      /onAddItemsToPantry:\s*\(items: any\[\]\) => boolean;/,
+      /onAddItemsToPantry:\s*\(items: any\[\]\) => boolean \\| Promise<boolean>;/,
     );
     assert.match(
       source,
-      /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean;/,
+      /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean \\| Promise<boolean>;/,
     );
     assert.match(
       source,
-      /onDeductItemsFromPantry:\s*\(items: any\[\]\) => boolean;/,
+      /onDeductItemsFromPantry:\s*\(items: any\[\]\) => boolean \\| Promise<boolean>;/,
     );
   }
 });
@@ -89,7 +89,7 @@ test("VoiceChefView keeps the pending batch when App rejects the mutation", () =
   const end = voiceSource.indexOf("const cancelPendingItems", start);
   const block = voiceSource.slice(start, end);
 
-  assert.match(block, /const mutationSucceeded =/);
+  assert.match(block, /let mutationSucceeded = false;/);\n  assert.match(block, /mutationSucceeded = await Promise\\.resolve\\(/);
   assert.match(block, /onAddItemsToPantry\(confirmedItems\)/);
   assert.match(block, /onDeductItemsFromPantry\(confirmedItems\)/);
   assert.match(block, /onAddItemsToShoppingList\(confirmedItems\)/);
@@ -98,7 +98,7 @@ test("VoiceChefView keeps the pending batch when App rejects the mutation", () =
     /if \(mutationSucceeded\) \{\s*setPendingItems\(null\);\s*setPendingAction\(null\);\s*\}/,
   );
 
-  const resultIndex = block.indexOf("const mutationSucceeded");
+  const resultIndex = block.indexOf("let mutationSucceeded = false");
   const clearIndex = block.indexOf("setPendingItems(null)");
   assert.ok(resultIndex >= 0);
   assert.ok(clearIndex > resultIndex);
