@@ -114,7 +114,9 @@ try {
     persistNewInventoryItems(guest, "alice", [item("guest-write", 1, "pcs")]),
     error => error?.code === "permission-denied",
   );
-  assert.equal((await getDoc(ref(alice, "alice", "cross-account"))).exists(), false);\n  assert.equal((await getDoc(ref(alice, "alice", "guest-write"))).exists(), false);\n  console.log("PASS: absent-ID lookup and creation remain owner-only");
+  assert.equal((await getDoc(ref(alice, "alice", "cross-account"))).exists(), false);
+  assert.equal((await getDoc(ref(alice, "alice", "guest-write"))).exists(), false);
+  console.log("PASS: absent-ID lookup and creation remain owner-only");
 } finally {
   await environment.cleanup();
 }
