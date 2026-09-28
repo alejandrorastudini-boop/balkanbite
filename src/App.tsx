@@ -762,6 +762,10 @@ export default function App() {
       id: `p-${Date.now()}`,
       addedAt: new Date().toISOString().split("T")[0],
     };
+    if (currentUser) {
+      dispatchSignedInPantryCreations([newItem]);
+      return;
+    }
     updatePantryAndReconcileMenu([newItem], true);
   };
 
@@ -775,6 +779,10 @@ export default function App() {
       id: `p-${Date.now()}-${idx}`,
       addedAt: acquiredAt,
     }));
+    if (currentUser) {
+      dispatchSignedInPantryCreations(newItems);
+      return;
+    }
     updatePantryAndReconcileMenu(newItems, true);
   };
 
