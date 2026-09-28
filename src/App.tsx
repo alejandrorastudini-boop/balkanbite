@@ -552,6 +552,29 @@ export default function App() {
     setShowShoppingAdvisorModal(true);
   };
 
+  const reconcilePantryDerivedState = (
+    updatedPantry: PantryItem[],
+    showToast = true,
+  ) => {
+    const syncedRecipes = syncRecipesWithPantry(recipes, updatedPantry);
+    setRecipes(syncedRecipes);
+
+    const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+      updatedPantry,
+      syncedRecipes,
+      mealPlan,
+      profile
+    );
+    setMealPlan(newPlan);
+
+    if (showToast) {
+      setAutoMenuToast({
+        isVisible: true,
+        readyMealsCount: readyToCookMealsCount,
+      });
+    }
+  };
+
   const updatePantryAndReconcileMenu = (
     newPantryItemsToAdd: PantryItem[],
     showToast = true
@@ -560,26 +583,70 @@ export default function App() {
 
     setPantry((prevPantry) => {
       const updatedPantry = [...newPantryItemsToAdd, ...prevPantry];
-      const syncedRecipes = syncRecipesWithPantry(recipes, updatedPantry);
-      setRecipes(syncedRecipes);
-
-      const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
-        updatedPantry,
-        syncedRecipes,
-        mealPlan,
-        profile
-      );
-      setMealPlan(newPlan);
-
-      if (showToast) {
-        setAutoMenuToast({
-          isVisible: true,
-          readyMealsCount: readyToCookMealsCount,
-        });
-      }
+      reconcilePantryDerivedState(updatedPantry, showToast);
       return updatedPantry;
     });
     return true;
+  };
+
+  // Signed-in creation never mutates pantry optimistically. Remember the exact
+  // IDs before dispatch so the owner Firestore snapshot can prove the batch is
+  // visible before recipes/menu are reconciled against the committed pantry.
+  useEffect(() => {
+    const pending = pendingSignedInCreations.current;
+    if (!pending) return;
+    if (!currentUser || pending.userId !== currentUser.uid) {
+      pendingSignedInCreations.current = null;
+      return;
+    }
+    if (!inventoryHydrated) return;
+    const visibleIds = new Set(pantry.map(item => item.id));
+    if (![...pending.ids].every(id => visibleIds.has(id))) return;
+
+    pendingSignedInCreations.current = null;
+    reconcilePantryDerivedState(pantry, true);
+  }, [pantry, currentUser, inventoryHydrated]);
+
+  const dispatchSignedInPantryCreations = (items: PantryItem[]) => {
+    const uid = currentUser?.uid;
+    if (!uid || items.length === 0) return;
+    if (pendingSignedInCreations.current) {
+      alert(
+        profile.language === "bg"
+          ? "Изчакайте текущото добавяне да приключи."
+          : profile.language === "es"
+          ? "Espera a que termine el alta actual."
+          : "Wait for the current pantry addition to finish."
+      );
+      return;
+    }
+
+    const ids = new Set(items.map(item => item.id));
+    pendingSignedInCreations.current = { userId: uid, ids };
+
+    void submitInventoryCreations(items).then(result => {
+      if (result.outcome === "created") return;
+      pendingSignedInCreations.current = null;
+      if (result.reason === "in-flight") return;
+      console.warn("Signed-in pantry creation needs review:", result.reason);
+      alert(
+        profile.language === "bg"
+          ? "Продуктите не бяха добавени. Проверете текущите наличности и опитайте отново."
+          : profile.language === "es"
+          ? "No se añadieron los alimentos. Revisa la despensa actual e inténtalo de nuevo."
+          : "The pantry items were not added. Review current stock and try again."
+      );
+    }).catch(error => {
+      pendingSignedInCreations.current = null;
+      console.error("Signed-in pantry creation failed:", error);
+      alert(
+        profile.language === "bg"
+          ? "Не успяхме да добавим продуктите. Наличностите не са променени."
+          : profile.language === "es"
+          ? "No se pudieron añadir los alimentos. No hemos modificado las existencias."
+          : "The pantry items could not be added. Your stock has not been changed."
+      );
+    });
   };
 
   const shoppingDiagnostic = useMemo(() => {
