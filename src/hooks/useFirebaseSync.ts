@@ -45,6 +45,7 @@ export function useFirebaseSync(
   const [authReady, setAuthReady] = useState(false);
   const [inventoryHydratedUser, setInventoryHydratedUser] = useState<string | null>(null);
   const [inventorySyncErrorUser, setInventorySyncErrorUser] = useState<string | null>(null);
+  const [inventoryServerConfirmedUser, setInventoryServerConfirmedUser] = useState<string | null>(null);
   const [profileHydratedUser, setProfileHydratedUser] = useState<string | null>(null);
   const authSessionUserId = useRef<string | null | undefined>(undefined);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
@@ -81,6 +82,7 @@ export function useFirebaseSync(
       inventoryCreationInFlight.current = false;
       setInventoryHydratedUser(null);
       setInventorySyncErrorUser(null);
+      setInventoryServerConfirmedUser(null);
       setProfileHydratedUser(null);
 
       if (shouldClearCloudBackedLocalState) {
@@ -188,6 +190,11 @@ export function useFirebaseSync(
 
       const unsub = onSnapshot(q, { includeMetadataChanges: collectionName === "inventory" }, (snapshot) => {
         if (collectionName === "inventory") {
+          const serverConfirmed =
+            snapshot.metadata.fromCache === false &&
+            snapshot.metadata.hasPendingWrites === false &&
+            snapshot.docs.every(snapshotDoc => snapshotDoc.metadata.hasPendingWrites === false);
+          setInventoryServerConfirmedUser(serverConfirmed ? currentUser.uid : null);
           inventoryEditAuthority.current = verifyServerInventoryForEdits({
             userId: currentUser.uid,
             fromCache: snapshot.metadata.fromCache,
@@ -274,6 +281,7 @@ export function useFirebaseSync(
         ) {
           clearInventoryHydrationTimeout();
           setInventorySyncErrorUser(currentUser.uid);
+          setInventoryServerConfirmedUser(null);
           inventoryEditAuthority.current = {
             status: "unavailable", reason: "unverified-snapshot",
           };
@@ -517,6 +525,8 @@ export function useFirebaseSync(
     inventorySyncErrorUser === currentUser?.uid;
   const profileHydrated =
     !currentUser || profileHydratedUser === currentUser.uid;
+  const inventoryServerConfirmed =
+    Boolean(currentUser) && inventoryServerConfirmedUser === currentUser?.uid;
 
   // Only unresolved Auth blocks the application shell. Inventory authority is
   // surfaced separately so a delayed first snapshot cannot freeze the UI.
@@ -529,6 +539,7 @@ export function useFirebaseSync(
     inventoryHydrated,
     inventoryIsProvisional,
     inventorySyncError,
+    inventoryServerConfirmed,
     profileHydrated,
     captureInventoryEditBaseline,
     submitInventoryEdit,
