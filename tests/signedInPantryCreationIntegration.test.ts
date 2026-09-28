@@ -52,6 +52,7 @@ test("derived menu state waits until every confirmed created ID is visible in ow
   const end = appSource.indexOf("const dispatchSignedInPantryCreations", start);
   assert.ok(start >= 0 && end > start);
   const effect = appSource.slice(start, end);
+  assert.match(effect, /if \(!inventoryHydrated \|\| !inventoryServerConfirmed\) return;/);
   assert.match(effect, /const visibleIds = new Set\(pantry\.map\(item => item\.id\)\)/);
   assert.match(effect, /if \(!\[\.\.\.pending\.ids\]\.every\(id => visibleIds\.has\(id\)\)\) return;/);
   assert.match(effect, /pendingSignedInCreations\.current = null;/);
@@ -77,4 +78,19 @@ test("voice pantry addition remains explicitly outside this migration", () => {
   const handler = appSource.slice(start, end);
   assert.match(handler, /return updatePantryAndReconcileMenu\(parsed, true\);/);
   assert.doesNotMatch(handler, /submitInventoryCreations/);
+});
+
+test("inventory server confirmation requires non-cache snapshot with zero pending writes", () => {
+  assert.match(
+    syncSource,
+    /snapshot\.metadata\.fromCache === false[\s\S]*snapshot\.metadata\.hasPendingWrites === false[\s\S]*snapshot\.docs\.every\(snapshotDoc => snapshotDoc\.metadata\.hasPendingWrites === false\)/,
+  );
+  assert.match(
+    syncSource,
+    /setInventoryServerConfirmedUser\(serverConfirmed \? currentUser\.uid : null\)/,
+  );
+  assert.match(
+    syncSource,
+    /setInventoryServerConfirmedUser\(null\);[\s\S]*inventoryEditAuthority\.current = \{/,
+  );
 });
