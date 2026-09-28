@@ -14,7 +14,7 @@ test("signed-in single pantry creation dispatches transaction without optimistic
   const handler = appSource.slice(start, end);
   assert.match(
     handler,
-    /if \(currentUser\) \{\s*dispatchSignedInPantryCreations\(\[newItem\]\);\s*return;\s*\}/,
+    /if \(currentUser\) \{\s*void dispatchSignedInPantryCreations\(\[newItem\]\);\s*return;\s*\}/,
   );
   const signedIn = handler.slice(handler.indexOf("if (currentUser)"), handler.indexOf("updatePantryAndReconcileMenu"));
   assert.doesNotMatch(signedIn, /setPantry\(/);
@@ -28,7 +28,7 @@ test("signed-in scan or receipt batch uses one atomic creation dispatch while gu
   const handler = appSource.slice(start, end);
   assert.match(
     handler,
-    /if \(currentUser\) \{\s*dispatchSignedInPantryCreations\(newItems\);\s*return;\s*\}/,
+    /if \(currentUser\) \{\s*void dispatchSignedInPantryCreations\(newItems\);\s*return;\s*\}/,
   );
   assert.match(handler, /updatePantryAndReconcileMenu\(newItems, true\)/);
 });
