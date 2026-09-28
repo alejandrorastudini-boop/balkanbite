@@ -1285,7 +1285,8 @@ export default function App() {
     }
   };
 
-  const handleVoiceAddItems = (items: any[]): boolean => {
+  const handleVoiceAddItems = async (items: any[]): Promise<boolean> => {
+    if (!requireAuthoritativeInventory()) return false;
     const { accepted, rejectedCount } = normalizeVoicePantryItems(items || []);
     const now = Date.now();
     const addedAt = new Date().toISOString().split("T")[0];
@@ -1307,6 +1308,9 @@ export default function App() {
     }
 
     if (parsed.length === 0) return false;
+    if (currentUser) {
+      return dispatchSignedInPantryCreations(parsed);
+    }
     return updatePantryAndReconcileMenu(parsed, true);
   };
 
