@@ -143,6 +143,7 @@ export default function App() {
     inventoryHydrated,
     inventoryIsProvisional,
     inventorySyncError,
+    inventoryServerConfirmed,
     canRenderApp,
     profileHydrated,
     submitInventoryEdit,
@@ -599,13 +600,13 @@ export default function App() {
       pendingSignedInCreations.current = null;
       return;
     }
-    if (!inventoryHydrated) return;
+    if (!inventoryHydrated || !inventoryServerConfirmed) return;
     const visibleIds = new Set(pantry.map(item => item.id));
     if (![...pending.ids].every(id => visibleIds.has(id))) return;
 
     pendingSignedInCreations.current = null;
     reconcilePantryDerivedState(pantry, true);
-  }, [pantry, currentUser, inventoryHydrated]);
+  }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
 
   const dispatchSignedInPantryCreations = (items: PantryItem[]) => {
     const uid = currentUser?.uid;
