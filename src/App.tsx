@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useRef } from "react";
 import { Header } from "./components/Header";
 import { BottomNav, TabType } from "./components/BottomNav";
 import { HomeView } from "./components/HomeView";
@@ -144,7 +144,10 @@ export default function App() {
     inventoryIsProvisional,
     inventorySyncError,
     canRenderApp,
+    inventoryServerConfirmed,
     profileHydrated,
+    submitInventoryEdit,
+    submitInventoryCreations,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -161,6 +164,7 @@ export default function App() {
   const [pantryScope, setPantryScope] = useState<string>("guest");
   const [profileScope, setProfileScope] = useState<string>("guest");
   const [workspaceScope, setWorkspaceScope] = useState<string>("guest");
+  const pendingSignedInCreations = useRef<{ userId: string; ids: Set<string> } | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
@@ -549,6 +553,29 @@ export default function App() {
     setShowShoppingAdvisorModal(true);
   };
 
+  const reconcilePantryDerivedState = (
+    updatedPantry: PantryItem[],
+    showToast = true,
+  ) => {
+    const syncedRecipes = syncRecipesWithPantry(recipes, updatedPantry);
+    setRecipes(syncedRecipes);
+
+    const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+      updatedPantry,
+      syncedRecipes,
+      mealPlan,
+      profile
+    );
+    setMealPlan(newPlan);
+
+    if (showToast) {
+      setAutoMenuToast({
+        isVisible: true,
+        readyMealsCount: readyToCookMealsCount,
+      });
+    }
+  };
+
   const updatePantryAndReconcileMenu = (
     newPantryItemsToAdd: PantryItem[],
     showToast = true
@@ -557,26 +584,70 @@ export default function App() {
 
     setPantry((prevPantry) => {
       const updatedPantry = [...newPantryItemsToAdd, ...prevPantry];
-      const syncedRecipes = syncRecipesWithPantry(recipes, updatedPantry);
-      setRecipes(syncedRecipes);
-
-      const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
-        updatedPantry,
-        syncedRecipes,
-        mealPlan,
-        profile
-      );
-      setMealPlan(newPlan);
-
-      if (showToast) {
-        setAutoMenuToast({
-          isVisible: true,
-          readyMealsCount: readyToCookMealsCount,
-        });
-      }
+      reconcilePantryDerivedState(updatedPantry, showToast);
       return updatedPantry;
     });
     return true;
+  };
+
+  // Signed-in creation never mutates pantry optimistically. Remember the exact
+  // IDs before dispatch so the owner Firestore snapshot can prove the batch is
+  // visible before recipes/menu are reconciled against the committed pantry.
+  useEffect(() => {
+    const pending = pendingSignedInCreations.current;
+    if (!pending) return;
+    if (!currentUser || pending.userId !== currentUser.uid) {
+      pendingSignedInCreations.current = null;
+      return;
+    }
+    if (!inventoryHydrated || !inventoryServerConfirmed) return;
+    const visibleIds = new Set(pantry.map(item => item.id));
+    if (![...pending.ids].every(id => visibleIds.has(id))) return;
+
+    pendingSignedInCreations.current = null;
+    reconcilePantryDerivedState(pantry, true);
+  }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
+
+  const dispatchSignedInPantryCreations = (items: PantryItem[]) => {
+    const uid = currentUser?.uid;
+    if (!uid || items.length === 0) return;
+    if (pendingSignedInCreations.current) {
+      alert(
+        profile.language === "bg"
+          ? "Изчакайте текущото добавяне да приключи."
+          : profile.language === "es"
+          ? "Espera a que termine el alta actual."
+          : "Wait for the current pantry addition to finish."
+      );
+      return;
+    }
+
+    const ids = new Set(items.map(item => item.id));
+    pendingSignedInCreations.current = { userId: uid, ids };
+
+    void submitInventoryCreations(items).then(result => {
+      if (result.outcome === "created") return;
+      pendingSignedInCreations.current = null;
+      if (result.reason === "in-flight") return;
+      console.warn("Signed-in pantry creation needs review:", result.reason);
+      alert(
+        profile.language === "bg"
+          ? "Продуктите не бяха добавени. Проверете текущите наличности и опитайте отново."
+          : profile.language === "es"
+          ? "No se añadieron los alimentos. Revisa la despensa actual e inténtalo de nuevo."
+          : "The pantry items were not added. Review current stock and try again."
+      );
+    }).catch(error => {
+      pendingSignedInCreations.current = null;
+      console.error("Signed-in pantry creation failed:", error);
+      alert(
+        profile.language === "bg"
+          ? "Не успяхме да добавим продуктите. Наличностите не са променени."
+          : profile.language === "es"
+          ? "No se pudieron añadir los alimentos. No hemos modificado las existencias."
+          : "The pantry items could not be added. Your stock has not been changed."
+      );
+    });
   };
 
   const shoppingDiagnostic = useMemo(() => {
@@ -692,6 +763,10 @@ export default function App() {
       id: `p-${Date.now()}`,
       addedAt: new Date().toISOString().split("T")[0],
     };
+    if (currentUser) {
+      dispatchSignedInPantryCreations([newItem]);
+      return;
+    }
     updatePantryAndReconcileMenu([newItem], true);
   };
 
@@ -705,13 +780,58 @@ export default function App() {
       id: `p-${Date.now()}-${idx}`,
       addedAt: acquiredAt,
     }));
+    if (currentUser) {
+      dispatchSignedInPantryCreations(newItems);
+      return;
+    }
     updatePantryAndReconcileMenu(newItems, true);
   };
 
-  const handleUpdatePantryQuantity = (id: string, newQty: number) => {
+  // The signed-in manual +/- and delete path NEVER optimistically changes
+  // local pantry. Firestore onSnapshot alone supplies the committed result;
+  // a conflict or offline failure must not masquerade as a successful edit.
+  // Other legacy inventory writers are NOT yet coordinated: no release.
+  const dispatchVerifiedPantryChange = (viewed: PantryItem, next: number | "remove") => {
+    void submitInventoryEdit(
+      viewed,
+      next === "remove"
+        ? { kind: "remove" }
+        : { kind: "set-quantity", quantity: next },
+    ).then(result => {
+      if (result.outcome !== "needs-review" ||
+          result.reason === "no-change" ||
+          result.reason === "in-flight") return;
+      console.warn("Manual pantry edit needs review:", result.reason);
+      alert(
+        profile.language === "bg"
+          ? "Промяната не е запазена. Проверете текущите наличности и опитайте отново."
+          : profile.language === "es"
+          ? "El cambio no se ha guardado. Revisa las existencias actuales e inténtalo de nuevo."
+          : "The change was not saved. Review your current stock and try again."
+      );
+    }).catch(error => {
+      console.error("Verified manual pantry edit failed:", error);
+      alert(
+        profile.language === "bg"
+          ? "Не успяхме да запазим промяната. Наличностите не са променени."
+          : profile.language === "es"
+          ? "No se pudo guardar el cambio. No hemos modificado las existencias."
+          : "The change could not be saved. Your stock has not been changed."
+      );
+    });
+  };
+
+  const handleUpdatePantryQuantity = (
+    id: string, newQty: number, viewed: PantryItem,
+  ) => {
     if (!requireAuthoritativeInventory()) return;
+    if (viewed.id !== id || !Number.isFinite(newQty)) return;
     if (newQty <= 0) {
-      handleDeletePantryItem(id);
+      handleDeletePantryItem(id, viewed);
+      return;
+    }
+    if (currentUser) {
+      dispatchVerifiedPantryChange(viewed, newQty);
       return;
     }
     setPantry((prev) =>
@@ -719,8 +839,13 @@ export default function App() {
     );
   };
 
-  const handleDeletePantryItem = (id: string) => {
+  const handleDeletePantryItem = (id: string, viewed: PantryItem) => {
     if (!requireAuthoritativeInventory()) return;
+    if (viewed.id !== id) return;
+    if (currentUser) {
+      dispatchVerifiedPantryChange(viewed, "remove");
+      return;
+    }
     setPantry((prev) => prev.filter((item) => item.id !== id));
   };
 
