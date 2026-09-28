@@ -145,6 +145,7 @@ export default function App() {
     inventorySyncError,
     canRenderApp,
     profileHydrated,
+    submitInventoryEdit,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -708,10 +709,51 @@ export default function App() {
     updatePantryAndReconcileMenu(newItems, true);
   };
 
-  const handleUpdatePantryQuantity = (id: string, newQty: number) => {
+  // The signed-in manual +/- and delete path NEVER optimistically changes
+  // local pantry. Firestore onSnapshot alone supplies the committed result;
+  // a conflict or offline failure must not masquerade as a successful edit.
+  // Other legacy inventory writers are NOT yet coordinated: no release.
+  const dispatchVerifiedPantryChange = (viewed: PantryItem, next: number | "remove") => {
+    void submitInventoryEdit(
+      viewed,
+      next === "remove"
+        ? { kind: "remove" }
+        : { kind: "set-quantity", quantity: next },
+    ).then(result => {
+      if (result.outcome !== "needs-review" ||
+          result.reason === "no-change" ||
+          result.reason === "in-flight") return;
+      console.warn("Manual pantry edit needs review:", result.reason);
+      alert(
+        profile.language === "bg"
+          ? "Промяната не е запазена. Проверете текущите наличности и опитайте отново."
+          : profile.language === "es"
+          ? "El cambio no se ha guardado. Revisa las existencias actuales e inténtalo de nuevo."
+          : "The change was not saved. Review your current stock and try again."
+      );
+    }).catch(error => {
+      console.error("Verified manual pantry edit failed:", error);
+      alert(
+        profile.language === "bg"
+          ? "Не успяхме да запазим промяната. Наличностите не са променени."
+          : profile.language === "es"
+          ? "No se pudo guardar el cambio. No hemos modificado las existencias."
+          : "The change could not be saved. Your stock has not been changed."
+      );
+    });
+  };
+
+  const handleUpdatePantryQuantity = (
+    id: string, newQty: number, viewed: PantryItem,
+  ) => {
     if (!requireAuthoritativeInventory()) return;
+    if (viewed.id !== id || !Number.isFinite(newQty)) return;
     if (newQty <= 0) {
-      handleDeletePantryItem(id);
+      handleDeletePantryItem(id, viewed);
+      return;
+    }
+    if (currentUser) {
+      dispatchVerifiedPantryChange(viewed, newQty);
       return;
     }
     setPantry((prev) =>
@@ -719,8 +761,13 @@ export default function App() {
     );
   };
 
-  const handleDeletePantryItem = (id: string) => {
+  const handleDeletePantryItem = (id: string, viewed: PantryItem) => {
     if (!requireAuthoritativeInventory()) return;
+    if (viewed.id !== id) return;
+    if (currentUser) {
+      dispatchVerifiedPantryChange(viewed, "remove");
+      return;
+    }
     setPantry((prev) => prev.filter((item) => item.id !== id));
   };
 
