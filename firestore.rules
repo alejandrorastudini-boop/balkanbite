@@ -42,7 +42,11 @@ service cloud.firestore {
         request.resource.data.get('cookRevision', 0) is int &&
         request.resource.data.get('cookRevision', 0) >= 0 &&
         request.resource.data.get('cookRevision', 0) <= 1;
-      allow read: if ownsExistingDocument();
+      // Creation transactions must be able to prove that an owner-scoped ID
+      // is still absent. Never reveal another account's existing or missing IDs.
+      allow get: if ownsDocumentNamespace(itemId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
       allow delete: if ownsExistingDocument() &&
         resource.data.get('cookRevision', 0) == 0;
       allow update: if ownsExistingDocument() && ownsIncomingDocument() &&
