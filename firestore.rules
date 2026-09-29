@@ -86,6 +86,37 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Immutable owner-scoped inventory consumption journal. It records the
+    // exact reviewed voice allocation used by the atomic stock transaction.
+    // As with cookConfirmations, existence alone is not proof of stock change;
+    // only the tested transaction joins journal creation to inventory updates.
+    match /inventoryConsumptions/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.mutationId is string &&
+        request.resource.data.mutationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.mutationId &&
+        request.resource.data.source == 'voice' &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.deductions is list &&
+        request.resource.data.deductions.size() > 0 &&
+        request.resource.data.createdAt is timestamp;
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update, delete: if false;
+    }
+
     match /recipes/{recipeId} {
       allow create: if ownsIncomingDocument() && ownsDocumentNamespace(recipeId);
       allow read, delete: if ownsExistingDocument();
