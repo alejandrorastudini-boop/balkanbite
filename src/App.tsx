@@ -1205,37 +1205,139 @@ export default function App() {
     setShoppingList((prev) => [...prev, newItem]);
   };
 
-  const handleTransferToPantry = () => {
+  const handleTransferToPantry = async () => {
     if (!requireAuthoritativeInventory()) return;
-    const checkedItems = shoppingList.filter((i) => i.checked);
+    const checkedItems = shoppingList.filter(item => item.checked);
     if (checkedItems.length === 0) return;
 
     const occurredAt = new Date().toISOString();
-    const result = transferCheckedShoppingItems(
-      pantry, shoppingList, occurredAt.split("T")[0]
+    const acquiredAt = occurredAt.split("T")[0];
+    const preview = transferCheckedShoppingItems(
+      pantry,
+      shoppingList,
+      acquiredAt,
     );
-    if (result.acceptedSourceIds.length > 0) {
-      setPantry(result.pantry);
-      const syncedRecipes = syncRecipesWithPantry(recipes, result.pantry);
-      setRecipes(syncedRecipes);
-      const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
-        result.pantry, syncedRecipes, mealPlan, profile
-      );
-      setMealPlan(newPlan);
-      setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
-      setShoppingList(result.shoppingList);
+
+    if (preview.acceptedSourceIds.length > 0) {
+      if (!currentUser) {
+        setPantry(preview.pantry);
+        reconcilePantryDerivedState(preview.pantry, true);
+        setShoppingList(preview.shoppingList);
+        appendLocalProgressionEvents(
+          buildPurchaseProgressEvents({
+            occurredAt,
+            newlyAppliedSourceIds: preview.newlyAppliedSourceIds,
+          }),
+        );
+      } else {
+        const purchases = checkedItems
+          .filter(item => item.purchaseAmountConfirmed === true)
+          .map(shoppingItemToPurchase);
+        const mutationId = buildPurchaseMutationId(purchases);
+        const evidence = mutationId
+          ? buildPendingPurchaseCommitEvidence(
+              currentUser.uid,
+              mutationId,
+              occurredAt,
+              preview,
+            )
+          : null;
+
+        if (!mutationId || !evidence) {
+          console.warn(
+            "Signed-in shopping transfer rejected before persistence: invalid purchase evidence",
+          );
+          alert(
+            profile.language === "bg"
+              ? "Покупката не беше прехвърлена. Проверете потвърдените количества и опитайте отново."
+              : profile.language === "es"
+              ? "La compra no se transfirió. Revisa las cantidades confirmadas e inténtalo de nuevo."
+              : "The purchase was not transferred. Review the confirmed amounts and try again.",
+          );
+          return;
+        }
+
+        const pending = pendingSignedInPurchaseApplication.current;
+        if (pending && pending.mutationId !== mutationId) {
+          alert(
+            profile.language === "bg"
+              ? "Изчакайте текущото прехвърляне на покупката да приключи."
+              : profile.language === "es"
+              ? "Espera a que termine la transferencia de compra actual."
+              : "Wait for the current purchase transfer to finish.",
+          );
+          return;
+        }
+        pendingSignedInPurchaseApplication.current = evidence;
+
+        try {
+          const persisted = await submitPurchasePantryApplication(
+            purchases,
+            acquiredAt,
+          );
+
+          if (persisted.outcome === "needs-review") {
+            const preservePending =
+              persisted.reason === "in-flight" ||
+              persisted.reason === "unverified-authority";
+            if (!preservePending) {
+              pendingSignedInPurchaseApplication.current = null;
+            }
+            console.warn(
+              "Signed-in shopping transfer needs review:",
+              persisted.reason,
+            );
+            if (!preservePending) {
+              alert(
+                profile.language === "bg"
+                  ? "Покупката не беше приложена. Синхронизирайте наличностите и прегледайте списъка преди нов опит."
+                  : profile.language === "es"
+                  ? "La compra no se aplicó. Sincroniza la despensa y revisa la lista antes de intentarlo de nuevo."
+                  : "The purchase was not applied. Sync your pantry and review the list before retrying.",
+              );
+            }
+            return;
+          }
+
+          const sameAccepted =
+            JSON.stringify([...persisted.acceptedSourceIds].sort()) ===
+            JSON.stringify([...evidence.acceptedSourceIds].sort());
+          const sameNew =
+            JSON.stringify([...persisted.newlyAppliedSourceIds].sort()) ===
+            JSON.stringify([...evidence.newlyAppliedSourceIds].sort());
+          if (!sameAccepted || !sameNew) {
+            pendingSignedInPurchaseApplication.current = null;
+            console.error(
+              "Purchase transaction result did not match reviewed transfer evidence",
+            );
+            return;
+          }
+
+          // The listener may already have delivered the committed pantry before
+          // this promise resolves. Finalize immediately when that exact stock +
+          // purchase-history evidence is already visible; otherwise the effect
+          // above will finish after the next confirmed snapshot.
+          finalizeSignedInPurchaseIfVisible(pantry);
+        } catch (error) {
+          // Keep pending evidence. Firestore may have committed before a
+          // transport error reached this client; the same deterministic
+          // mutation/source IDs make a later retry idempotent.
+          console.error("Signed-in shopping transfer confirmation failed:", error);
+          alert(
+            profile.language === "bg"
+              ? "Не успяхме да потвърдим прехвърлянето. Синхронизирайте и опитайте отново със същите маркирани продукти."
+              : profile.language === "es"
+              ? "No pudimos confirmar la transferencia. Sincroniza y reintenta con los mismos productos marcados."
+              : "We could not confirm the transfer. Sync and retry with the same checked items.",
+          );
+          return;
+        }
+      }
     }
 
-    appendLocalProgressionEvents(
-      buildPurchaseProgressEvents({
-        occurredAt,
-        newlyAppliedSourceIds: result.newlyAppliedSourceIds,
-      })
-    );
-
-    if (result.rejected.length > 0) {
-      const hasUnconfirmedAmount = result.rejected.some(
-        (item) => item.reason === "unconfirmed_amount"
+    if (preview.rejected.length > 0) {
+      const hasUnconfirmedAmount = preview.rejected.some(
+        item => item.reason === "unconfirmed_amount",
       );
       alert(
         hasUnconfirmedAmount
@@ -1248,7 +1350,7 @@ export default function App() {
           ? "Някои продукти остават в списъка: проверете името, количеството и мерната единица."
           : profile.language === "es"
           ? "Algunos artículos siguen en la lista: revisa su nombre, cantidad y unidad antes de transferirlos."
-          : "Some items remain on the list: check their name, quantity and unit before transferring."
+          : "Some items remain on the list: check their name, quantity and unit before transferring.",
       );
     }
   };
