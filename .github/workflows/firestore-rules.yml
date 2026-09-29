@@ -5,6 +5,12 @@ on:
     paths:
       - "firestore.rules"
       - "qa/security/**"
+      - "src/utils/confirmedCookFirestore.ts"
+      - "src/utils/inventoryAdjustmentFirestore.ts"
+      - "src/utils/inventoryCreationFirestore.ts"
+      - "src/utils/verifiedVoiceConsumptionFirestore.ts"
+      - "src/utils/purchasePantryFirestore.ts"
+      - "src/utils/inventoryClearFirestore.ts"
       - ".github/workflows/firestore-rules.yml"
   workflow_dispatch:
 
@@ -45,4 +51,4 @@ jobs:
           --only firestore
           --project demo-balkanbite-rules
           --config firebase.json
-          "node qa/security/firestore-rules-emulator.mjs"
+          "node qa/security/firestore-rules-emulator.mjs && node --import tsx qa/security/cook-journal-transaction-emulator.mjs && node --import tsx qa/security/inventory-adjustment-emulator.mjs && node --import tsx qa/security/inventory-creation-emulator.mjs && node --import tsx qa/security/voice-consumption-emulator.mjs && node --import tsx qa/security/purchase-pantry-emulator.mjs && node --import tsx qa/security/inventory-clear-emulator.mjs"
