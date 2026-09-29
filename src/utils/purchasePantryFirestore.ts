@@ -481,11 +481,13 @@ function review(
     { outcome: "needs-review" }
   >["reason"],
   pantryItemId?: string,
+  shoppingItemId?: string,
 ): PurchasePantryTransactionResult {
   return {
     outcome: "needs-review",
     reason,
     ...(pantryItemId ? { pantryItemId } : {}),
+    ...(shoppingItemId ? { shoppingItemId } : {}),
   };
 }
 
@@ -501,7 +503,8 @@ export async function persistPurchasesIntoPantryAtomically(
     mutationId,
   } = request;
 
-  if (plan.merge.newlyAppliedSourceIds.length === 0) {
+  if (plan.merge.newlyAppliedSourceIds.length === 0 &&
+      plan.shoppingItemsToRemove.length === 0) {
     return {
       outcome: "already-applied",
       mutationId,
@@ -509,6 +512,7 @@ export async function persistPurchasesIntoPantryAtomically(
       newlyAppliedSourceIds: [],
       rejected: [...plan.merge.rejected],
       expectedChanges: [],
+      removedShoppingItemIds: [],
     };
   }
 
@@ -533,6 +537,14 @@ export async function persistPurchasesIntoPantryAtomically(
       getScopedDocumentId(userId, entry.after.id),
     ),
   }));
+  const shoppingRows = plan.shoppingItemsToRemove.map(item => ({
+    item,
+    ref: doc(
+      db,
+      "shoppingList",
+      getScopedDocumentId(userId, item.id),
+    ),
+  }));
 
   for (let outerAttempt = 0; outerAttempt < 3; outerAttempt++) {
     try {
@@ -547,7 +559,8 @@ export async function persistPurchasesIntoPantryAtomically(
             data.requestSignature !== plan.signature ||
             !Array.isArray(data.acceptedSourceIds) ||
             !Array.isArray(data.newlyAppliedSourceIds) ||
-            !Array.isArray(data.expectedChanges)
+            !Array.isArray(data.expectedChanges) ||
+            !Array.isArray(data.removedShoppingItemIds)
           ) {
             return review("conflicting-replay");
           }
@@ -559,6 +572,7 @@ export async function persistPurchasesIntoPantryAtomically(
             rejected: plan.merge.rejected,
             expectedChanges:
               data.expectedChanges as PurchasePantryExpectedChange[],
+            removedShoppingItemIds: data.removedShoppingItemIds as string[],
           };
         }
 
@@ -596,6 +610,32 @@ export async function persistPurchasesIntoPantryAtomically(
           }
         }
 
+        const shoppingSnapshots = [];
+        for (const entry of shoppingRows) {
+          const snapshot = await tx.get(entry.ref);
+          if (!snapshot.exists()) {
+            if (plan.merge.newlyAppliedSourceIds.length > 0) {
+              return review("stale-shopping", undefined, entry.item.id);
+            }
+            shoppingSnapshots.push({ ...entry, exists: false });
+            continue;
+          }
+          const remote = snapshot.data();
+          if (remote.userId !== userId) {
+            return review("stale-shopping", undefined, entry.item.id);
+          }
+          const remoteComparable = comparableRemoteShopping(remote);
+          const expectedComparable = comparableShoppingItem(entry.item);
+          if (
+            !remoteComparable ||
+            !expectedComparable ||
+            stableJson(remoteComparable) !== stableJson(expectedComparable)
+          ) {
+            return review("stale-shopping", undefined, entry.item.id);
+          }
+          shoppingSnapshots.push({ ...entry, exists: true });
+        }
+
         for (const entry of updates) {
           const next = serializePantryItem(
             entry.after,
@@ -612,6 +652,11 @@ export async function persistPurchasesIntoPantryAtomically(
           tx.set(entry.ref, next);
         }
 
+        for (const entry of shoppingSnapshots) {
+          if (entry.exists) tx.delete(entry.ref);
+        }
+
+        const removedShoppingItemIds = shoppingRows.map(entry => entry.item.id);
         tx.set(journalRef, {
           userId,
           mutationId,
@@ -620,6 +665,7 @@ export async function persistPurchasesIntoPantryAtomically(
           acceptedSourceIds: plan.merge.acceptedSourceIds,
           newlyAppliedSourceIds: plan.merge.newlyAppliedSourceIds,
           expectedChanges: plan.expectedChanges,
+          removedShoppingItemIds,
           createdAt: serverTimestamp(),
         });
 
@@ -630,6 +676,7 @@ export async function persistPurchasesIntoPantryAtomically(
           newlyAppliedSourceIds: [...plan.merge.newlyAppliedSourceIds],
           rejected: [...plan.merge.rejected],
           expectedChanges: [...plan.expectedChanges],
+          removedShoppingItemIds: shoppingRows.map(entry => entry.item.id),
         };
       }, { maxAttempts: 5 });
     } catch (error) {
