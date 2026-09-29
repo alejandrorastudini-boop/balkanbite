@@ -17,6 +17,7 @@ import {
   persistConfirmedCookAtomically,
   cookRequestSignature,
 } from "../../src/utils/confirmedCookFirestore.ts";
+import { getScopedDocumentId } from "../../src/utils/cloudCollectionSync.ts";
 
 const hostPort =
   (process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080").split(":");
@@ -35,8 +36,10 @@ const aliceSecondDevice = environment.authenticatedContext("alice").firestore();
 const bob = environment.authenticatedContext("bob").firestore();
 const guest = environment.unauthenticatedContext().firestore();
 
-const inventory = (db, uid, id) => doc(db, "inventory", `u_${uid}__${id}`);
-const journal = (db, uid, id) => doc(db, "cookConfirmations", `u_${uid}__${id}`);
+const inventory = (db, uid, id) =>
+  doc(db, "inventory", getScopedDocumentId(uid, id));
+const journal = (db, uid, id) =>
+  doc(db, "cookConfirmations", getScopedDocumentId(uid, id));
 
 const allocation = (ingredientId, pantryItemId, quantity, unit) => ({
   ingredientId,
@@ -243,6 +246,37 @@ try {
     false,
   );
   console.log("PASS: stale quantity or revision baseline cannot silently cook");
+
+  await createStock(
+    alice,
+    "alice",
+    "purchase-shopping:s2",
+    1,
+    "L",
+    0,
+  );
+  const purchasedLotCook = await persistConfirmedCookAtomically(alice, request(
+    "alice",
+    confirmation("qa-purchase-lot", "qa-purchase-meal", [
+      allocation(
+        "purchase-allocation",
+        "purchase-shopping:s2",
+        0.5,
+        "L",
+      ),
+    ]),
+    [expected("purchase-shopping:s2", 1, "L", 0)],
+  ));
+  assert.equal(purchasedLotCook.outcome, "recorded");
+  assert.equal(
+    (await stock(alice, "alice", "purchase-shopping:s2")).quantity,
+    0.5,
+  );
+  assert.equal(
+    (await stock(alice, "alice", "purchase-shopping:s2")).cookRevision,
+    1,
+  );
+  console.log("PASS: purchase-derived pantry ID cooks through encoded Firestore document ID");
 
   await createStock(alice, "alice", "shortage", 20, "g", 0);
   const shortage = await persistConfirmedCookAtomically(alice, request(
