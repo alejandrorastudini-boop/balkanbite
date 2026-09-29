@@ -1230,9 +1230,11 @@ export default function App() {
           }),
         );
       } else {
+        const acceptedPreviewSources = new Set(preview.acceptedSourceIds);
         const purchases = checkedItems
           .filter(item => item.purchaseAmountConfirmed === true)
-          .map(shoppingItemToPurchase);
+          .map(shoppingItemToPurchase)
+          .filter(purchase => acceptedPreviewSources.has(purchase.sourceId));
         const mutationId = buildPurchaseMutationId(purchases);
         const evidence = mutationId
           ? buildPendingPurchaseCommitEvidence(
