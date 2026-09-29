@@ -654,8 +654,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
             ? "Отказ"
             : "Cancel"
         }
-        danger={false}
-      />
+        danger={false}\n        feedbackText={cookFeedback?.kind === "error" ? cookFeedback.text : undefined}\n      />
 
       {/* Confirmation Modal for Clearing Recipes */}
       <ConfirmModal
