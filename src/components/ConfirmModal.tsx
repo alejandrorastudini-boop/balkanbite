@@ -1,10 +1,10 @@
-import React from "react";
+import React, { useState } from "react";
 import { AlertTriangle, Trash2, X } from "lucide-react";
 
 interface ConfirmModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onConfirm: () => void;
+  onConfirm: () => void | boolean | Promise<void | boolean>;
   title: string;
   description: string;
   confirmText?: string;
@@ -22,12 +22,30 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   cancelText = "Cancel",
   danger = true,
 }) => {
+  const [isConfirming, setIsConfirming] = useState(false);
+
   if (!isOpen) return null;
+
+  const handleClose = () => {
+    if (isConfirming) return;
+    onClose();
+  };
+
+  const handleConfirm = async () => {
+    if (isConfirming) return;
+    setIsConfirming(true);
+    try {
+      const result = await Promise.resolve(onConfirm());
+      if (result !== false) onClose();
+    } finally {
+      setIsConfirming(false);
+    }
+  };
 
   return (
     <div 
       className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm animate-in fade-in"
-      onClick={onClose}
+      onClick={handleClose}
     >
       <div 
         className="w-full max-w-sm bg-stone-900 border border-stone-700/80 rounded-2xl p-5 shadow-2xl space-y-4 relative overflow-hidden"
@@ -42,7 +60,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
             <p className="text-xs text-stone-300 leading-relaxed">{description}</p>
           </div>
           <button 
-            onClick={onClose}
+            onClick={handleClose}
             className="absolute top-4 right-4 p-1 text-stone-400 hover:text-stone-200 rounded-lg transition-colors"
           >
             <X className="w-4 h-4" />
@@ -53,17 +71,16 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <button
             type="button"
             onClick={onClose}
-            className="flex-1 py-2.5 px-3 rounded-xl bg-stone-800 hover:bg-stone-700 text-stone-300 text-xs font-semibold border border-stone-700 transition-colors"
+            disabled={isConfirming}
+            className="flex-1 py-2.5 px-3 rounded-xl bg-stone-800 hover:bg-stone-700 disabled:opacity-50 disabled:cursor-not-allowed text-stone-300 text-xs font-semibold border border-stone-700 transition-colors"
           >
             {cancelText}
           </button>
           <button
             type="button"
-            onClick={() => {
-              onConfirm();
-              onClose();
-            }}
-            className={`flex-1 py-2.5 px-3 rounded-xl text-white text-xs font-bold transition-all shadow-md ${danger ? "bg-rose-600 hover:bg-rose-500 shadow-rose-950/50" : "bg-emerald-600 hover:bg-emerald-500"}`}
+            onClick={handleConfirm}
+            disabled={isConfirming}
+            className={`flex-1 py-2.5 px-3 rounded-xl text-white text-xs font-bold transition-all shadow-md disabled:opacity-60 disabled:cursor-not-allowed ${danger ? "bg-rose-600 hover:bg-rose-500 shadow-rose-950/50" : "bg-emerald-600 hover:bg-emerald-500"}`}
           >
             {confirmText}
           </button>
