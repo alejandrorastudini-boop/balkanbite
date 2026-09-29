@@ -140,6 +140,6 @@ test("fully rejected deterministic purchase plan is not mislabeled already-appli
     acquiredAt: "2026-09-29",
   });
   assert.ok(plan);
-  assert.deepEqual(plan.acceptedSourceIds ?? plan.merge.acceptedSourceIds, []);
+  assert.deepEqual(plan.merge.acceptedSourceIds, []);
   assert.equal(plan.merge.rejected.length, 1);
 });
