@@ -122,6 +122,37 @@ try {
   ));
   assert.equal((await readLot(bob, "bob", "private")).quantity, 5);
   console.log("PASS: legacy first adjustment and Alice/Bob/guest separation");
+
+  // Purchase-created logical IDs contain provenance separators and are encoded
+  // into the Firestore document ID. They must remain editable like any other lot.
+  const purchaseId = "purchase-shopping:s2";
+  await setDoc(lot(alice, "alice", purchaseId), {
+    id: purchaseId,
+    userId: "alice",
+    name: "Synthetic purchased milk",
+    quantity: 1,
+    unit: "L",
+    category: "Dairy",
+    addedAt: "2026-09-29",
+    cookRevision: 0,
+    _deleted: false,
+  });
+  const purchaseEdit = await persistVerifiedInventoryAdjustment(
+    alice,
+    "alice",
+    expected(purchaseId, 1, "L", 0),
+    { kind: "set-quantity", quantity: 0.75 },
+  );
+  assert.deepEqual(purchaseEdit, {
+    outcome: "updated",
+    quantity: 0.75,
+    cookRevision: 1,
+  });
+  assert.equal(
+    (await readLot(alice, "alice", purchaseId)).quantity,
+    0.75,
+  );
+  console.log("PASS: purchase-provenance logical lot ID is editable");
 } finally {
   await environment.cleanup();
 }
