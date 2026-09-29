@@ -88,6 +88,15 @@ try {
   );
   assert.equal(replay.outcome, "already-recorded");
   assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.15) < 1e-9);
+  const changedBaselineReplay = await persistConfirmedCookAtomically(
+    alice,
+    request("alice", cook, [
+      expected("rice-old", 0.000001, "g", 1),
+      expected("rice-new", 0.15, "kg", 1),
+    ]),
+  );
+  assert.equal(changedBaselineReplay.outcome, "needs-review");
+  assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.15) < 1e-9);
   for (const changed of [
     confirmation("qa-cook-1", "qa-meal-1", [
       allocation("rice-1", "rice-old", 100, "g"),
@@ -166,6 +175,30 @@ try {
   assert.equal(await isRecorded(alice, "alice", "qa-volume"), false);
 
   console.log("PASS: shortage and incompatible-unit rejection");
+  await createStock(alice, "alice", "stale-confirmation", 100, "g");
+  await assertSucceeds(updateDoc(
+    inventory(alice, "alice", "stale-confirmation"),
+    { quantity: 90, cookRevision: 1 },
+  ));
+  const staleConfirmation = await persistConfirmedCookAtomically(
+    alice,
+    request(
+      "alice",
+      confirmation("qa-stale-confirmation", "qa-meal-stale", [
+        allocation("stale-ingredient", "stale-confirmation", 20, "g"),
+      ]),
+      [expected("stale-confirmation", 100, "g", 0)],
+    ),
+  );
+  assert.equal(staleConfirmation.outcome, "needs-review");
+  assert.equal(staleConfirmation.pendingIngredients[0].reason, "stale-stock");
+  assert.equal((await stock(alice, "alice", "stale-confirmation")).quantity, 90);
+  assert.equal(
+    await isRecorded(alice, "alice", "qa-stale-confirmation"),
+    false,
+  );
+  console.log("PASS: changed stock baseline rejects cook with zero journal/write");
+
 
   // An authenticated user can only write to their own namespace.
   await createStock(bob, "bob", "rice-old", 250, "g");
