@@ -49,8 +49,10 @@ import type { RecipeCookOutcome } from "./utils/recipeCookFeedback";
 import {
   transferCheckedShoppingItems,
   reconcileConfirmedShoppingPurchases,
+  shoppingItemToPurchase,
   type RawReconciliationExtraItem,
 } from "./utils/purchasePantryMerge";
+import { buildPurchaseMutationId } from "./utils/purchasePantryFirestore";
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
 import { buildConfirmedVoiceShoppingItems } from "./utils/safeVoiceShoppingCapture";
 import {
@@ -150,6 +152,7 @@ export default function App() {
     submitInventoryEdit,
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
+    submitPurchasePantryApplication,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -176,6 +179,19 @@ export default function App() {
     deductions: PantryConsumptionDeduction[];
     expectedRemaining: Record<string, number | null>;
   }>>(new Map());
+  const pendingSignedInPurchaseApplication = useRef<{
+    userId: string;
+    mutationId: string;
+    acceptedSourceIds: string[];
+    newlyAppliedSourceIds: string[];
+    occurredAt: string;
+    expected: Array<{
+      pantryItemId: string;
+      quantity: number;
+      unit: string;
+      sourceIds: string[];
+    }>;
+  } | null>(null);
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
