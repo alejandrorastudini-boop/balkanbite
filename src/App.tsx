@@ -2066,8 +2066,6 @@ export default function App() {
               isLoadingAi={isLoadingAi}
               language={profile.language}
               currency={profile.currency}
-              progressionSummary={progressionSummary}
-              theme={theme}
             />
           )}
 
