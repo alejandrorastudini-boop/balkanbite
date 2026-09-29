@@ -1397,7 +1397,10 @@ export default function App() {
     return true;
   };
 
-  const handleVoiceDeductItems = (items: any[]): boolean => {
+  const handleVoiceDeductItems = async (
+    items: any[],
+    mutationId?: string,
+  ): Promise<boolean> => {
     if (!requireAuthoritativeInventory()) return false;
 
     const result = deductVoiceItemsFromPantry(pantry, items || []);
@@ -1409,8 +1412,55 @@ export default function App() {
       return false;
     }
 
-    setPantry(result.pantry);
-    return true;
+    if (!currentUser) {
+      setPantry(result.pantry);
+      return true;
+    }
+    if (!mutationId) {
+      console.warn("Signed-in voice deduction missing stable mutation ID");
+      return false;
+    }
+
+    const affectedIds = new Set(
+      result.deductions.map(item => item.pantryItemId),
+    );
+    const remaining = new Map(
+      result.pantry.map(item => [item.id, item.quantity]),
+    );
+    const expectedRemaining: Record<string, number | null> = {};
+    for (const pantryItemId of affectedIds) {
+      expectedRemaining[pantryItemId] = remaining.has(pantryItemId)
+        ? remaining.get(pantryItemId) ?? null
+        : null;
+    }
+    pendingSignedInVoiceConsumptions.current.set(mutationId, {
+      userId: currentUser.uid,
+      expectedRemaining,
+    });
+
+    try {
+      const persisted = await submitVoiceInventoryConsumption(
+        mutationId,
+        result.deductions,
+      );
+      if (persisted.outcome === "needs-review") {
+        if (persisted.reason !== "in-flight") {
+          pendingSignedInVoiceConsumptions.current.delete(mutationId);
+        }
+        console.warn(
+          "Signed-in voice pantry deduction needs review:",
+          persisted.reason,
+        );
+        return false;
+      }
+      return true;
+    } catch (error) {
+      // Preserve the pending expected result: the server may have committed
+      // before the client observed a transport error. A retry uses the same
+      // mutationId and the transaction journal prevents a second deduction.
+      console.error("Verified voice pantry deduction failed:", error);
+      return false;
+    }
   };
 
   const handleVoiceNavigateToRecipes = (query?: string) => {
