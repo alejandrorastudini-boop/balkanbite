@@ -692,6 +692,56 @@ export default function App() {
     }
   }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
 
+  // Checked shopping transfer is complete only when both sides of the
+  // Firestore transaction are visible: exact pantry result and accepted rows
+  // absent from the shopping list. Only then emit progression/menu effects.
+  useEffect(() => {
+    const pending = pendingCheckedShoppingTransfer.current;
+    if (!pending) return;
+    if (!currentUser || pending.userId !== currentUser.uid) {
+      pendingCheckedShoppingTransfer.current = null;
+      return;
+    }
+    if (!inventoryHydrated || !inventoryServerConfirmed) return;
+
+    const pantryById = new Map(
+      pantry.map(item => [
+        item.id,
+        item as PantryItem & { cookRevision?: number },
+      ]),
+    );
+    const stockMatches = pending.expectedChanges.every(change => {
+      const visible = pantryById.get(change.pantryItemId);
+      return Boolean(
+        visible &&
+        visible.quantity === change.quantity &&
+        visible.unit === change.unit &&
+        (visible.cookRevision ?? 0) === change.cookRevision
+      );
+    });
+    if (!stockMatches) return;
+
+    const shoppingIds = new Set(shoppingList.map(item => item.id));
+    if (pending.removedShoppingItemIds.some(id => shoppingIds.has(id))) return;
+
+    pendingCheckedShoppingTransfer.current = null;
+    if (pending.newlyAppliedSourceIds.length > 0) {
+      appendLocalProgressionEvents(
+        buildPurchaseProgressEvents({
+          occurredAt: pending.occurredAt,
+          newlyAppliedSourceIds: pending.newlyAppliedSourceIds,
+        })
+      );
+      reconcilePantryDerivedState(pantry, true);
+    }
+  }, [
+    pantry,
+    shoppingList,
+    currentUser,
+    inventoryHydrated,
+    inventoryServerConfirmed,
+  ]);
+
   const dispatchSignedInPantryCreations = async (
     items: PantryItem[],
   ): Promise<boolean> => {
