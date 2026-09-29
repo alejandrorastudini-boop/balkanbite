@@ -158,6 +158,7 @@ export default function App() {
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
     submitPurchasePantryApplication,
+    submitPantryClear,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -185,6 +186,11 @@ export default function App() {
     expectedRemaining: Record<string, number | null>;
   }>>(new Map());
   const pendingSignedInPurchaseApplication = useRef<PendingPurchaseCommitEvidence | null>(null);
+  const pendingSignedInPantryClear = useRef<{
+    userId: string;
+    mutationId: string;
+    clearedItemIds: string[];
+  } | null>(null);
   const preparedSignedInReconciliations = useRef<Map<string, {
     userId: string;
     reviewFingerprint: string;
@@ -638,6 +644,24 @@ export default function App() {
     });
     return true;
   };
+
+  useEffect(() => {
+    const pending = pendingSignedInPantryClear.current;
+    if (!pending) return;
+    if (!currentUser || pending.userId !== currentUser.uid) {
+      pendingSignedInPantryClear.current = null;
+      return;
+    }
+    if (!inventoryHydrated || !inventoryServerConfirmed) return;
+
+    const visibleIds = new Set(pantry.map(item => item.id));
+    if (pending.clearedItemIds.some(id => visibleIds.has(id))) return;
+
+    pendingSignedInPantryClear.current = null;
+    // A concurrently created lot that was not in the reviewed baseline stays
+    // visible. Reconcile availability against what the server actually kept.
+    reconcileCommittedPantryAvailability(pantry, true);
+  }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
 
   const finalizeSignedInPurchaseIfVisible = (
     committedPantry: PantryItem[],
@@ -1103,9 +1127,77 @@ export default function App() {
     setPantry((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleClearPantry = () => {
-    if (!requireAuthoritativeInventory()) return;
-    setPantry([]);
+  const handleClearPantry = async (
+    mutationId?: string,
+  ): Promise<boolean> => {
+    if (!requireAuthoritativeInventory()) return false;
+
+    if (!currentUser) {
+      setPantry([]);
+      reconcileCommittedPantryAvailability([], true);
+      return true;
+    }
+    if (!mutationId) {
+      console.warn("Signed-in pantry clear missing stable mutation ID");
+      return false;
+    }
+
+    const currentIds = pantry.map(item => item.id).sort();
+    const pending = pendingSignedInPantryClear.current;
+    if (pending && pending.mutationId !== mutationId) {
+      return false;
+    }
+    if (!pending) {
+      pendingSignedInPantryClear.current = {
+        userId: currentUser.uid,
+        mutationId,
+        clearedItemIds: currentIds,
+      };
+    }
+
+    try {
+      const result = await submitPantryClear(mutationId);
+      if (result.outcome === "needs-review") {
+        const preservePending =
+          result.reason === "in-flight" ||
+          result.reason === "unverified-authority";
+        if (!preservePending) {
+          pendingSignedInPantryClear.current = null;
+        }
+        console.warn("Signed-in pantry clear needs review:", result.reason);
+        if (!preservePending) {
+          alert(
+            profile.language === "bg"
+              ? "Килерът не беше изчистен. Синхронизирайте наличностите и опитайте отново."
+              : profile.language === "es"
+              ? "La despensa no se vació. Sincroniza las existencias e inténtalo de nuevo."
+              : "The pantry was not cleared. Sync your stock and try again.",
+          );
+        }
+        return false;
+      }
+
+      const expectedIds = pendingSignedInPantryClear.current?.clearedItemIds ?? [];
+      const resultIds = [...result.clearedItemIds].sort();
+      if (
+        result.outcome !== "already-empty" &&
+        JSON.stringify(resultIds) !== JSON.stringify(expectedIds)
+      ) {
+        pendingSignedInPantryClear.current = null;
+        console.error("Pantry clear result did not match reviewed baseline");
+        return false;
+      }
+      if (result.outcome === "already-empty") {
+        pendingSignedInPantryClear.current = null;
+        reconcileCommittedPantryAvailability(pantry, true);
+      }
+      return true;
+    } catch (error) {
+      // Keep exact IDs + hook baseline. The server may have committed before a
+      // transport error reached the client; retry must use the same mutation.
+      console.error("Verified pantry clear failed:", error);
+      return false;
+    }
   };
 
   const handleClearRecipes = () => {
