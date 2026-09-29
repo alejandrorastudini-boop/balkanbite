@@ -57,11 +57,6 @@ const validRevision = (value: unknown): value is number =>
   value >= 0 &&
   value < Number.MAX_SAFE_INTEGER;
 
-const review = (
-  ingredientName: string,
-  reason: RecipeCookPlanResult extends infer _T ? never : never,
-) => ({ ingredientName, reason });
-
 // Type-safe wrapper kept explicit instead of widening issue reasons elsewhere.
 function needsReview(
   ingredientName: string,
