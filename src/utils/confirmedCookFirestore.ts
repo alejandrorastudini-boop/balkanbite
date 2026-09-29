@@ -11,6 +11,7 @@ import {
   type PendingCookIngredient,
 } from "./confirmedCookTransaction";
 import { getScopedDocumentId } from "./cloudCollectionSync";
+import { isSafeInventoryLogicalId } from "./inventoryIdentity";
 
 export interface AtomicCookExpectedStock {
   pantryItemId: string;
@@ -29,7 +30,7 @@ export interface AtomicCookRequest {
   expectedStock: readonly AtomicCookExpectedStock[];
 }
 
-const safeId = (value: unknown): value is string =>
+const safeTokenId = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9._-]{1,150}$/.test(value);
 
 const validQuantity = (value: unknown): value is number =>
@@ -67,7 +68,7 @@ function normalizeExpectedStock(
   for (const item of expectedStock) {
     if (
       !item ||
-      !safeId(item.pantryItemId) ||
+      !isSafeInventoryLogicalId(item.pantryItemId) ||
       ids.has(item.pantryItemId) ||
       !validQuantity(item.quantity) ||
       typeof item.unit !== "string" ||
@@ -99,8 +100,8 @@ export function cookAllocationSignature(
   expectedStock: readonly AtomicCookExpectedStock[],
 ): string | null {
   if (
-    !safeId(confirmation.cookConfirmationId) ||
-    !safeId(confirmation.mealId) ||
+    !safeTokenId(confirmation.cookConfirmationId) ||
+    !safeTokenId(confirmation.mealId) ||
     confirmation.confirmed !== true ||
     !Array.isArray(confirmation.ingredients) ||
     confirmation.ingredients.length === 0 ||
@@ -120,8 +121,8 @@ export function cookAllocationSignature(
 
   for (const ingredient of confirmation.ingredients) {
     if (
-      !safeId(ingredient.ingredientId) ||
-      !safeId(ingredient.pantryItemId) ||
+      !safeTokenId(ingredient.ingredientId) ||
+      !isSafeInventoryLogicalId(ingredient.pantryItemId) ||
       !validQuantity(ingredient.quantity) ||
       typeof ingredient.unit !== "string" ||
       !ingredient.unit.trim() ||
@@ -179,7 +180,7 @@ export async function persistConfirmedCookAtomically(
   const { userId, confirmation } = request;
   if (
     !/^[A-Za-z0-9_-]{1,128}$/.test(userId) ||
-    !safeId(confirmation.cookConfirmationId)
+    !safeTokenId(confirmation.cookConfirmationId)
   ) {
     return reject("invalid-ingredient");
   }
