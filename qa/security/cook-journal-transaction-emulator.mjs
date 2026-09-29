@@ -153,7 +153,20 @@ try {
 
   // A reviewed baseline is part of the confirmation. Another device changing
   // the lot before commit must reject the cook even when enough stock remains.
-  await createStock(alice, "alice", "stale-baseline", 100, "g", 2);
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(inventory(context.firestore(), "alice", "stale-baseline"), {
+      id: "stale-baseline",
+      userId: "alice",
+      name: "QA synthetic pantry",
+      quantity: 100,
+      unit: "g",
+      category: "Pantry/Grains",
+      addedAt: "2026-09-23",
+      cookRevision: 2,
+      _deleted: false,
+      deletedAt: null,
+    });
+  });
   const staleBaseline = await persistConfirmedCookAtomically(alice, {
     userId: "alice",
     confirmation: confirmation("qa-stale-baseline", "qa-stale-meal", [
