@@ -129,7 +129,7 @@ test("plans deterministic expiry-first multi-lot recipe deductions against exact
 
 test("purchase-created colon IDs are preserved into atomic cook request", () => {
   const result = planRecipeCookAgainstAuthoritativePantry(input({
-    ingredients: [ingredient("Rice", 0.1, "kg")],
+    ingredients: [ingredient("Rice", 0.15, "kg")],
   }));
   assert.equal(result.outcome, "planned");
   if (result.outcome !== "planned") return;
