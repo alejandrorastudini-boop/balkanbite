@@ -76,7 +76,7 @@ test("confirmation routes shopping separately from pantry add/remove", () => {
   assert.match(confirmBlock, /action === "add"/);
   assert.match(confirmBlock, /onAddItemsToPantry\(confirmedItems\)/);
   assert.match(confirmBlock, /action === "remove"/);
-  assert.match(confirmBlock, /onDeductItemsFromPantry\(confirmedItems\)/);
+  assert.match(confirmBlock, /onDeductItemsFromPantry\(confirmedItems, mutationId\)/);
   assert.match(
     confirmBlock,
     /onAddItemsToShoppingList\(confirmedItems\)/,
