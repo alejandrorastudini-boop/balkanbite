@@ -6,8 +6,8 @@ import {
   onSnapshot,
   query,
   where,
-  writeBatch,
-  Timestamp
+  Timestamp,
+  writeBatch
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -58,7 +58,6 @@ export function useFirebaseSync(
   const hydratedCollectionUser = useRef<Record<string, string>>({});
   const lastHydratedCollectionJson = useRef<Record<string, string>>({});
   const hydratedCollectionDocumentIds = useRef<Record<string, Set<string>>>({});
-  const hydratedInventoryActiveIds = useRef<Set<string>>(new Set());
   // Read-only verified owner snapshot for future revision-aware UI intents.
   // The current legacy bulk inventory writer is deliberately not changed here.
   const inventoryEditAuthority = useRef<InventoryEditAuthority>({
@@ -99,7 +98,6 @@ export function useFirebaseSync(
       hydratedCollectionUser.current = {};
       lastHydratedCollectionJson.current = {};
       hydratedCollectionDocumentIds.current = {};
-      hydratedInventoryActiveIds.current = new Set();
       inventoryEditAuthority.current = {
         status: "unavailable", reason: "unverified-snapshot",
       };
@@ -296,9 +294,6 @@ export function useFirebaseSync(
           const activeEntries = Array.from(byLogicalId.values()).filter(
             ({ item }) => item._deleted !== true
           );
-          hydratedInventoryActiveIds.current = new Set(
-            activeEntries.map(({ documentId, item }) => String(item.id || documentId))
-          );
           itemsWithoutUserId = activeEntries.map(({ item }) => {
             const { _deleted, deletedAt, ...visibleItem } = item;
             return visibleItem;
@@ -333,6 +328,15 @@ export function useFirebaseSync(
       };
     }, [currentUser]);
 
+    // Inventory is intentionally read-only in this generic synchronizer.
+    // Every signed-in inventory mutation now has a dedicated authoritative
+    // command/transaction path with exact baseline verification. Keeping the
+    // legacy local-state bulk writer here would reintroduce a second authority
+    // and could overwrite revision-aware concurrent changes.
+    if (collectionName === "inventory") {
+      return;
+    }
+
     useEffect(() => {
       if (
         !currentUser ||
@@ -341,62 +345,33 @@ export function useFirebaseSync(
       ) {
         return;
       }
-      const isInventory = collectionName === "inventory";
-      if (isInventory && !cloudInventoryWritesAllowed) return;
 
       const save = async () => {
         const itemsToPersist = localState.filter(shouldPersistItem);
         const persistableItems = itemsToPersist.filter((item) =>
           Boolean(getSyncedItemKey(collectionName, item))
         );
-        const currentInventoryIds: Set<string> = isInventory
-          ? new Set<string>(
-              persistableItems.map((item) => getSyncedItemKey(collectionName, item)!)
+        const currentCollectionDocumentIds = new Set(
+          persistableItems.map((item) =>
+            getScopedDocumentId(
+              currentUser.uid,
+              getSyncedItemKey(collectionName, item)!
             )
-          : new Set<string>();
-        const hydratedActiveInventoryIds = Array.from(
-          hydratedInventoryActiveIds.current.values()
-        ) as string[];
-        const deletedInventoryIds: string[] = isInventory
-          ? hydratedActiveInventoryIds.filter(id => !currentInventoryIds.has(id))
-          : [];
-
-        const currentCollectionDocumentIds = !isInventory
-          ? new Set(
-              persistableItems.map((item) =>
-                getScopedDocumentId(
-                  currentUser.uid,
-                  getSyncedItemKey(collectionName, item)!
-                )
-              )
-            )
-          : new Set<string>();
-        const deletedCollectionDocumentIds = !isInventory
-          ? findRemovedDocumentIds(
-              hydratedCollectionDocumentIds.current[collectionName] || [],
-              currentCollectionDocumentIds
-            )
-          : [];
+          )
+        );
+        const deletedCollectionDocumentIds = findRemovedDocumentIds(
+          hydratedCollectionDocumentIds.current[collectionName] || [],
+          currentCollectionDocumentIds
+        );
 
         if (
-          !isInventory &&
           persistableItems.length === 0 &&
           deletedCollectionDocumentIds.length === 0
         ) {
           return;
         }
-        if (
-          isInventory &&
-          persistableItems.length === 0 &&
-          deletedInventoryIds.length === 0
-        ) {
-          return;
-        }
 
-        // A fresh remote snapshot is already the source of truth. Do not write
-        // it back until a real local mutation changes the hydrated state.
         if (
-          deletedInventoryIds.length === 0 &&
           deletedCollectionDocumentIds.length === 0 &&
           lastHydratedCollectionJson.current[collectionName] ===
             JSON.stringify(itemsToPersist)
@@ -408,47 +383,19 @@ export function useFirebaseSync(
         persistableItems.forEach(item => {
           const logicalId = getSyncedItemKey(collectionName, item)!;
           const documentId = getScopedDocumentId(currentUser.uid, logicalId);
-          const docRef = doc(db, collectionName, documentId);
           batch.set(
-            docRef,
-            isInventory
-              ? {
-                  ...item,
-                  userId: currentUser.uid,
-                  _deleted: false,
-                  deletedAt: null,
-                }
-              : { ...item, userId: currentUser.uid },
+            doc(db, collectionName, documentId),
+            { ...item, userId: currentUser.uid },
             { merge: true }
           );
         });
-
-        deletedInventoryIds.forEach((itemId: string) => {
-          const docRef = doc(
-            db,
-            collectionName,
-            getScopedDocumentId(currentUser.uid, itemId)
-          );
-          batch.set(
-            docRef,
-            {
-              id: itemId,
-              userId: currentUser.uid,
-              _deleted: true,
-              deletedAt: Timestamp.now(),
-            },
-            { merge: true }
-          );
-        });
-
         deletedCollectionDocumentIds.forEach((documentId) => {
           batch.delete(doc(db, collectionName, documentId));
         });
-
         await batch.commit();
       };
       save();
-    }, [localState, currentUser, loading, cloudInventoryWritesAllowed]);
+    }, [localState, currentUser, loading]);
   };
 
   const isRealPantryItem = (item: PantryItem) => !isLegacyDemoPantryItemId(item.id);
