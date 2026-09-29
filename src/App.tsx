@@ -146,6 +146,7 @@ export default function App() {
     canRenderApp,
     profileHydrated,
     submitInventoryEdit,
+    submitInventoryCreation,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -693,7 +694,35 @@ export default function App() {
       id: `p-${Date.now()}`,
       addedAt: new Date().toISOString().split("T")[0],
     };
-    updatePantryAndReconcileMenu([newItem], true);
+
+    if (!currentUser) {
+      updatePantryAndReconcileMenu([newItem], true);
+      return;
+    }
+
+    // Signed-in creation waits for Firestore onSnapshot before pantry UI
+    // changes. Never optimistically append here: that could wake the legacy
+    // all-row writer before the remote authoritative snapshot arrives.
+    void submitInventoryCreation([newItem]).then(result => {
+      if (result.outcome !== "needs-review") return;
+      console.warn("Manual pantry creation needs review:", result.reason);
+      alert(
+        profile.language === "bg"
+          ? "Продуктът не е добавен. Синхронизирайте наличностите и опитайте отново."
+          : profile.language === "es"
+          ? "El producto no se ha añadido. Sincroniza la despensa e inténtalo de nuevo."
+          : "The item was not added. Sync your pantry and try again."
+      );
+    }).catch(error => {
+      console.error("Verified manual pantry creation failed:", error);
+      alert(
+        profile.language === "bg"
+          ? "Не успяхме да добавим продукта. Наличностите не са променени."
+          : profile.language === "es"
+          ? "No se pudo añadir el producto. No hemos modificado las existencias."
+          : "The item could not be added. Your stock has not been changed."
+      );
+    });
   };
 
   const handleAddMultiplePantryItems = (items: Array<Omit<PantryItem, "id" | "addedAt">>) => {
