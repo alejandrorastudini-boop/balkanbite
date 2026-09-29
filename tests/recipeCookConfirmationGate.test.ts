@@ -95,10 +95,10 @@ test("cook modal remains the only confirmation boundary and surfaces retry error
 test("generic ConfirmModal awaits async result and false keeps review open", () => {
   for (const expected of [
     "onConfirm: () => void | boolean | Promise<void | boolean>",
-    "const [isConfirming, setIsConfirming] = useState(false)",
+    "const [isConfirming, setIsConfirming] = useState(false)",\n    "const isConfirmingRef = useRef(false)",\n    "if (isConfirmingRef.current) return",\n    "isConfirmingRef.current = true",
     "const result = await Promise.resolve(onConfirm())",
     "if (result !== false) onClose()",
-    "if (!isConfirming) onClose()",
+    "if (!isConfirmingRef.current) onClose()",
     "disabled={isConfirming}",
     "aria-busy={isConfirming}",
   ]) {
