@@ -187,6 +187,7 @@ export default function App() {
   const pendingSignedInPurchaseApplication = useRef<PendingPurchaseCommitEvidence | null>(null);
   const preparedSignedInReconciliations = useRef<Map<string, {
     userId: string;
+    reviewFingerprint: string;
     purchases: PantryPurchase[];
     preview: ShoppingReconciliationResult;
     occurredAt: string;
