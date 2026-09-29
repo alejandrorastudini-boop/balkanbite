@@ -127,3 +127,30 @@ export function isPurchaseCommitVisible(
     return expected.sourceIds.every(sourceId => sourceIds.has(sourceId));
   });
 }
+
+export function arePurchaseSourcesVisible(
+  acceptedSourceIds: readonly string[],
+  pantry: readonly PantryItem[],
+): boolean {
+  if (
+    !Array.isArray(acceptedSourceIds) ||
+    acceptedSourceIds.length === 0 ||
+    new Set(acceptedSourceIds).size !== acceptedSourceIds.length ||
+    !Array.isArray(pantry)
+  ) {
+    return false;
+  }
+
+  return acceptedSourceIds.every(sourceId => {
+    if (!nonBlank(sourceId)) return false;
+    let matches = 0;
+    for (const item of pantry) {
+      if (
+        item.purchaseHistory?.some(record => record.sourceId === sourceId)
+      ) {
+        matches += 1;
+      }
+    }
+    return matches === 1;
+  });
+}
