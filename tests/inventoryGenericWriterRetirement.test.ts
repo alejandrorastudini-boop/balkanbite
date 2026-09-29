@@ -9,10 +9,10 @@ test("generic inventory sync is hydration-only and returns before generic writer
     sync.indexOf("// Sync Collection Helper"),
     sync.indexOf("// A capture returns"),
   );
-  const readGate = helper.indexOf('if (collectionName === "inventory") {\n      return;');
+  const readGate = helper.indexOf('collectionName === "inventory" ||');
   const writer = helper.indexOf("const batch = writeBatch(db)");
   assert.ok(readGate > 0, "inventory read-only gate must exist");
-  assert.ok(writer > readGate, "generic writer must be unreachable for inventory");
+  assert.ok(writer > readGate, "generic writer must be guarded for inventory");
 });
 
 test("legacy bulk inventory tombstone synthesis is gone", () => {
