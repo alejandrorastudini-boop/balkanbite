@@ -49,7 +49,10 @@ import type { RecipeCookOutcome } from "./utils/recipeCookFeedback";
 import {
   transferCheckedShoppingItems,
   reconcileConfirmedShoppingPurchases,
+  buildConfirmedShoppingReconciliationInput,
   shoppingItemToPurchase,
+  type PantryPurchase,
+  type ShoppingReconciliationResult,
   type RawReconciliationExtraItem,
 } from "./utils/purchasePantryMerge";
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
@@ -187,6 +190,17 @@ export default function App() {
     readyToReconcile: boolean;
   } | null>(null);
   const [purchaseTransferCheckpoint, setPurchaseTransferCheckpoint] = useState(0);
+  const preparedReviewedShoppingReconciliation = useRef<{
+    userId: string;
+    reconciliationId: string;
+    mutationId: string;
+    reviewSignature: string;
+    occurredAt: string;
+    acquiredAt: string;
+    purchases: PantryPurchase[];
+    shoppingItemsToRemove: ShoppingItem[];
+    preview: ShoppingReconciliationResult;
+  } | null>(null);
   const pendingSignedInVoiceConsumptions = useRef<Map<string, {
     userId: string;
     expectedRemaining: Record<string, number | null>;
