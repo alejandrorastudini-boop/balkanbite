@@ -42,6 +42,7 @@ import { evaluateShoppingNeeds } from "./utils/shoppingAdvisor";
 import {
   deductRecipeIngredientsFromPantry,
   deductVoiceItemsFromPantry,
+  type PantryConsumptionDeduction,
 } from "./utils/pantryConsumption";
 import { buildRecipeShoppingNeeds } from "./utils/recipeShoppingNeeds";
 import type { RecipeCookOutcome } from "./utils/recipeCookFeedback";
@@ -168,6 +169,11 @@ export default function App() {
   const pendingSignedInCreations = useRef<{ userId: string; ids: Set<string> } | null>(null);
   const pendingSignedInVoiceConsumptions = useRef<Map<string, {
     userId: string;
+    expectedRemaining: Record<string, number | null>;
+  }>>(new Map());
+  const preparedSignedInVoiceDeductions = useRef<Map<string, {
+    userId: string;
+    deductions: PantryConsumptionDeduction[];
     expectedRemaining: Record<string, number | null>;
   }>>(new Map());
   const [activeTab, setActiveTab] = useState<TabType>("home");
