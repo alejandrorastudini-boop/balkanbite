@@ -49,8 +49,10 @@ export type PurchasePantryTransactionResult =
         | "invalid-request"
         | "invalid-baseline"
         | "stale-stock"
+        | "stale-shopping"
         | "conflicting-replay";
       pantryItemId?: string;
+      shoppingItemId?: string;
     };
 
 interface PlannedExistingUpdate {
@@ -316,6 +318,7 @@ export function buildPurchasePantryTransactionPlan(
     mutationId,
     baselinePantry,
     purchases,
+    shoppingItemsToRemove = [],
     acquiredAt,
   } = request;
 
@@ -325,10 +328,27 @@ export function buildPurchasePantryTransactionPlan(
     !Array.isArray(baselinePantry) ||
     baselinePantry.length > 300 ||
     !validatePurchases(purchases) ||
+    !Array.isArray(shoppingItemsToRemove) ||
+    shoppingItemsToRemove.length > 50 ||
     typeof acquiredAt !== "string" ||
     !acquiredAt.trim()
   ) {
     return null;
+  }
+
+  const shoppingById = new Map<string, ShoppingItem>();
+  const purchaseSourceIds = new Set(purchases.map(item => item.sourceId));
+  for (const item of shoppingItemsToRemove) {
+    if (
+      !item ||
+      !safeLogicalId(item.id) ||
+      shoppingById.has(item.id) ||
+      !comparableShoppingItem(item) ||
+      !purchaseSourceIds.has(`shopping:${item.id}`)
+    ) {
+      return null;
+    }
+    shoppingById.set(item.id, item);
   }
 
   const baselineById = new Map<string, PurchaseBaselineItem>();
@@ -417,6 +437,11 @@ export function buildPurchasePantryTransactionPlan(
   }
 
   expectedChanges.sort((a, b) => a.pantryItemId.localeCompare(b.pantryItemId));
+  const acceptedSources = new Set(merge.acceptedSourceIds);
+  const acceptedShoppingRows = Array.from(shoppingById.values())
+    .filter(item => acceptedSources.has(`shopping:${item.id}`))
+    .sort((a, b) => a.id.localeCompare(b.id));
+
   const signature = stableJson({
     version: 1,
     source: "purchase",
@@ -437,6 +462,7 @@ export function buildPurchasePantryTransactionPlan(
     acceptedSourceIds: merge.acceptedSourceIds,
     newlyAppliedSourceIds: merge.newlyAppliedSourceIds,
     rejected: merge.rejected,
+    shoppingItemsToRemove: acceptedShoppingRows.map(item => comparableShoppingItem(item)),
   });
 
   return {
@@ -445,6 +471,7 @@ export function buildPurchasePantryTransactionPlan(
     updates,
     creations,
     expectedChanges,
+    shoppingItemsToRemove: acceptedShoppingRows,
   };
 }
 
