@@ -675,6 +675,133 @@ export default function App() {
     finalizeSignedInPurchaseIfVisible(pantry);
   }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
 
+  const dispatchSignedInPurchaseApplication = async (
+    purchases: PantryPurchase[],
+    preview: PurchaseMergeResult,
+    occurredAt: string,
+    acquiredAt: string,
+  ): Promise<boolean> => {
+    const uid = currentUser?.uid;
+    const mutationId = buildPurchaseMutationId(purchases);
+    const evidence =
+      uid && mutationId
+        ? buildPendingPurchaseCommitEvidence(
+            uid,
+            mutationId,
+            occurredAt,
+            preview,
+          )
+        : null;
+
+    if (!uid || !mutationId || !evidence) {
+      console.warn(
+        "Signed-in purchase rejected before persistence: invalid reviewed evidence",
+      );
+      return false;
+    }
+
+    const pending = pendingSignedInPurchaseApplication.current;
+    if (pending && pending.mutationId !== mutationId) {
+      alert(
+        profile.language === "bg"
+          ? "Изчакайте текущото прехвърляне на покупката да приключи."
+          : profile.language === "es"
+          ? "Espera a que termine la transferencia de compra actual."
+          : "Wait for the current purchase transfer to finish.",
+      );
+      return false;
+    }
+    pendingSignedInPurchaseApplication.current = evidence;
+
+    try {
+      const persisted = await submitPurchasePantryApplication(
+        purchases,
+        acquiredAt,
+      );
+
+      if (persisted.outcome === "needs-review") {
+        const preservePending =
+          persisted.reason === "in-flight" ||
+          persisted.reason === "unverified-authority";
+        if (!preservePending) {
+          pendingSignedInPurchaseApplication.current = null;
+        }
+        console.warn(
+          "Signed-in purchase application needs review:",
+          persisted.reason,
+        );
+        if (!preservePending) {
+          alert(
+            profile.language === "bg"
+              ? "Покупката не беше приложена. Синхронизирайте наличностите и прегледайте покупката преди нов опит."
+              : profile.language === "es"
+              ? "La compra no se aplicó. Sincroniza la despensa y revisa la compra antes de intentarlo de nuevo."
+              : "The purchase was not applied. Sync your pantry and review the purchase before retrying.",
+          );
+        }
+        return false;
+      }
+
+      const sameAccepted =
+        JSON.stringify([...persisted.acceptedSourceIds].sort()) ===
+        JSON.stringify([...evidence.acceptedSourceIds].sort());
+      if (!sameAccepted) {
+        pendingSignedInPurchaseApplication.current = null;
+        console.error(
+          "Purchase transaction accepted sources did not match reviewed evidence",
+        );
+        return false;
+      }
+
+      if (persisted.outcome === "already-applied") {
+        if (!arePurchaseSourcesVisible(evidence.acceptedSourceIds, pantry)) {
+          pendingSignedInPurchaseApplication.current = null;
+          console.error(
+            "Purchase replay claimed already-applied without unique source history",
+          );
+          return false;
+        }
+        pendingSignedInPurchaseApplication.current = null;
+        const accepted = new Set(evidence.acceptedSourceIds);
+        setShoppingList(current =>
+          current.filter(item => !accepted.has(`shopping:${item.id}`)),
+        );
+        // Historical source proof is enough to close a replay. Do not create a
+        // new progression event because this call did not newly apply stock.
+        reconcilePantryDerivedState(pantry, true);
+        return true;
+      }
+
+      const sameNew =
+        JSON.stringify([...persisted.newlyAppliedSourceIds].sort()) ===
+        JSON.stringify([...evidence.newlyAppliedSourceIds].sort());
+      if (!sameNew) {
+        pendingSignedInPurchaseApplication.current = null;
+        console.error(
+          "Purchase transaction newly-applied sources did not match reviewed evidence",
+        );
+        return false;
+      }
+
+      // The listener may already have delivered the committed pantry before
+      // this promise resolves; otherwise the server-confirmed effect finishes.
+      finalizeSignedInPurchaseIfVisible(pantry);
+      return true;
+    } catch (error) {
+      // Keep exact reviewed evidence. Firestore may have committed before the
+      // transport error reached the client; replay uses the same source IDs.
+      console.error("Signed-in purchase confirmation failed:", error);
+      alert(
+        profile.language === "bg"
+          ? "Не успяхме да потвърдим покупката. Прегледът е запазен за безопасен повторен опит."
+          : profile.language === "es"
+          ? "No pudimos confirmar la compra. La revisión se conserva para reintentar de forma segura."
+          : "We could not confirm the purchase. Your review is preserved for a safe retry.",
+      );
+      return false;
+    }
+  };
+
   // Signed-in creation never mutates pantry optimistically. Remember the exact
   // IDs before dispatch so the owner Firestore snapshot can prove the batch is
   // visible before recipes/menu are reconciled against the committed pantry.
