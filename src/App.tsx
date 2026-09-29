@@ -84,6 +84,7 @@ import {
 } from "./utils/verifiedMealLog";
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
 import { hasValidManualShoppingRequiredFields } from "./utils/manualShoppingValidation";
+import { isExpectedInventoryResultVisible } from "./utils/expectedInventoryResult";
 import {
   getFoodSafetyQuarantine,
   getFoodSafetyQuarantineMessage,
@@ -665,18 +666,13 @@ export default function App() {
     }
     if (!inventoryHydrated || !inventoryServerConfirmed) return;
 
-    const visible = new Map(pantry.map(item => [item.id, item.quantity]));
     let matched = false;
     for (const [key, pending] of pendingSignedInDerivedReconciliations.current) {
       if (pending.userId !== currentUser.uid) {
         pendingSignedInDerivedReconciliations.current.delete(key);
         continue;
       }
-      const exactResultVisible = Object.entries(pending.expectedRemaining).every(
-        ([itemId, quantity]) =>
-          quantity === null ? !visible.has(itemId) : visible.get(itemId) === quantity,
-      );
-      if (!exactResultVisible) continue;
+      if (!isExpectedInventoryResultVisible(pending.expectedRemaining, pantry)) continue;
       pendingSignedInDerivedReconciliations.current.delete(key);
       matched = true;
     }
