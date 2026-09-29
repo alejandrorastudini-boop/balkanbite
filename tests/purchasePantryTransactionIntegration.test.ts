@@ -40,6 +40,12 @@ test("purchase evidence is installed before transaction dispatch", () => {
   assert.ok(pending >= 0 && submit > pending);
   assert.ok(handler.includes("buildPurchaseMutationId(purchases)"));
   assert.ok(handler.includes("buildPendingPurchaseCommitEvidence("));
+  assert.ok(handler.includes(
+    "const acceptedPreviewSources = new Set(preview.acceptedSourceIds)",
+  ));
+  assert.ok(handler.includes(
+    ".filter(purchase => acceptedPreviewSources.has(purchase.sourceId))",
+  ));
 });
 
 test("shopping rows and progression finalize only after source-history proof in confirmed pantry", () => {
