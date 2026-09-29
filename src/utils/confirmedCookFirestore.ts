@@ -20,9 +20,17 @@ export type AtomicCookResult =
   | { outcome: "recorded" | "already-recorded"; record: ConsumptionRecord }
   | { outcome: "needs-review"; pendingIngredients: PendingCookIngredient[] };
 
+export interface AtomicCookStockExpectation {
+  pantryItemId: string;
+  quantity: number;
+  unit: string;
+  cookRevision: number;
+}
+
 export interface AtomicCookRequest {
   userId: string;
   confirmation: CookConfirmation;
+  expectedStock: readonly AtomicCookStockExpectation[];
 }
 
 const safeId = (value: unknown): value is string =>
@@ -30,6 +38,12 @@ const safeId = (value: unknown): value is string =>
 
 const validQuantity = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value > 0;
+
+const validRevision = (value: unknown): value is number =>
+  typeof value === "number" &&
+  Number.isSafeInteger(value) &&
+  value >= 0 &&
+  value < Number.MAX_SAFE_INTEGER;
 
 function reject(reason: PendingCookIngredient["reason"], ingredientId = "confirmation"): AtomicCookResult {
   return { outcome: "needs-review", pendingIngredients: [{ ingredientId, reason }] };
@@ -66,6 +80,57 @@ export function cookAllocationSignature(confirmation: CookConfirmation): string 
   return JSON.stringify({ version: 1, mealId: confirmation.mealId, allocations: normalized });
 }
 
+export function cookRequestSignature(
+  confirmation: CookConfirmation,
+  expectedStock: readonly AtomicCookStockExpectation[],
+): string | null {
+  const allocationSignature = cookAllocationSignature(confirmation);
+  if (!allocationSignature ||
+      !Array.isArray(expectedStock) ||
+      expectedStock.length === 0 ||
+      expectedStock.length > 30) {
+    return null;
+  }
+
+  const ids = new Set<string>();
+  const normalizedStock = [];
+  for (const item of expectedStock) {
+    if (!item ||
+        !safeId(item.pantryItemId) ||
+        ids.has(item.pantryItemId) ||
+        !validQuantity(item.quantity) ||
+        typeof item.unit !== "string" ||
+        !item.unit.trim() ||
+        !validRevision(item.cookRevision)) {
+      return null;
+    }
+    ids.add(item.pantryItemId);
+    normalizedStock.push({
+      pantryItemId: item.pantryItemId,
+      quantity: item.quantity,
+      unit: item.unit,
+      cookRevision: item.cookRevision,
+    });
+  }
+  normalizedStock.sort((a, b) =>
+    a.pantryItemId.localeCompare(b.pantryItemId),
+  );
+
+  const allocationIds = Array.from(new Set(
+    confirmation.ingredients.map(item => item.pantryItemId as string),
+  )).sort();
+  if (allocationIds.length !== normalizedStock.length ||
+      allocationIds.some((id, index) => id !== normalizedStock[index].pantryItemId)) {
+    return null;
+  }
+
+  return JSON.stringify({
+    version: 2,
+    allocationSignature,
+    expectedStock: normalizedStock,
+  });
+}
+
 /**
  * Reads the target journal and every referenced authoritative stock document
  * BEFORE writing anything. Firestore retries the callback on read-version
@@ -79,14 +144,18 @@ export async function persistConfirmedCookAtomically(
   db: Firestore,
   request: AtomicCookRequest,
 ): Promise<AtomicCookResult> {
-  const { userId, confirmation } = request;
+  const { userId, confirmation, expectedStock } = request;
   // Current rule namespace is based on the literal auth UID, not a URL-encoded UID.
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(userId) ||
       !safeId(confirmation.cookConfirmationId)) {
     return reject("invalid-ingredient");
   }
-  const signature = cookAllocationSignature(confirmation);
+  const signature = cookRequestSignature(confirmation, expectedStock);
   if (!signature) return reject("invalid-ingredient");
+
+  const expectedById = new Map(
+    expectedStock.map(item => [item.pantryItemId, item] as const),
+  );
 
   const cookId = confirmation.cookConfirmationId as string;
   const journalRef = doc(db, "cookConfirmations", getScopedDocumentId(userId, cookId));
@@ -131,16 +200,24 @@ export async function persistConfirmedCookAtomically(
       const snapshot = await tx.get(ref);
       if (!snapshot.exists()) return reject("stock-not-found", id);
       const data = snapshot.data();
+      const remoteRevision = data.cookRevision ?? 0;
       if (data.userId !== userId ||
           data.id !== id ||
           data._deleted === true ||
           !validQuantity(data.quantity) ||
           typeof data.unit !== "string" ||
-          !Number.isInteger(data.cookRevision ?? 0) ||
-          (data.cookRevision ?? 0) < 0) {
+          !data.unit.trim() ||
+          !validRevision(remoteRevision)) {
         return reject("invalid-stock", id);
       }
-      revisions.set(id, (data.cookRevision ?? 0) as number);
+      const expected = expectedById.get(id);
+      if (!expected ||
+          data.quantity !== expected.quantity ||
+          data.unit !== expected.unit ||
+          remoteRevision !== expected.cookRevision) {
+        return reject("stale-stock", id);
+      }
+      revisions.set(id, remoteRevision);
       stock.push({ id, quantity: data.quantity as number, unit: data.unit as string });
     }
 
