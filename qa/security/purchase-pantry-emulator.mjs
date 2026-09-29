@@ -198,6 +198,86 @@ try {
   });
   assert.equal((await readStock(alice, "alice", "tomato")).quantity, 1.5);
 
+  const reviewedListRow = shoppingItem(
+    "reconcile-list",
+    "Yogur",
+    2,
+    "pcs",
+    { category: "Dairy" },
+  );
+  await seedShopping("alice", reviewedListRow);
+  const reviewedReconciliation = {
+    userId: "alice",
+    mutationId: "purchase-reconcile-voice-review-1",
+    baselinePantry: [],
+    purchases: [
+      {
+        sourceId: "shopping:reconcile-list",
+        source: "shopping_list",
+        name: "Yogur",
+        quantity: 2,
+        unit: "pcs",
+        category: "Dairy",
+      },
+      {
+        sourceId: "reconcile:voice-review-1:extra:0",
+        source: "confirmed_reconciliation",
+        name: "Huevos",
+        quantity: 6,
+        unit: "pcs",
+        category: "Dairy",
+      },
+    ],
+    shoppingItemsToRemove: [reviewedListRow],
+    acquiredAt: "2026-09-29",
+  };
+  const reviewedResult = await persistPurchasesIntoPantryAtomically(
+    alice,
+    reviewedReconciliation,
+  );
+  assert.equal(reviewedResult.outcome, "recorded");
+  assert.deepEqual(
+    reviewedResult.acceptedSourceIds,
+    ["shopping:reconcile-list", "reconcile:voice-review-1:extra:0"],
+  );
+  assert.deepEqual(reviewedResult.removedShoppingItemIds, ["reconcile-list"]);
+  assert.equal(
+    (await getDoc(shoppingRef(alice, "alice", "reconcile-list"))).exists(),
+    false,
+  );
+  assert.equal(
+    (await readStock(
+      alice,
+      "alice",
+      "purchase-shopping:reconcile-list",
+    )).quantity,
+    2,
+  );
+  assert.equal(
+    (await readStock(
+      alice,
+      "alice",
+      "purchase-reconcile:voice-review-1:extra:0",
+    )).quantity,
+    6,
+  );
+  const reviewedReplay = await persistPurchasesIntoPantryAtomically(
+    aliceOtherDevice,
+    reviewedReconciliation,
+  );
+  assert.equal(reviewedReplay.outcome, "already-recorded");
+  assert.equal(
+    (await readStock(
+      alice,
+      "alice",
+      "purchase-reconcile:voice-review-1:extra:0",
+    )).quantity,
+    6,
+  );
+  console.log(
+    "PASS: reviewed reconciliation atomically applies list + extra and removes only list row",
+  );
+
   const staleBase = pantryItem("stale", "Arroz", 1, "kg", 1);
   await seed("alice", pantryItem("stale", "Arroz", 0.9, "kg", 2));
   const stale = await persistPurchasesIntoPantryAtomically(alice, {
