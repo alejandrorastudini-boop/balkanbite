@@ -23,6 +23,7 @@ import { capturePantryEditIntent, verifyServerInventoryForEdits, type InventoryE
 import { submitVerifiedPantryEdit, type VerifiedPantryEditCommandResult } from "../utils/verifiedPantryEditCommand";
 import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "../utils/inventoryAdjustmentFirestore";
 import { persistNewInventoryItems, type InventoryCreationOutcome } from "../utils/inventoryCreationFirestore";
+import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAuthority";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -191,8 +192,7 @@ export function useFirebaseSync(
       const unsub = onSnapshot(q, { includeMetadataChanges: collectionName === "inventory" }, (snapshot) => {
         if (collectionName === "inventory") {
           const serverConfirmed =
-            snapshot.metadata.fromCache === false &&
-            snapshot.metadata.hasPendingWrites === false &&
+            isServerConfirmedInventorySnapshot(snapshot.metadata) &&
             snapshot.docs.every(snapshotDoc => snapshotDoc.metadata.hasPendingWrites === false);
           setInventoryServerConfirmedUser(serverConfirmed ? currentUser.uid : null);
           inventoryEditAuthority.current = verifyServerInventoryForEdits({
@@ -205,6 +205,13 @@ export function useFirebaseSync(
               data: snapshotDoc.data(),
             })),
           });
+
+          // A latency-compensated or cache-only snapshot may describe a
+          // proposed local write. Keep the last committed pantry visible and
+          // do not advance hydration/echo guards until the server confirms it.
+          if (!serverConfirmed) {
+            return;
+          }
         }
         const remoteEntries = snapshot.docs
           .map(snapshotDoc => {
