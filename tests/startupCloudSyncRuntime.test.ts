@@ -202,11 +202,13 @@ test("App wiring keeps the shell independent from delayed inventory and gates cl
   );
 
   assert.match(firebaseSyncSource, /getStartupCloudSyncState\(/);
-  assert.match(firebaseSyncSource, /cloudInventoryWritesAllowed/);
+  assert.match(firebaseSyncSource, /inventoryIsProvisional/);
   assert.match(
     firebaseSyncSource,
-    /if\s*\([^)]*!cloudInventoryWritesAllowed[^)]*\)\s*return/
+    /collectionName === "inventory" \|\|[\s\S]{0,160}!currentUser/
   );
+  assert.match(firebaseSyncSource, /inventoryEditAuthority\.current/);
+  assert.match(firebaseSyncSource, /inventoryServerConfirmedUser/);
 });
 
 
