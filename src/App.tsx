@@ -49,6 +49,7 @@ import type { RecipeCookOutcome } from "./utils/recipeCookFeedback";
 import {
   transferCheckedShoppingItems,
   reconcileConfirmedShoppingPurchases,
+  shoppingItemToPurchase,
   type RawReconciliationExtraItem,
 } from "./utils/purchasePantryMerge";
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
@@ -150,6 +151,7 @@ export default function App() {
     submitInventoryEdit,
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
+    submitPurchasePantryTransfer,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -167,6 +169,22 @@ export default function App() {
   const [profileScope, setProfileScope] = useState<string>("guest");
   const [workspaceScope, setWorkspaceScope] = useState<string>("guest");
   const pendingSignedInCreations = useRef<{ userId: string; ids: Set<string> } | null>(null);
+  const purchaseTransferSequenceRef = useRef(0);
+  const pendingCheckedShoppingTransfer = useRef<{
+    userId: string;
+    mutationId: string;
+    reviewSignature: string;
+    occurredAt: string;
+    expectedChanges: Array<{
+      pantryItemId: string;
+      quantity: number;
+      unit: string;
+      cookRevision: number;
+      kind: "create" | "update";
+    }>;
+    removedShoppingItemIds: string[];
+    newlyAppliedSourceIds: string[];
+  } | null>(null);
   const pendingSignedInVoiceConsumptions = useRef<Map<string, {
     userId: string;
     expectedRemaining: Record<string, number | null>;
