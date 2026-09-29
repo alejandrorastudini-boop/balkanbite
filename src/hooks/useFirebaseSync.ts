@@ -29,6 +29,7 @@ import { buildPurchaseMutationId, persistPurchasesIntoPantryAtomically, type Pur
 import type { PantryPurchase } from "../utils/purchasePantryMerge";
 import { persistConfirmedCookAtomically, type AtomicCookExpectedStock } from "../utils/confirmedCookFirestore";
 import type { CookConfirmation } from "../utils/confirmedCookTransaction";
+import { persistInventoryClearAtomically } from "../utils/inventoryClearFirestore";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -72,6 +73,11 @@ export function useFirebaseSync(
   }>>(new Map());
   const inFlightPurchaseApplications = useRef<Set<string>>(new Set());
   const inFlightCookConfirmations = useRef<Set<string>>(new Set());
+  const inFlightInventoryClears = useRef<Set<string>>(new Set());
+  const preparedInventoryClears = useRef<Map<string, {
+    userId: string;
+    baseline: Array<{ pantryItemId: string; quantity: number; unit: string; cookRevision: number }>;
+  }>>(new Map());
   const preparedCookConfirmations = useRef<Map<string, {
     userId: string;
     confirmation: CookConfirmation;
@@ -103,6 +109,8 @@ export function useFirebaseSync(
       preparedVoiceConsumptions.current = new Map();
       inFlightPurchaseApplications.current = new Set();
       inFlightCookConfirmations.current = new Set();
+      inFlightInventoryClears.current = new Set();
+      preparedInventoryClears.current = new Map();
       preparedCookConfirmations.current = new Map();
       setInventoryHydratedUser(null);
       setInventorySyncErrorUser(null);
@@ -681,6 +689,83 @@ export function useFirebaseSync(
     }
   };
 
+  const submitInventoryClear = async (
+    mutationId: string,
+    visiblePantry: PantryItem[],
+  ): Promise<{ accepted: boolean; reason?: string }> => {
+    const uid = currentUser?.uid;
+    if (!uid || !mutationId) return { accepted: false, reason: "invalid-request" };
+
+    let prepared = preparedInventoryClears.current.get(mutationId);
+    if (prepared && prepared.userId !== uid) {
+      preparedInventoryClears.current.delete(mutationId);
+      prepared = undefined;
+    }
+
+    if (!prepared) {
+      const authority = inventoryEditAuthority.current;
+      if (inventoryHydratedUser !== uid ||
+          inventoryServerConfirmedUser !== uid ||
+          authSessionUserId.current !== uid ||
+          authority.status !== "verified" ||
+          authority.userId !== uid) {
+        return { accepted: false, reason: "unverified-authority" };
+      }
+      if (authority.observed.length === 0 || authority.observed.length !== visiblePantry.length) {
+        return { accepted: false, reason: "stale-local-view" };
+      }
+      for (const visible of visiblePantry) {
+        const observed = authority.observed.find(row => row.pantryItemId === visible.id);
+        const revision = (visible as PantryItem & { cookRevision?: number }).cookRevision ?? 0;
+        if (!observed || observed.quantity !== visible.quantity ||
+            observed.unit !== visible.unit || observed.cookRevision !== revision) {
+          return { accepted: false, reason: "stale-local-view" };
+        }
+      }
+      prepared = {
+        userId: uid,
+        baseline: authority.observed.map(row => ({ ...row })),
+      };
+      preparedInventoryClears.current.set(mutationId, prepared);
+    }
+
+    if (inFlightInventoryClears.current.has(mutationId)) {
+      return { accepted: false, reason: "in-flight" };
+    }
+    inFlightInventoryClears.current.add(mutationId);
+    try {
+      const result = await persistInventoryClearAtomically(db, {
+        userId: uid,
+        mutationId,
+        baseline: prepared.baseline,
+      });
+      if (result.outcome === "needs-review") {
+        preparedInventoryClears.current.delete(mutationId);
+        return { accepted: false, reason: result.reason };
+      }
+
+      // As with cooking, a transaction response is not enough. Preserve the
+      // reviewed request until the owner listener confirms no active stock.
+      const authority = inventoryEditAuthority.current;
+      if (inventoryServerConfirmedUser !== uid ||
+          authority.status !== "verified" ||
+          authority.userId !== uid ||
+          authority.observed.length !== 0) {
+        return { accepted: false, reason: "awaiting-server-confirmation" };
+      }
+
+      preparedInventoryClears.current.delete(mutationId);
+      return { accepted: true };
+    } catch (error) {
+      console.error("Atomic pantry clear failed:", error);
+      // Commit status can be ambiguous after a transport failure. Keep the
+      // exact baseline and immutable mutation id for an idempotent replay.
+      return { accepted: false, reason: "transport-uncertain" };
+    } finally {
+      inFlightInventoryClears.current.delete(mutationId);
+    }
+  };
+
   const submitConfirmedCook = async (
     visiblePantry: PantryItem[],
     confirmation: CookConfirmation,
@@ -850,6 +935,7 @@ export function useFirebaseSync(
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
     submitPurchasePantryApplication,
+    submitInventoryClear,
     submitConfirmedCook,
   };
 }
