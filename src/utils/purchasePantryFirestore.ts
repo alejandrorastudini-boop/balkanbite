@@ -451,6 +451,9 @@ export async function persistPurchasesIntoPantryAtomically(
   } = request;
 
   if (plan.merge.newlyAppliedSourceIds.length === 0) {
+    if (plan.merge.acceptedSourceIds.length === 0) {
+      return review("invalid-request");
+    }
     return {
       outcome: "already-applied",
       mutationId,
