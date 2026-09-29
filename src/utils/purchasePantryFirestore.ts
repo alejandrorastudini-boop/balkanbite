@@ -4,7 +4,7 @@ import {
   serverTimestamp,
   type Firestore,
 } from "firebase/firestore";
-import type { PantryItem, PantryPurchaseRecord } from "../types";
+import type { PantryItem, PantryPurchaseRecord, ShoppingItem } from "../types";
 import {
   mergePurchasesIntoPantry,
   type PantryPurchase,
@@ -21,6 +21,7 @@ export interface PurchasePantryTransactionRequest {
   mutationId: string;
   baselinePantry: readonly PurchaseBaselineItem[];
   purchases: readonly PantryPurchase[];
+  shoppingItemsToRemove?: readonly ShoppingItem[];
   acquiredAt: string;
 }
 
@@ -40,6 +41,7 @@ export type PurchasePantryTransactionResult =
       newlyAppliedSourceIds: string[];
       rejected: PurchaseMergeResult["rejected"];
       expectedChanges: PurchasePantryExpectedChange[];
+      removedShoppingItemIds: string[];
     }
   | {
       outcome: "needs-review";
@@ -67,6 +69,7 @@ interface PurchasePlan {
   updates: PlannedExistingUpdate[];
   creations: PlannedCreation[];
   expectedChanges: PurchasePantryExpectedChange[];
+  shoppingItemsToRemove: ShoppingItem[];
 }
 
 const safeUid = (value: unknown): value is string =>
@@ -116,6 +119,58 @@ const purchaseSources = new Set([
 
 const cleanOptionalText = (value: unknown): string | undefined =>
   typeof value === "string" && value.trim() ? value.trim() : undefined;
+
+function comparableShoppingItem(item: ShoppingItem): Record<string, unknown> | null {
+  if (
+    !item ||
+    !safeLogicalId(item.id) ||
+    typeof item.name !== "string" ||
+    !item.name.trim() ||
+    !positive(item.quantity) ||
+    typeof item.unit !== "string" ||
+    !item.unit.trim() ||
+    typeof item.category !== "string" ||
+    typeof item.checked !== "boolean" ||
+    (item.estimatedPriceEUR !== undefined && !nonNegative(item.estimatedPriceEUR)) ||
+    (item.amountOrigin !== undefined &&
+      !["user_entered", "ai_estimated", "deterministic_shortfall"].includes(item.amountOrigin)) ||
+    (item.purchaseAmountConfirmed !== undefined &&
+      typeof item.purchaseAmountConfirmed !== "boolean") ||
+    (item.reason !== undefined && typeof item.reason !== "string")
+  ) {
+    return null;
+  }
+  const out: Record<string, unknown> = {
+    id: item.id,
+    name: item.name,
+    quantity: item.quantity,
+    unit: item.unit,
+    category: item.category,
+    checked: item.checked,
+  };
+  if (item.estimatedPriceEUR !== undefined) out.estimatedPriceEUR = item.estimatedPriceEUR;
+  if (item.amountOrigin !== undefined) out.amountOrigin = item.amountOrigin;
+  if (item.purchaseAmountConfirmed !== undefined) {
+    out.purchaseAmountConfirmed = item.purchaseAmountConfirmed;
+  }
+  if (item.reason !== undefined) out.reason = item.reason;
+  return out;
+}
+
+function comparableRemoteShopping(data: Record<string, unknown>): Record<string, unknown> | null {
+  return comparableShoppingItem({
+    id: data.id,
+    name: data.name,
+    quantity: data.quantity,
+    unit: data.unit,
+    category: data.category,
+    estimatedPriceEUR: data.estimatedPriceEUR,
+    checked: data.checked,
+    amountOrigin: data.amountOrigin,
+    purchaseAmountConfirmed: data.purchaseAmountConfirmed,
+    reason: data.reason,
+  } as ShoppingItem);
+}
 
 function validPurchaseRecord(row: PantryPurchaseRecord): boolean {
   return Boolean(
