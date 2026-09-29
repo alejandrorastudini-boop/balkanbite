@@ -27,6 +27,7 @@ import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAu
 import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, type VerifiedVoiceDeduction } from "../utils/verifiedVoiceConsumptionFirestore";
 import { buildPurchaseMutationId, persistPurchasesIntoPantryAtomically, type PurchasePantryTransactionResult } from "../utils/purchasePantryFirestore";
 import type { PantryPurchase } from "../utils/purchasePantryMerge";
+import { persistVerifiedPantryClear, type ClearPantryResult, type ClearPantryStockExpectation } from "../utils/inventoryClearFirestore";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -69,6 +70,8 @@ export function useFirebaseSync(
     deductions: VerifiedVoiceDeduction[];
   }>>(new Map());
   const inFlightPurchaseApplications = useRef<Set<string>>(new Set());
+  const inFlightPantryClears = useRef<Set<string>>(new Set());
+  const preparedPantryClears = useRef<Map<string, ClearPantryStockExpectation[]>>(new Map());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -93,6 +96,8 @@ export function useFirebaseSync(
       inFlightVoiceConsumptions.current = new Set();
       preparedVoiceConsumptions.current = new Map();
       inFlightPurchaseApplications.current = new Set();
+      inFlightPantryClears.current = new Set();
+      preparedPantryClears.current = new Map();
       setInventoryHydratedUser(null);
       setInventorySyncErrorUser(null);
       setInventoryServerConfirmedUser(null);
@@ -670,6 +675,79 @@ export function useFirebaseSync(
     }
   };
 
+  const submitPantryClear = async (
+    mutationId: string,
+  ): Promise<ClearPantryResult | {
+    outcome: "needs-review";
+    reason: "unverified-authority" | "in-flight" | "stale-local-view";
+  }> => {
+    const uid = currentUser?.uid;
+    const authority = inventoryEditAuthority.current;
+    if (!uid ||
+        inventoryHydratedUser !== uid ||
+        inventoryServerConfirmedUser !== uid ||
+        authSessionUserId.current !== uid ||
+        authority.status !== "verified" ||
+        authority.userId !== uid) {
+      return { outcome: "needs-review", reason: "unverified-authority" };
+    }
+    if (inFlightPantryClears.current.has(mutationId)) {
+      return { outcome: "needs-review", reason: "in-flight" };
+    }
+
+    let expectedStock = preparedPantryClears.current.get(mutationId);
+    if (!expectedStock) {
+      if (authority.observed.length !== pantry.length) {
+        return { outcome: "needs-review", reason: "stale-local-view" };
+      }
+      expectedStock = [];
+      for (const visibleItem of pantry) {
+        const observed = authority.observed.find(
+          item => item.pantryItemId === visibleItem.id,
+        );
+        const visible = visibleItem as PantryItem & { cookRevision?: number };
+        if (!observed ||
+            visible.quantity !== observed.quantity ||
+            visible.unit !== observed.unit ||
+            (visible.cookRevision ?? 0) !== observed.cookRevision) {
+          return { outcome: "needs-review", reason: "stale-local-view" };
+        }
+        expectedStock.push({ ...observed });
+      }
+      preparedPantryClears.current.set(
+        mutationId,
+        expectedStock.map(item => ({ ...item })),
+      );
+    }
+
+    inFlightPantryClears.current.add(mutationId);
+    try {
+      const result = await persistVerifiedPantryClear(db, {
+        userId: uid,
+        mutationId,
+        expectedStock,
+      });
+      if (result.outcome !== "needs-review") {
+        preparedPantryClears.current.delete(mutationId);
+      } else if (
+        result.reason !== "stale-stock" &&
+        result.reason !== "missing-stock" &&
+        result.reason !== "invalid-stock" &&
+        result.reason !== "conflicting-replay"
+      ) {
+        preparedPantryClears.current.delete(mutationId);
+      }
+      return result;
+    } catch (error) {
+      // Preserve the exact reviewed baseline. The transaction may have
+      // committed before the client observed a transport error; retrying the
+      // same mutation ID must hit the journal instead of clearing a new pantry.
+      throw error;
+    } finally {
+      inFlightPantryClears.current.delete(mutationId);
+    }
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -698,5 +776,6 @@ export function useFirebaseSync(
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
     submitPurchasePantryApplication,
+    submitPantryClear,
   };
 }
