@@ -33,6 +33,6 @@ test("confirmed voice mutation dispatches only the reviewed pending action", () 
   assert.match(source, /action === "add"/);
   assert.match(source, /onAddItemsToPantry\(confirmedItems\)/);
   assert.match(source, /action === "remove"/);
-  assert.match(source, /onDeductItemsFromPantry\(confirmedItems\)/);
+  assert.match(source, /onDeductItemsFromPantry\(confirmedItems, mutationId\)/);
   assert.match(source, /Nothing has been deducted from the pantry yet\./);
 });
