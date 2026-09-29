@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import { AlertTriangle, Trash2, X } from "lucide-react";
 
 interface ConfirmModalProps {
@@ -24,12 +24,12 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   danger = true,
   feedbackText,
 }) => {
-  const [isConfirming, setIsConfirming] = useState(false);
+  const [isConfirming, setIsConfirming] = useState(false);\n  const isConfirmingRef = useRef(false);
 
   if (!isOpen) return null;
 
   const closeIfIdle = () => {
-    if (!isConfirming) onClose();
+    if (!isConfirmingRef.current) onClose();
   };
 
   const handleConfirm = async () => {
