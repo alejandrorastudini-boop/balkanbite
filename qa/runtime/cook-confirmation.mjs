@@ -145,7 +145,7 @@ try {
   await card.getByRole("button", { name: "Recipe & Steps" }).click();
   const drawerHeading = page.getByRole("heading", {
     name: "QA Rice Insufficient",
-  });
+  }).last();
   await drawerHeading.waitFor({ state: "visible" });
   await page.getByRole("button", { name: "Cook This Meal" }).last().click();
   await confirmTitle.waitFor({ state: "visible" });
