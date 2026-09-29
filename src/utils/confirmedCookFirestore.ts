@@ -20,9 +20,17 @@ export type AtomicCookResult =
   | { outcome: "recorded" | "already-recorded"; record: ConsumptionRecord }
   | { outcome: "needs-review"; pendingIngredients: PendingCookIngredient[] };
 
+export interface AtomicCookExpectedStock {
+  pantryItemId: string;
+  quantity: number;
+  unit: string;
+  cookRevision: number;
+}
+
 export interface AtomicCookRequest {
   userId: string;
   confirmation: CookConfirmation;
+  expectedStock: readonly AtomicCookExpectedStock[];
 }
 
 const safeId = (value: unknown): value is string =>
@@ -39,16 +47,28 @@ function reject(reason: PendingCookIngredient["reason"], ingredientId = "confirm
  * A deterministic comparison of the exact stock allocations being committed.
  * It is not a cryptographic signature or proof of inventory provenance.
  */
-export function cookAllocationSignature(confirmation: CookConfirmation): string | null {
+function validRevision(value: unknown): value is number {
+  return typeof value === "number" &&
+    Number.isSafeInteger(value) &&
+    value >= 0 &&
+    value < Number.MAX_SAFE_INTEGER;
+}
+
+export function cookRequestSignature(request: AtomicCookRequest): string | null {
+  const { confirmation, expectedStock } = request;
   if (!safeId(confirmation.cookConfirmationId) ||
       !safeId(confirmation.mealId) ||
       confirmation.confirmed !== true ||
       !Array.isArray(confirmation.ingredients) ||
       confirmation.ingredients.length === 0 ||
-      confirmation.ingredients.length > 30) return null;
+      confirmation.ingredients.length > 30 ||
+      !Array.isArray(expectedStock) ||
+      expectedStock.length === 0 ||
+      expectedStock.length > 30) return null;
 
   const ingredientIds = new Set<string>();
-  const normalized = [];
+  const normalizedAllocations = [];
+  const referencedStockIds = new Set<string>();
   for (const ingredient of confirmation.ingredients) {
     if (!safeId(ingredient.ingredientId) ||
         !safeId(ingredient.pantryItemId) ||
@@ -56,14 +76,47 @@ export function cookAllocationSignature(confirmation: CookConfirmation): string 
         typeof ingredient.unit !== "string" || !ingredient.unit.trim() ||
         ingredientIds.has(ingredient.ingredientId)) return null;
     ingredientIds.add(ingredient.ingredientId);
-    normalized.push({
+    referencedStockIds.add(ingredient.pantryItemId);
+    normalizedAllocations.push({
       ingredientId: ingredient.ingredientId,
       pantryItemId: ingredient.pantryItemId,
       quantity: ingredient.quantity,
       unit: ingredient.unit,
     });
   }
-  return JSON.stringify({ version: 1, mealId: confirmation.mealId, allocations: normalized });
+
+  const expectedIds = new Set<string>();
+  const normalizedExpected = [];
+  for (const expected of expectedStock) {
+    if (!safeId(expected?.pantryItemId) ||
+        expectedIds.has(expected.pantryItemId) ||
+        !validQuantity(expected.quantity) ||
+        typeof expected.unit !== "string" || !expected.unit.trim() ||
+        !validRevision(expected.cookRevision)) return null;
+    expectedIds.add(expected.pantryItemId);
+    normalizedExpected.push({
+      pantryItemId: expected.pantryItemId,
+      quantity: expected.quantity,
+      unit: expected.unit,
+      cookRevision: expected.cookRevision,
+    });
+  }
+
+  if (expectedIds.size !== referencedStockIds.size ||
+      [...referencedStockIds].some(id => !expectedIds.has(id))) return null;
+
+  normalizedAllocations.sort((a, b) =>
+    a.ingredientId.localeCompare(b.ingredientId) ||
+    a.pantryItemId.localeCompare(b.pantryItemId),
+  );
+  normalizedExpected.sort((a, b) => a.pantryItemId.localeCompare(b.pantryItemId));
+
+  return JSON.stringify({
+    version: 2,
+    mealId: confirmation.mealId,
+    allocations: normalizedAllocations,
+    expectedStock: normalizedExpected,
+  });
 }
 
 /**
@@ -79,13 +132,13 @@ export async function persistConfirmedCookAtomically(
   db: Firestore,
   request: AtomicCookRequest,
 ): Promise<AtomicCookResult> {
-  const { userId, confirmation } = request;
+  const { userId, confirmation, expectedStock } = request;
   // Current rule namespace is based on the literal auth UID, not a URL-encoded UID.
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(userId) ||
       !safeId(confirmation.cookConfirmationId)) {
     return reject("invalid-ingredient");
   }
-  const signature = cookAllocationSignature(confirmation);
+  const signature = cookRequestSignature(request);
   if (!signature) return reject("invalid-ingredient");
 
   const cookId = confirmation.cookConfirmationId as string;
@@ -93,6 +146,9 @@ export async function persistConfirmedCookAtomically(
   const uniqueStockIds = Array.from(new Set(
     confirmation.ingredients.map(item => item.pantryItemId as string),
   )).sort();
+  const expectedById = new Map(
+    expectedStock.map(expected => [expected.pantryItemId, expected]),
+  );
   const stockRefs = uniqueStockIds.map(id => ({
     id, ref: doc(db, "inventory", getScopedDocumentId(userId, id)),
   }));
@@ -131,16 +187,23 @@ export async function persistConfirmedCookAtomically(
       const snapshot = await tx.get(ref);
       if (!snapshot.exists()) return reject("stock-not-found", id);
       const data = snapshot.data();
+      const revision = data.cookRevision ?? 0;
       if (data.userId !== userId ||
           data.id !== id ||
           data._deleted === true ||
           !validQuantity(data.quantity) ||
           typeof data.unit !== "string" ||
-          !Number.isInteger(data.cookRevision ?? 0) ||
-          (data.cookRevision ?? 0) < 0) {
+          !validRevision(revision)) {
         return reject("invalid-stock", id);
       }
-      revisions.set(id, (data.cookRevision ?? 0) as number);
+      const expected = expectedById.get(id);
+      if (!expected ||
+          data.quantity !== expected.quantity ||
+          data.unit !== expected.unit ||
+          revision !== expected.cookRevision) {
+        return reject("invalid-stock", id);
+      }
+      revisions.set(id, revision as number);
       stock.push({ id, quantity: data.quantity as number, unit: data.unit as string });
     }
 
