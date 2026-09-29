@@ -410,9 +410,13 @@ export function buildPurchasePantryTransactionPlan(
     // replay identity. Stable source IDs + exact confirmed purchase payload do.
     purchases: canonicalPurchaseIdentity(purchases),
     expectedChanges,
-    acceptedSourceIds: merge.acceptedSourceIds,
-    newlyAppliedSourceIds: merge.newlyAppliedSourceIds,
-    rejected: merge.rejected,
+    acceptedSourceIds: [...merge.acceptedSourceIds].sort(),
+    newlyAppliedSourceIds: [...merge.newlyAppliedSourceIds].sort(),
+    rejected: [...merge.rejected].sort((a, b) =>
+      a.sourceId.localeCompare(b.sourceId) ||
+      a.reason.localeCompare(b.reason) ||
+      a.name.localeCompare(b.name),
+    ),
   });
 
   return {
