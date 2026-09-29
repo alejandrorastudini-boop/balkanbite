@@ -328,17 +328,13 @@ export function useFirebaseSync(
       };
     }, [currentUser]);
 
-    // Inventory is intentionally read-only in this generic synchronizer.
-    // Every signed-in inventory mutation now has a dedicated authoritative
-    // command/transaction path with exact baseline verification. Keeping the
-    // legacy local-state bulk writer here would reintroduce a second authority
-    // and could overwrite revision-aware concurrent changes.
-    if (collectionName === "inventory") {
-      return;
-    }
-
     useEffect(() => {
+      // Inventory is intentionally read-only in this generic synchronizer.
+      // Every signed-in inventory mutation now has a dedicated authoritative
+      // command/transaction path with exact baseline verification. Keeping the
+      // legacy local-state bulk writer here would reintroduce a second authority.
       if (
+        collectionName === "inventory" ||
         !currentUser ||
         loading ||
         hydratedCollectionUser.current[collectionName] !== currentUser.uid
