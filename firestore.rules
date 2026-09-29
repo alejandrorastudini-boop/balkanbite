@@ -126,7 +126,7 @@ service cloud.firestore {
         request.resource.data.keys().hasOnly([
           'userId', 'mutationId', 'source', 'requestSignature',
           'acceptedSourceIds', 'newlyAppliedSourceIds',
-          'expectedChanges', 'createdAt'
+          'expectedChanges', 'removedShoppingItemIds', 'createdAt'
         ]) &&
         request.resource.data.keys().hasAll([
           'userId', 'mutationId', 'source', 'requestSignature',
@@ -142,9 +142,10 @@ service cloud.firestore {
         request.resource.data.requestSignature.size() > 0 &&
         request.resource.data.acceptedSourceIds is list &&
         request.resource.data.newlyAppliedSourceIds is list &&
-        request.resource.data.newlyAppliedSourceIds.size() > 0 &&
         request.resource.data.expectedChanges is list &&
-        request.resource.data.expectedChanges.size() > 0 &&
+        request.resource.data.removedShoppingItemIds is list &&
+        (request.resource.data.newlyAppliedSourceIds.size() > 0 ||
+         request.resource.data.removedShoppingItemIds.size() > 0) &&
         request.resource.data.createdAt is timestamp;
       allow get: if ownsDocumentNamespace(documentId) &&
         (resource == null || ownsExistingDocument());
