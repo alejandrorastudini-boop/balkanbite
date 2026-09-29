@@ -43,6 +43,14 @@ test("a pending voice commit cannot be double-confirmed or cancelled mid-write",
     source,
     /disabled=\{!pendingItemsAreComplete \|\| isConfirmingPendingItems\}/,
   );
+  assert.match(
+    source,
+    /if \(!text \|\| isProcessing \|\| isConfirmingPendingItems\) return;/,
+  );
+  assert.match(
+    source,
+    /disabled=\{!inputText\.trim\(\) \|\| isProcessing \|\| isConfirmingPendingItems\}/,
+  );
 });
 
 test("voice failure keeps reviewed pending items available for retry", () => {
