@@ -90,7 +90,7 @@ test("VoiceChefView keeps the pending batch when App rejects the mutation", () =
   const block = voiceSource.slice(start, end);
 
   assert.match(block, /let mutationSucceeded = false;/);
-  assert.match(block, /mutationSucceeded = await Promise\\.resolve\\(/);
+  assert.match(block, /mutationSucceeded = await Promise\.resolve\(/);
   assert.match(block, /onAddItemsToPantry\(confirmedItems\)/);
   assert.match(block, /onDeductItemsFromPantry\(confirmedItems\)/);
   assert.match(block, /onAddItemsToShoppingList\(confirmedItems\)/);
