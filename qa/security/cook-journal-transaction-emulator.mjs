@@ -4,7 +4,7 @@ import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebas
 import { deleteDoc, doc, getDoc, setDoc, updateDoc, writeBatch } from "firebase/firestore";
 import {
   persistConfirmedCookAtomically,
-  cookAllocationSignature,
+  cookRequestSignature,
 } from "../../src/utils/confirmedCookFirestore.ts";
 
 const hostPort = (process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080").split(":");
@@ -26,6 +26,13 @@ const allocation = (ingredientId, pantryItemId, quantity, unit) =>
   ({ ingredientId, pantryItemId, quantity, unit });
 const confirmation = (id, mealId, ingredients) =>
   ({ cookConfirmationId: id, mealId, ingredients, confirmed: true });
+const expected = (pantryItemId, quantity, unit, cookRevision = 0) =>
+  ({ pantryItemId, quantity, unit, cookRevision });
+const request = (userId, confirmationValue, expectedStock) => ({
+  userId,
+  confirmation: confirmationValue,
+  expectedStock,
+});
 
 async function createStock(db, uid, id, quantity, unit) {
   await setDoc(inventory(db, uid, id), {
@@ -57,22 +64,28 @@ try {
     allocation("rice-1", "rice-old", 100, "g"),
     allocation("rice-2", "rice-new", 50, "g"),
   ]);
-  const first = await persistConfirmedCookAtomically(alice, {
-    userId: "alice", confirmation: cook,
-  });
+  const firstExpected = [
+    expected("rice-old", 100, "g", 0),
+    expected("rice-new", 0.2, "kg", 0),
+  ];
+  const first = await persistConfirmedCookAtomically(
+    alice,
+    request("alice", cook, firstExpected),
+  );
   assert.equal(first.outcome, "recorded");
   assert.equal((await stock(alice, "alice", "rice-old")).quantity, 0);
   assert.equal((await stock(alice, "alice", "rice-old"))._deleted, true);
   assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.15) < 1e-9);
   assert.equal(await isRecorded(alice, "alice", "qa-cook-1"), true);
   assert.equal((await getDoc(journal(alice, "alice", "qa-cook-1"))).data().requestSignature,
-    cookAllocationSignature(cook));
+    cookRequestSignature(cook, firstExpected));
   assert.equal((await stock(alice, "alice", "rice-old")).cookRevision, 1);
   assert.equal((await stock(alice, "alice", "rice-new")).cookRevision, 1);
 
-  const replay = await persistConfirmedCookAtomically(alice, {
-    userId: "alice", confirmation: cook,
-  });
+  const replay = await persistConfirmedCookAtomically(
+    alice,
+    request("alice", cook, firstExpected),
+  );
   assert.equal(replay.outcome, "already-recorded");
   assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.15) < 1e-9);
   for (const changed of [
@@ -82,20 +95,25 @@ try {
     ]),
     confirmation("qa-cook-1", "other-meal", cook.ingredients),
   ]) {
-    const conflict = await persistConfirmedCookAtomically(alice, {
-      userId: "alice", confirmation: changed,
-    });
+    const conflict = await persistConfirmedCookAtomically(
+      alice,
+      request("alice", changed, firstExpected),
+    );
     assert.equal(conflict.outcome, "needs-review");
   }
   assert.equal((await getDoc(journal(alice, "alice", "qa-cook-1"))).data().mealId, "qa-meal-1");
 
   // A second fresh transaction may consume the newly versioned remainder.
-  const nextCook = await persistConfirmedCookAtomically(alice, {
-    userId: "alice",
-    confirmation: confirmation("qa-cook-2", "qa-meal-2", [
-      allocation("rice-more", "rice-new", 50, "g"),
-    ]),
-  });
+  const nextCook = await persistConfirmedCookAtomically(
+    alice,
+    request(
+      "alice",
+      confirmation("qa-cook-2", "qa-meal-2", [
+        allocation("rice-more", "rice-new", 50, "g"),
+      ]),
+      [expected("rice-new", 0.15, "kg", 1)],
+    ),
+  );
   assert.equal(nextCook.outcome, "recorded");
   assert.ok(Math.abs((await stock(alice, "alice", "rice-new")).quantity - 0.1) < 1e-9);
   assert.equal((await stock(alice, "alice", "rice-new")).cookRevision, 2);
@@ -119,22 +137,30 @@ try {
   console.log("PASS: stale batch and direct writes rejected; original quantities preserved");
 
   await createStock(alice, "alice", "shortage", 20, "g");
-  const shortage = await persistConfirmedCookAtomically(alice, {
-    userId: "alice",
-    confirmation: confirmation("qa-short", "qa-meal-2", [
-      allocation("missing", "shortage", 50, "g"),
-    ]),
-  });
+  const shortage = await persistConfirmedCookAtomically(
+    alice,
+    request(
+      "alice",
+      confirmation("qa-short", "qa-meal-2", [
+        allocation("missing", "shortage", 50, "g"),
+      ]),
+      [expected("shortage", 20, "g", 0)],
+    ),
+  );
   assert.equal(shortage.outcome, "needs-review");
   assert.equal((await stock(alice, "alice", "shortage")).quantity, 20);
   assert.equal(await isRecorded(alice, "alice", "qa-short"), false);
 
-  const incompatible = await persistConfirmedCookAtomically(alice, {
-    userId: "alice",
-    confirmation: confirmation("qa-volume", "qa-meal-3", [
-      allocation("liquid", "shortage", 1, "l"),
-    ]),
-  });
+  const incompatible = await persistConfirmedCookAtomically(
+    alice,
+    request(
+      "alice",
+      confirmation("qa-volume", "qa-meal-3", [
+        allocation("liquid", "shortage", 1, "l"),
+      ]),
+      [expected("shortage", 20, "g", 0)],
+    ),
+  );
   assert.equal(incompatible.outcome, "needs-review");
   assert.equal((await stock(alice, "alice", "shortage")).quantity, 20);
   assert.equal(await isRecorded(alice, "alice", "qa-volume"), false);
@@ -143,28 +169,40 @@ try {
 
   // An authenticated user can only write to their own namespace.
   await createStock(bob, "bob", "rice-old", 250, "g");
-  await assertFails(persistConfirmedCookAtomically(bob, {
-    userId: "alice",
-    confirmation: confirmation("qa-cook-1", "qa-meal-1", [
-      allocation("rice-1", "rice-old", 10, "g"),
-    ]),
-  }));
-  await assertFails(persistConfirmedCookAtomically(guest, {
-    userId: "alice",
-    confirmation: confirmation("qa-cook-1", "qa-meal-1", [
-      allocation("rice-1", "rice-old", 10, "g"),
-    ]),
-  }));
+  await assertFails(persistConfirmedCookAtomically(
+    bob,
+    request(
+      "alice",
+      confirmation("qa-cook-cross", "qa-meal-1", [
+        allocation("rice-1", "rice-old", 10, "g"),
+      ]),
+      [expected("rice-old", 100, "g", 0)],
+    ),
+  ));
+  await assertFails(persistConfirmedCookAtomically(
+    guest,
+    request(
+      "alice",
+      confirmation("qa-cook-guest", "qa-meal-1", [
+        allocation("rice-1", "rice-old", 10, "g"),
+      ]),
+      [expected("rice-old", 100, "g", 0)],
+    ),
+  ));
   assert.equal((await stock(bob, "bob", "rice-old")).quantity, 250);
 
   console.log("PASS: cross-account and guest writes denied");
 
-  const bobCook = await persistConfirmedCookAtomically(bob, {
-    userId: "bob",
-    confirmation: confirmation("qa-cook-1", "bob-meal", [
-      allocation("rice-1", "rice-old", 25, "g"),
-    ]),
-  });
+  const bobCook = await persistConfirmedCookAtomically(
+    bob,
+    request(
+      "bob",
+      confirmation("qa-cook-1", "bob-meal", [
+        allocation("rice-1", "rice-old", 25, "g"),
+      ]),
+      [expected("rice-old", 250, "g", 0)],
+    ),
+  );
   assert.equal(bobCook.outcome, "recorded");
   assert.equal((await stock(bob, "bob", "rice-old")).quantity, 225);
 
@@ -173,12 +211,16 @@ try {
   // Two different confirmations race to consume the same 100g lot.
   await createStock(alice, "alice", "race", 100, "g");
   const racers = ["qa-race-a", "qa-race-b"].map(id =>
-    persistConfirmedCookAtomically(alice, {
-      userId: "alice",
-      confirmation: confirmation(id, "race-meal", [
-        allocation("race-ingredient", "race", 80, "g"),
-      ]),
-    }),
+    persistConfirmedCookAtomically(
+      alice,
+      request(
+        "alice",
+        confirmation(id, "race-meal", [
+          allocation("race-ingredient", "race", 80, "g"),
+        ]),
+        [expected("race", 100, "g", 0)],
+      ),
+    ),
   );
   const results = await Promise.all(racers);
   assert.deepEqual(results.map(x => x.outcome).sort(), ["needs-review", "recorded"]);
@@ -195,8 +237,14 @@ try {
     allocation("shared-ingredient", "shared-confirmation", 60, "g"),
   ]);
   const simultaneous = await Promise.all([
-    persistConfirmedCookAtomically(alice, { userId: "alice", confirmation: sharedCook }),
-    persistConfirmedCookAtomically(aliceSecondDevice, { userId: "alice", confirmation: sharedCook }),
+    persistConfirmedCookAtomically(
+      alice,
+      request("alice", sharedCook, [expected("shared-confirmation", 100, "g", 0)]),
+    ),
+    persistConfirmedCookAtomically(
+      aliceSecondDevice,
+      request("alice", sharedCook, [expected("shared-confirmation", 100, "g", 0)]),
+    ),
   ]);
   assert.deepEqual(simultaneous.map(result => result.outcome).sort(),
     ["already-recorded", "recorded"]);
