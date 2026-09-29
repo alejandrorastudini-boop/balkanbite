@@ -1,13 +1,14 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { isExpectedInventoryResultVisible } from "../src/utils/expectedInventoryResult";
+import type { PantryItem } from "../src/types";
 
-const lot = (id: string, quantity: number) => ({
+const lot = (id: string, quantity: number): PantryItem => ({
   id,
   name: id,
   quantity,
   unit: "kg",
-  category: "test",
+  category: "Other",
   addedAt: "2026-09-29",
 });
 
