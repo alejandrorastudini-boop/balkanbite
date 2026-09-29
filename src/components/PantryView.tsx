@@ -25,7 +25,7 @@ interface PantryViewProps {
   onAddMultipleItems?: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => void;
   onUpdateQuantity: (id: string, newQty: number, viewed: PantryItem) => void;
   onDeleteItem: (id: string, viewed: PantryItem) => void;
-  onClearAll: () => void;
+  onClearAll: (mutationId: string) => boolean | Promise<boolean>;
   onOpenVoiceTab: () => void;
   language: Language;
   currency: Currency;
@@ -50,6 +50,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearMutationId, setClearMutationId] = useState<string | null>(null);
 
   // New item form state
   const [name, setName] = useState("");
@@ -97,6 +98,12 @@ export const PantryView: React.FC<PantryViewProps> = ({
   const totalValueEUR = summarizePantryCosts(pantry).totalEUR;
 
   const handleClearWithConfirm = () => {
+    if (!clearMutationId) {
+      const id = typeof globalThis.crypto?.randomUUID === "function"
+        ? globalThis.crypto.randomUUID()
+        : `clear-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setClearMutationId(id);
+    }
     setShowClearConfirm(true);
   };
 
@@ -705,10 +712,17 @@ export const PantryView: React.FC<PantryViewProps> = ({
       {/* Confirmation Modal for Clearing Pantry */}
       <ConfirmModal
         isOpen={showClearConfirm}
-        onClose={() => setShowClearConfirm(false)}
-        onConfirm={() => {
-          onClearAll();
+        onClose={() => {
           setShowClearConfirm(false);
+          setClearMutationId(null);
+        }}
+        onConfirm={async () => {
+          if (!clearMutationId) return false;
+          const accepted = await onClearAll(clearMutationId);
+          if (accepted) {
+            setClearMutationId(null);
+          }
+          return accepted;
         }}
         title={currentText.pantryClearAll}
         description={currentText.pantryClearConfirm}
