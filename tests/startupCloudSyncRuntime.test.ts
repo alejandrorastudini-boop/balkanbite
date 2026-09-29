@@ -202,11 +202,13 @@ test("App wiring keeps the shell independent from delayed inventory and gates cl
   );
 
   assert.match(firebaseSyncSource, /getStartupCloudSyncState\(/);
-  assert.match(firebaseSyncSource, /cloudInventoryWritesAllowed/);
+  assert.match(firebaseSyncSource, /inventoryIsProvisional/);
   assert.match(
     firebaseSyncSource,
-    /if\s*\([^)]*!cloudInventoryWritesAllowed[^)]*\)\s*return/
+    /collectionName === "inventory" \|\|[\s\S]{0,160}!currentUser/
   );
+  assert.match(firebaseSyncSource, /inventoryEditAuthority\.current/);
+  assert.match(firebaseSyncSource, /inventoryServerConfirmedUser/);
 });
 
 
@@ -295,14 +297,14 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
     assert.match(
       appSource,
       new RegExp(
-        `const ${handlerName} = [^\\n]*=> \\{\\n\\s*if \\(!requireAuthoritativeInventory\\(\\)\\) return(?: false)?;`
+        `const ${handlerName} = [\\s\\S]{0,240}?=> \\{\\n\\s*if \\(!requireAuthoritativeInventory\\(\\)\\) return(?: false)?;`
       )
     );
   }
 
   assert.match(
     appSource,
-    /const handleCookRecipe = [^\n]*=> \{\n\s*if \(!requireAuthoritativeInventory\(\)\) \{[\s\S]*return \{ success: false, issueCount: 1 \};/
+    /const handleCookRecipe = async \([\s\S]{0,180}?\): Promise<RecipeCookOutcome> => \{\n\s*if \(!requireAuthoritativeInventory\(\)\) \{[\s\S]*?return \{ success: false, issueCount: 1 \};/
   );
 
   assert.match(
