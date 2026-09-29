@@ -13,9 +13,9 @@ interface ChefIaModalProps {
   chatMessages: ChatMessage[];
   onUpdateChatMessages: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
   onClearChat: () => void;
-  onAddItemsToPantry: (items: any[]) => boolean;
-  onAddItemsToShoppingList: (items: any[]) => boolean;
-  onDeductItemsFromPantry: (items: any[]) => boolean;
+  onAddItemsToPantry: (items: any[]) => boolean | Promise<boolean>;
+  onAddItemsToShoppingList: (items: any[]) => boolean | Promise<boolean>;
+  onDeductItemsFromPantry: (items: any[]) => boolean | Promise<boolean>;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
