@@ -261,6 +261,20 @@ try {
   assert.equal(await isRecorded(aliceSecondDevice, "alice", "qa-shared-confirmation"), true);
   console.log("PASS: simultaneous same-ID cook from two clients has one deduction and one journal");
 
+  const purchasedId = "purchase-shopping:s2";
+  await createStock(alice, "alice", purchasedId, 1, "L", 0);
+  const purchasedCook = await persistConfirmedCookAtomically(alice, {
+    userId: "alice",
+    confirmation: confirmation("qa-purchased-cook", "qa-purchased-meal", [
+      allocation("milk-allocation", purchasedId, 0.25, "L"),
+    ]),
+    expectedStock: [expected(purchasedId, 1, "L", 0)],
+  });
+  assert.equal(purchasedCook.outcome, "recorded");
+  assert.equal((await stock(alice, "alice", purchasedId)).quantity, 0.75);
+  assert.equal((await stock(alice, "alice", purchasedId)).cookRevision, 1);
+  console.log("PASS: cook consumes purchase-provenance logical pantry ID");
+
   console.log("PASS: atomic owner-scoped cook inventory+journal, replay, conflicts, multi-lot, A/B isolation.");
 } finally {
   await environment.cleanup();
