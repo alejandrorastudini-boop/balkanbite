@@ -23,6 +23,7 @@ import { capturePantryEditIntent, verifyServerInventoryForEdits, type InventoryE
 import { submitVerifiedPantryEdit, type VerifiedPantryEditCommandResult } from "../utils/verifiedPantryEditCommand";
 import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "../utils/inventoryAdjustmentFirestore";
 import { persistNewInventoryItems, type InventoryCreationOutcome } from "../utils/inventoryCreationFirestore";
+import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAuthority";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -196,6 +197,13 @@ export function useFirebaseSync(
               data: snapshotDoc.data(),
             })),
           });
+
+          // Do not let Firestore cache or latency compensation become the
+          // signed-in source of truth. Keep rendering the last committed
+          // pantry until a server-confirmed, no-pending snapshot arrives.
+          if (!isServerConfirmedInventorySnapshot(snapshot.metadata)) {
+            return;
+          }
         }
         const remoteEntries = snapshot.docs
           .map(snapshotDoc => {
