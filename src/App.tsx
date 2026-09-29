@@ -1476,7 +1476,10 @@ export default function App() {
         plan.deductions,
       );
       if (persisted.outcome === "needs-review") {
-        if (persisted.reason !== "in-flight") {
+        const preserveOriginalPlan =
+          persisted.reason === "in-flight" ||
+          persisted.reason === "unverified-authority";
+        if (!preserveOriginalPlan) {
           preparedSignedInVoiceDeductions.current.delete(mutationId);
           pendingSignedInVoiceConsumptions.current.delete(mutationId);
         }
