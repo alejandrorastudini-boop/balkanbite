@@ -62,6 +62,10 @@ export function useFirebaseSync(
   const inFlightInventoryEdits = useRef<Set<string>>(new Set());
   const inventoryCreationInFlight = useRef(false);
   const inFlightVoiceConsumptions = useRef<Set<string>>(new Set());
+  const preparedVoiceConsumptions = useRef<Map<string, {
+    expectedStock: Array<{ pantryItemId: string; quantity: number; unit: string; cookRevision: number }>;
+    deductions: VerifiedVoiceDeduction[];
+  }>>(new Map());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -84,6 +88,7 @@ export function useFirebaseSync(
       inFlightInventoryEdits.current = new Set();
       inventoryCreationInFlight.current = false;
       inFlightVoiceConsumptions.current = new Set();
+      preparedVoiceConsumptions.current = new Map();
       setInventoryHydratedUser(null);
       setInventorySyncErrorUser(null);
       setInventoryServerConfirmedUser(null);
@@ -549,34 +554,51 @@ export function useFirebaseSync(
       return { outcome: "needs-review", reason: "in-flight" };
     }
 
-    const affectedIds = Array.from(new Set(
-      (deductions || []).map(item => item.pantryItemId),
-    ));
-    const expectedStock = [];
-    for (const pantryItemId of affectedIds) {
-      const observed = authority.observed.find(
-        item => item.pantryItemId === pantryItemId,
-      );
-      const visible = pantry.find(item => item.id === pantryItemId) as
-        | (PantryItem & { cookRevision?: number })
-        | undefined;
-      if (!observed || !visible ||
-          visible.quantity !== observed.quantity ||
-          visible.unit !== observed.unit ||
-          (visible.cookRevision ?? 0) !== observed.cookRevision) {
-        return { outcome: "needs-review", reason: "stale-local-view" };
+    let prepared = preparedVoiceConsumptions.current.get(mutationId);
+    if (!prepared) {
+      const affectedIds = Array.from(new Set(
+        (deductions || []).map(item => item.pantryItemId),
+      ));
+      const expectedStock = [];
+      for (const pantryItemId of affectedIds) {
+        const observed = authority.observed.find(
+          item => item.pantryItemId === pantryItemId,
+        );
+        const visible = pantry.find(item => item.id === pantryItemId) as
+          | (PantryItem & { cookRevision?: number })
+          | undefined;
+        if (!observed || !visible ||
+            visible.quantity !== observed.quantity ||
+            visible.unit !== observed.unit ||
+            (visible.cookRevision ?? 0) !== observed.cookRevision) {
+          return { outcome: "needs-review", reason: "stale-local-view" };
+        }
+        expectedStock.push({ ...observed });
       }
-      expectedStock.push({ ...observed });
+      prepared = {
+        expectedStock,
+        deductions: (deductions || []).map(item => ({ ...item })),
+      };
+      preparedVoiceConsumptions.current.set(mutationId, prepared);
     }
 
     inFlightVoiceConsumptions.current.add(mutationId);
     try {
-      return await persistVerifiedVoiceConsumption(db, {
+      const result = await persistVerifiedVoiceConsumption(db, {
         userId: uid,
         mutationId,
-        expectedStock,
-        deductions,
+        expectedStock: prepared.expectedStock,
+        deductions: prepared.deductions,
       });
+      // A definitive result has reached the caller. Success will clear the UI
+      // mutation ID; a needs-review retry may safely re-resolve current stock.
+      preparedVoiceConsumptions.current.delete(mutationId);
+      return result;
+    } catch (error) {
+      // Keep the exact original baseline/allocation. A transport error may
+      // happen after commit; retrying the same mutation must replay, not
+      // calculate a second deduction against newly reduced stock.
+      throw error;
     } finally {
       inFlightVoiceConsumptions.current.delete(mutationId);
     }
