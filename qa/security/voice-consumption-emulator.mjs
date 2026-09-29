@@ -232,6 +232,21 @@ try {
   );
   assert.equal((await stock(bob, "bob", "private")).quantity, 5);
   console.log("PASS: voice consumption journal and stock remain owner-only");
+
+  const purchasedId = "purchase-shopping:s2";
+  await seed("alice", purchasedId, 1, "L", 0);
+  const purchasedVoice = await persistVerifiedVoiceConsumption(
+    alice,
+    request(
+      "voice-purchased-lot",
+      [expectation(purchasedId, 1, "L", 0)],
+      [deduction("milk", purchasedId, 0.25, "L")],
+    ),
+  );
+  assert.equal(purchasedVoice.outcome, "recorded");
+  assert.equal((await stock(alice, "alice", purchasedId)).quantity, 0.75);
+  assert.equal((await stock(alice, "alice", purchasedId)).cookRevision, 1);
+  console.log("PASS: voice consumes purchase-provenance logical pantry ID");
 } finally {
   await environment.cleanup();
 }
