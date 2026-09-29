@@ -627,6 +627,44 @@ export default function App() {
     return true;
   };
 
+  const finalizeSignedInPurchaseIfVisible = (
+    committedPantry: PantryItem[],
+  ): boolean => {
+    const pending = pendingSignedInPurchaseApplication.current;
+    if (!pending) return false;
+    if (!currentUser || pending.userId !== currentUser.uid) {
+      pendingSignedInPurchaseApplication.current = null;
+      return false;
+    }
+    if (!inventoryHydrated || !inventoryServerConfirmed) return false;
+    if (!isPurchaseCommitVisible(pending, currentUser.uid, committedPantry)) {
+      return false;
+    }
+
+    pendingSignedInPurchaseApplication.current = null;
+    const accepted = new Set(pending.acceptedSourceIds);
+    setShoppingList(current =>
+      current.filter(item => !accepted.has(`shopping:${item.id}`)),
+    );
+
+    if (pending.newlyAppliedSourceIds.length > 0) {
+      appendLocalProgressionEvents(
+        buildPurchaseProgressEvents({
+          occurredAt: pending.occurredAt,
+          newlyAppliedSourceIds: pending.newlyAppliedSourceIds,
+        }),
+      );
+      // Preserve the existing purchase UX, but only after stock + provenance
+      // are visible in a server-confirmed pantry snapshot.
+      reconcilePantryDerivedState(committedPantry, true);
+    }
+    return true;
+  };
+
+  useEffect(() => {
+    finalizeSignedInPurchaseIfVisible(pantry);
+  }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
+
   // Signed-in creation never mutates pantry optimistically. Remember the exact
   // IDs before dispatch so the owner Firestore snapshot can prove the batch is
   // visible before recipes/menu are reconciled against the committed pantry.
