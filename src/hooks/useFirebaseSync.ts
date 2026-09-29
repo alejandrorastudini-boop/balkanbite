@@ -24,6 +24,8 @@ import { submitVerifiedPantryEdit, type VerifiedPantryEditCommandResult } from "
 import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "../utils/inventoryAdjustmentFirestore";
 import { persistNewInventoryItems, type InventoryCreationOutcome } from "../utils/inventoryCreationFirestore";
 import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAuthority";
+import { persistPurchasesIntoPantryAtomically, type PurchasePantryTransactionResult } from "../utils/purchasePantryFirestore";
+import type { PantryPurchase } from "../utils/purchasePantryMerge";
 import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, type VerifiedVoiceDeduction } from "../utils/verifiedVoiceConsumptionFirestore";
 
 export function useFirebaseSync(
@@ -61,6 +63,14 @@ export function useFirebaseSync(
   });
   const inFlightInventoryEdits = useRef<Set<string>>(new Set());
   const inventoryCreationInFlight = useRef(false);
+  const inFlightPurchaseTransfers = useRef<Set<string>>(new Set());
+  const preparedPurchaseTransfers = useRef<Map<string, {
+    userId: string;
+    baselinePantry: Array<PantryItem & { cookRevision?: number }>;
+    purchases: PantryPurchase[];
+    shoppingItems: ShoppingItem[];
+    acquiredAt: string;
+  }>>(new Map());
   const inFlightVoiceConsumptions = useRef<Set<string>>(new Set());
   const preparedVoiceConsumptions = useRef<Map<string, {
     expectedStock: Array<{ pantryItemId: string; quantity: number; unit: string; cookRevision: number }>;
@@ -87,6 +97,8 @@ export function useFirebaseSync(
       };
       inFlightInventoryEdits.current = new Set();
       inventoryCreationInFlight.current = false;
+      inFlightPurchaseTransfers.current = new Set();
+      preparedPurchaseTransfers.current = new Map();
       inFlightVoiceConsumptions.current = new Set();
       preparedVoiceConsumptions.current = new Map();
       setInventoryHydratedUser(null);
@@ -604,6 +616,65 @@ export function useFirebaseSync(
     }
   };
 
+  const submitPurchasePantryTransfer = async (
+    mutationId: string,
+    purchases: readonly PantryPurchase[],
+    shoppingItems: readonly ShoppingItem[],
+    acquiredAt: string,
+  ): Promise<PurchasePantryTransactionResult | {
+    outcome: "needs-review";
+    reason: "unverified-authority" | "in-flight";
+  }> => {
+    const uid = currentUser?.uid;
+    if (!uid ||
+        inventoryHydratedUser !== uid ||
+        inventoryServerConfirmedUser !== uid ||
+        authSessionUserId.current !== uid ||
+        inventoryEditAuthority.current.status !== "verified" ||
+        inventoryEditAuthority.current.userId !== uid) {
+      return { outcome: "needs-review", reason: "unverified-authority" };
+    }
+    if (inFlightPurchaseTransfers.current.has(mutationId)) {
+      return { outcome: "needs-review", reason: "in-flight" };
+    }
+
+    let prepared = preparedPurchaseTransfers.current.get(mutationId);
+    if (prepared && prepared.userId !== uid) {
+      preparedPurchaseTransfers.current.delete(mutationId);
+      prepared = undefined;
+    }
+    if (!prepared) {
+      prepared = {
+        userId: uid,
+        baselinePantry: pantry.map(item => ({ ...item })),
+        purchases: (purchases || []).map(item => ({ ...item })),
+        shoppingItems: (shoppingItems || []).map(item => ({ ...item })),
+        acquiredAt,
+      };
+      preparedPurchaseTransfers.current.set(mutationId, prepared);
+    }
+
+    inFlightPurchaseTransfers.current.add(mutationId);
+    try {
+      const result = await persistPurchasesIntoPantryAtomically(db, {
+        userId: uid,
+        mutationId,
+        baselinePantry: prepared.baselinePantry,
+        purchases: prepared.purchases,
+        shoppingItemsToRemove: prepared.shoppingItems,
+        acquiredAt: prepared.acquiredAt,
+      });
+      preparedPurchaseTransfers.current.delete(mutationId);
+      return result;
+    } catch (error) {
+      // Keep the exact reviewed baseline and shopping rows: a transaction may
+      // have committed before the client observed the response.
+      throw error;
+    } finally {
+      inFlightPurchaseTransfers.current.delete(mutationId);
+    }
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -631,5 +702,6 @@ export function useFirebaseSync(
     submitInventoryEdit,
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
+    submitPurchasePantryTransfer,
   };
 }
