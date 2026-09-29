@@ -1,5 +1,6 @@
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import type { VerifiedStockExpectation } from "./inventoryAdjustmentFirestore";
+import { isSafeInventoryLogicalId } from "./inventoryIdentity";
 
 /**
  * Only construct this input inside the owner-filtered Firebase onSnapshot
@@ -46,8 +47,6 @@ export type CapturedPantryEdit =
 
 const safeUid = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value);
-const safeId = (value: unknown): value is string =>
-  typeof value === "string" && /^[A-Za-z0-9._-]{1,150}$/.test(value);
 const quantity = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value > 0;
 const revision = (value: unknown): value is number =>
@@ -76,7 +75,7 @@ export function verifyServerInventoryForEdits(
     }
     const row = document.data;
     if (row._deleted === true) continue;
-    if (!safeId(row.id) || document.documentId !==
+    if (!isSafeInventoryLogicalId(row.id) || document.documentId !==
         getScopedDocumentId(input.userId, row.id) ||
         !quantity(row.quantity) || typeof row.unit !== "string" ||
         !row.unit.trim() ||
@@ -113,7 +112,7 @@ export function capturePantryEditIntent(
   if (authority.status !== "verified" || authority.userId !== activeUserId) {
     return { outcome: "needs-review", reason: "unverified-authority" };
   }
-  if (!safeId(viewed?.id)) {
+  if (!isSafeInventoryLogicalId(viewed?.id)) {
     return { outcome: "needs-review", reason: "missing-stock" };
   }
   const source = authority.observed.find(item => item.pantryItemId === viewed.id);
