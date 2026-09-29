@@ -52,6 +52,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [cookFeedback, setCookFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const cookFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [pendingCook, setPendingCook] = useState<{
     recipe: Recipe;
@@ -136,17 +137,25 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
       console.error("Recipe cook confirmation failed:", error);
       outcome = { success: false, issueCount: 1 };
     }
+    if (cookFeedbackTimerRef.current) {
+      clearTimeout(cookFeedbackTimerRef.current);
+    }
     setCookFeedback(
       getRecipeCookFeedback(outcome, language, currentText.recipeCookSuccess)
     );
-    setTimeout(() => {
+    cookFeedbackTimerRef.current = setTimeout(() => {
       setCookFeedback(null);
+      cookFeedbackTimerRef.current = null;
     }, 4000);
     return outcome;
   };
 
   const requestCookConfirmation = (recipe: Recipe) => {
     if (pendingCook) return;
+    if (cookFeedbackTimerRef.current) {
+      clearTimeout(cookFeedbackTimerRef.current);
+      cookFeedbackTimerRef.current = null;
+    }
     setCookFeedback(null);
     setPendingCook({
       recipe,
@@ -589,6 +598,15 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                 ))}
               </div>
             </div>
+
+            {cookFeedback?.kind === "error" && (
+              <p
+                role="alert"
+                className="text-sm text-amber-300 border border-amber-500/30 bg-amber-500/10 rounded-xl p-3"
+              >
+                {cookFeedback.text}
+              </p>
+            )}
 
             {/* Bottom Actions */}
             <div className="pt-4 mt-2 border-t border-white/[0.04] flex items-center justify-between gap-3">
