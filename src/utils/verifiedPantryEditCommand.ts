@@ -10,9 +10,9 @@ import {
 } from "./pantryEditIntentCapture";
 
 /**
- * Candidate event-time command boundary, deliberately NOT connected to App.
- * The old useFirebaseSync all-row inventory writer must be retired or
- * coordinated before this command may mutate the signed-in live UI.
+ * Event-time command boundary used by the signed-in live UI.
+ * Generic inventory persistence is retired; this command is one of the
+ * dedicated authoritative mutation paths.
  *
  * The caller must provide real server-verified snapshot evidence and the
  * actual user-visible lot from the instant the user initiates an edit.
