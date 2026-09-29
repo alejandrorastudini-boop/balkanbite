@@ -6,6 +6,7 @@ import {
   persistVerifiedVoiceConsumption,
   voiceConsumptionSignature,
 } from "../../src/utils/verifiedVoiceConsumptionFirestore.ts";
+import { getScopedDocumentId } from "../../src/utils/cloudCollectionSync.ts";
 
 const [host, portText] =
   (process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080").split(":");
@@ -24,9 +25,9 @@ const aliceOtherDevice = environment.authenticatedContext("alice").firestore();
 const bob = environment.authenticatedContext("bob").firestore();
 const guest = environment.unauthenticatedContext().firestore();
 
-const stockRef = (db, uid, id) => doc(db, "inventory", `u_${uid}__${id}`);
+const stockRef = (db, uid, id) => doc(db, "inventory", getScopedDocumentId(uid, id));
 const journalRef = (db, uid, id) =>
-  doc(db, "inventoryConsumptions", `u_${uid}__${id}`);
+  doc(db, "inventoryConsumptions", getScopedDocumentId(uid, id));
 
 const expectation = (pantryItemId, quantity, unit, cookRevision) => ({
   pantryItemId, quantity, unit, cookRevision,
