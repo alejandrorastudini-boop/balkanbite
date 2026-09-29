@@ -152,6 +152,36 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Immutable owner-scoped journal for explicit "clear pantry" actions.
+    // The transaction tombstones exactly the reviewed baseline. New stock
+    // created concurrently is intentionally preserved rather than guessed away.
+    match /inventoryClears/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'itemIds', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'itemIds', 'createdAt'
+        ]) &&
+        request.resource.data.mutationId is string &&
+        request.resource.data.mutationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.mutationId &&
+        request.resource.data.source == 'clear_all' &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.itemIds is list &&
+        request.resource.data.itemIds.size() > 0 &&
+        request.resource.data.createdAt is timestamp;
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update, delete: if false;
+    }
+
     match /recipes/{recipeId} {
       allow create: if ownsIncomingDocument() && ownsDocumentNamespace(recipeId);
       allow read, delete: if ownsExistingDocument();
