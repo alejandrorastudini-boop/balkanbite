@@ -33,6 +33,13 @@ export interface AtomicCookRequest {
 const safeTokenId = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9._-]{1,150}$/.test(value);
 
+const safeMealId = (value: unknown): value is string =>
+  typeof value === "string" &&
+  value.length > 0 &&
+  value.length <= 300 &&
+  value === value.trim() &&
+  !/[\u0000-\u001F\u007F]/.test(value);
+
 const validQuantity = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value > 0;
 
@@ -101,7 +108,7 @@ export function cookAllocationSignature(
 ): string | null {
   if (
     !safeTokenId(confirmation.cookConfirmationId) ||
-    !safeTokenId(confirmation.mealId) ||
+    !safeMealId(confirmation.mealId) ||
     confirmation.confirmed !== true ||
     !Array.isArray(confirmation.ingredients) ||
     confirmation.ingredients.length === 0 ||
