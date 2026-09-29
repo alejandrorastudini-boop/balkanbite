@@ -706,7 +706,7 @@ export default function App() {
     }
     if (!inventoryHydrated || !inventoryServerConfirmed || !pending.readyToReconcile) return;
 
-    const pantryById = new Map(
+    const pantryById = new Map<string, PantryItem & { cookRevision?: number }>(
       pantry.map(item => [
         item.id,
         item as PantryItem & { cookRevision?: number },
