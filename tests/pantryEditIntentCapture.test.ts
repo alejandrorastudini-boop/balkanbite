@@ -5,6 +5,7 @@ import {
   verifyServerInventoryForEdits,
   type FirestoreInventorySnapshotEvidence,
 } from "../src/utils/pantryEditIntentCapture";
+import { getScopedDocumentId } from "../src/utils/cloudCollectionSync";
 
 const inventory = (
   documents: FirestoreInventorySnapshotEvidence["documents"] = [{
@@ -128,4 +129,64 @@ test("server-confirmed empty pantry is valid but cannot authorize unknown item m
   assert.deepEqual(capturePantryEditIntent(authority, "alice", {
     id: "rice", quantity: 100, unit: "g",
   }), { outcome: "needs-review", reason: "missing-stock" });
+});
+
+test("server authority accepts canonical purchase-provenance pantry IDs", () => {
+  const logicalId = "purchase-shopping:s2";
+  const authority = verifyServerInventoryForEdits(inventory([{
+    documentId: getScopedDocumentId("alice", logicalId),
+    hasPendingWrites: false,
+    data: {
+      userId: "alice",
+      id: logicalId,
+      quantity: 1,
+      unit: "L",
+      cookRevision: 0,
+      _deleted: false,
+    },
+  }]));
+  assert.deepEqual(authority, {
+    status: "verified",
+    userId: "alice",
+    observed: [{
+      pantryItemId: logicalId,
+      quantity: 1,
+      unit: "L",
+      cookRevision: 0,
+    }],
+  });
+  assert.deepEqual(capturePantryEditIntent(authority, "alice", {
+    id: logicalId,
+    quantity: 1,
+    unit: "L",
+    cookRevision: 0,
+  }), {
+    outcome: "captured",
+    observedBeforeEdit: {
+      pantryItemId: logicalId,
+      quantity: 1,
+      unit: "L",
+      cookRevision: 0,
+    },
+  });
+});
+
+test("noncanonical encoded document identity still invalidates the snapshot", () => {
+  const logicalId = "purchase-shopping:s2";
+  const authority = verifyServerInventoryForEdits(inventory([{
+    documentId: "u_alice__purchase-shopping:s2",
+    hasPendingWrites: false,
+    data: {
+      userId: "alice",
+      id: logicalId,
+      quantity: 1,
+      unit: "L",
+      cookRevision: 0,
+      _deleted: false,
+    },
+  }]));
+  assert.deepEqual(authority, {
+    status: "unavailable",
+    reason: "ambiguous-stock",
+  });
 });
