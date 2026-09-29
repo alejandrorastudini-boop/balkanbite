@@ -5,6 +5,7 @@ import {
   type Firestore,
 } from "firebase/firestore";
 import { getScopedDocumentId } from "./cloudCollectionSync";
+import { isSafeInventoryLogicalId } from "./inventoryIdentity";
 
 export interface VerifiedVoiceStockExpectation {
   pantryItemId: string;
@@ -49,7 +50,7 @@ export type VerifiedVoiceConsumptionResult =
 const safeUid = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value);
 
-const safeId = (value: unknown): value is string =>
+const safeMutationId = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9._-]{1,150}$/.test(value);
 
 const positive = (value: unknown): value is number =>
@@ -84,7 +85,7 @@ function normalizeRequest(
 } | null {
   if (
     !safeUid(request?.userId) ||
-    !safeId(request?.mutationId) ||
+    !safeMutationId(request?.mutationId) ||
     !Array.isArray(request.expectedStock) ||
     request.expectedStock.length === 0 ||
     request.expectedStock.length > 30 ||
@@ -99,7 +100,7 @@ function normalizeRequest(
   const expectationIds = new Set<string>();
   for (const item of expectations) {
     if (
-      !safeId(item?.pantryItemId) ||
+      !isSafeInventoryLogicalId(item?.pantryItemId) ||
       expectationIds.has(item.pantryItemId) ||
       !positive(item.quantity) ||
       typeof item.unit !== "string" ||
@@ -116,7 +117,7 @@ function normalizeRequest(
     if (
       typeof item?.ingredientName !== "string" ||
       !item.ingredientName.trim() ||
-      !safeId(item.pantryItemId) ||
+      !isSafeInventoryLogicalId(item.pantryItemId) ||
       !expectationIds.has(item.pantryItemId) ||
       !positive(item.consumedQuantity) ||
       typeof item.unit !== "string" ||
