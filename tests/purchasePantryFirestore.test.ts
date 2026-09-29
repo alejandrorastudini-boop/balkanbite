@@ -122,3 +122,24 @@ test("transaction plan contains only changed and newly created pantry lots", () 
     ["purchase-shopping:s2", "tomato"],
   );
 });
+
+test("fully rejected deterministic purchase plan is not mislabeled already-applied", () => {
+  const invalidUnitPurchase = [{
+    sourceId: "shopping:bad-unit",
+    source: "shopping_list" as const,
+    name: "Tomate",
+    quantity: 1,
+    unit: "made-up-unit",
+    category: "Produce",
+  }];
+  const plan = buildPurchasePantryTransactionPlan({
+    userId: "alice",
+    mutationId: buildPurchaseMutationId(invalidUnitPurchase)!,
+    baselinePantry: [],
+    purchases: invalidUnitPurchase,
+    acquiredAt: "2026-09-29",
+  });
+  assert.ok(plan);
+  assert.deepEqual(plan.acceptedSourceIds ?? plan.merge.acceptedSourceIds, []);
+  assert.equal(plan.merge.rejected.length, 1);
+});
