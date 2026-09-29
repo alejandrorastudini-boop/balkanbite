@@ -681,7 +681,7 @@ export default function App() {
     preview: PurchaseMergeResult,
     occurredAt: string,
     acquiredAt: string,
-  ): Promise<boolean> => {
+  ): Promise<"accepted" | "retry-pending" | "rejected"> => {
     const uid = currentUser?.uid;
     const mutationId = buildPurchaseMutationId(purchases);
     const evidence =
@@ -698,7 +698,7 @@ export default function App() {
       console.warn(
         "Signed-in purchase rejected before persistence: invalid reviewed evidence",
       );
-      return false;
+      return "rejected";
     }
 
     const pending = pendingSignedInPurchaseApplication.current;
@@ -710,7 +710,7 @@ export default function App() {
           ? "Espera a que termine la transferencia de compra actual."
           : "Wait for the current purchase transfer to finish.",
       );
-      return false;
+      return "rejected";
     }
     pendingSignedInPurchaseApplication.current = evidence;
 
@@ -740,7 +740,7 @@ export default function App() {
               : "The purchase was not applied. Sync your pantry and review the purchase before retrying.",
           );
         }
-        return false;
+        return preservePending ? "retry-pending" : "rejected";
       }
 
       const sameAccepted =
@@ -751,7 +751,7 @@ export default function App() {
         console.error(
           "Purchase transaction accepted sources did not match reviewed evidence",
         );
-        return false;
+        return "rejected";
       }
 
       if (persisted.outcome === "already-applied") {
@@ -760,7 +760,7 @@ export default function App() {
           console.error(
             "Purchase replay claimed already-applied without unique source history",
           );
-          return false;
+          return "rejected";
         }
         pendingSignedInPurchaseApplication.current = null;
         const accepted = new Set(evidence.acceptedSourceIds);
@@ -770,7 +770,7 @@ export default function App() {
         // Historical source proof is enough to close a replay. Do not create a
         // new progression event because this call did not newly apply stock.
         reconcilePantryDerivedState(pantry, true);
-        return true;
+        return "accepted";
       }
 
       const sameNew =
@@ -781,13 +781,13 @@ export default function App() {
         console.error(
           "Purchase transaction newly-applied sources did not match reviewed evidence",
         );
-        return false;
+        return "rejected";
       }
 
       // The listener may already have delivered the committed pantry before
       // this promise resolves; otherwise the server-confirmed effect finishes.
       finalizeSignedInPurchaseIfVisible(pantry);
-      return true;
+      return "accepted";
     } catch (error) {
       // Keep exact reviewed evidence. Firestore may have committed before the
       // transport error reached the client; replay uses the same source IDs.
@@ -799,7 +799,7 @@ export default function App() {
           ? "No pudimos confirmar la compra. La revisión se conserva para reintentar de forma segura."
           : "We could not confirm the purchase. Your review is preserved for a safe retry.",
       );
-      return false;
+      return "retry-pending";
     }
   };
 
