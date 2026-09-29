@@ -125,7 +125,12 @@ try {
 
   const replay = await persistPurchasesIntoPantryAtomically(
     aliceOtherDevice,
-    request,
+    {
+      ...request,
+      // Retry identity is the confirmed purchase/source payload, not the
+      // client's current calendar day.
+      acquiredAt: "2026-10-02",
+    },
   );
   assert.equal(replay.outcome, "already-recorded");
   assert.equal((await readStock(alice, "alice", "tomato")).quantity, 1.5);
