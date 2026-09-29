@@ -60,36 +60,33 @@ test("App returns true only after a valid confirmed shopping batch is scheduled"
   assert.ok(successIndex > persistIndex);
 });
 
-test("App computes exact deductions before any mutation and keeps signed-in stock transactional", () => {
+test("App keeps guest voice deduction local but signed-in removal transactional", () => {
   const start = appSource.indexOf("const handleVoiceDeductItems");
   const end = appSource.indexOf("const handleVoiceNavigateToRecipes", start);
   const block = appSource.slice(start, end);
 
-  assert.match(block, /async \([\s\S]*mutationId\?: string,[\s\S]*\): Promise<boolean>/);
-  assert.match(block, /if \(!requireAuthoritativeInventory\(\)\) return false;/);
-  assert.match(
-    block,
-    /const result = deductVoiceItemsFromPantry\(pantry, items \|\| \[\]\);/,
-  );
-  assert.match(
-    block,
-    /if \(result\.issues\.length > 0 \|\| result\.deductions\.length === 0\)[\s\S]*return false;/,
-  );
-  assert.match(
-    block,
-    /if \(!currentUser\) \{\s*setPantry\(result\.pantry\);\s*return true;\s*\}/,
-  );
-  assert.match(block, /if \(!mutationId\)[\s\S]*return false;/);
-  assert.match(block, /pendingSignedInVoiceConsumptions\.current\.set\(mutationId,/);
-  assert.match(
-    block,
-    /await submitVoiceInventoryConsumption\(\s*mutationId,\s*result\.deductions,\s*\)/,
-  );
+  assert.ok(block.includes("): Promise<boolean> =>"));
+  assert.ok(block.includes("if (!requireAuthoritativeInventory()) return false"));
+  assert.ok(block.includes(
+    "const guestResult = deductVoiceItemsFromPantry(pantry, items || [])",
+  ));
+  assert.ok(block.includes("setPantry(guestResult.pantry)"));
+  assert.ok(block.includes("if (!mutationId)"));
+  assert.ok(block.includes(
+    "preparedSignedInVoiceDeductions.current.get(mutationId)",
+  ));
+  assert.ok(block.includes(
+    "pendingSignedInVoiceConsumptions.current.set(mutationId",
+  ));
+  assert.ok(block.includes("submitVoiceInventoryConsumption("));
 
-  const signedInStart = block.indexOf("if (!currentUser)");
-  const submitIndex = block.indexOf("submitVoiceInventoryConsumption", signedInStart);
-  assert.ok(signedInStart >= 0 && submitIndex > signedInStart);
-  assert.doesNotMatch(block.slice(submitIndex), /setPantry\(result\.pantry\)/);
+  const mutationCheck = block.indexOf("if (!mutationId)");
+  assert.ok(mutationCheck >= 0);
+  assert.equal(
+    block.slice(mutationCheck).includes("setPantry("),
+    false,
+    "signed-in path must not set pantry before Firestore confirmation",
+  );
 });
 
 test("VoiceChefView keeps the pending batch when App rejects the mutation", () => {
