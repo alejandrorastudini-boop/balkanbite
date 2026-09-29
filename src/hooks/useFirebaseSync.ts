@@ -528,6 +528,60 @@ export function useFirebaseSync(
     }
   };
 
+  const submitVoiceInventoryConsumption = async (
+    mutationId: string,
+    deductions: readonly VerifiedVoiceDeduction[],
+  ): Promise<VerifiedVoiceConsumptionResult | {
+    outcome: "needs-review";
+    reason: "unverified-authority" | "in-flight" | "stale-local-view";
+  }> => {
+    const uid = currentUser?.uid;
+    const authority = inventoryEditAuthority.current;
+    if (!uid ||
+        inventoryHydratedUser !== uid ||
+        inventoryServerConfirmedUser !== uid ||
+        authSessionUserId.current !== uid ||
+        authority.status !== "verified" ||
+        authority.userId !== uid) {
+      return { outcome: "needs-review", reason: "unverified-authority" };
+    }
+    if (inFlightVoiceConsumptions.current.has(mutationId)) {
+      return { outcome: "needs-review", reason: "in-flight" };
+    }
+
+    const affectedIds = Array.from(new Set(
+      (deductions || []).map(item => item.pantryItemId),
+    ));
+    const expectedStock = [];
+    for (const pantryItemId of affectedIds) {
+      const observed = authority.observed.find(
+        item => item.pantryItemId === pantryItemId,
+      );
+      const visible = pantry.find(item => item.id === pantryItemId) as
+        | (PantryItem & { cookRevision?: number })
+        | undefined;
+      if (!observed || !visible ||
+          visible.quantity !== observed.quantity ||
+          visible.unit !== observed.unit ||
+          (visible.cookRevision ?? 0) !== observed.cookRevision) {
+        return { outcome: "needs-review", reason: "stale-local-view" };
+      }
+      expectedStock.push({ ...observed });
+    }
+
+    inFlightVoiceConsumptions.current.add(mutationId);
+    try {
+      return await persistVerifiedVoiceConsumption(db, {
+        userId: uid,
+        mutationId,
+        expectedStock,
+        deductions,
+      });
+    } finally {
+      inFlightVoiceConsumptions.current.delete(mutationId);
+    }
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -554,5 +608,6 @@ export function useFirebaseSync(
     captureInventoryEditBaseline,
     submitInventoryEdit,
     submitInventoryCreations,
+    submitVoiceInventoryConsumption,
   };
 }
