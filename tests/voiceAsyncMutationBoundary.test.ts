@@ -13,7 +13,7 @@ test("voice pantry mutation callbacks may be asynchronous", () => {
   );
   assert.match(
     source,
-    /onDeductItemsFromPantry: (items: any[], mutationId?: string) => boolean | Promise<boolean>;/,
+    /onDeductItemsFromPantry: \(items: any\[\], mutationId\?: string\) => boolean \| Promise<boolean>;/,
   );
   assert.match(
     source,
