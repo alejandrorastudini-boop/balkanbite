@@ -19,6 +19,11 @@ import { createSignedInProfileDefaults, sanitizeRemoteUserProfile, serializeUser
 import { isStoredRecipeStructurallyValid } from "../utils/storedRecipeValidation";
 import { isStoredMealPlanDayStructurallyValid } from "../utils/storedMealPlanValidation";
 import { isStoredShoppingItemStructurallyValid } from "../utils/storedShoppingValidation";
+import { capturePantryEditIntent, verifyServerInventoryForEdits, type InventoryEditAuthority } from "../utils/pantryEditIntentCapture";
+import { submitVerifiedPantryEdit, type VerifiedPantryEditCommandResult } from "../utils/verifiedPantryEditCommand";
+import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "../utils/inventoryAdjustmentFirestore";
+import { persistNewInventoryItems, type InventoryCreationOutcome } from "../utils/inventoryCreationFirestore";
+import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAuthority";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -41,12 +46,20 @@ export function useFirebaseSync(
   const [authReady, setAuthReady] = useState(false);
   const [inventoryHydratedUser, setInventoryHydratedUser] = useState<string | null>(null);
   const [inventorySyncErrorUser, setInventorySyncErrorUser] = useState<string | null>(null);
+  const [inventoryServerConfirmedUser, setInventoryServerConfirmedUser] = useState<string | null>(null);
   const [profileHydratedUser, setProfileHydratedUser] = useState<string | null>(null);
   const authSessionUserId = useRef<string | null | undefined>(undefined);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
   const lastHydratedCollectionJson = useRef<Record<string, string>>({});
   const hydratedCollectionDocumentIds = useRef<Record<string, Set<string>>>({});
   const hydratedInventoryActiveIds = useRef<Set<string>>(new Set());
+  // Read-only verified owner snapshot for future revision-aware UI intents.
+  // The current legacy bulk inventory writer is deliberately not changed here.
+  const inventoryEditAuthority = useRef<InventoryEditAuthority>({
+    status: "unavailable", reason: "unverified-snapshot",
+  });
+  const inFlightInventoryEdits = useRef<Set<string>>(new Set());
+  const inventoryCreationInFlight = useRef(false);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -63,8 +76,14 @@ export function useFirebaseSync(
       lastHydratedCollectionJson.current = {};
       hydratedCollectionDocumentIds.current = {};
       hydratedInventoryActiveIds.current = new Set();
+      inventoryEditAuthority.current = {
+        status: "unavailable", reason: "unverified-snapshot",
+      };
+      inFlightInventoryEdits.current = new Set();
+      inventoryCreationInFlight.current = false;
       setInventoryHydratedUser(null);
       setInventorySyncErrorUser(null);
+      setInventoryServerConfirmedUser(null);
       setProfileHydratedUser(null);
 
       if (shouldClearCloudBackedLocalState) {
@@ -170,7 +189,30 @@ export function useFirebaseSync(
         }
       };
 
-      const unsub = onSnapshot(q, (snapshot) => {
+      const unsub = onSnapshot(q, { includeMetadataChanges: collectionName === "inventory" }, (snapshot) => {
+        if (collectionName === "inventory") {
+          const serverConfirmed =
+            isServerConfirmedInventorySnapshot(snapshot.metadata) &&
+            snapshot.docs.every(snapshotDoc => snapshotDoc.metadata.hasPendingWrites === false);
+          setInventoryServerConfirmedUser(serverConfirmed ? currentUser.uid : null);
+          inventoryEditAuthority.current = verifyServerInventoryForEdits({
+            userId: currentUser.uid,
+            fromCache: snapshot.metadata.fromCache,
+            hasPendingWrites: snapshot.metadata.hasPendingWrites,
+            documents: snapshot.docs.map(snapshotDoc => ({
+              documentId: snapshotDoc.id,
+              hasPendingWrites: snapshotDoc.metadata.hasPendingWrites,
+              data: snapshotDoc.data(),
+            })),
+          });
+
+          // A latency-compensated or cache-only snapshot may describe a
+          // proposed local write. Keep the last committed pantry visible and
+          // do not advance hydration/echo guards until the server confirms it.
+          if (!serverConfirmed) {
+            return;
+          }
+        }
         const remoteEntries = snapshot.docs
           .map(snapshotDoc => {
             const { userId, ...item } = snapshotDoc.data() as any;
@@ -246,6 +288,10 @@ export function useFirebaseSync(
         ) {
           clearInventoryHydrationTimeout();
           setInventorySyncErrorUser(currentUser.uid);
+          setInventoryServerConfirmedUser(null);
+          inventoryEditAuthority.current = {
+            status: "unavailable", reason: "unverified-snapshot",
+          };
         }
         console.error(`Failed to hydrate ${collectionName}:`, error);
       });
@@ -412,6 +458,73 @@ export function useFirebaseSync(
     isStoredShoppingItemStructurallyValid
   );
 
+  // A capture returns the ORIGINAL server-confirmed lot the user saw,
+  // never a newly substituted remote quantity. This is read-only; actual
+  // writes must later use the verified transactional inventory writer.
+  const captureInventoryEditBaseline = (item: PantryItem) => {
+    if (!currentUser || inventoryHydratedUser !== currentUser.uid ||
+        authSessionUserId.current !== currentUser.uid) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+    }
+    return capturePantryEditIntent(inventoryEditAuthority.current, currentUser.uid, item);
+  };
+
+  // Signed-in manual +/- and delete use the exact rendered item as the
+  // click-time baseline. Do not optimistically set pantry on success: the
+  // owner-filtered Firestore listener will supply committed remote state.
+  // This narrow path is not a release gate for the remaining bulk writer.
+  const submitInventoryEdit = async (
+    viewed: PantryItem,
+    adjustment: InventoryAdjustment,
+  ): Promise<VerifiedPantryEditCommandResult | {
+    outcome: "needs-review"; reason: "in-flight" | "unverified-authority";
+  }> => {
+    const uid = currentUser?.uid;
+    if (!uid || inventoryHydratedUser !== uid ||
+        authSessionUserId.current !== uid) {
+      return { outcome: "needs-review", reason: "unverified-authority" };
+    }
+    if (inFlightInventoryEdits.current.has(viewed.id)) {
+      return { outcome: "needs-review", reason: "in-flight" };
+    }
+    inFlightInventoryEdits.current.add(viewed.id);
+    try {
+      return await submitVerifiedPantryEdit({
+        authority: inventoryEditAuthority.current,
+        viewed,
+        adjustment,
+        getCurrentUserId: () =>
+          typeof authSessionUserId.current === "string"
+            ? authSessionUserId.current : null,
+        persist: (userId, expected, edit) =>
+          persistVerifiedInventoryAdjustment(db, userId, expected, edit),
+      });
+    } finally {
+      inFlightInventoryEdits.current.delete(viewed.id);
+    }
+  };
+
+  const submitInventoryCreations = async (
+    items: readonly PantryItem[],
+  ): Promise<InventoryCreationOutcome | {
+    outcome: "needs-review"; reason: "unverified-authority" | "in-flight";
+  }> => {
+    const uid = currentUser?.uid;
+    if (!uid || inventoryHydratedUser !== uid ||
+        authSessionUserId.current !== uid) {
+      return { outcome: "needs-review", reason: "unverified-authority" };
+    }
+    if (inventoryCreationInFlight.current) {
+      return { outcome: "needs-review", reason: "in-flight" };
+    }
+    inventoryCreationInFlight.current = true;
+    try {
+      return await persistNewInventoryItems(db, uid, items);
+    } finally {
+      inventoryCreationInFlight.current = false;
+    }
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -419,6 +532,8 @@ export function useFirebaseSync(
     inventorySyncErrorUser === currentUser?.uid;
   const profileHydrated =
     !currentUser || profileHydratedUser === currentUser.uid;
+  const inventoryServerConfirmed =
+    Boolean(currentUser) && inventoryServerConfirmedUser === currentUser?.uid;
 
   // Only unresolved Auth blocks the application shell. Inventory authority is
   // surfaced separately so a delayed first snapshot cannot freeze the UI.
@@ -431,6 +546,10 @@ export function useFirebaseSync(
     inventoryHydrated,
     inventoryIsProvisional,
     inventorySyncError,
+    inventoryServerConfirmed,
     profileHydrated,
+    captureInventoryEditBaseline,
+    submitInventoryEdit,
+    submitInventoryCreations,
   };
 }

@@ -28,9 +28,9 @@ interface VoiceChefViewProps {
   chatMessages: ChatMessage[];
   onUpdateChatMessages: (messages: ChatMessage[] | ((prev: ChatMessage[]) => ChatMessage[])) => void;
   onClearChat: () => void;
-  onAddItemsToPantry: (items: any[]) => boolean;
-  onAddItemsToShoppingList: (items: any[]) => boolean;
-  onDeductItemsFromPantry: (items: any[]) => boolean;
+  onAddItemsToPantry: (items: any[]) => boolean | Promise<boolean>;
+  onAddItemsToShoppingList: (items: any[]) => boolean | Promise<boolean>;
+  onDeductItemsFromPantry: (items: any[]) => boolean | Promise<boolean>;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
@@ -86,6 +86,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   const [speechSynthesisEnabled, setSpeechSynthesisEnabled] = useState(true);
   const [pendingItems, setPendingItems] = useState<any[] | null>(null);
   const [pendingAction, setPendingAction] = useState<"add" | "remove" | "shopping" | null>(null);
+  const [isConfirmingPendingItems, setIsConfirmingPendingItems] = useState(false);
 
   // Initialize welcome message when language changes if no messages exist
   useEffect(() => {
@@ -244,8 +245,8 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       })
   );
 
-  const confirmPendingItems = () => {
-    if (!pendingItems || !pendingItemsAreComplete || !pendingAction) return;
+  const confirmPendingItems = async () => {
+    if (!pendingItems || !pendingItemsAreComplete || !pendingAction || isConfirmingPendingItems) return;
 
     const confirmedItems = pendingItems;
     const action = pendingAction;
@@ -253,12 +254,22 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       .map((item) => `${item.quantity} ${item.unit} ${item.nameEn || item.name}`)
       .join(", ");
 
-    const mutationSucceeded =
-      action === "add"
-        ? onAddItemsToPantry(confirmedItems)
-        : action === "remove"
-        ? onDeductItemsFromPantry(confirmedItems)
-        : onAddItemsToShoppingList(confirmedItems);
+    setIsConfirmingPendingItems(true);
+    let mutationSucceeded = false;
+    try {
+      mutationSucceeded = await Promise.resolve(
+        action === "add"
+          ? onAddItemsToPantry(confirmedItems)
+          : action === "remove"
+          ? onDeductItemsFromPantry(confirmedItems)
+          : onAddItemsToShoppingList(confirmedItems)
+      );
+    } catch (error) {
+      console.error("Confirmed voice pantry mutation failed:", error);
+      mutationSucceeded = false;
+    } finally {
+      setIsConfirmingPendingItems(false);
+    }
 
     const confirmationText = mutationSucceeded
       ? action === "add"
@@ -708,16 +719,17 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
               <button
                 type="button"
                 onClick={cancelPendingItems}
+                disabled={isConfirmingPendingItems}
                 className="flex-1 rounded-xl border border-white/[0.08] bg-white/[0.04] px-3 py-2 text-xs font-bold text-stone-300 hover:bg-white/[0.08]"
               >
                 {language === "bg" ? "Отказ" : language === "es" ? "Cancelar" : "Cancel"}
               </button>
               <button
                 type="button"
-                disabled={!pendingItemsAreComplete}
+                disabled={!pendingItemsAreComplete || isConfirmingPendingItems}
                 onClick={confirmPendingItems}
                 className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5 ${
-                  pendingItemsAreComplete
+                  pendingItemsAreComplete && !isConfirmingPendingItems
                     ? "bg-emerald-500 text-stone-950 hover:bg-emerald-400"
                     : "bg-white/[0.04] text-stone-600 cursor-not-allowed"
                 }`}

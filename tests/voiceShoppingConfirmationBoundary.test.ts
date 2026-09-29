@@ -112,7 +112,7 @@ test("pending shopping UI states that AI extraction is not yet persisted", () =>
   );
   assert.match(
     voiceSource,
-    /disabled=\{!pendingItemsAreComplete\}/,
+    /disabled=\{!pendingItemsAreComplete \|\| isConfirmingPendingItems\}/,
   );
 });
 
@@ -187,7 +187,7 @@ test("both full Voice and Chef modal wire the confirmed shopping callback", () =
   );
   assert.match(
     modalSource,
-    /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean;/,
+    /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean \| Promise<boolean>;/,
   );
   assert.match(
     modalSource,
