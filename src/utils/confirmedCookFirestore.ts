@@ -25,8 +25,14 @@ export interface AtomicCookRequest {
   confirmation: CookConfirmation;
 }
 
-const safeId = (value: unknown): value is string =>
+const safeJournalId = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9._-]{1,150}$/.test(value);
+
+const safeLogicalId = (value: unknown): value is string =>
+  typeof value === "string" &&
+  value.trim().length > 0 &&
+  value.length <= 300 &&
+  !/[\u0000-\u001F\u007F]/.test(value);
 
 const validQuantity = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value > 0;
@@ -40,8 +46,8 @@ function reject(reason: PendingCookIngredient["reason"], ingredientId = "confirm
  * It is not a cryptographic signature or proof of inventory provenance.
  */
 export function cookAllocationSignature(confirmation: CookConfirmation): string | null {
-  if (!safeId(confirmation.cookConfirmationId) ||
-      !safeId(confirmation.mealId) ||
+  if (!safeJournalId(confirmation.cookConfirmationId) ||
+      !safeLogicalId(confirmation.mealId) ||
       confirmation.confirmed !== true ||
       !Array.isArray(confirmation.ingredients) ||
       confirmation.ingredients.length === 0 ||
@@ -50,8 +56,8 @@ export function cookAllocationSignature(confirmation: CookConfirmation): string 
   const ingredientIds = new Set<string>();
   const normalized = [];
   for (const ingredient of confirmation.ingredients) {
-    if (!safeId(ingredient.ingredientId) ||
-        !safeId(ingredient.pantryItemId) ||
+    if (!safeLogicalId(ingredient.ingredientId) ||
+        !safeLogicalId(ingredient.pantryItemId) ||
         !validQuantity(ingredient.quantity) ||
         typeof ingredient.unit !== "string" || !ingredient.unit.trim() ||
         ingredientIds.has(ingredient.ingredientId)) return null;
@@ -82,7 +88,7 @@ export async function persistConfirmedCookAtomically(
   const { userId, confirmation } = request;
   // Current rule namespace is based on the literal auth UID, not a URL-encoded UID.
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(userId) ||
-      !safeId(confirmation.cookConfirmationId)) {
+      !safeJournalId(confirmation.cookConfirmationId)) {
     return reject("invalid-ingredient");
   }
   const signature = cookAllocationSignature(confirmation);
