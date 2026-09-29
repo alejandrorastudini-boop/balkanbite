@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Sparkles,
   Clock,
@@ -26,7 +26,7 @@ import { formatRecipeCostEUR, recipeCheapFilterLabel, recipeCostCurrencyNotice }
 interface RecipeViewProps {
   recipes: Recipe[];
   pantry: PantryItem[];
-  onCookRecipe: (recipe: Recipe) => RecipeCookOutcome;
+  onCookRecipe: (recipe: Recipe, cookConfirmationId: string) => RecipeCookOutcome | Promise<RecipeCookOutcome>;
   onAddMissingToShopping: (recipe: Recipe) => void;
   onGenerateAiRecipes: () => Promise<void>;
   onClearRecipes?: () => void;
@@ -53,6 +53,11 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [cookFeedback, setCookFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
+  const [pendingCookIntent, setPendingCookIntent] = useState<{
+    recipe: Recipe;
+    cookConfirmationId: string;
+  } | null>(null);
+  const cookMutationSequence = useRef(0);
 
   const filters = [
     { id: "all", label: language === "es" ? "Todos" : language === "bg" ? "Всички" : "All" },
@@ -110,14 +115,60 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
       pantry
     );
 
-  const handleCook = (recipe: Recipe) => {
-    const outcome = onCookRecipe(recipe);
-    setCookFeedback(
-      getRecipeCookFeedback(outcome, language, currentText.recipeCookSuccess)
+  const createCookConfirmationId = () => {
+    if (typeof globalThis.crypto?.randomUUID === "function") {
+      return `cook-${globalThis.crypto.randomUUID()}`;
+    }
+    cookMutationSequence.current += 1;
+    return `cook-${Date.now()}-${cookMutationSequence.current}`;
+  };
+
+  const handleCook = async (
+    recipe: Recipe,
+    cookConfirmationId: string,
+  ): Promise<RecipeCookOutcome> => {
+    try {
+      const outcome = await Promise.resolve(
+        onCookRecipe(recipe, cookConfirmationId),
+      );
+      setCookFeedback(
+        getRecipeCookFeedback(outcome, language, currentText.recipeCookSuccess),
+      );
+      setTimeout(() => {
+        setCookFeedback(null);
+      }, 4000);
+      return outcome;
+    } catch (error) {
+      console.error("Confirmed recipe cook failed:", error);
+      const outcome: RecipeCookOutcome = { success: false, issueCount: 1 };
+      setCookFeedback(
+        getRecipeCookFeedback(outcome, language, currentText.recipeCookSuccess),
+      );
+      return outcome;
+    }
+  };
+
+  const requestCookConfirmation = (recipe: Recipe) => {
+    if (pendingCookIntent) return;
+    setCookFeedback(null);
+    setPendingCookIntent({
+      recipe,
+      cookConfirmationId: createCookConfirmationId(),
+    });
+  };
+
+  const confirmPendingCook = async (): Promise<boolean> => {
+    const pending = pendingCookIntent;
+    if (!pending) return false;
+    const outcome = await handleCook(
+      pending.recipe,
+      pending.cookConfirmationId,
     );
-    setTimeout(() => {
-      setCookFeedback(null);
-    }, 4000);
+    if (!outcome.success) return false;
+
+    setSelectedRecipe(null);
+    setPendingCookIntent(null);
+    return true;
   };
 
   return (
@@ -393,7 +444,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
               <div className="grid grid-cols-2 gap-2 pt-1 border-t border-stone-700/50">
                 <button
                   id={`cook-btn-${recipe.id}`}
-                  onClick={() => handleCook(recipe)}
+                  onClick={() => requestCookConfirmation(recipe)}
                   className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-md shadow-emerald-950/40"
                 >
                   <ChefHat className="w-3.5 h-3.5" />
@@ -557,8 +608,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
               <button
                 type="button"
                 onClick={() => {
-                  handleCook(selectedRecipe);
-                  setSelectedRecipe(null);
+                  requestCookConfirmation(selectedRecipe);
                 }}
                 className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-sm font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transition-all cursor-pointer"
               >
@@ -570,6 +620,42 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
         </div>
       </div>
     )}
+
+      {/* Cook intent is staged first; only explicit confirmation may persist stock. */}
+      <ConfirmModal
+        isOpen={pendingCookIntent !== null}
+        onClose={() => setPendingCookIntent(null)}
+        onConfirm={confirmPendingCook}
+        title={
+          language === "es"
+            ? "¿Ya has cocinado esta receta?"
+            : language === "bg"
+            ? "Сготви ли тази рецепта?"
+            : "Have you cooked this recipe?"
+        }
+        description={
+          language === "es"
+            ? "Confirma solo si ya la has cocinado. Se descontarán las cantidades verificadas de la despensa. Si el stock ha cambiado o algún ingrediente no puede verificarse, no se descontará nada."
+            : language === "bg"
+            ? "Потвърди само ако вече си приготвил рецептата. Ще бъдат приспаднати само проверените количества. Ако наличността е променена или съставка не може да се провери, няма да се приспада нищо."
+            : "Confirm only if you have already cooked it. Only verified pantry amounts will be deducted. If stock changed or any ingredient cannot be verified, nothing will be deducted."
+        }
+        confirmText={
+          language === "es"
+            ? "Sí, descontar"
+            : language === "bg"
+            ? "Да, приспадни"
+            : "Yes, deduct"
+        }
+        cancelText={
+          language === "es"
+            ? "Cancelar"
+            : language === "bg"
+            ? "Отказ"
+            : "Cancel"
+        }
+        danger={false}
+      />
 
       {/* Confirmation Modal for Clearing Recipes */}
       <ConfirmModal
