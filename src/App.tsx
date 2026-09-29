@@ -184,7 +184,9 @@ export default function App() {
     }>;
     removedShoppingItemIds: string[];
     newlyAppliedSourceIds: string[];
+    readyToReconcile: boolean;
   } | null>(null);
+  const [purchaseTransferCheckpoint, setPurchaseTransferCheckpoint] = useState(0);
   const pendingSignedInVoiceConsumptions = useRef<Map<string, {
     userId: string;
     expectedRemaining: Record<string, number | null>;
@@ -702,7 +704,7 @@ export default function App() {
       pendingCheckedShoppingTransfer.current = null;
       return;
     }
-    if (!inventoryHydrated || !inventoryServerConfirmed) return;
+    if (!inventoryHydrated || !inventoryServerConfirmed || !pending.readyToReconcile) return;
 
     const pantryById = new Map(
       pantry.map(item => [
@@ -740,6 +742,7 @@ export default function App() {
     currentUser,
     inventoryHydrated,
     inventoryServerConfirmed,
+    purchaseTransferCheckpoint,
   ]);
 
   const dispatchSignedInPantryCreations = async (
