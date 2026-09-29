@@ -204,6 +204,10 @@ export default function App() {
       }>;
     };
   }>>(new Map());
+  const pendingSignedInDerivedReconciliations = useRef<Map<string, {
+    userId: string;
+    expectedRemaining: Record<string, number | null>;
+  }>>(new Map());
   const preparedSignedInReconciliations = useRef<Map<string, {
     userId: string;
     reviewFingerprint: string;
@@ -214,6 +218,7 @@ export default function App() {
   }>>(new Map());
   useEffect(() => {
     preparedSignedInCooks.current.clear();
+    pendingSignedInDerivedReconciliations.current.clear();
   }, [currentUser?.uid]);
 
   const [activeTab, setActiveTab] = useState<TabType>("home");
@@ -648,6 +653,36 @@ export default function App() {
     }
   };
 
+  // Signed-in stock commands may commit before their initiating promise
+  // settles. Register exact expected stock before dispatch, then propagate
+  // recipe/meal-plan availability only when the owner listener exposes that
+  // result in a server-confirmed snapshot.
+  useEffect(() => {
+    if (pendingSignedInDerivedReconciliations.current.size === 0) return;
+    if (!currentUser) {
+      pendingSignedInDerivedReconciliations.current.clear();
+      return;
+    }
+    if (!inventoryHydrated || !inventoryServerConfirmed) return;
+
+    const visible = new Map(pantry.map(item => [item.id, item.quantity]));
+    let matched = false;
+    for (const [key, pending] of pendingSignedInDerivedReconciliations.current) {
+      if (pending.userId !== currentUser.uid) {
+        pendingSignedInDerivedReconciliations.current.delete(key);
+        continue;
+      }
+      const exactResultVisible = Object.entries(pending.expectedRemaining).every(
+        ([itemId, quantity]) =>
+          quantity === null ? !visible.has(itemId) : visible.get(itemId) === quantity,
+      );
+      if (!exactResultVisible) continue;
+      pendingSignedInDerivedReconciliations.current.delete(key);
+      matched = true;
+    }
+    if (matched) reconcileCommittedPantryAvailability(pantry, true);
+  }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
+
   const updatePantryAndReconcileMenu = (
     newPantryItemsToAdd: PantryItem[],
     showToast = true
@@ -1069,15 +1104,24 @@ export default function App() {
   // a conflict or offline failure must not masquerade as a successful edit.
   // Other legacy inventory writers are NOT yet coordinated: no release.
   const dispatchVerifiedPantryChange = (viewed: PantryItem, next: number | "remove") => {
+    const uid = currentUser?.uid;
+    if (!uid) return;
+    const reconciliationKey = `manual:${viewed.id}`;
+    pendingSignedInDerivedReconciliations.current.set(reconciliationKey, {
+      userId: uid,
+      expectedRemaining: { [viewed.id]: next === "remove" ? null : next },
+    });
     void submitInventoryEdit(
       viewed,
       next === "remove"
         ? { kind: "remove" }
         : { kind: "set-quantity", quantity: next },
     ).then(result => {
-      if (result.outcome !== "needs-review" ||
-          result.reason === "no-change" ||
-          result.reason === "in-flight") return;
+      if (result.outcome !== "needs-review") return;
+      if (result.reason !== "in-flight") {
+        pendingSignedInDerivedReconciliations.current.delete(reconciliationKey);
+      }
+      if (result.reason === "no-change" || result.reason === "in-flight") return;
       console.warn("Manual pantry edit needs review:", result.reason);
       alert(
         profile.language === "bg"
@@ -1087,6 +1131,8 @@ export default function App() {
           : "The change was not saved. Review your current stock and try again."
       );
     }).catch(error => {
+      // A transport failure can be ambiguous after commit. Keep reconciliation
+      // evidence so a later server-confirmed snapshot can still propagate it.
       console.error("Verified manual pantry edit failed:", error);
       alert(
         profile.language === "bg"
@@ -1132,10 +1178,20 @@ export default function App() {
       setPantry([]);
       return true;
     }
+    pendingSignedInDerivedReconciliations.current.set(`clear:${mutationId}`, {
+      userId: currentUser.uid,
+      expectedRemaining: Object.fromEntries(pantry.map(item => [item.id, null])),
+    });
     const result = await submitInventoryClear(mutationId, pantry);
     if (result.accepted) return true;
     if (result.reason !== "awaiting-server-confirmation" &&
-        result.reason !== "in-flight") {
+        result.reason !== "in-flight" &&
+        result.reason !== "transport-uncertain") {
+      pendingSignedInDerivedReconciliations.current.delete(`clear:${mutationId}`);
+    }
+    if (result.reason !== "awaiting-server-confirmation" &&
+        result.reason !== "in-flight" &&
+        result.reason !== "transport-uncertain") {
       console.warn("Signed-in pantry Clear-All needs review:", result.reason);
     }
     return false;
@@ -1266,6 +1322,18 @@ export default function App() {
       };
       preparedSignedInCooks.current.set(cookConfirmationId, prepared);
     }
+
+    const remainingById = new Map(prepared.result.pantry.map(item => [item.id, item.quantity]));
+    const affectedIds = new Set(prepared.result.deductions.map(item => item.pantryItemId));
+    pendingSignedInDerivedReconciliations.current.set(`cook:${cookConfirmationId}`, {
+      userId: currentUser.uid,
+      expectedRemaining: Object.fromEntries(
+        [...affectedIds].map(itemId => [
+          itemId,
+          remainingById.has(itemId) ? remainingById.get(itemId)! : null,
+        ]),
+      ),
+    });
 
     const committed = await submitConfirmedCook(pantry, prepared.confirmation);
     if (!committed.accepted) {
