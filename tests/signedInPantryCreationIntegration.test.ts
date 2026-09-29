@@ -88,7 +88,7 @@ test("signed-in voice pantry addition awaits the same confirmed creation path wh
 test("inventory server confirmation requires non-cache snapshot with zero pending writes", () => {
   assert.match(
     syncSource,
-    /snapshot\.metadata\.fromCache === false[\s\S]*snapshot\.metadata\.hasPendingWrites === false[\s\S]*snapshot\.docs\.every\(snapshotDoc => snapshotDoc\.metadata\.hasPendingWrites === false\)/,
+    /isServerConfirmedInventorySnapshot\(snapshot\.metadata\)[\s\S]*snapshot\.docs\.every\(snapshotDoc => snapshotDoc\.metadata\.hasPendingWrites === false\)/,
   );
   assert.match(
     syncSource,
