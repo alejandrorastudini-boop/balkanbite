@@ -8,6 +8,7 @@ const STARTUP_CLOUD_SYNC_QA_PATH = "/__qa/startup-cloud-sync";
 const PROFILE_HEALTH_DATA_QA_PATH = "/__qa/profile-health-data";
 const FRESH_GUEST_ONBOARDING_QA_PATH = "/__qa/fresh-guest-onboarding";
 const MANUAL_SHOPPING_QA_PATH = "/__qa/manual-shopping";
+const COOK_CONFIRMATION_QA_PATH = "/__qa/cook-confirmation";
 const RUNTIME_QA_PREVIEW_HOST =
   "balkanbite-git-preview-qa-agent-runtime-alejandrorastudini-6993.vercel.app";
 
@@ -49,6 +50,13 @@ export function isManualShoppingQaRoute(): boolean {
   return (
     runtimeQaHostAllowed() &&
     window.location.pathname === MANUAL_SHOPPING_QA_PATH
+  );
+}
+
+export function isCookConfirmationQaRoute(): boolean {
+  return (
+    runtimeQaHostAllowed() &&
+    window.location.pathname === COOK_CONFIRMATION_QA_PATH
   );
 }
 
