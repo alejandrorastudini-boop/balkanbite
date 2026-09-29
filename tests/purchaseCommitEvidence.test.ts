@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  arePurchaseSourcesVisible,
   buildPendingPurchaseCommitEvidence,
   isPurchaseCommitVisible,
 } from "../src/utils/purchaseCommitEvidence";
@@ -180,4 +181,50 @@ test("ambiguous or missing newly-applied source history fails closed", () => {
       rejected: [],
     },
   ), null);
+});
+
+test("historical purchase source proof survives later stock consumption", () => {
+  const laterPantry = pantry.map(item =>
+    item.id === "tomato" ? { ...item, quantity: 0.25 } : item,
+  );
+  assert.equal(
+    arePurchaseSourcesVisible(
+      ["shopping:s1", "shopping:s2"],
+      laterPantry,
+    ),
+    true,
+  );
+});
+
+test("purchase source proof fails on missing or ambiguous history", () => {
+  assert.equal(
+    arePurchaseSourcesVisible(
+      ["shopping:missing"],
+      pantry,
+    ),
+    false,
+  );
+
+  const ambiguous = [
+    ...pantry,
+    {
+      ...pantry[1],
+      id: "duplicate-history",
+      purchaseHistory: [
+        ...(pantry[1].purchaseHistory || []),
+        {
+          sourceId: "shopping:s1",
+          source: "shopping_list" as const,
+          name: "Tomate",
+          quantity: 0.5,
+          unit: "kg",
+          acquiredAt: "2026-09-29",
+        },
+      ],
+    },
+  ];
+  assert.equal(
+    arePurchaseSourcesVisible(["shopping:s1"], ambiguous),
+    false,
+  );
 });
