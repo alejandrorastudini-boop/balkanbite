@@ -58,8 +58,8 @@ export function useFirebaseSync(
   const hydratedCollectionUser = useRef<Record<string, string>>({});
   const lastHydratedCollectionJson = useRef<Record<string, string>>({});
   const hydratedCollectionDocumentIds = useRef<Record<string, Set<string>>>({});
-  // Read-only verified owner snapshot for future revision-aware UI intents.
-  // The current legacy bulk inventory writer is deliberately not changed here.
+  // Read-only verified owner snapshot used by dedicated revision-aware inventory commands.
+  // Generic inventory persistence is intentionally retired below.
   const inventoryEditAuthority = useRef<InventoryEditAuthority>({
     status: "unavailable", reason: "unverified-snapshot",
   });
@@ -179,7 +179,7 @@ export function useFirebaseSync(
     });
   }, [profile, currentUser, loading, profileHydratedUser]);
 
-  const { canRenderApp, inventoryIsProvisional, cloudInventoryWritesAllowed } =
+  const { canRenderApp, inventoryIsProvisional } =
     getStartupCloudSyncState(
       authReady,
       currentUser?.uid ?? null,
