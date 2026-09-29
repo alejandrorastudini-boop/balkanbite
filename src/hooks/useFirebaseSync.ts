@@ -727,16 +727,9 @@ export function useFirebaseSync(
         mutationId,
         expectedStock,
       });
-      if (result.outcome !== "needs-review") {
-        preparedPantryClears.current.delete(mutationId);
-      } else if (
-        result.reason !== "stale-stock" &&
-        result.reason !== "missing-stock" &&
-        result.reason !== "invalid-stock" &&
-        result.reason !== "conflicting-replay"
-      ) {
-        preparedPantryClears.current.delete(mutationId);
-      }
+      // Any response from the transaction is definitive. Only a thrown
+      // transport/client error keeps the original baseline for idempotent retry.
+      preparedPantryClears.current.delete(mutationId);
       return result;
     } catch (error) {
       // Preserve the exact reviewed baseline. The transaction may have
