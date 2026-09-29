@@ -8,7 +8,7 @@ const syncSource = readFileSync(
   "utf8",
 );
 
-test("signed-in checked-shopping transfer never optimistically mutates pantry", () => {
+test("checked-shopping signed-in path uses shared dispatcher without optimistic pantry mutation", () => {
   const start = appSource.indexOf("const handleTransferToPantry");
   const end = appSource.indexOf("const handleReconcileShopping", start);
   assert.ok(start >= 0 && end > start);
@@ -17,47 +17,54 @@ test("signed-in checked-shopping transfer never optimistically mutates pantry", 
   assert.ok(handler.includes("const preview = transferCheckedShoppingItems("));
   assert.ok(handler.includes("if (!currentUser)"));
   assert.ok(handler.includes("setPantry(preview.pantry)"));
-  assert.ok(handler.includes("submitPurchasePantryApplication("));
-
-  const signedInStart = handler.indexOf("} else {", handler.indexOf("if (!currentUser)"));
-  assert.ok(signedInStart >= 0);
-  assert.equal(
-    handler.slice(signedInStart).includes("setPantry("),
-    false,
-    "signed-in transfer must wait for Firestore snapshot",
-  );
-});
-
-test("purchase evidence is installed before transaction dispatch", () => {
-  const start = appSource.indexOf("const handleTransferToPantry");
-  const end = appSource.indexOf("const handleReconcileShopping", start);
-  const handler = appSource.slice(start, end);
-
-  const pending = handler.indexOf(
-    "pendingSignedInPurchaseApplication.current = evidence",
-  );
-  const submit = handler.indexOf("submitPurchasePantryApplication(");
-  assert.ok(pending >= 0 && submit > pending);
-  assert.ok(handler.includes("buildPurchaseMutationId(purchases)"));
-  assert.ok(handler.includes("buildPendingPurchaseCommitEvidence("));
+  assert.ok(handler.includes("dispatchSignedInPurchaseApplication("));
   assert.ok(handler.includes(
     "const acceptedPreviewSources = new Set(preview.acceptedSourceIds)",
   ));
   assert.ok(handler.includes(
     ".filter(purchase => acceptedPreviewSources.has(purchase.sourceId))",
   ));
+
+  const signedInStart = handler.indexOf(
+    "} else {",
+    handler.indexOf("if (!currentUser)"),
+  );
+  assert.ok(signedInStart >= 0);
+  assert.equal(handler.slice(signedInStart).includes("setPantry("), false);
 });
 
-test("shopping rows and progression finalize only after source-history proof in confirmed pantry", () => {
-  const finalizeStart = appSource.indexOf(
+test("shared dispatcher installs exact purchase evidence before transaction dispatch", () => {
+  const start = appSource.indexOf(
+    "const dispatchSignedInPurchaseApplication = async",
+  );
+  const end = appSource.indexOf(
+    "// Signed-in creation never mutates pantry optimistically",
+    start,
+  );
+  assert.ok(start >= 0 && end > start);
+  const block = appSource.slice(start, end);
+
+  const buildId = block.indexOf("buildPurchaseMutationId(purchases)");
+  const evidence = block.indexOf("buildPendingPurchaseCommitEvidence(");
+  const pending = block.indexOf(
+    "pendingSignedInPurchaseApplication.current = evidence",
+  );
+  const submit = block.indexOf("submitPurchasePantryApplication(");
+
+  assert.ok(buildId >= 0 && evidence > buildId);
+  assert.ok(pending > evidence && submit > pending);
+});
+
+test("shopping rows and progression finalize only after exact confirmed purchase evidence", () => {
+  const start = appSource.indexOf(
     "const finalizeSignedInPurchaseIfVisible",
   );
-  const creationEffect = appSource.indexOf(
-    "// Signed-in creation never mutates pantry optimistically",
-    finalizeStart,
+  const end = appSource.indexOf(
+    "const dispatchSignedInPurchaseApplication",
+    start,
   );
-  assert.ok(finalizeStart >= 0 && creationEffect > finalizeStart);
-  const block = appSource.slice(finalizeStart, creationEffect);
+  assert.ok(start >= 0 && end > start);
+  const block = appSource.slice(start, end);
 
   const proof = block.indexOf(
     "isPurchaseCommitVisible(pending, currentUser.uid, committedPantry)",
@@ -81,22 +88,31 @@ test("shopping rows and progression finalize only after source-history proof in 
   assert.ok(block.includes("accepted.has(`shopping:${item.id}`)"));
 });
 
-test("transient authority/in-flight state retains purchase evidence for idempotent retry", () => {
-  const start = appSource.indexOf("const handleTransferToPantry");
-  const end = appSource.indexOf("const handleReconcileShopping", start);
-  const handler = appSource.slice(start, end);
-  assert.ok(handler.includes('persisted.reason === "in-flight"'));
-  assert.ok(handler.includes('persisted.reason === "unverified-authority"'));
+test("shared dispatcher retains purchase evidence for in-flight/authority gaps and transport uncertainty", () => {
+  const start = appSource.indexOf(
+    "const dispatchSignedInPurchaseApplication = async",
+  );
+  const end = appSource.indexOf(
+    "// Signed-in creation never mutates pantry optimistically",
+    start,
+  );
+  const block = appSource.slice(start, end);
 
-  const catchIndex = handler.indexOf("catch (error)");
+  assert.ok(block.includes('persisted.reason === "in-flight"'));
+  assert.ok(block.includes('persisted.reason === "unverified-authority"'));
+  assert.ok(block.includes(
+    'return preservePending ? "retry-pending" : "rejected"',
+  ));
+
+  const catchIndex = block.indexOf("catch (error)");
   assert.ok(catchIndex >= 0);
   assert.equal(
-    handler.slice(catchIndex).includes(
+    block.slice(catchIndex).includes(
       "pendingSignedInPurchaseApplication.current = null",
     ),
     false,
-    "uncertain network failure must keep evidence until snapshot/retry",
   );
+  assert.ok(block.slice(catchIndex).includes('return "retry-pending"'));
 });
 
 test("hook purchase writer requires full server-confirmed visible pantry baseline", () => {
@@ -120,12 +136,19 @@ test("hook purchase writer requires full server-confirmed visible pantry baselin
   assert.equal(block.includes("setPantry("), false);
 });
 
-test("advanced shopping reconciliation remains explicitly unmigrated", () => {
-  const start = appSource.indexOf("const handleReconcileShopping");
+test("advanced reviewed reconciliation is now transactional for signed-in users", () => {
+  const start = appSource.indexOf("const handleReconcileShopping = async");
   const end = appSource.indexOf("const handleLogMeal", start);
   assert.ok(start >= 0 && end > start);
   const block = appSource.slice(start, end);
+
   assert.ok(block.includes("reconcileConfirmedShoppingPurchases("));
-  assert.ok(block.includes("setPantry(result.pantry)"));
-  assert.equal(block.includes("submitPurchasePantryApplication("), false);
+  assert.ok(block.includes("buildConfirmedShoppingReconciliationInput("));
+  assert.ok(block.includes("dispatchSignedInPurchaseApplication("));
+
+  const guestStart = block.indexOf("if (!currentUser)");
+  const guestSet = block.indexOf("setPantry(preview.pantry)", guestStart);
+  const signedStart = block.indexOf("if (!safeReconciliationId)", guestSet);
+  assert.ok(guestStart >= 0 && guestSet > guestStart && signedStart > guestSet);
+  assert.equal(block.slice(signedStart).includes("setPantry("), false);
 });
