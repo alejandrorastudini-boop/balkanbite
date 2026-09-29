@@ -1409,48 +1409,75 @@ export default function App() {
   ): Promise<boolean> => {
     if (!requireAuthoritativeInventory()) return false;
 
-    const result = deductVoiceItemsFromPantry(pantry, items || []);
-    if (result.issues.length > 0 || result.deductions.length === 0) {
-      console.warn(
-        "Voice pantry consumption skipped for unresolved items",
-        result.issues
-      );
-      return false;
-    }
-
     if (!currentUser) {
-      setPantry(result.pantry);
+      const guestResult = deductVoiceItemsFromPantry(pantry, items || []);
+      if (guestResult.issues.length > 0 || guestResult.deductions.length === 0) {
+        console.warn(
+          "Voice pantry consumption skipped for unresolved items",
+          guestResult.issues,
+        );
+        return false;
+      }
+      setPantry(guestResult.pantry);
       return true;
     }
+
     if (!mutationId) {
       console.warn("Signed-in voice deduction missing stable mutation ID");
       return false;
     }
 
-    const affectedIds = new Set(
-      result.deductions.map(item => item.pantryItemId),
-    );
-    const remaining = new Map(
-      result.pantry.map(item => [item.id, item.quantity]),
-    );
-    const expectedRemaining: Record<string, number | null> = {};
-    for (const pantryItemId of affectedIds) {
-      expectedRemaining[pantryItemId] = remaining.has(pantryItemId)
-        ? remaining.get(pantryItemId) ?? null
-        : null;
+    let plan = preparedSignedInVoiceDeductions.current.get(mutationId);
+    if (plan && plan.userId !== currentUser.uid) {
+      preparedSignedInVoiceDeductions.current.delete(mutationId);
+      pendingSignedInVoiceConsumptions.current.delete(mutationId);
+      return false;
     }
+
+    if (!plan) {
+      const resolved = deductVoiceItemsFromPantry(pantry, items || []);
+      if (resolved.issues.length > 0 || resolved.deductions.length === 0) {
+        console.warn(
+          "Voice pantry consumption skipped for unresolved items",
+          resolved.issues,
+        );
+        return false;
+      }
+
+      const affectedIds = new Set(
+        resolved.deductions.map(item => item.pantryItemId),
+      );
+      const remaining = new Map(
+        resolved.pantry.map(item => [item.id, item.quantity]),
+      );
+      const expectedRemaining: Record<string, number | null> = {};
+      for (const pantryItemId of affectedIds) {
+        expectedRemaining[pantryItemId] = remaining.has(pantryItemId)
+          ? remaining.get(pantryItemId) ?? null
+          : null;
+      }
+
+      plan = {
+        userId: currentUser.uid,
+        deductions: resolved.deductions.map(item => ({ ...item })),
+        expectedRemaining,
+      };
+      preparedSignedInVoiceDeductions.current.set(mutationId, plan);
+    }
+
     pendingSignedInVoiceConsumptions.current.set(mutationId, {
-      userId: currentUser.uid,
-      expectedRemaining,
+      userId: plan.userId,
+      expectedRemaining: { ...plan.expectedRemaining },
     });
 
     try {
       const persisted = await submitVoiceInventoryConsumption(
         mutationId,
-        result.deductions,
+        plan.deductions,
       );
       if (persisted.outcome === "needs-review") {
         if (persisted.reason !== "in-flight") {
+          preparedSignedInVoiceDeductions.current.delete(mutationId);
           pendingSignedInVoiceConsumptions.current.delete(mutationId);
         }
         console.warn(
@@ -1459,11 +1486,13 @@ export default function App() {
         );
         return false;
       }
+
+      preparedSignedInVoiceDeductions.current.delete(mutationId);
       return true;
     } catch (error) {
-      // Preserve the pending expected result: the server may have committed
-      // before the client observed a transport error. A retry uses the same
-      // mutationId and the transaction journal prevents a second deduction.
+      // Keep the exact reviewed plan + expected remainder. The transaction may
+      // have committed before a transport error reached the client; retrying
+      // with the same mutationId must replay the original allocation.
       console.error("Verified voice pantry deduction failed:", error);
       return false;
     }
