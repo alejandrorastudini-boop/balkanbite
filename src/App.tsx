@@ -581,6 +581,27 @@ export default function App() {
     }
   };
 
+  // A committed deduction should update availability flags in the existing
+  // recipe/meal plan without aggressively replacing the user's planned meals.
+  const reconcileCommittedPantryAvailability = (
+    updatedPantry: PantryItem[],
+    showToast = true,
+  ) => {
+    const syncedRecipes = syncRecipesWithPantry(recipes, updatedPantry);
+    setRecipes(syncedRecipes);
+    const { newPlan, readyToCookMealsCount } = syncMealPlanWithPantry(
+      mealPlan,
+      updatedPantry,
+    );
+    setMealPlan(newPlan);
+    if (showToast) {
+      setAutoMenuToast({
+        isVisible: true,
+        readyMealsCount: readyToCookMealsCount,
+      });
+    }
+  };
+
   const updatePantryAndReconcileMenu = (
     newPantryItemsToAdd: PantryItem[],
     showToast = true
@@ -611,6 +632,40 @@ export default function App() {
 
     pendingSignedInCreations.current = null;
     reconcilePantryDerivedState(pantry, true);
+  }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
+
+  // A voice deduction is reconciled only after the exact resulting quantities
+  // are visible in a server-confirmed pantry snapshot. Pending/cache snapshots
+  // cannot trigger derived recipe or meal-plan claims.
+  useEffect(() => {
+    if (pendingSignedInVoiceConsumptions.current.size === 0) return;
+    if (!currentUser) {
+      pendingSignedInVoiceConsumptions.current.clear();
+      return;
+    }
+    if (!inventoryHydrated || !inventoryServerConfirmed) return;
+
+    const visible = new Map(pantry.map(item => [item.id, item.quantity]));
+    let matchedCommittedConsumption = false;
+    for (const [mutationId, pending] of pendingSignedInVoiceConsumptions.current) {
+      if (pending.userId !== currentUser.uid) {
+        pendingSignedInVoiceConsumptions.current.delete(mutationId);
+        continue;
+      }
+      const matches = Object.entries(pending.expectedRemaining).every(
+        ([itemId, expectedQuantity]) =>
+          expectedQuantity === null
+            ? !visible.has(itemId)
+            : visible.get(itemId) === expectedQuantity,
+      );
+      if (!matches) continue;
+      pendingSignedInVoiceConsumptions.current.delete(mutationId);
+      matchedCommittedConsumption = true;
+    }
+
+    if (matchedCommittedConsumption) {
+      reconcileCommittedPantryAvailability(pantry, true);
+    }
   }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
 
   const dispatchSignedInPantryCreations = async (
