@@ -158,6 +158,7 @@ export default function App() {
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
     submitPurchasePantryApplication,
+    submitConfirmedCook,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -185,6 +186,23 @@ export default function App() {
     expectedRemaining: Record<string, number | null>;
   }>>(new Map());
   const pendingSignedInPurchaseApplication = useRef<PendingPurchaseCommitEvidence | null>(null);
+  const preparedSignedInCooks = useRef<Map<string, {
+    userId: string;
+    recipeId: string;
+    occurredAt: string;
+    result: ReturnType<typeof deductRecipeIngredientsFromPantry>;
+    confirmation: {
+      cookConfirmationId: string;
+      mealId: string;
+      confirmed: true;
+      ingredients: Array<{
+        ingredientId: string;
+        pantryItemId: string;
+        quantity: number;
+        unit: string;
+      }>;
+    };
+  }>>(new Map());
   const preparedSignedInReconciliations = useRef<Map<string, {
     userId: string;
     reviewFingerprint: string;
@@ -1162,42 +1180,99 @@ export default function App() {
     }, 100);
   };
 
-  const handleCookRecipe = (recipe: Recipe): RecipeCookOutcome => {
+  const handleCookRecipe = async (
+    recipe: Recipe,
+    cookConfirmationId: string,
+  ): Promise<RecipeCookOutcome> => {
     if (!requireAuthoritativeInventory()) {
       return { success: false, issueCount: 1 };
     }
 
-    const occurredAt = new Date().toISOString();
+    // Guest cooking remains local. Signed-in cooking is prepared once per
+    // reviewed confirmation id so retries never recalculate against stock that
+    // may already have been committed remotely.
+    if (!currentUser) {
+      const occurredAt = new Date().toISOString();
+      const result = deductRecipeIngredientsFromPantry(
+        pantry,
+        recipe.ingredients || [],
+      );
+      if (result.issues.length > 0) {
+        return { success: false, issueCount: result.issues.length };
+      }
+      setPantry(result.pantry);
+      const actionId = createProgressionActionId(
+        typeof globalThis.crypto?.randomUUID === "function"
+          ? () => globalThis.crypto.randomUUID()
+          : undefined,
+      );
+      if (actionId) {
+        const event = buildRecipeCookProgressEvent({ actionId, occurredAt, result });
+        if (event) appendLocalProgressionEvents([event]);
+      }
+      return { success: true };
+    }
+
+    let prepared = preparedSignedInCooks.current.get(cookConfirmationId);
+    if (
+      prepared &&
+      (prepared.userId !== currentUser.uid || prepared.recipeId !== recipe.id)
+    ) {
+      return { success: false, issueCount: 1 };
+    }
+
+    if (!prepared) {
+      const result = deductRecipeIngredientsFromPantry(
+        pantry,
+        recipe.ingredients || [],
+      );
+      if (result.issues.length > 0 || result.deductions.length === 0) {
+        return {
+          success: false,
+          issueCount: Math.max(1, result.issues.length),
+        };
+      }
+      prepared = {
+        userId: currentUser.uid,
+        recipeId: recipe.id,
+        occurredAt: new Date().toISOString(),
+        result,
+        confirmation: {
+          cookConfirmationId,
+          mealId: recipe.id,
+          confirmed: true,
+          ingredients: result.deductions.map((deduction, index) => ({
+            ingredientId: `allocation-${index + 1}`,
+            pantryItemId: deduction.pantryItemId,
+            quantity: deduction.consumedQuantity,
+            unit: deduction.unit,
+          })),
+        },
+      };
+      preparedSignedInCooks.current.set(cookConfirmationId, prepared);
+    }
+
+    const committed = await submitConfirmedCook(pantry, prepared.confirmation);
+    if (!committed.accepted) {
+      return { success: false, issueCount: committed.issueCount };
+    }
+
+    // No signed-in setPantry here. The inventory listener has already exposed
+    // the exact server-confirmed result before submitConfirmedCook accepts.
+    preparedSignedInCooks.current.delete(cookConfirmationId);
     const actionId = createProgressionActionId(
       typeof globalThis.crypto?.randomUUID === "function"
         ? () => globalThis.crypto.randomUUID()
-        : undefined
+        : undefined,
     );
-
-    const result = deductRecipeIngredientsFromPantry(
-      pantry,
-      recipe.ingredients || []
-    );
-
-    if (result.issues.length > 0) {
-      console.warn(
-        "Pantry consumption skipped for unresolved ingredients",
-        result.issues
-      );
-      return { success: false, issueCount: result.issues.length };
-    }
-
-    setPantry(result.pantry);
-
     if (actionId) {
       const event = buildRecipeCookProgressEvent({
         actionId,
-        occurredAt,
-        result,
+        occurredAt: prepared.occurredAt,
+        result: prepared.result,
       });
       if (event) appendLocalProgressionEvents([event]);
     }
-
     return { success: true };
   };
 
