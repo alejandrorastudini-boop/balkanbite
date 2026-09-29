@@ -1403,7 +1403,7 @@ export default function App() {
     }
   };
 
-  const handleReconcileShopping = ({
+  const handleReconcileShopping = async ({
     purchasedItemIds,
     itemsToAddToPantry,
     reconciliationId,
@@ -1411,51 +1411,161 @@ export default function App() {
     purchasedItemIds: string[];
     itemsToAddToPantry: RawReconciliationExtraItem[];
     reconciliationId?: string;
-  }) => {
-    if (!requireAuthoritativeInventory()) return;
+  }): Promise<boolean> => {
+    if (!requireAuthoritativeInventory()) return false;
 
-    const occurredAt = new Date().toISOString();
-    const result = reconcileConfirmedShoppingPurchases(
-      pantry,
-      shoppingList,
-      purchasedItemIds || [],
-      itemsToAddToPantry || [],
-      occurredAt.split("T")[0],
-      reconciliationId || ""
-    );
+    const safeReconciliationId =
+      typeof reconciliationId === "string" ? reconciliationId.trim() : "";
+    const reviewFingerprint = JSON.stringify({
+      purchasedItemIds: Array.from(
+        new Set(
+          (purchasedItemIds || []).filter(
+            (id): id is string =>
+              typeof id === "string" && Boolean(id.trim()),
+          ),
+        ),
+      ).sort(),
+      extras: (itemsToAddToPantry || []).map(item => ({
+        name: typeof item?.name === "string" ? item.name.trim() : null,
+        nameBg: typeof item?.nameBg === "string" ? item.nameBg.trim() : null,
+        nameEs: typeof item?.nameEs === "string" ? item.nameEs.trim() : null,
+        quantity:
+          typeof item?.quantity === "number" && Number.isFinite(item.quantity)
+            ? item.quantity
+            : null,
+        unit: typeof item?.unit === "string" ? item.unit.trim() : null,
+        category:
+          typeof item?.category === "string" ? item.category.trim() : null,
+      })),
+    });
 
-    if (result.acceptedSourceIds.length > 0) {
-      setPantry(result.pantry);
-      const syncedRecipes = syncRecipesWithPantry(recipes, result.pantry);
-      setRecipes(syncedRecipes);
-      const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
-        result.pantry, syncedRecipes, mealPlan, profile
-      );
-      setMealPlan(newPlan);
-      setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
-      setShoppingList(result.shoppingList);
+    let prepared =
+      currentUser && safeReconciliationId
+        ? preparedSignedInReconciliations.current.get(safeReconciliationId)
+        : undefined;
+
+    if (prepared && prepared.userId !== currentUser?.uid) {
+      preparedSignedInReconciliations.current.delete(safeReconciliationId);
+      prepared = undefined;
     }
 
-    appendLocalProgressionEvents(
-      buildPurchaseProgressEvents({
-        occurredAt,
-        newlyAppliedSourceIds: result.newlyAppliedSourceIds,
-      })
-    );
+    if (prepared && prepared.reviewFingerprint !== reviewFingerprint) {
+      alert(
+        profile.language === "bg"
+          ? "Предишният опит все още се потвърждава. Не променяйте прегледа, докато синхронизацията не приключи."
+          : profile.language === "es"
+          ? "El intento anterior sigue pendiente de confirmación. No cambies la revisión hasta que termine la sincronización."
+          : "The previous attempt is still awaiting confirmation. Do not change the review until sync finishes.",
+      );
+      return false;
+    }
 
-    if (
-      result.unresolvedPurchasedItemIds.length > 0 ||
-      result.rejectedExtraItems.length > 0 ||
-      result.rejected.length > 0
-    ) {
+    if (!prepared) {
+      const occurredAt = new Date().toISOString();
+      const acquiredAt = occurredAt.split("T")[0];
+      const input = buildConfirmedShoppingReconciliationInput(
+        shoppingList,
+        purchasedItemIds || [],
+        itemsToAddToPantry || [],
+        safeReconciliationId,
+      );
+      const preview = reconcileConfirmedShoppingPurchases(
+        pantry,
+        shoppingList,
+        purchasedItemIds || [],
+        itemsToAddToPantry || [],
+        acquiredAt,
+        safeReconciliationId,
+      );
+      const accepted = new Set(preview.acceptedSourceIds);
+      const purchases = input.purchases.filter(
+        purchase => accepted.has(purchase.sourceId),
+      );
+
+      prepared = {
+        userId: currentUser?.uid ?? "guest",
+        reviewFingerprint,
+        purchases,
+        preview,
+        occurredAt,
+        acquiredAt,
+      };
+
+      if (currentUser && safeReconciliationId && purchases.length > 0) {
+        preparedSignedInReconciliations.current.set(
+          safeReconciliationId,
+          prepared,
+        );
+      }
+    }
+
+    const { preview } = prepared;
+    const hasReviewIssues =
+      preview.unresolvedPurchasedItemIds.length > 0 ||
+      preview.rejectedExtraItems.length > 0 ||
+      preview.rejected.length > 0;
+
+    const showReviewIssues = () => {
+      if (!hasReviewIssues) return;
       alert(
         profile.language === "es"
           ? "Algunos datos no se guardaron porque no tenían una cantidad/unidad verificable o ya no coincidían con tu lista. Revisa la compra antes de intentarlo de nuevo."
           : profile.language === "bg"
           ? "Някои данни не бяха запазени, защото количеството/мерната единица не могат да се потвърдят или вече не съвпадат със списъка."
-          : "Some data was not saved because quantity/unit could not be verified or the item no longer matched your shopping list."
+          : "Some data was not saved because quantity/unit could not be verified or the item no longer matched your shopping list.",
       );
+    };
+
+    if (preview.acceptedSourceIds.length === 0 || prepared.purchases.length === 0) {
+      if (safeReconciliationId) {
+        preparedSignedInReconciliations.current.delete(safeReconciliationId);
+      }
+      showReviewIssues();
+      return false;
     }
+
+    if (!currentUser) {
+      setPantry(preview.pantry);
+      reconcilePantryDerivedState(preview.pantry, true);
+      setShoppingList(preview.shoppingList);
+      appendLocalProgressionEvents(
+        buildPurchaseProgressEvents({
+          occurredAt: prepared.occurredAt,
+          newlyAppliedSourceIds: preview.newlyAppliedSourceIds,
+        }),
+      );
+      showReviewIssues();
+      return true;
+    }
+
+    if (!safeReconciliationId) {
+      console.warn(
+        "Signed-in reviewed shopping reconciliation missing stable reconciliation ID",
+      );
+      return false;
+    }
+
+    const outcome = await dispatchSignedInPurchaseApplication(
+      prepared.purchases,
+      preview,
+      prepared.occurredAt,
+      prepared.acquiredAt,
+    );
+
+    if (outcome === "accepted") {
+      preparedSignedInReconciliations.current.delete(safeReconciliationId);
+      showReviewIssues();
+      return true;
+    }
+    if (outcome === "rejected") {
+      preparedSignedInReconciliations.current.delete(safeReconciliationId);
+      showReviewIssues();
+      return false;
+    }
+
+    // Uncertain/in-flight: preserve exact review + source IDs for the modal's
+    // next click. The modal stays open and uses the same reconciliationId.
+    return false;
   };
 
   const handleLogMeal = (logData: any) => {
