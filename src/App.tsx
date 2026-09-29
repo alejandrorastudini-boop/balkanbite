@@ -1372,105 +1372,12 @@ export default function App() {
           .filter(item => item.purchaseAmountConfirmed === true)
           .map(shoppingItemToPurchase)
           .filter(purchase => acceptedPreviewSources.has(purchase.sourceId));
-        const mutationId = buildPurchaseMutationId(purchases);
-        const evidence = mutationId
-          ? buildPendingPurchaseCommitEvidence(
-              currentUser.uid,
-              mutationId,
-              occurredAt,
-              preview,
-            )
-          : null;
-
-        if (!mutationId || !evidence) {
-          console.warn(
-            "Signed-in shopping transfer rejected before persistence: invalid purchase evidence",
-          );
-          alert(
-            profile.language === "bg"
-              ? "Покупката не беше прехвърлена. Проверете потвърдените количества и опитайте отново."
-              : profile.language === "es"
-              ? "La compra no se transfirió. Revisa las cantidades confirmadas e inténtalo de nuevo."
-              : "The purchase was not transferred. Review the confirmed amounts and try again.",
-          );
-          return;
-        }
-
-        const pending = pendingSignedInPurchaseApplication.current;
-        if (pending && pending.mutationId !== mutationId) {
-          alert(
-            profile.language === "bg"
-              ? "Изчакайте текущото прехвърляне на покупката да приключи."
-              : profile.language === "es"
-              ? "Espera a que termine la transferencia de compra actual."
-              : "Wait for the current purchase transfer to finish.",
-          );
-          return;
-        }
-        pendingSignedInPurchaseApplication.current = evidence;
-
-        try {
-          const persisted = await submitPurchasePantryApplication(
-            purchases,
-            acquiredAt,
-          );
-
-          if (persisted.outcome === "needs-review") {
-            const preservePending =
-              persisted.reason === "in-flight" ||
-              persisted.reason === "unverified-authority";
-            if (!preservePending) {
-              pendingSignedInPurchaseApplication.current = null;
-            }
-            console.warn(
-              "Signed-in shopping transfer needs review:",
-              persisted.reason,
-            );
-            if (!preservePending) {
-              alert(
-                profile.language === "bg"
-                  ? "Покупката не беше приложена. Синхронизирайте наличностите и прегледайте списъка преди нов опит."
-                  : profile.language === "es"
-                  ? "La compra no se aplicó. Sincroniza la despensa y revisa la lista antes de intentarlo de nuevo."
-                  : "The purchase was not applied. Sync your pantry and review the list before retrying.",
-              );
-            }
-            return;
-          }
-
-          const sameAccepted =
-            JSON.stringify([...persisted.acceptedSourceIds].sort()) ===
-            JSON.stringify([...evidence.acceptedSourceIds].sort());
-          const sameNew =
-            JSON.stringify([...persisted.newlyAppliedSourceIds].sort()) ===
-            JSON.stringify([...evidence.newlyAppliedSourceIds].sort());
-          if (!sameAccepted || !sameNew) {
-            pendingSignedInPurchaseApplication.current = null;
-            console.error(
-              "Purchase transaction result did not match reviewed transfer evidence",
-            );
-            return;
-          }
-
-          // The listener may already have delivered the committed pantry before
-          // this promise resolves. Finalize immediately when that exact stock +
-          // purchase-history evidence is already visible; otherwise the effect
-          // above will finish after the next confirmed snapshot.
-          finalizeSignedInPurchaseIfVisible(pantry);
-        } catch (error) {
-          // Keep pending evidence. Firestore may have committed before a
-          // transport error reached this client; the same deterministic
-          // mutation/source IDs make a later retry idempotent.
-          console.error("Signed-in shopping transfer confirmation failed:", error);
-          alert(
-            profile.language === "bg"
-              ? "Не успяхме да потвърдим прехвърлянето. Синхронизирайте и опитайте отново със същите маркирани продукти."
-              : profile.language === "es"
-              ? "No pudimos confirmar la transferencia. Sincroniza y reintenta con los mismos productos marcados."
-              : "We could not confirm the transfer. Sync and retry with the same checked items.",
-          );
-          return;
-        }
+        await dispatchSignedInPurchaseApplication(
+          purchases,
+          preview,
+          occurredAt,
+          acquiredAt,
+        );
       }
     }
 
