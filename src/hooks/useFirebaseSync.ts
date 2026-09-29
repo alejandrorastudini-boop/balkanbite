@@ -24,6 +24,7 @@ import { submitVerifiedPantryEdit, type VerifiedPantryEditCommandResult } from "
 import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "../utils/inventoryAdjustmentFirestore";
 import { persistNewInventoryItems, type InventoryCreationOutcome } from "../utils/inventoryCreationFirestore";
 import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAuthority";
+import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, type VerifiedVoiceDeduction } from "../utils/verifiedVoiceConsumptionFirestore";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -60,6 +61,7 @@ export function useFirebaseSync(
   });
   const inFlightInventoryEdits = useRef<Set<string>>(new Set());
   const inventoryCreationInFlight = useRef(false);
+  const inFlightVoiceConsumptions = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -81,6 +83,7 @@ export function useFirebaseSync(
       };
       inFlightInventoryEdits.current = new Set();
       inventoryCreationInFlight.current = false;
+      inFlightVoiceConsumptions.current = new Set();
       setInventoryHydratedUser(null);
       setInventorySyncErrorUser(null);
       setInventoryServerConfirmedUser(null);
