@@ -49,7 +49,10 @@ import type { RecipeCookOutcome } from "./utils/recipeCookFeedback";
 import {
   transferCheckedShoppingItems,
   reconcileConfirmedShoppingPurchases,
+  buildConfirmedShoppingReconciliationInput,
   shoppingItemToPurchase,
+  type PantryPurchase,
+  type PurchaseMergeResult,
   type RawReconciliationExtraItem,
 } from "./utils/purchasePantryMerge";
 import { buildPurchaseMutationId } from "./utils/purchasePantryFirestore";
@@ -181,6 +184,13 @@ export default function App() {
     expectedRemaining: Record<string, number | null>;
   }>>(new Map());
   const pendingSignedInPurchaseApplication = useRef<PendingPurchaseCommitEvidence | null>(null);
+  const preparedSignedInReconciliations = useRef<Map<string, {
+    userId: string;
+    purchases: PantryPurchase[];
+    preview: PurchaseMergeResult;
+    occurredAt: string;
+    acquiredAt: string;
+  }>>(new Map());
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
