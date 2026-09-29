@@ -1,6 +1,7 @@
 import { doc, runTransaction, type Firestore } from "firebase/firestore";
 import type { PantryItem, PantryPurchaseRecord } from "../types";
 import { getScopedDocumentId } from "./cloudCollectionSync";
+import { isSafeInventoryLogicalId, isSafeInventoryProvenanceId } from "./inventoryIdentity";
 
 export type InventoryCreationOutcome =
   | { outcome: "created"; itemIds: string[] }
@@ -8,8 +9,6 @@ export type InventoryCreationOutcome =
 
 const safeUid = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value);
-const safeId = (value: unknown): value is string =>
-  typeof value === "string" && /^[A-Za-z0-9._-]{1,150}$/.test(value);
 const positive = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value > 0;
 const nonNegative = (value: unknown): value is number =>
@@ -18,7 +17,7 @@ const categories = new Set(["Produce","Dairy","Meat/Fish","Pantry/Grains","Spice
 const purchaseSources = new Set(["pantry_legacy","shopping_list","confirmed_reconciliation"]);
 
 function validPurchase(row: PantryPurchaseRecord): boolean {
-  return Boolean(row && safeId(row.sourceId) && purchaseSources.has(row.source) &&
+  return Boolean(row && isSafeInventoryProvenanceId(row.sourceId) && purchaseSources.has(row.source) &&
     typeof row.name === "string" && row.name.trim() && positive(row.quantity) &&
     typeof row.unit === "string" && row.unit.trim() &&
     typeof row.acquiredAt === "string" && row.acquiredAt.trim() &&
@@ -27,7 +26,7 @@ function validPurchase(row: PantryPurchaseRecord): boolean {
 }
 
 function serializeItem(item: PantryItem, userId: string): Record<string, unknown> | null {
-  if (!item || !safeId(item.id) || typeof item.name !== "string" || !item.name.trim() ||
+  if (!item || !isSafeInventoryLogicalId(item.id) || typeof item.name !== "string" || !item.name.trim() ||
       !positive(item.quantity) || typeof item.unit !== "string" || !item.unit.trim() ||
       !categories.has(item.category) || typeof item.addedAt !== "string" || !item.addedAt.trim() ||
       (item.expiryDaysLeft !== undefined && !nonNegative(item.expiryDaysLeft)) ||
@@ -89,7 +88,7 @@ export async function persistNewInventoryItems(
   const ids = new Set<string>();
   const serialized: { item: PantryItem; data: Record<string, unknown> }[] = [];
   for (const item of items) {
-    if (!safeId(item?.id) || ids.has(item.id)) {
+    if (!isSafeInventoryLogicalId(item?.id) || ids.has(item.id)) {
       return { outcome: "needs-review", reason: "invalid-item" };
     }
     ids.add(item.id);
