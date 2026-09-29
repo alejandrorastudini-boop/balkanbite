@@ -376,7 +376,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
 
   const handleSend = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
-    if (!text || isProcessing) return;
+    if (!text || isProcessing || isConfirmingPendingItems) return;
 
     // A new message supersedes any unconfirmed extraction. Nothing pending is persisted.
     setPendingItems(null);
@@ -856,7 +856,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
 
         <button
           id="voice-send-btn"
-          disabled={!inputText.trim() || isProcessing}
+          disabled={!inputText.trim() || isProcessing || isConfirmingPendingItems}
           onClick={() => handleSend()}
           className={`w-12 h-12 rounded-2xl flex items-center justify-center transition-all shrink-0 ${
             inputText.trim() && !isProcessing
