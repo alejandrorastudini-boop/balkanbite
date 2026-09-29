@@ -211,6 +211,10 @@ export default function App() {
     occurredAt: string;
     acquiredAt: string;
   }>>(new Map());
+  useEffect(() => {
+    preparedSignedInCooks.current.clear();
+  }, [currentUser?.uid]);
+
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
