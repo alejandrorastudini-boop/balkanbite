@@ -33,8 +33,17 @@ export interface AtomicCookRequest {
   expectedStock: readonly AtomicCookExpectedStock[];
 }
 
-const safeId = (value: unknown): value is string =>
+const safeOperationId = (value: unknown): value is string =>
   typeof value === "string" && /^[A-Za-z0-9._-]{1,150}$/.test(value);
+
+// Inventory logical IDs are encoded by getScopedDocumentId before becoming
+// Firestore document IDs. They may legitimately contain provenance separators
+// such as ":" (for example purchase-shopping:s2).
+const safePantryLogicalId = (value: unknown): value is string =>
+  typeof value === "string" &&
+  Boolean(value.trim()) &&
+  value.length <= 300 &&
+  !/[\u0000-\u001F\u007F]/.test(value);
 
 const validQuantity = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value > 0;
@@ -56,8 +65,8 @@ function validRevision(value: unknown): value is number {
 
 export function cookRequestSignature(request: AtomicCookRequest): string | null {
   const { confirmation, expectedStock } = request;
-  if (!safeId(confirmation.cookConfirmationId) ||
-      !safeId(confirmation.mealId) ||
+  if (!safeOperationId(confirmation.cookConfirmationId) ||
+      !safeOperationId(confirmation.mealId) ||
       confirmation.confirmed !== true ||
       !Array.isArray(confirmation.ingredients) ||
       confirmation.ingredients.length === 0 ||
@@ -70,8 +79,8 @@ export function cookRequestSignature(request: AtomicCookRequest): string | null 
   const normalizedAllocations = [];
   const referencedStockIds = new Set<string>();
   for (const ingredient of confirmation.ingredients) {
-    if (!safeId(ingredient.ingredientId) ||
-        !safeId(ingredient.pantryItemId) ||
+    if (!safeOperationId(ingredient.ingredientId) ||
+        !safePantryLogicalId(ingredient.pantryItemId) ||
         !validQuantity(ingredient.quantity) ||
         typeof ingredient.unit !== "string" || !ingredient.unit.trim() ||
         ingredientIds.has(ingredient.ingredientId)) return null;
@@ -88,7 +97,7 @@ export function cookRequestSignature(request: AtomicCookRequest): string | null 
   const expectedIds = new Set<string>();
   const normalizedExpected = [];
   for (const expected of expectedStock) {
-    if (!safeId(expected?.pantryItemId) ||
+    if (!safePantryLogicalId(expected?.pantryItemId) ||
         expectedIds.has(expected.pantryItemId) ||
         !validQuantity(expected.quantity) ||
         typeof expected.unit !== "string" || !expected.unit.trim() ||
@@ -135,7 +144,7 @@ export async function persistConfirmedCookAtomically(
   const { userId, confirmation, expectedStock } = request;
   // Current rule namespace is based on the literal auth UID, not a URL-encoded UID.
   if (!/^[A-Za-z0-9_-]{1,128}$/.test(userId) ||
-      !safeId(confirmation.cookConfirmationId)) {
+      !safeOperationId(confirmation.cookConfirmationId)) {
     return reject("invalid-ingredient");
   }
   const signature = cookRequestSignature(request);
