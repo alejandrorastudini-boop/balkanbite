@@ -158,6 +158,7 @@ export default function App() {
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
     submitPurchasePantryApplication,
+    submitInventoryClear,
     submitConfirmedCook,
   } = useFirebaseSync(
     profile,
@@ -1125,9 +1126,19 @@ export default function App() {
     setPantry((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleClearPantry = () => {
-    if (!requireAuthoritativeInventory()) return;
-    setPantry([]);
+  const handleClearPantry = async (mutationId: string): Promise<boolean> => {
+    if (!requireAuthoritativeInventory()) return false;
+    if (!currentUser) {
+      setPantry([]);
+      return true;
+    }
+    const result = await submitInventoryClear(mutationId, pantry);
+    if (result.accepted) return true;
+    if (result.reason !== "awaiting-server-confirmation" &&
+        result.reason !== "in-flight") {
+      console.warn("Signed-in pantry Clear-All needs review:", result.reason);
+    }
+    return false;
   };
 
   const handleClearRecipes = () => {
