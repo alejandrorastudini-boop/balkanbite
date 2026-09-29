@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Plus,
   Search,
@@ -23,9 +23,9 @@ interface PantryViewProps {
   pantry: PantryItem[];
   onAddItem: (item: Omit<PantryItem, "id" | "addedAt">) => void;
   onAddMultipleItems?: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => void;
-  onUpdateQuantity: (id: string, newQty: number) => void;
-  onDeleteItem: (id: string) => void;
-  onClearAll: () => void;
+  onUpdateQuantity: (id: string, newQty: number, viewed: PantryItem) => void;
+  onDeleteItem: (id: string, viewed: PantryItem) => void;
+  onClearAll: (mutationId: string) => boolean | Promise<boolean>;
   onOpenVoiceTab: () => void;
   language: Language;
   currency: Currency;
@@ -50,6 +50,16 @@ export const PantryView: React.FC<PantryViewProps> = ({
   const [showAddModal, setShowAddModal] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const clearMutationIdRef = useRef<string | null>(null);
+  const clearMutationSequenceRef = useRef(0);
+
+  const createClearMutationId = () => {
+    if (typeof globalThis.crypto?.randomUUID === "function") {
+      return `clear-${globalThis.crypto.randomUUID()}`;
+    }
+    clearMutationSequenceRef.current += 1;
+    return `clear-${Date.now()}-${clearMutationSequenceRef.current}`;
+  };
 
   // New item form state
   const [name, setName] = useState("");
@@ -97,6 +107,9 @@ export const PantryView: React.FC<PantryViewProps> = ({
   const totalValueEUR = summarizePantryCosts(pantry).totalEUR;
 
   const handleClearWithConfirm = () => {
+    if (!clearMutationIdRef.current) {
+      clearMutationIdRef.current = createClearMutationId();
+    }
     setShowClearConfirm(true);
   };
 
@@ -453,7 +466,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   </div>
 
                   <button
-                    onClick={() => onDeleteItem(item.id)}
+                    onClick={() => onDeleteItem(item.id, item)}
                     disabled={inventoryIsProvisional}
                     className="text-stone-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all opacity-60 group-hover:opacity-100 disabled:opacity-30 disabled:cursor-not-allowed"
                     title={currentText.delete}
@@ -470,7 +483,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
                       onClick={() =>
                         onUpdateQuantity(
                           item.id,
-                          Math.max(0, item.quantity - (item.unit === "g" ? 50 : 1))
+                          Math.max(0, item.quantity - (item.unit === "g" ? 50 : 1)),
+                          item
                         )
                       }
                       className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
@@ -486,7 +500,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
                       onClick={() =>
                         onUpdateQuantity(
                           item.id,
-                          item.quantity + (item.unit === "g" ? 50 : 1)
+                          item.quantity + (item.unit === "g" ? 50 : 1),
+                          item
                         )
                       }
                       className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
@@ -703,10 +718,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
       {/* Confirmation Modal for Clearing Pantry */}
       <ConfirmModal
         isOpen={showClearConfirm}
-        onClose={() => setShowClearConfirm(false)}
-        onConfirm={() => {
-          onClearAll();
+        onClose={() => {
+          clearMutationIdRef.current = null;
           setShowClearConfirm(false);
+        }}
+        onConfirm={() => {
+          const mutationId = clearMutationIdRef.current;
+          if (!mutationId) return false;
+          return onClearAll(mutationId);
         }}
         title={currentText.pantryClearAll}
         description={currentText.pantryClearConfirm}
