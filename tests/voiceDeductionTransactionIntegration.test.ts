@@ -103,6 +103,8 @@ test("App caches reviewed deductions and exact expected remainder before dispatc
     "pendingSignedInVoiceConsumptions.current.set(mutationId",
     "submitVoiceInventoryConsumption(",
     "plan.deductions",
+    'persisted.reason === "in-flight"',
+    'persisted.reason === "unverified-authority"',
   ]) {
     assert.ok(block.includes(expected), expected);
   }
