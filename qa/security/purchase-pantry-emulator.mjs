@@ -161,6 +161,14 @@ try {
   assert.equal((await getDoc(shoppingRef(alice, "alice", "s1"))).exists(), false);
   assert.equal((await getDoc(shoppingRef(alice, "alice", "s2"))).exists(), false);
   assert.equal((await getDoc(shoppingRef(alice, "alice", "keep"))).exists(), true);
+  await assert.rejects(
+    getDoc(shoppingRef(bob, "alice", "s1")),
+    error => error?.code === "permission-denied",
+  );
+  await assert.rejects(
+    getDoc(shoppingRef(guest, "alice", "s1")),
+    error => error?.code === "permission-denied",
+  );
   console.log("PASS: purchase atomically applies stock and removes only accepted shopping rows");
 
   const replay = await persistPurchasesIntoPantryAtomically(
