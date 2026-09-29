@@ -30,7 +30,7 @@ interface VoiceChefViewProps {
   onClearChat: () => void;
   onAddItemsToPantry: (items: any[]) => boolean | Promise<boolean>;
   onAddItemsToShoppingList: (items: any[]) => boolean | Promise<boolean>;
-  onDeductItemsFromPantry: (items: any[]) => boolean | Promise<boolean>;
+  onDeductItemsFromPantry: (items: any[], mutationId?: string) => boolean | Promise<boolean>;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
@@ -87,6 +87,16 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   const [pendingItems, setPendingItems] = useState<any[] | null>(null);
   const [pendingAction, setPendingAction] = useState<"add" | "remove" | "shopping" | null>(null);
   const [isConfirmingPendingItems, setIsConfirmingPendingItems] = useState(false);
+  const pendingMutationIdRef = useRef<string | null>(null);
+  const voiceMutationSequenceRef = useRef(0);
+
+  const createVoiceRemovalMutationId = () => {
+    if (typeof globalThis.crypto?.randomUUID === "function") {
+      return `voice-${globalThis.crypto.randomUUID()}`;
+    }
+    voiceMutationSequenceRef.current += 1;
+    return `voice-${Date.now()}-${voiceMutationSequenceRef.current}`;
+  };
 
   // Initialize welcome message when language changes if no messages exist
   useEffect(() => {
@@ -250,6 +260,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
 
     const confirmedItems = pendingItems;
     const action = pendingAction;
+    const mutationId = action === "remove" ? pendingMutationIdRef.current : null;
     const summary = confirmedItems
       .map((item) => `${item.quantity} ${item.unit} ${item.nameEn || item.name}`)
       .join(", ");
@@ -261,7 +272,9 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
         action === "add"
           ? onAddItemsToPantry(confirmedItems)
           : action === "remove"
-          ? onDeductItemsFromPantry(confirmedItems)
+          ? mutationId
+            ? onDeductItemsFromPantry(confirmedItems, mutationId)
+            : false
           : onAddItemsToShoppingList(confirmedItems)
       );
     } catch (error) {
@@ -310,6 +323,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     if (mutationSucceeded) {
       setPendingItems(null);
       setPendingAction(null);
+      pendingMutationIdRef.current = null;
     }
 
     onUpdateChatMessages((prev) => [
@@ -328,6 +342,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     const action = pendingAction;
     setPendingItems(null);
     setPendingAction(null);
+    pendingMutationIdRef.current = null;
 
     const cancellationText =
       action === "remove"
@@ -366,6 +381,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     // A new message supersedes any unconfirmed extraction. Nothing pending is persisted.
     setPendingItems(null);
     setPendingAction(null);
+    pendingMutationIdRef.current = null;
 
     // Add user message
     const userMsg: ChatMessage = {
@@ -446,6 +462,9 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             : "add";
         setPendingItems(effectiveItems);
         setPendingAction(action);
+        pendingMutationIdRef.current = action === "remove"
+          ? createVoiceRemovalMutationId()
+          : null;
         replyText =
           action === "remove"
             ? language === "bg"
