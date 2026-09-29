@@ -5,6 +5,7 @@ import { deleteDoc, doc, getDoc, setDoc, writeBatch } from "firebase/firestore";
 import {
   persistVerifiedInventoryAdjustment,
 } from "../../src/utils/inventoryAdjustmentFirestore.ts";
+import { getScopedDocumentId } from "../../src/utils/cloudCollectionSync.ts";
 
 const [host, portText] =
   (process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080").split(":");
@@ -20,7 +21,7 @@ const alice = environment.authenticatedContext("alice").firestore();
 const aliceOtherDevice = environment.authenticatedContext("alice").firestore();
 const bob = environment.authenticatedContext("bob").firestore();
 const guest = environment.unauthenticatedContext().firestore();
-const lot = (db, owner, id) => doc(db, "inventory", `u_${owner}__${id}`);
+const lot = (db, owner, id) => doc(db, "inventory", getScopedDocumentId(owner, id));
 const readLot = async (db, owner, id) => (await getDoc(lot(db, owner, id))).data();
 const expected = (pantryItemId, quantity, unit, cookRevision) =>
   ({ pantryItemId, quantity, unit, cookRevision });
