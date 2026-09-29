@@ -3,6 +3,7 @@ import type {
   InventoryAdjustment,
   VerifiedStockExpectation,
 } from "./inventoryAdjustmentFirestore";
+import { isSafeInventoryLogicalId } from "./inventoryIdentity";
 
 /**
  * Pure, fail-closed planning only. The caller must first finish hydration
@@ -56,8 +57,8 @@ export type InventoryDeltaPlan =
       adjustments: [];
     };
 
-const safeId = (value: unknown): value is string =>
-  typeof value === "string" && /^[A-Za-z0-9._-]{1,150}$/.test(value);
+const safeUserId = (value: unknown): value is string =>
+  typeof value === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(value);
 
 const validQuantity = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value > 0;
@@ -87,7 +88,7 @@ export function planAuthoritativeInventoryDelta(
   const fail = (id: string, reason: InventoryDeltaIssue) =>
     issues.push({ pantryItemId: id, reason });
 
-  if (!safeId(input.userId) ||
+  if (!safeUserId(input.userId) ||
       input.remoteOwnerUserId !== input.userId ||
       input.remoteSnapshotComplete !== true ||
       !Array.isArray(input.remote) ||
@@ -106,7 +107,7 @@ export function planAuthoritativeInventoryDelta(
   const removals = new Set<string>();
   const observed = new Map<string, VerifiedStockExpectation>();
   for (const origin of input.observedBeforeEdit) {
-    if (!origin || !safeId(origin.pantryItemId) ||
+    if (!origin || !isSafeInventoryLogicalId(origin.pantryItemId) ||
         !validQuantity(origin.quantity) ||
         typeof origin.unit !== "string" || !origin.unit.trim() ||
         !validRevision(origin.cookRevision) ||
@@ -118,7 +119,7 @@ export function planAuthoritativeInventoryDelta(
   }
 
   for (const row of input.remote) {
-    if (!row || !safeId(row.id) || remote.has(row.id)) {
+    if (!row || !isSafeInventoryLogicalId(row.id) || remote.has(row.id)) {
       fail(row?.id ?? "unknown", "invalid-or-duplicate-id");
       continue;
     }
@@ -131,7 +132,7 @@ export function planAuthoritativeInventoryDelta(
     remote.set(row.id, row);
   }
   for (const row of input.desired) {
-    if (!row || !safeId(row.id) || desired.has(row.id)) {
+    if (!row || !isSafeInventoryLogicalId(row.id) || desired.has(row.id)) {
       fail(row?.id ?? "unknown", "invalid-or-duplicate-id");
       continue;
     }
@@ -139,7 +140,7 @@ export function planAuthoritativeInventoryDelta(
     desired.set(row.id, row);
   }
   for (const id of input.explicitlyRemovedIds) {
-    if (!safeId(id) || removals.has(id)) {
+    if (!isSafeInventoryLogicalId(id) || removals.has(id)) {
       fail(id, "invalid-or-duplicate-id");
     } else {
       removals.add(id);
