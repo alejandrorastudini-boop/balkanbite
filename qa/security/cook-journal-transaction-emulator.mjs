@@ -6,6 +6,7 @@ import {
   persistConfirmedCookAtomically,
   cookAllocationSignature,
 } from "../../src/utils/confirmedCookFirestore.ts";
+import { getScopedDocumentId } from "../../src/utils/cloudCollectionSync.ts";
 
 const hostPort = (process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080").split(":");
 const environment = await initializeTestEnvironment({
@@ -20,8 +21,8 @@ const alice = environment.authenticatedContext("alice").firestore();
 const bob = environment.authenticatedContext("bob").firestore();
 const guest = environment.unauthenticatedContext().firestore();
 
-const inventory = (db, uid, id) => doc(db, "inventory", `u_${uid}__${id}`);
-const journal = (db, uid, id) => doc(db, "cookConfirmations", `u_${uid}__${id}`);
+const inventory = (db, uid, id) => doc(db, "inventory", getScopedDocumentId(uid, id));
+const journal = (db, uid, id) => doc(db, "cookConfirmations", getScopedDocumentId(uid, id));
 const allocation = (ingredientId, pantryItemId, quantity, unit) =>
   ({ ingredientId, pantryItemId, quantity, unit });
 const confirmation = (id, mealId, ingredients) =>
