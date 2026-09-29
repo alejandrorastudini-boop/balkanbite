@@ -28,6 +28,8 @@ const invRef = (db, uid, id) =>
   doc(db, "inventory", getScopedDocumentId(uid, id));
 const journalRef = (db, uid, id) =>
   doc(db, "purchaseApplications", getScopedDocumentId(uid, id));
+const shoppingRef = (db, uid, id) =>
+  doc(db, "shoppingList", getScopedDocumentId(uid, id));
 
 const pantryItem = (
   id,
@@ -47,6 +49,24 @@ const pantryItem = (
   ...overrides,
 });
 
+const shoppingItem = (
+  id,
+  name,
+  quantity,
+  unit,
+  overrides = {},
+) => ({
+  id,
+  name,
+  quantity,
+  unit,
+  category: "Produce",
+  checked: true,
+  purchaseAmountConfirmed: true,
+  amountOrigin: "user_entered",
+  ...overrides,
+});
+
 async function seed(uid, item) {
   await environment.withSecurityRulesDisabled(async context => {
     const { cookRevision = 0, ...rest } = item;
@@ -56,6 +76,15 @@ async function seed(uid, item) {
       cookRevision,
       _deleted: false,
       deletedAt: null,
+    });
+  });
+}
+
+async function seedShopping(uid, item) {
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(shoppingRef(context.firestore(), uid, item.id), {
+      ...item,
+      userId: uid,
     });
   });
 }
@@ -70,6 +99,12 @@ try {
   const unrelated = pantryItem("salt", "Sal", 500, "g", 7);
   await seed("alice", tomato);
   await seed("alice", unrelated);
+  const s1 = shoppingItem("s1", "Tomate", 0.5, "kg");
+  const s2 = shoppingItem("s2", "Leche", 1, "L", { category: "Dairy" });
+  const untouchedShopping = shoppingItem("keep", "Pan", 1, "pcs");
+  await seedShopping("alice", s1);
+  await seedShopping("alice", s2);
+  await seedShopping("alice", untouchedShopping);
 
   const purchases = [
     {
@@ -95,6 +130,7 @@ try {
     mutationId: "purchase-apply-1",
     baselinePantry: [tomato, unrelated],
     purchases,
+    shoppingItemsToRemove: [s1, s2],
     acquiredAt: "2026-09-29",
   };
 
@@ -103,6 +139,7 @@ try {
   assert.deepEqual(first.acceptedSourceIds, ["shopping:s1", "shopping:s2"]);
   assert.deepEqual(first.newlyAppliedSourceIds, ["shopping:s1", "shopping:s2"]);
   assert.equal(first.expectedChanges.length, 2);
+  assert.deepEqual(first.removedShoppingItemIds, ["s1", "s2"]);
 
   const tomatoAfter = await readStock(alice, "alice", "tomato");
   assert.equal(tomatoAfter.quantity, 1.5);
@@ -121,7 +158,10 @@ try {
   assert.equal(unrelatedAfter.quantity, 500);
   assert.equal(unrelatedAfter.cookRevision, 7);
   assert.equal(unrelatedAfter.purchaseHistory, undefined);
-  console.log("PASS: purchase applies only changed/new lots and preserves colon source IDs");
+  assert.equal((await getDoc(shoppingRef(alice, "alice", "s1"))).exists(), false);
+  assert.equal((await getDoc(shoppingRef(alice, "alice", "s2"))).exists(), false);
+  assert.equal((await getDoc(shoppingRef(alice, "alice", "keep"))).exists(), true);
+  console.log("PASS: purchase atomically applies stock and removes only accepted shopping rows");
 
   const replay = await persistPurchasesIntoPantryAtomically(
     aliceOtherDevice,
@@ -135,6 +175,7 @@ try {
     1,
   );
   console.log("PASS: exact purchase replay cannot double-add stock");
+  assert.deepEqual(replay.removedShoppingItemIds, ["s1", "s2"]);
 
   const changedReplay = await persistPurchasesIntoPantryAtomically(alice, {
     ...request,
@@ -176,6 +217,49 @@ try {
     false,
   );
   console.log("PASS: stale purchase baseline fails with zero journal/write");
+
+
+  const shoppingStaleStock = pantryItem("shopping-stale-stock", "Боб", 1, "kg", 0);
+  const reviewedShopping = shoppingItem("shopping-stale", "Боб", 0.5, "kg");
+  await seed("alice", shoppingStaleStock);
+  await seedShopping("alice", reviewedShopping);
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(shoppingRef(context.firestore(), "alice", "shopping-stale"), {
+      ...reviewedShopping,
+      quantity: 0.75,
+      userId: "alice",
+    });
+  });
+  const staleShopping = await persistPurchasesIntoPantryAtomically(alice, {
+    userId: "alice",
+    mutationId: "purchase-shopping-stale",
+    baselinePantry: [shoppingStaleStock],
+    purchases: [{
+      sourceId: "shopping:shopping-stale",
+      source: "shopping_list",
+      name: "Боб",
+      quantity: 0.5,
+      unit: "kg",
+      category: "Pantry/Grains",
+    }],
+    shoppingItemsToRemove: [reviewedShopping],
+    acquiredAt: "2026-09-29",
+  });
+  assert.deepEqual(staleShopping, {
+    outcome: "needs-review",
+    reason: "stale-shopping",
+    shoppingItemId: "shopping-stale",
+  });
+  assert.equal((await readStock(alice, "alice", "shopping-stale-stock")).quantity, 1);
+  assert.equal(
+    (await getDoc(shoppingRef(alice, "alice", "shopping-stale"))).data().quantity,
+    0.75,
+  );
+  assert.equal(
+    (await getDoc(journalRef(alice, "alice", "purchase-shopping-stale"))).exists(),
+    false,
+  );
+  console.log("PASS: changed reviewed shopping row aborts stock + list atomically");
 
   const raceBase = pantryItem("race-stock", "Pasta", 1, "kg", 0);
   await seed("alice", raceBase);
