@@ -10,6 +10,7 @@ interface ConfirmModalProps {
   confirmText?: string;
   cancelText?: string;
   danger?: boolean;
+  feedbackText?: string;
 }
 
 export const ConfirmModal: React.FC<ConfirmModalProps> = ({
@@ -21,6 +22,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
   confirmText = "Confirm",
   cancelText = "Cancel",
   danger = true,
+  feedbackText,
 }) => {
   const [isConfirming, setIsConfirming] = useState(false);
 
@@ -63,7 +65,7 @@ export const ConfirmModal: React.FC<ConfirmModalProps> = ({
           <div className="space-y-1 flex-1 pr-6">
             <h3 className="text-sm font-bold text-white font-['Outfit']">{title}</h3>
             <p className="text-xs text-stone-300 leading-relaxed">{description}</p>
-          </div>
+            {feedbackText && (\n              <p role="alert" className="text-xs text-amber-300 leading-relaxed">\n                {feedbackText}\n              </p>\n            )}\n          </div>
           <button
             type="button"
             onClick={closeIfIdle}
