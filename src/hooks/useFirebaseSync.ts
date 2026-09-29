@@ -27,6 +27,8 @@ import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAu
 import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, type VerifiedVoiceDeduction } from "../utils/verifiedVoiceConsumptionFirestore";
 import { buildPurchaseMutationId, persistPurchasesIntoPantryAtomically, type PurchasePantryTransactionResult } from "../utils/purchasePantryFirestore";
 import type { PantryPurchase } from "../utils/purchasePantryMerge";
+import { persistConfirmedCookAtomically, type AtomicCookExpectedStock } from "../utils/confirmedCookFirestore";
+import type { CookConfirmation } from "../utils/confirmedCookTransaction";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -69,6 +71,13 @@ export function useFirebaseSync(
     deductions: VerifiedVoiceDeduction[];
   }>>(new Map());
   const inFlightPurchaseApplications = useRef<Set<string>>(new Set());
+  const inFlightCookConfirmations = useRef<Set<string>>(new Set());
+  const preparedCookConfirmations = useRef<Map<string, {
+    userId: string;
+    confirmation: CookConfirmation;
+    expectedStock: AtomicCookExpectedStock[];
+    expectedRemaining: Map<string, number>;
+  }>>(new Map());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -93,6 +102,8 @@ export function useFirebaseSync(
       inFlightVoiceConsumptions.current = new Set();
       preparedVoiceConsumptions.current = new Map();
       inFlightPurchaseApplications.current = new Set();
+      inFlightCookConfirmations.current = new Set();
+      preparedCookConfirmations.current = new Map();
       setInventoryHydratedUser(null);
       setInventorySyncErrorUser(null);
       setInventoryServerConfirmedUser(null);
@@ -670,6 +681,147 @@ export function useFirebaseSync(
     }
   };
 
+  const submitConfirmedCook = async (
+    visiblePantry: PantryItem[],
+    confirmation: CookConfirmation,
+  ): Promise<{ accepted: boolean; issueCount: number }> => {
+    const uid = currentUser?.uid;
+    const cookId =
+      typeof confirmation.cookConfirmationId === "string"
+        ? confirmation.cookConfirmationId
+        : "";
+    if (!uid || !cookId) return { accepted: false, issueCount: 1 };
+
+    let prepared = preparedCookConfirmations.current.get(cookId);
+    if (prepared && prepared.userId !== uid) {
+      preparedCookConfirmations.current.delete(cookId);
+      prepared = undefined;
+    }
+
+    if (!prepared) {
+      const authority = inventoryEditAuthority.current;
+      if (
+        inventoryHydratedUser !== uid ||
+        inventoryServerConfirmedUser !== uid ||
+        authSessionUserId.current !== uid ||
+        authority.status !== "verified" ||
+        authority.userId !== uid
+      ) {
+        return { accepted: false, issueCount: 1 };
+      }
+
+      const referencedIds = new Set<string>();
+      const totals = new Map<string, number>();
+      for (const ingredient of confirmation.ingredients) {
+        if (
+          typeof ingredient.pantryItemId !== "string" ||
+          typeof ingredient.quantity !== "number" ||
+          !Number.isFinite(ingredient.quantity) ||
+          ingredient.quantity <= 0
+        ) {
+          return { accepted: false, issueCount: 1 };
+        }
+        referencedIds.add(ingredient.pantryItemId);
+        totals.set(
+          ingredient.pantryItemId,
+          (totals.get(ingredient.pantryItemId) ?? 0) + ingredient.quantity,
+        );
+      }
+
+      const expectedStock: AtomicCookExpectedStock[] = [];
+      const expectedRemaining = new Map<string, number>();
+      for (const pantryItemId of referencedIds) {
+        const local = visiblePantry.find(item => item.id === pantryItemId);
+        const observed = authority.observed.find(
+          item => item.pantryItemId === pantryItemId,
+        );
+        if (
+          !local ||
+          !observed ||
+          local.quantity !== observed.quantity ||
+          local.unit !== observed.unit
+        ) {
+          return { accepted: false, issueCount: 1 };
+        }
+        const consumed = totals.get(pantryItemId) ?? 0;
+        const remaining = Math.round(
+          (observed.quantity - consumed + Number.EPSILON) * 1_000_000,
+        ) / 1_000_000;
+        if (remaining < 0) return { accepted: false, issueCount: 1 };
+        expectedStock.push({
+          pantryItemId,
+          quantity: observed.quantity,
+          unit: observed.unit,
+          cookRevision: observed.cookRevision,
+        });
+        expectedRemaining.set(pantryItemId, remaining);
+      }
+
+      prepared = { userId: uid, confirmation, expectedStock, expectedRemaining };
+      preparedCookConfirmations.current.set(cookId, prepared);
+    }
+
+    if (inFlightCookConfirmations.current.has(cookId)) {
+      return { accepted: false, issueCount: 1 };
+    }
+
+    inFlightCookConfirmations.current.add(cookId);
+    try {
+      const result = await persistConfirmedCookAtomically(db, {
+        userId: uid,
+        confirmation: prepared.confirmation,
+        expectedStock: prepared.expectedStock,
+      });
+      if (result.outcome === "needs-review") {
+        preparedCookConfirmations.current.delete(cookId);
+        return {
+          accepted: false,
+          issueCount: Math.max(1, result.pendingIngredients.length),
+        };
+      }
+
+      // A transaction response is not sufficient UI authority. Keep the exact
+      // reviewed request for retry until a server-confirmed inventory snapshot
+      // exposes every expected remaining lot (or confirms a zero lot absent).
+      const authority = inventoryEditAuthority.current;
+      if (
+        inventoryServerConfirmedUser !== uid ||
+        authority.status !== "verified" ||
+        authority.userId !== uid
+      ) {
+        return { accepted: false, issueCount: 1 };
+      }
+      for (const expected of prepared.expectedStock) {
+        const remaining = prepared.expectedRemaining.get(expected.pantryItemId);
+        const observed = authority.observed.find(
+          item => item.pantryItemId === expected.pantryItemId,
+        );
+        if (remaining === 0) {
+          if (observed) return { accepted: false, issueCount: 1 };
+          continue;
+        }
+        if (
+          !observed ||
+          observed.quantity !== remaining ||
+          observed.unit !== expected.unit ||
+          observed.cookRevision !== expected.cookRevision + 1
+        ) {
+          return { accepted: false, issueCount: 1 };
+        }
+      }
+
+      preparedCookConfirmations.current.delete(cookId);
+      return { accepted: true, issueCount: 0 };
+    } catch (error) {
+      console.error("Confirmed cook transaction failed:", error);
+      // Preserve the exact request: the commit may have succeeded even if the
+      // client lost the response. A retry reuses the immutable journal id.
+      return { accepted: false, issueCount: 1 };
+    } finally {
+      inFlightCookConfirmations.current.delete(cookId);
+    }
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -698,5 +850,6 @@ export function useFirebaseSync(
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
     submitPurchasePantryApplication,
+    submitConfirmedCook,
   };
 }
