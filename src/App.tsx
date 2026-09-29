@@ -56,7 +56,7 @@ import {
   type RawReconciliationExtraItem,
 } from "./utils/purchasePantryMerge";
 import { buildPurchaseMutationId } from "./utils/purchasePantryFirestore";
-import { buildPendingPurchaseCommitEvidence, isPurchaseCommitVisible, type PendingPurchaseCommitEvidence } from "./utils/purchaseCommitEvidence";
+import { arePurchaseSourcesVisible, buildPendingPurchaseCommitEvidence, isPurchaseCommitVisible, type PendingPurchaseCommitEvidence } from "./utils/purchaseCommitEvidence";
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
 import { buildConfirmedVoiceShoppingItems } from "./utils/safeVoiceShoppingCapture";
 import {
