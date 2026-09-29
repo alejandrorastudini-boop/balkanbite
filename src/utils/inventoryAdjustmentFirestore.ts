@@ -1,5 +1,6 @@
 import { doc, runTransaction, serverTimestamp, type Firestore } from "firebase/firestore";
 import { getScopedDocumentId } from "./cloudCollectionSync";
+import { isSafeInventoryLogicalId } from "./inventoryIdentity";
 
 /**
  * Candidate revision-aware writer for an already identified pantry lot.
@@ -29,9 +30,6 @@ export type InventoryAdjustmentOutcome =
         "stale-stock" | "no-change";
     };
 
-const safeId = (id: unknown): id is string =>
-  typeof id === "string" && /^[A-Za-z0-9._-]{1,150}$/.test(id);
-
 const safeUid = (id: unknown): id is string =>
   typeof id === "string" && /^[A-Za-z0-9_-]{1,128}$/.test(id);
 
@@ -56,7 +54,7 @@ export async function persistVerifiedInventoryAdjustment(
   expected: VerifiedStockExpectation,
   adjustment: InventoryAdjustment,
 ): Promise<InventoryAdjustmentOutcome> {
-  if (!safeUid(userId) || !safeId(expected.pantryItemId) ||
+  if (!safeUid(userId) || !isSafeInventoryLogicalId(expected.pantryItemId) ||
       !validQuantity(expected.quantity) ||
       typeof expected.unit !== "string" || !expected.unit.trim() ||
       !validRevision(expected.cookRevision) ||
