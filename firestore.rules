@@ -131,7 +131,7 @@ service cloud.firestore {
         request.resource.data.keys().hasAll([
           'userId', 'mutationId', 'source', 'requestSignature',
           'acceptedSourceIds', 'newlyAppliedSourceIds',
-          'expectedChanges', 'createdAt'
+          'expectedChanges', 'removedShoppingItemIds', 'createdAt'
         ]) &&
         request.resource.data.mutationId is string &&
         request.resource.data.mutationId.size() > 0 &&
