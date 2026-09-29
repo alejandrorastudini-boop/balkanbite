@@ -22,6 +22,7 @@ import { isStoredShoppingItemStructurallyValid } from "../utils/storedShoppingVa
 import { capturePantryEditIntent, verifyServerInventoryForEdits, type InventoryEditAuthority } from "../utils/pantryEditIntentCapture";
 import { submitVerifiedPantryEdit, type VerifiedPantryEditCommandResult } from "../utils/verifiedPantryEditCommand";
 import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "../utils/inventoryAdjustmentFirestore";
+import { persistNewInventoryItems, type InventoryCreationOutcome } from "../utils/inventoryCreationFirestore";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -486,6 +487,24 @@ export function useFirebaseSync(
     }
   };
 
+  // Signed-in creation is allowed only from a server-verified owner snapshot.
+  // Do not set local pantry after commit; onSnapshot is the sole UI source,
+  // preventing the legacy all-row writer from racing ahead of remote state.
+  const submitInventoryCreation = async (
+    items: readonly PantryItem[],
+  ): Promise<InventoryCreationOutcome | {
+    outcome: "needs-review"; reason: "unverified-authority";
+  }> => {
+    const uid = currentUser?.uid;
+    if (!uid || inventoryHydratedUser !== uid ||
+        authSessionUserId.current !== uid ||
+        inventoryEditAuthority.current.status !== "verified" ||
+        inventoryEditAuthority.current.userId !== uid) {
+      return { outcome: "needs-review", reason: "unverified-authority" };
+    }
+    return persistNewInventoryItems(db, uid, items);
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -508,5 +527,6 @@ export function useFirebaseSync(
     profileHydrated,
     captureInventoryEditBaseline,
     submitInventoryEdit,
+    submitInventoryCreation,
   };
 }
