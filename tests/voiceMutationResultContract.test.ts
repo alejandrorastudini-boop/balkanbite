@@ -27,7 +27,7 @@ test("voice mutation callbacks return explicit sync or awaited boolean results t
     );
     assert.match(
       source,
-      /onDeductItemsFromPantry:\s*\(items: any\[\]\) => boolean \| Promise<boolean>;/,
+      /onDeductItemsFromPantry:\s*\(items: any\[\], mutationId\?: string\) => boolean \| Promise<boolean>;/,
     );
   }
 });
@@ -60,12 +60,12 @@ test("App returns true only after a valid confirmed shopping batch is scheduled"
   assert.ok(successIndex > persistIndex);
 });
 
-test("App computes pantry deduction before mutation and rejects any unresolved result", () => {
+test("App computes exact deductions before any mutation and keeps signed-in stock transactional", () => {
   const start = appSource.indexOf("const handleVoiceDeductItems");
   const end = appSource.indexOf("const handleVoiceNavigateToRecipes", start);
   const block = appSource.slice(start, end);
 
-  assert.match(block, /\(items: any\[\]\): boolean/);
+  assert.match(block, /async \([\s\S]*mutationId\?: string,[\s\S]*\): Promise<boolean>/);
   assert.match(block, /if \(!requireAuthoritativeInventory\(\)\) return false;/);
   assert.match(
     block,
@@ -75,13 +75,21 @@ test("App computes pantry deduction before mutation and rejects any unresolved r
     block,
     /if \(result\.issues\.length > 0 \|\| result\.deductions\.length === 0\)[\s\S]*return false;/,
   );
+  assert.match(
+    block,
+    /if \(!currentUser\) \{\s*setPantry\(result\.pantry\);\s*return true;\s*\}/,
+  );
+  assert.match(block, /if \(!mutationId\)[\s\S]*return false;/);
+  assert.match(block, /pendingSignedInVoiceConsumptions\.current\.set\(mutationId,/);
+  assert.match(
+    block,
+    /await submitVoiceInventoryConsumption\(\s*mutationId,\s*result\.deductions,\s*\)/,
+  );
 
-  const resultIndex = block.indexOf("const result = deductVoiceItemsFromPantry");
-  const setIndex = block.indexOf("setPantry(result.pantry)");
-  const successIndex = block.indexOf("return true;", setIndex);
-  assert.ok(resultIndex >= 0);
-  assert.ok(setIndex > resultIndex);
-  assert.ok(successIndex > setIndex);
+  const signedInStart = block.indexOf("if (!currentUser)");
+  const submitIndex = block.indexOf("submitVoiceInventoryConsumption", signedInStart);
+  assert.ok(signedInStart >= 0 && submitIndex > signedInStart);
+  assert.doesNotMatch(block.slice(submitIndex), /setPantry\(result\.pantry\)/);
 });
 
 test("VoiceChefView keeps the pending batch when App rejects the mutation", () => {
