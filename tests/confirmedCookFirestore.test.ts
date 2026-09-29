@@ -126,3 +126,27 @@ test("invalid revision or nonpositive baseline quantity fails closed", () => {
     ),
   }), null);
 });
+
+test("purchase-provenance pantry IDs remain valid cook stock identities", () => {
+  const value: AtomicCookRequest = {
+    userId: "alice",
+    confirmation: {
+      cookConfirmationId: "cook-purchase-lot",
+      mealId: "meal-purchase-lot",
+      confirmed: true,
+      ingredients: [{
+        ingredientId: "allocation-1",
+        pantryItemId: "purchase-shopping:s2",
+        quantity: 0.5,
+        unit: "L",
+      }],
+    },
+    expectedStock: [{
+      pantryItemId: "purchase-shopping:s2",
+      quantity: 1,
+      unit: "L",
+      cookRevision: 0,
+    }],
+  };
+  assert.ok(cookRequestSignature(value));
+});
