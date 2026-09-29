@@ -25,6 +25,8 @@ import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "..
 import { persistNewInventoryItems, type InventoryCreationOutcome } from "../utils/inventoryCreationFirestore";
 import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAuthority";
 import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, type VerifiedVoiceDeduction } from "../utils/verifiedVoiceConsumptionFirestore";
+import { buildPurchaseMutationId, persistPurchasesIntoPantryAtomically, type PurchasePantryTransactionResult } from "../utils/purchasePantryFirestore";
+import type { PantryPurchase } from "../utils/purchasePantryMerge";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -66,6 +68,7 @@ export function useFirebaseSync(
     expectedStock: Array<{ pantryItemId: string; quantity: number; unit: string; cookRevision: number }>;
     deductions: VerifiedVoiceDeduction[];
   }>>(new Map());
+  const inFlightPurchaseApplications = useRef<Set<string>>(new Set());
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (user) => {
@@ -89,6 +92,7 @@ export function useFirebaseSync(
       inventoryCreationInFlight.current = false;
       inFlightVoiceConsumptions.current = new Set();
       preparedVoiceConsumptions.current = new Map();
+      inFlightPurchaseApplications.current = new Set();
       setInventoryHydratedUser(null);
       setInventorySyncErrorUser(null);
       setInventoryServerConfirmedUser(null);
@@ -604,6 +608,68 @@ export function useFirebaseSync(
     }
   };
 
+  const submitPurchasePantryApplication = async (
+    purchases: readonly PantryPurchase[],
+    acquiredAt: string,
+  ): Promise<PurchasePantryTransactionResult | {
+    outcome: "needs-review";
+    reason: "unverified-authority" | "in-flight" | "stale-local-view" | "invalid-request";
+  }> => {
+    const uid = currentUser?.uid;
+    const authority = inventoryEditAuthority.current;
+    const mutationId = buildPurchaseMutationId(purchases);
+
+    if (!mutationId) {
+      return { outcome: "needs-review", reason: "invalid-request" };
+    }
+    if (!uid ||
+        inventoryHydratedUser !== uid ||
+        inventoryServerConfirmedUser !== uid ||
+        authSessionUserId.current !== uid ||
+        authority.status !== "verified" ||
+        authority.userId !== uid) {
+      return { outcome: "needs-review", reason: "unverified-authority" };
+    }
+    if (inFlightPurchaseApplications.current.has(mutationId)) {
+      return { outcome: "needs-review", reason: "in-flight" };
+    }
+
+    if (authority.observed.length !== pantry.length) {
+      return { outcome: "needs-review", reason: "stale-local-view" };
+    }
+
+    const baselinePantry: Array<PantryItem & { cookRevision?: number }> = [];
+    for (const item of pantry) {
+      const observed = authority.observed.find(
+        candidate => candidate.pantryItemId === item.id,
+      );
+      const visible = item as PantryItem & { cookRevision?: number };
+      if (!observed ||
+          visible.quantity !== observed.quantity ||
+          visible.unit !== observed.unit ||
+          (visible.cookRevision ?? 0) !== observed.cookRevision) {
+        return { outcome: "needs-review", reason: "stale-local-view" };
+      }
+      baselinePantry.push({
+        ...item,
+        cookRevision: observed.cookRevision,
+      });
+    }
+
+    inFlightPurchaseApplications.current.add(mutationId);
+    try {
+      return await persistPurchasesIntoPantryAtomically(db, {
+        userId: uid,
+        mutationId,
+        baselinePantry,
+        purchases,
+        acquiredAt,
+      });
+    } finally {
+      inFlightPurchaseApplications.current.delete(mutationId);
+    }
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -631,5 +697,6 @@ export function useFirebaseSync(
     submitInventoryEdit,
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
+    submitPurchasePantryApplication,
   };
 }
