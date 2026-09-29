@@ -6,6 +6,7 @@ import {
   persistConfirmedCookAtomically,
   cookAllocationSignature,
 } from "../../src/utils/confirmedCookFirestore.ts";
+import { getScopedDocumentId } from "../../src/utils/cloudCollectionSync.ts";
 
 const hostPort = (process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080").split(":");
 const environment = await initializeTestEnvironment({
@@ -20,8 +21,8 @@ const alice = environment.authenticatedContext("alice").firestore();
 const bob = environment.authenticatedContext("bob").firestore();
 const guest = environment.unauthenticatedContext().firestore();
 
-const inventory = (db, uid, id) => doc(db, "inventory", `u_${uid}__${id}`);
-const journal = (db, uid, id) => doc(db, "cookConfirmations", `u_${uid}__${id}`);
+const inventory = (db, uid, id) => doc(db, "inventory", getScopedDocumentId(uid, id));
+const journal = (db, uid, id) => doc(db, "cookConfirmations", getScopedDocumentId(uid, id));
 const allocation = (ingredientId, pantryItemId, quantity, unit) =>
   ({ ingredientId, pantryItemId, quantity, unit });
 const confirmation = (id, mealId, ingredients) =>
@@ -101,6 +102,28 @@ try {
   assert.equal((await stock(alice, "alice", "rice-new")).cookRevision, 2);
 
   console.log("PASS: second cook advances already-versioned stock");
+
+  // Purchase-created pantry IDs and the multi-lot bridge allocation IDs both
+  // contain ':'; these are logical IDs, not journal document IDs.
+  await createStock(alice, "alice", "purchase-shopping:s2", 1, "L");
+  const purchasedLotCook = confirmation("qa-purchase-lot-cook", "recipe:milk-soup", [
+    allocation("allocation:1", "purchase-shopping:s2", 0.25, "L"),
+  ]);
+  assert.ok(cookAllocationSignature(purchasedLotCook));
+  const purchasedLotResult = await persistConfirmedCookAtomically(alice, {
+    userId: "alice",
+    confirmation: purchasedLotCook,
+  });
+  assert.equal(purchasedLotResult.outcome, "recorded");
+  assert.equal(
+    (await stock(alice, "alice", "purchase-shopping:s2")).quantity,
+    0.75,
+  );
+  assert.equal(
+    (await stock(alice, "alice", "purchase-shopping:s2")).cookRevision,
+    1,
+  );
+  console.log("PASS: cook consumes purchase-generated and allocation colon IDs");
 
   // Reproduce the legacy snapshot writer's merge-batch after a committed cook:
   // it cannot resurrect the original 200 g or delete a versioned lot.
