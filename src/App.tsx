@@ -53,6 +53,7 @@ import {
   shoppingItemToPurchase,
   type PantryPurchase,
   type PurchaseMergeResult,
+  type ShoppingReconciliationResult,
   type RawReconciliationExtraItem,
 } from "./utils/purchasePantryMerge";
 import { buildPurchaseMutationId } from "./utils/purchasePantryFirestore";
@@ -187,7 +188,7 @@ export default function App() {
   const preparedSignedInReconciliations = useRef<Map<string, {
     userId: string;
     purchases: PantryPurchase[];
-    preview: PurchaseMergeResult;
+    preview: ShoppingReconciliationResult;
     occurredAt: string;
     acquiredAt: string;
   }>>(new Map());
