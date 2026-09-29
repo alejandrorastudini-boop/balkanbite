@@ -3,12 +3,12 @@ import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
 
 /**
- * Candidate revision-aware writer for an already identified pantry lot.
+ * Revision-aware writer for an already identified pantry lot.
  * The expected values MUST originate from a verified, owner-scoped remote
  * snapshot, never an AI guess or an unsynchronized local default.
  *
- * This function is not yet wired to useFirebaseSync. A correct deployment
- * requires replacing/coordinating that hook's legacy all-row batch writer.
+ * It is wired through the dedicated signed-in inventory command path; the
+ * generic all-row inventory writer is intentionally retired.
  */
 export interface VerifiedStockExpectation {
   pantryItemId: string;
