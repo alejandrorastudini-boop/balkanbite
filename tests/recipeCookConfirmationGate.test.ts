@@ -59,3 +59,18 @@ test("explicit confirmation modal owns cancellation and closes only through asyn
   assert.ok(source.includes("Have you cooked this recipe?"));
   assert.ok(source.includes("Yes, deduct"));
 });
+
+test("latest failed cook stays visible inside an open recipe drawer", () => {
+  assert.ok(source.includes(
+    "const cookFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)",
+  ));
+  const handleStart = source.indexOf("const handleCook = async");
+  const requestStart = source.indexOf("const requestCookConfirmation", handleStart);
+  const handle = source.slice(handleStart, requestStart);
+  assert.ok(handle.includes("clearTimeout(cookFeedbackTimerRef.current)"));
+  assert.ok(handle.includes("cookFeedbackTimerRef.current = setTimeout"));
+
+  assert.ok(source.includes('cookFeedback?.kind === "error"'));
+  assert.ok(source.includes('role="alert"'));
+  assert.ok(source.includes("{cookFeedback.text}"));
+});
