@@ -1177,10 +1177,18 @@ export default function App() {
         return false;
       }
 
+      if (result.outcome === "already-recorded") {
+        const visibleIds = new Set(pantry.map(item => item.id));
+        if (result.clearedItemIds.every(id => !visibleIds.has(id))) {
+          pendingSignedInPantryClear.current = null;
+        }
+        return true;
+      }
+
       const expectedIds = pendingSignedInPantryClear.current?.clearedItemIds ?? [];
       const resultIds = [...result.clearedItemIds].sort();
       if (
-        result.outcome !== "already-empty" &&
+        result.outcome === "recorded" &&
         JSON.stringify(resultIds) !== JSON.stringify(expectedIds)
       ) {
         pendingSignedInPantryClear.current = null;
