@@ -235,6 +235,47 @@ function comparableRemote(
 
 const stableJson = (value: unknown): string => JSON.stringify(value);
 
+function canonicalPurchaseIdentity(
+  purchases: readonly PantryPurchase[],
+): Array<Record<string, unknown>> {
+  return purchases
+    .map(item => ({
+      sourceId: item.sourceId,
+      source: item.source,
+      name: item.name,
+      nameBg: item.nameBg ?? null,
+      nameEs: item.nameEs ?? null,
+      quantity: item.quantity,
+      unit: item.unit,
+      category: item.category ?? null,
+      estimatedCostEUR: item.estimatedCostEUR ?? null,
+      expiryDaysLeft: item.expiryDaysLeft ?? null,
+    }))
+    .sort((a, b) =>
+      String(a.sourceId).localeCompare(String(b.sourceId)) ||
+      stableJson(a).localeCompare(stableJson(b)),
+    );
+}
+
+// Non-cryptographic idempotency key only. Hash collisions fail closed later
+// because the immutable journal also checks the full request signature.
+function fnv1a32(value: string): string {
+  let hash = 0x811c9dc5;
+  for (let index = 0; index < value.length; index++) {
+    hash ^= value.charCodeAt(index);
+    hash = Math.imul(hash, 0x01000193);
+  }
+  return (hash >>> 0).toString(16).padStart(8, "0");
+}
+
+export function buildPurchaseMutationId(
+  purchases: readonly PantryPurchase[],
+): string | null {
+  if (!validatePurchases(purchases)) return null;
+  const canonical = canonicalPurchaseIdentity(purchases);
+  return `purchase-${fnv1a32(stableJson(canonical))}-${canonical.length}`;
+}
+
 function validatePurchases(purchases: readonly PantryPurchase[]): boolean {
   if (!Array.isArray(purchases) || purchases.length === 0 || purchases.length > 50) {
     return false;
@@ -365,19 +406,9 @@ export function buildPurchasePantryTransactionPlan(
   const signature = stableJson({
     version: 1,
     source: "purchase",
-    acquiredAt,
-    purchases: purchases.map(item => ({
-      sourceId: item.sourceId,
-      source: item.source,
-      name: item.name,
-      nameBg: item.nameBg ?? null,
-      nameEs: item.nameEs ?? null,
-      quantity: item.quantity,
-      unit: item.unit,
-      category: item.category ?? null,
-      estimatedCostEUR: item.estimatedCostEUR ?? null,
-      expiryDaysLeft: item.expiryDaysLeft ?? null,
-    })),
+    // acquiredAt is recorded on first commit but intentionally does not define
+    // replay identity. Stable source IDs + exact confirmed purchase payload do.
+    purchases: canonicalPurchaseIdentity(purchases),
     expectedChanges,
     acceptedSourceIds: merge.acceptedSourceIds,
     newlyAppliedSourceIds: merge.newlyAppliedSourceIds,
