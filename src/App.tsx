@@ -148,6 +148,7 @@ export default function App() {
     profileHydrated,
     submitInventoryEdit,
     submitInventoryCreations,
+    submitVoiceInventoryConsumption,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -165,6 +166,10 @@ export default function App() {
   const [profileScope, setProfileScope] = useState<string>("guest");
   const [workspaceScope, setWorkspaceScope] = useState<string>("guest");
   const pendingSignedInCreations = useRef<{ userId: string; ids: Set<string> } | null>(null);
+  const pendingSignedInVoiceConsumptions = useRef<Map<string, {
+    userId: string;
+    expectedRemaining: Record<string, number | null>;
+  }>>(new Map());
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
