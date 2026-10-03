@@ -2,7 +2,8 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { initializeTestEnvironment, assertFails, assertSucceeds } from "@firebase/rules-unit-testing";
 import {
-  collection, doc, getDoc, getDocs, query, setDoc, updateDoc, where,
+  collection, deleteDoc, doc, getDoc, getDocs, query, serverTimestamp,
+  setDoc, updateDoc, where,
 } from "firebase/firestore";
 
 const emulatorHost = process.env.FIRESTORE_EMULATOR_HOST || "127.0.0.1:8080";
@@ -23,11 +24,16 @@ const stranger = environment.unauthenticatedContext().firestore();
 
 try {
   const aliceProfile = doc(alice, "users", "alice");
-  await assertSucceeds(setDoc(aliceProfile, { userId: "alice", nickname: "QA" }));
+  await assertSucceeds(setDoc(aliceProfile, { userId: "alice", nickname: "QA", profileRevision: 0 }));
+  await assertSucceeds(updateDoc(aliceProfile, { nickname: "QA2", profileRevision: 1 }));
+  await assertFails(updateDoc(aliceProfile, { nickname: "stale", profileRevision: 1 }));
+  await assertFails(updateDoc(aliceProfile, { userId: "bob", profileRevision: 2 }));
+  await assertFails(deleteDoc(aliceProfile));
   await assertSucceeds(getDoc(aliceProfile));
   await assertFails(getDoc(doc(bob, "users", "alice")));
   await assertFails(getDoc(doc(stranger, "users", "alice")));
-  await assertFails(setDoc(doc(bob, "users", "alice"), { userId: "bob" }));
+  await assertFails(setDoc(doc(bob, "users", "alice"), { userId: "bob", profileRevision: 0 }));
+  await assertFails(setDoc(doc(bob, "users", "bob"), { userId: "bob" }));
 
   for (const collectionName of ["inventory", "recipes", "mealPlans", "shoppingList"]) {
     const logicalId = collectionName === "mealPlans" ? "2099-12-31" : "shared";
@@ -80,7 +86,67 @@ try {
     )));
   }
 
-  console.log("PASS: named release rules: profile boundary, all 4 owner collections, UID namespace, owner-filtered queries.");
+  // Create-only cook journal: owner-bound ID, immutable record, fail-closed reads.
+  const journal = collection(alice, "cookConfirmations");
+  const aliceCook = doc(journal, "u_alice__cook-qa-1");
+  const validCook = {
+    userId: "alice",
+    cookConfirmationId: "cook-qa-1",
+    mealId: "meal-qa-1",
+    requestSignature: "canonical-request-v1",
+    deductions: [{ pantryItemId: "rice", quantity: 100, unit: "g" }],
+    createdAt: serverTimestamp(),
+  };
+  const absentOwnerJournal = doc(alice, "cookConfirmations", "u_alice__not-created");
+  const missing = await assertSucceeds(getDoc(absentOwnerJournal));
+  assert.equal(missing.exists(), false);
+  await assertFails(getDoc(doc(bob, "cookConfirmations", "u_alice__not-created")));
+  await assertFails(getDoc(doc(stranger, "cookConfirmations", "u_alice__not-created")));
+  await assertFails(getDoc(doc(alice, "cookConfirmations", "u_bob__not-created")));
+
+  await assertSucceeds(setDoc(aliceCook, validCook));
+  await assertSucceeds(getDoc(aliceCook));
+  await assertFails(getDoc(doc(bob, "cookConfirmations", "u_alice__cook-qa-1")));
+  await assertFails(getDoc(doc(stranger, "cookConfirmations", "u_alice__cook-qa-1")));
+  await assertFails(updateDoc(aliceCook, { mealId: "another-meal" }));
+  await assertFails(deleteDoc(aliceCook));
+  await assertFails(setDoc(aliceCook, validCook)); // immutable even for same owner
+
+  await assertFails(setDoc(
+    doc(alice, "cookConfirmations", "u_bob__foreign"), validCook,
+  ));
+  await assertFails(setDoc(
+    doc(alice, "cookConfirmations", "u_alice__wrong-id"), validCook,
+  ));
+  await assertFails(setDoc(
+    doc(alice, "cookConfirmations", "u_alice__bad-owner"),
+    { ...validCook, userId: "bob", cookConfirmationId: "bad-owner" },
+  ));
+  await assertFails(setDoc(
+    doc(alice, "cookConfirmations", "u_alice__missing-signature"),
+    { ...validCook, cookConfirmationId: "missing-signature", requestSignature: "" },
+  ));
+  await assertFails(setDoc(
+    doc(alice, "cookConfirmations", "u_alice__empty-deductions"),
+    { ...validCook, cookConfirmationId: "empty-deductions", deductions: [] },
+  ));
+  await assertFails(setDoc(
+    doc(alice, "cookConfirmations", "u_alice__extra-field"),
+    { ...validCook, cookConfirmationId: "extra-field", verified: true },
+  ));
+  await assertFails(setDoc(
+    doc(bob, "cookConfirmations", "u_alice__bob-attack"),
+    { ...validCook, userId: "bob", cookConfirmationId: "bob-attack" },
+  ));
+  const aliceJournal = await assertSucceeds(getDocs(query(
+    collection(alice, "cookConfirmations"), where("userId", "==", "alice"),
+  )));
+  assert.equal(aliceJournal.size, 1);
+  await assertFails(getDocs(query(
+    collection(bob, "cookConfirmations"), where("userId", "==", "alice"),
+  )));
+
+  console.log("PASS: named release rules: 4 owner collections and immutable cook journal, UID namespace, owner queries.");
 } finally {
   await environment.cleanup();
 }
