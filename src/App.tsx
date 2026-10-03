@@ -1182,10 +1182,10 @@ export default function App() {
       console.error("Verified manual pantry edit failed:", error);
       alert(
         profile.language === "bg"
-          ? "Не успяхме да запазим промяната. Наличностите не са променени."
+          ? "Не успяхме да потвърдим резултата от промяната. Проверете синхронизираните наличности, преди да опитате отново."
           : profile.language === "es"
-          ? "No se pudo guardar el cambio. No hemos modificado las existencias."
-          : "The change could not be saved. Your stock has not been changed."
+          ? "No se pudo confirmar el resultado del cambio. Revisa las existencias sincronizadas antes de intentarlo de nuevo."
+          : "The result of the change could not be confirmed. Review the synchronized stock before trying again."
       );
     });
   };
