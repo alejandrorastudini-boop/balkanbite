@@ -32,7 +32,7 @@ interface VoiceChefViewProps {
   onAddItemsToShoppingList: (items: any[]) => boolean | Promise<boolean>;
   onDeductItemsFromPantry: (items: any[], mutationId?: string) => boolean | Promise<boolean>;
   onNavigateToRecipes: (query?: string) => void;
-  onLogMeal: (log: any) => void;
+  onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
   language: Language;
 }
@@ -487,7 +487,15 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
         effectiveActionType === "MEAL_LOG" &&
         data.mealLog?.nutritionVerified === true
       ) {
-        onLogMeal(data.mealLog);
+        const saved = await onLogMeal(data.mealLog);
+        if (!saved) {
+          replyText =
+            language === "bg"
+              ? `${replyText} Храненето не беше запазено, защото не можах да потвърдя надеждно записването.`
+              : language === "es"
+              ? `${replyText} La comida no se ha guardado porque no pude confirmar de forma fiable el registro.`
+              : `${replyText} The meal was not saved because I could not reliably confirm the record.`;
+        }
       } else if (effectiveActionType === "MEAL_LOG") {
         replyText =
           language === "bg"
