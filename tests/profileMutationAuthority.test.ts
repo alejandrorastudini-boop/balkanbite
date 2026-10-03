@@ -34,3 +34,21 @@ test("sensitive health edits wait for cloud persistence outcome", () => {
   assert.match(profileView, /const persisted = await onUpdateProfile\(\{ healthProfile: undefined \}\)/);
   assert.match(profileView, /if \(persisted === false\) return false/);
 });
+
+test("new signed-in profile bootstrap is create-if-absent and listener-confirmed", () => {
+  assert.match(mutation, /ensureUserProfileExistsAtomically/);
+  assert.match(mutation, /const snapshot = await tx\.get\(ref\)/);
+  assert.match(mutation, /if \(snapshot\.exists\(\)\)/);
+  assert.match(mutation, /profileRevision: 0/);
+
+  assert.match(hook, /ensureUserProfileExistsAtomically/);
+  const missingStart = hook.indexOf("const newProfile = createSignedInProfileDefaults");
+  const hydrated = hook.indexOf("setProfileHydratedUser(currentUser.uid)", missingStart);
+  const earlyReturn = hook.indexOf("return;", missingStart);
+  assert.ok(missingStart >= 0 && earlyReturn > missingStart && hydrated > earlyReturn);
+});
+
+test("profile bootstrap no longer uses an unconditional setDoc overwrite", () => {
+  assert.doesNotMatch(hook, /void setDoc\(userDoc/);
+  assert.doesNotMatch(hook, /Timestamp\.now\(\)/);
+});
