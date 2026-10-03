@@ -12,7 +12,7 @@ test("signed-in meal history uses listener-owned cloud authority", () => {
   assert.match(hook, /appendMealLogAtomically/);
   assert.match(app, /await submitMealLog\(newLog\)/);
   assert.match(app, /Never promote a device-local meal cache into authenticated authority/);
-  assert.doesNotMatch(app, /getUserLocalWorkspaceKey\([\s\S]{0,80}"balkanbite_meallogs"[\s\S]{0,200}parseMealLogCache/);
+  assert.doesNotMatch(app, /getUserLocalWorkspaceKey\([\s\S]{0,80}"balkanbite_meallogs"/);
   assert.match(app, /if \(!currentUser\)[\s\S]*setMealLogs/);
 });
 
