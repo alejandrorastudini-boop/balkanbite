@@ -761,12 +761,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
         onClose={() => setShowScanModal(false)}
         language={language}
         currency={currency}
-        onAddItems={(items) => {
+        onAddItems={async (items) => {
           if (onAddMultipleItems) {
-            onAddMultipleItems(items);
-          } else {
-            (items || []).forEach((item) => onAddItem(item));
+            return onAddMultipleItems(items);
           }
+          const results = await Promise.all(
+            (items || []).map((item) => Promise.resolve(onAddItem(item)))
+          );
+          return results.every(Boolean);
         }}
       />
     </div>
