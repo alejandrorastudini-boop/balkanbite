@@ -243,6 +243,30 @@ export default function App() {
     return result.outcome !== "needs-review";
   };
 
+  const handleProfilePreferenceUpdate = async (update: Partial<UserProfile>) => {
+    try {
+      const saved = await handleProfileUpdate(update);
+      if (!saved) {
+        alert(
+          profile.language === "bg"
+            ? "Промяната не беше запазена. Опитайте отново след синхронизация."
+            : profile.language === "es"
+            ? "El cambio no se ha guardado. Inténtalo de nuevo cuando termine la sincronización."
+            : "The change was not saved. Try again after synchronization finishes."
+        );
+      }
+    } catch (error) {
+      console.error("Profile preference update failed:", error);
+      alert(
+        profile.language === "bg"
+          ? "Не успяхме да потвърдим промяната. Проверете синхронизирания профил и опитайте отново."
+          : profile.language === "es"
+          ? "No se pudo confirmar el cambio. Revisa el perfil sincronizado e inténtalo de nuevo."
+          : "The change could not be confirmed. Review the synchronized profile and try again."
+      );
+    }
+  };
+
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [showProModal, setShowProModal] = useState<boolean>(false);
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
@@ -2159,9 +2183,9 @@ export default function App() {
     return (
       <LandingPage
         language={profile.language}
-        onLanguageChange={(lang: Language) => { void handleProfileUpdate({ language: lang }); }}
+        onLanguageChange={(lang: Language) => { void handleProfilePreferenceUpdate({ language: lang }); }}
         currency={profile.currency}
-        onCurrencyChange={(curr: Currency) => { void handleProfileUpdate({ currency: curr }); }}
+        onCurrencyChange={(curr: Currency) => { void handleProfilePreferenceUpdate({ currency: curr }); }}
         onOpenApp={() => {
           setShowLanding(false);
           if (!currentUser) {
@@ -2187,9 +2211,9 @@ export default function App() {
       <div className="w-full max-w-6xl mx-auto min-h-screen relative pb-28 px-2.5 sm:px-6 lg:px-8">
         <Header
           language={profile.language}
-          onLanguageChange={(lang: Language) => { void handleProfileUpdate({ language: lang }); }}
+          onLanguageChange={(lang: Language) => { void handleProfilePreferenceUpdate({ language: lang }); }}
           currency={profile.currency}
-          onCurrencyChange={(curr: Currency) => { void handleProfileUpdate({ currency: curr }); }}
+          onCurrencyChange={(curr: Currency) => { void handleProfilePreferenceUpdate({ currency: curr }); }}
           theme={theme}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
           onGoToLanding={() => setShowLanding(true)}
