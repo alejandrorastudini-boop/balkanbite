@@ -8,7 +8,7 @@ test("signed-in derived reconciliation is gated by server-confirmed inventory", 
   assert.match(app, /pendingSignedInDerivedReconciliations/);
   assert.match(
     app,
-    /if \(!inventoryHydrated \|\| !inventoryServerConfirmed\) return;[\s\S]{0,900}isExpectedInventoryResultVisible\(pending\.expectedRemaining, pantry\)[\s\S]{0,500}reconcileCommittedPantryAvailability\(pantry, true\)/,
+    /if \(!inventoryHydrated \|\| !inventoryServerConfirmed\) return;[\s\S]{0,900}isExpectedInventoryResultVisible\(pending\.expectedRemaining, pantry\)[\s\S]{0,1200}submitRecipesReplace\(recipes, syncedRecipes\)[\s\S]*submitMealPlanReplace\(mealPlan, newPlan\)/,
   );
 });
 
