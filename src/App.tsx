@@ -912,7 +912,17 @@ export default function App() {
     if (![...pending.ids].every(id => visibleIds.has(id))) return;
 
     pendingSignedInCreations.current = null;
-    reconcilePantryDerivedState(pantry, true);
+    const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
+    const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+      pantry, syncedRecipes, mealPlan, profile,
+    );
+    void (async () => {
+      const recipeResult = await submitRecipesReplace(recipes, syncedRecipes);
+      if (recipeResult.outcome === "needs-review") return;
+      const mealResult = await submitMealPlanReplace(mealPlan, newPlan);
+      if (mealResult.outcome === "needs-review") return;
+      setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
+    })();
   }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
 
   // A voice deduction is reconciled only after the exact resulting quantities
@@ -945,7 +955,17 @@ export default function App() {
     }
 
     if (matchedCommittedConsumption) {
-      reconcileCommittedPantryAvailability(pantry, true);
+      const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
+      const { newPlan, readyToCookMealsCount } = syncMealPlanWithPantry(
+        mealPlan, pantry,
+      );
+      void (async () => {
+        const recipeResult = await submitRecipesReplace(recipes, syncedRecipes);
+        if (recipeResult.outcome === "needs-review") return;
+        const mealResult = await submitMealPlanReplace(mealPlan, newPlan);
+        if (mealResult.outcome === "needs-review") return;
+        setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
+      })();
     }
   }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
 
