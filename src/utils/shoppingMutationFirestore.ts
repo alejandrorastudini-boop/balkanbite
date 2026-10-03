@@ -18,8 +18,23 @@ const safeUid = (value: unknown): value is string =>
 const validItem = (item: unknown): item is ShoppingItem =>
   isStoredShoppingItemStructurallyValid(item);
 
+const comparableItem = (item: ShoppingItem): ShoppingItem => ({
+  id: item.id,
+  name: item.name,
+  quantity: item.quantity,
+  unit: item.unit,
+  category: item.category,
+  ...(item.estimatedPriceEUR !== undefined
+    ? { estimatedPriceEUR: item.estimatedPriceEUR } : {}),
+  checked: item.checked,
+  ...(item.amountOrigin !== undefined ? { amountOrigin: item.amountOrigin } : {}),
+  ...(item.purchaseAmountConfirmed !== undefined
+    ? { purchaseAmountConfirmed: item.purchaseAmountConfirmed } : {}),
+  ...(item.reason !== undefined ? { reason: item.reason } : {}),
+});
+
 const sameItem = (a: ShoppingItem, b: ShoppingItem): boolean =>
-  JSON.stringify(a) === JSON.stringify(b);
+  JSON.stringify(comparableItem(a)) === JSON.stringify(comparableItem(b));
 
 export async function createShoppingItem(
   db: Firestore,
