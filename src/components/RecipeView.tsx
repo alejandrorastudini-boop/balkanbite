@@ -27,7 +27,7 @@ interface RecipeViewProps {
   recipes: Recipe[];
   pantry: PantryItem[];
   onCookRecipe: (recipe: Recipe, cookConfirmationId: string) => RecipeCookOutcome | Promise<RecipeCookOutcome>;
-  onAddMissingToShopping: (recipe: Recipe) => void;
+  onAddMissingToShopping: (recipe: Recipe) => boolean | Promise<boolean>;
   onGenerateAiRecipes: () => Promise<void>;
   onClearRecipes?: () => void | boolean | Promise<void | boolean>;
   onLoadSampleRecipes?: () => void;
@@ -52,6 +52,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [cookFeedback, setCookFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [shoppingAddRecipeId, setShoppingAddRecipeId] = useState<string | null>(null);
   const cookFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [pendingCook, setPendingCook] = useState<{
@@ -74,6 +75,16 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
     { id: "cheap", label: recipeCheapFilterLabel(currency) },
     { id: "protein", label: language === "es" ? "💪 Proteína ≈" : language === "bg" ? "💪 Протеин ≈" : "💪 Protein ≈" },
   ];
+
+  const handleAddMissingToShopping = async (recipe: Recipe) => {
+    if (shoppingAddRecipeId !== null) return;
+    setShoppingAddRecipeId(recipe.id);
+    try {
+      await Promise.resolve(onAddMissingToShopping(recipe));
+    } finally {
+      setShoppingAddRecipeId(null);
+    }
+  };
 
   const filteredRecipes = recipes.filter((r) => {
     if (activeFilter === "fast") return r.prepTimeMin + r.cookTimeMin <= 20;
@@ -460,7 +471,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                 {hasMissing ? (
                   <button
                     id={`add-missing-btn-${recipe.id}`}
-                    onClick={() => onAddMissingToShopping(recipe)}
+                    onClick={() => void handleAddMissingToShopping(recipe)}
+                    disabled={shoppingAddRecipeId !== null}
                     className="px-3 py-2 rounded-xl bg-stone-700 hover:bg-stone-600 text-stone-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-stone-600"
                   >
                     <ShoppingCart className="w-3.5 h-3.5 text-amber-400" />
@@ -612,7 +624,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
             <div className="pt-4 mt-2 border-t border-white/[0.04] flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => onAddMissingToShopping(selectedRecipe)}
+                onClick={() => void handleAddMissingToShopping(selectedRecipe)}
+                disabled={shoppingAddRecipeId !== null}
                 className="px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold text-stone-300 flex items-center gap-2 border border-white/[0.04] hover:border-white/[0.1] transition-all cursor-pointer"
               >
                 <ShoppingCart className="w-4 h-4 text-amber-400" />
