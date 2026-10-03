@@ -337,6 +337,8 @@ export function useFirebaseSync(
       if (
         collectionName === "inventory" ||
         collectionName === "shoppingList" ||
+        collectionName === "recipes" ||
+        collectionName === "mealPlans" ||
         !currentUser ||
         loading ||
         hydratedCollectionUser.current[collectionName] !== currentUser.uid
