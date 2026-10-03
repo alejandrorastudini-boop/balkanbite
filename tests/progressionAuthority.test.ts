@@ -26,3 +26,12 @@ test("progression persistence is immutable and exact-id idempotent", () => {
   assert.match(firestore, /new Set\(events\.map\(event => event\.eventId\)\)/);
   assert.match(firestore, /for \(const ref of refs\) snapshots\.push\(await tx\.get\(ref\)\)/);
 });
+
+test("signed-in cook progression reuses the stable confirmation id", () => {
+  const start = app.indexOf("let prepared = preparedSignedInCooks.current.get(cookConfirmationId)");
+  const end = app.indexOf("const handleAddMissingToShopping", start);
+  assert.ok(start >= 0 && end > start);
+  const signedInCook = app.slice(start, end);
+  assert.match(signedInCook, /actionId: cookConfirmationId/);
+  assert.doesNotMatch(signedInCook, /randomUUID/);
+});
