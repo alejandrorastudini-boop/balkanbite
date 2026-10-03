@@ -28,7 +28,7 @@ test("signed-in scan or receipt batch uses one atomic creation dispatch while gu
   const handler = appSource.slice(start, end);
   assert.match(
     handler,
-    /if \\(currentUser\\) \\{\\s*return dispatchSignedInPantryCreations\\(newItems\\);\\s*\\}/,
+    /if \(currentUser\) \{\s*return dispatchSignedInPantryCreations\(newItems\);\s*\}/,
   );
   assert.match(handler, /updatePantryAndReconcileMenu\(newItems, true\)/);
 });
