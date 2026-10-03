@@ -12,6 +12,10 @@ const firebaseSyncSource = readFileSync(
   new URL("../src/hooks/useFirebaseSync.ts", import.meta.url),
   "utf8"
 );
+const profileMutationSource = readFileSync(
+  new URL("../src/utils/profileMutationFirestore.ts", import.meta.url),
+  "utf8"
+);
 const pantryViewSource = readFileSync(
   new URL("../src/components/PantryView.tsx", import.meta.url),
   "utf8"
@@ -422,8 +426,8 @@ test("profile Firestore writes serialize optional unknown fields instead of spre
     /serializeUserProfileForFirestore\(newProfile\)/
   );
   assert.match(
-    firebaseSyncSource,
-    /serializeUserProfileForFirestore\(profile\)/
+    profileMutationSource,
+    /serializeUserProfileForFirestore\(nextProfile\)/
   );
   assert.doesNotMatch(
     firebaseSyncSource,
@@ -438,6 +442,10 @@ test("profile Firestore writes serialize optional unknown fields instead of spre
     /Failed to create user profile/
   );
   assert.match(
+    firebaseSyncSource,
+    /submitProfileReplace/
+  );
+  assert.doesNotMatch(
     firebaseSyncSource,
     /Failed to save user profile/
   );
