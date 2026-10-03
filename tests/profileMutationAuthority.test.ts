@@ -1,0 +1,54 @@
+import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
+import test from "node:test";
+
+const hook = readFileSync(new URL("../src/hooks/useFirebaseSync.ts", import.meta.url), "utf8");
+const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+const mutation = readFileSync(new URL("../src/utils/profileMutationFirestore.ts", import.meta.url), "utf8");
+const profileView = readFileSync(new URL("../src/components/ProfileView.tsx", import.meta.url), "utf8");
+
+test("signed-in profile no longer bulk-writes on arbitrary local state changes", () => {
+  assert.doesNotMatch(hook, /\[profile, currentUser, loading, profileHydratedUser\]/);
+  assert.match(hook, /submitProfileReplace/);
+  assert.match(hook, /profileRevision\.current/);
+  assert.match(app, /onUpdateProfile=\{\(upd\) => handleProfileUpdate\(upd\)\}/);
+});
+
+test("profile command verifies exact revision and exact sanitized baseline", () => {
+  assert.match(mutation, /revision !== expectedRevision/);
+  assert.match(mutation, /remoteSignature !== expectedSignature/);
+  assert.match(mutation, /profileRevision: revision \+ 1/);
+  assert.match(mutation, /runTransaction/);
+});
+
+test("signed-in UI profile edits route through explicit profile authority", () => {
+  assert.match(app, /const handleProfileUpdate = async/);
+  assert.match(app, /await submitProfileReplace\(profile, next\)/);
+  assert.match(app, /onUpdateProfile=\{\(upd\) => handleProfileUpdate\(upd\)\}/);
+  assert.match(app, /onComplete=\{\(upd\) => \{ void handleProfileUpdate\(upd\); \}\}/);
+});
+
+test("sensitive health edits wait for cloud persistence outcome", () => {
+  assert.match(profileView, /const saveHealthFieldCorrection = async/);
+  assert.match(profileView, /const persisted = await onUpdateProfile\(\{ healthProfile: result\.profile \}\)/);
+  assert.match(profileView, /const persisted = await onUpdateProfile\(\{ healthProfile: undefined \}\)/);
+  assert.match(profileView, /if \(persisted === false\) return false/);
+});
+
+test("new signed-in profile bootstrap is create-if-absent and listener-confirmed", () => {
+  assert.match(mutation, /ensureUserProfileExistsAtomically/);
+  assert.match(mutation, /const snapshot = await tx\.get\(ref\)/);
+  assert.match(mutation, /if \(snapshot\.exists\(\)\)/);
+  assert.match(mutation, /profileRevision: 0/);
+
+  assert.match(hook, /ensureUserProfileExistsAtomically/);
+  const missingStart = hook.indexOf("const newProfile = createSignedInProfileDefaults");
+  const hydrated = hook.indexOf("setProfileHydratedUser(currentUser.uid)", missingStart);
+  const earlyReturn = hook.indexOf("return;", missingStart);
+  assert.ok(missingStart >= 0 && earlyReturn > missingStart && hydrated > earlyReturn);
+});
+
+test("profile bootstrap no longer uses an unconditional setDoc overwrite", () => {
+  assert.doesNotMatch(hook, /void setDoc\(userDoc/);
+  assert.doesNotMatch(hook, /Timestamp\.now\(\)/);
+});
