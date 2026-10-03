@@ -34,6 +34,8 @@ import { clearShoppingItems, createShoppingItem, createShoppingItems, replaceSho
 import { replaceDerivedCollectionAtomically } from "../utils/derivedCollectionFirestore";
 import { replaceUserProfileAtomically } from "../utils/profileMutationFirestore";
 import { appendMealLogAtomically, subscribeMealLogs } from "../utils/mealLogFirestore";
+import { appendProgressionEventsAtomically, subscribeProgressionEvents } from "../utils/progressionFirestore";
+import type { ProgressionEventV1 } from "../utils/progressionLedger";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -46,7 +48,8 @@ export function useFirebaseSync(
   setMealPlan: React.Dispatch<React.SetStateAction<MealPlanDay[]>>,
   shoppingList: ShoppingItem[],
   setShoppingList: React.Dispatch<React.SetStateAction<ShoppingItem[]>>,
-  setMealLogs: React.Dispatch<React.SetStateAction<MealLog[]>>
+  setMealLogs: React.Dispatch<React.SetStateAction<MealLog[]>>,
+  setProgressionLedger: React.Dispatch<React.SetStateAction<ProgressionEventV1[]>>
 ) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   // `loading` remains the internal write gate: profile/collection writes stay
@@ -60,6 +63,7 @@ export function useFirebaseSync(
   const [inventoryServerConfirmedUser, setInventoryServerConfirmedUser] = useState<string | null>(null);
   const [profileHydratedUser, setProfileHydratedUser] = useState<string | null>(null);
   const [mealLogsHydratedUser, setMealLogsHydratedUser] = useState<string | null>(null);
+  const [progressionHydratedUser, setProgressionHydratedUser] = useState<string | null>(null);
   const authSessionUserId = useRef<string | null | undefined>(undefined);
   const profileRevision = useRef<number | null>(null);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
@@ -105,6 +109,7 @@ export function useFirebaseSync(
       hydratedCollectionUser.current = {};
       profileRevision.current = null;
       setMealLogsHydratedUser(null);
+      setProgressionHydratedUser(null);
       lastHydratedCollectionJson.current = {};
       hydratedCollectionDocumentIds.current = {};
       inventoryEditAuthority.current = {
@@ -203,6 +208,29 @@ export function useFirebaseSync(
       return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
     }
     return appendMealLogAtomically(db, uid, meal);
+  };
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const uid = currentUser.uid;
+    setProgressionLedger([]);
+    setProgressionHydratedUser(null);
+    return subscribeProgressionEvents(
+      db,
+      uid,
+      events => {
+        if (auth.currentUser?.uid !== uid) return;
+        setProgressionLedger(events);
+        setProgressionHydratedUser(uid);
+      },
+      error => console.error("Failed to hydrate progression evidence:", error),
+    );
+  }, [currentUser, setProgressionLedger]);
+
+  const submitProgressionEvents = async (events: readonly ProgressionEventV1[]) => {
+    const uid = currentUser?.uid;
+    if (!uid || progressionHydratedUser !== uid) return false;
+    return appendProgressionEventsAtomically(db, uid, events);
   };
 
   // Signed-in profile state is listener-owned. Explicit user edits use the
@@ -980,6 +1008,7 @@ export function useFirebaseSync(
     submitInventoryClear,
     submitConfirmedCook,
     submitMealLog,
+    submitProgressionEvents,
     submitProfileReplace,
     submitRecipesReplace,
     submitMealPlanReplace,
