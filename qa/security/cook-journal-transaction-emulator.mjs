@@ -262,7 +262,7 @@ try {
   assert.equal(await isRecorded(aliceSecondDevice, "alice", "qa-shared-confirmation"), true);
   console.log("PASS: simultaneous same-ID cook from two clients has one deduction and one journal");
 
-  const purchasedId = "purchase-shopping:s2";
+  const purchasedId = "purchase-shopping-s2";
   await createStock(alice, "alice", purchasedId, 1, "L", 0);
   const purchasedCook = await persistConfirmedCookAtomically(alice, {
     userId: "alice",
