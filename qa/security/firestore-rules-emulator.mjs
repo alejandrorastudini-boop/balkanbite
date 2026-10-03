@@ -24,11 +24,16 @@ const stranger = environment.unauthenticatedContext().firestore();
 
 try {
   const aliceProfile = doc(alice, "users", "alice");
-  await assertSucceeds(setDoc(aliceProfile, { userId: "alice", nickname: "QA" }));
+  await assertSucceeds(setDoc(aliceProfile, { userId: "alice", nickname: "QA", profileRevision: 0 }));
+  await assertSucceeds(updateDoc(aliceProfile, { nickname: "QA2", profileRevision: 1 }));
+  await assertFails(updateDoc(aliceProfile, { nickname: "stale", profileRevision: 1 }));
+  await assertFails(updateDoc(aliceProfile, { userId: "bob", profileRevision: 2 }));
+  await assertFails(deleteDoc(aliceProfile));
   await assertSucceeds(getDoc(aliceProfile));
   await assertFails(getDoc(doc(bob, "users", "alice")));
   await assertFails(getDoc(doc(stranger, "users", "alice")));
-  await assertFails(setDoc(doc(bob, "users", "alice"), { userId: "bob" }));
+  await assertFails(setDoc(doc(bob, "users", "alice"), { userId: "bob", profileRevision: 0 }));
+  await assertFails(setDoc(doc(alice, "users", "profile-without-revision"), { userId: "alice" }));
 
   for (const collectionName of ["inventory", "recipes", "mealPlans", "shoppingList"]) {
     const logicalId = collectionName === "mealPlans" ? "2099-12-31" : "shared";
