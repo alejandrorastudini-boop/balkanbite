@@ -20,7 +20,25 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      function validProfileRevisionCreate() {
+        return request.resource.data.profileRevision is int &&
+          request.resource.data.profileRevision == 0 &&
+          request.resource.data.userId == request.auth.uid;
+      }
+
+      function validProfileRevisionUpdate() {
+        return resource.data.userId == request.auth.uid &&
+          request.resource.data.userId == request.auth.uid &&
+          resource.data.get('profileRevision', 0) is int &&
+          request.resource.data.profileRevision is int &&
+          request.resource.data.profileRevision ==
+            resource.data.get('profileRevision', 0) + 1;
+      }
+
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && validProfileRevisionCreate();
+      allow update: if isOwner(userId) && validProfileRevisionUpdate();
+      allow delete: if false;
     }
 
     // Unversioned inventory remains compatible with the current client.
