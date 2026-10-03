@@ -1044,7 +1044,15 @@ export default function App() {
       checked: false,
       purchaseAmountConfirmed: false,
     }));
-    setShoppingList((prev) => [...newItems, ...prev]);
+    if (!currentUser) {
+      setShoppingList(prev => [...newItems, ...prev]);
+      return;
+    }
+    void submitShoppingItemsCreate(newItems).then(result => {
+      if (result.outcome === "needs-review") {
+        console.warn("Advisor shopping batch needs review:", result.reason);
+      }
+    }).catch(error => console.error("Advisor shopping batch failed:", error));
   };
 
   const handleAdaptMenuToPantry = () => {
@@ -1390,7 +1398,15 @@ export default function App() {
     }));
 
     if (newShoppingItems.length > 0) {
-      setShoppingList((prev) => [...prev, ...newShoppingItems]);
+      if (!currentUser) {
+        setShoppingList(prev => [...prev, ...newShoppingItems]);
+      } else {
+        void submitShoppingItemsCreate(newShoppingItems).then(result => {
+          if (result.outcome === "needs-review") {
+            console.warn("Recipe shopping batch needs review:", result.reason);
+          }
+        }).catch(error => console.error("Recipe shopping batch failed:", error));
+      }
     }
 
     if (unverified.length > 0) {
