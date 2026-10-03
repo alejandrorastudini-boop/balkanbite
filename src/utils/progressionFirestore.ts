@@ -81,11 +81,43 @@ export async function appendProgressionEventAtomically(
 export async function appendProgressionEventsAtomically(
   db: Firestore,
   userId: string,
-  events: readonly ProgressionEventV1[],
+  candidates: readonly ProgressionEventV1[],
 ): Promise<boolean> {
-  for (const event of events) {
-    const result = await appendProgressionEventAtomically(db, userId, event);
-    if (result.outcome === "needs-review") return false;
+  if (!userId || userId.includes("/") || candidates.length === 0 || candidates.length > 100) return false;
+
+  const events = candidates.map(canonicalEvent);
+  if (
+    events.some(event => !isValidProgressionEvent(event) || event.eventId.includes("/")) ||
+    new Set(events.map(event => event.eventId)).size !== events.length
+  ) {
+    return false;
   }
-  return true;
+
+  const refs = events.map(event => doc(db, "users", userId, "progressionEvents", event.eventId));
+  return runTransaction(db, async tx => {
+    const snapshots = [];
+    for (const ref of refs) snapshots.push(await tx.get(ref));
+
+    for (let index = 0; index < events.length; index += 1) {
+      const snapshot = snapshots[index];
+      if (!snapshot.exists()) continue;
+      const { userId: _userId, requestSignature: _requestSignature, createdAt: _createdAt, ...eventData } = snapshot.data();
+      const existing = { ...eventData, eventId: snapshot.id };
+      if (!isValidProgressionEvent(existing) || signature(existing) !== signature(events[index])) {
+        return false;
+      }
+    }
+
+    for (let index = 0; index < events.length; index += 1) {
+      if (snapshots[index].exists()) continue;
+      const event = events[index];
+      tx.set(refs[index], {
+        ...event,
+        userId,
+        requestSignature: signature(event),
+        createdAt: serverTimestamp(),
+      });
+    }
+    return true;
+  });
 }
