@@ -465,7 +465,7 @@ test("manual and batch pantry additions revalidate required fields at the App bo
 
   assert.match(single, /hasValidPantryAcquisitionRequiredFields\(item\)/);
   assert.match(batch, /isValidPantryAcquisitionBatch\(items\)/);
-  assert.match(batch, /if \(!isValidPantryAcquisitionBatch\(items\)\) return;/);
+  assert.match(batch, /if \(!isValidPantryAcquisitionBatch\(items\)\) return false;/);
   assert.ok(
     batch.indexOf("isValidPantryAcquisitionBatch(items)") <
       batch.indexOf("items.map"),

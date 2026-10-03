@@ -1128,9 +1128,9 @@ export default function App() {
     return true;
   };
 
-  const handleAddMultiplePantryItems = (items: Array<Omit<PantryItem, "id" | "addedAt">>) => {
-    if (!requireAuthoritativeInventory()) return;
-    if (!isValidPantryAcquisitionBatch(items)) return;
+  const handleAddMultiplePantryItems = async (items: Array<Omit<PantryItem, "id" | "addedAt">>): Promise<boolean> => {
+    if (!requireAuthoritativeInventory()) return false;
+    if (!isValidPantryAcquisitionBatch(items)) return false;
 
     const acquiredAt = new Date().toISOString().split("T")[0];
     const newItems: PantryItem[] = items.map((item, idx) => ({
@@ -1139,10 +1139,10 @@ export default function App() {
       addedAt: acquiredAt,
     }));
     if (currentUser) {
-      void dispatchSignedInPantryCreations(newItems);
-      return;
+      return dispatchSignedInPantryCreations(newItems);
     }
     updatePantryAndReconcileMenu(newItems, true);
+    return true;
   };
 
   // The signed-in manual +/- and delete path NEVER optimistically changes

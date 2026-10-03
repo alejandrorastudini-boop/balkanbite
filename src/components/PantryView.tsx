@@ -22,7 +22,7 @@ import { ScanModal } from "./ScanModal";
 interface PantryViewProps {
   pantry: PantryItem[];
   onAddItem: (item: Omit<PantryItem, "id" | "addedAt">) => boolean | Promise<boolean>;
-  onAddMultipleItems?: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => void;
+  onAddMultipleItems?: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => boolean | Promise<boolean>;
   onUpdateQuantity: (id: string, newQty: number, viewed: PantryItem) => void;
   onDeleteItem: (id: string, viewed: PantryItem) => void;
   onClearAll: (mutationId: string) => boolean | Promise<boolean>;
@@ -761,12 +761,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
         onClose={() => setShowScanModal(false)}
         language={language}
         currency={currency}
-        onAddItems={(items) => {
+        onAddItems={async (items) => {
           if (onAddMultipleItems) {
-            onAddMultipleItems(items);
-          } else {
-            (items || []).forEach((item) => onAddItem(item));
+            return onAddMultipleItems(items);
           }
+          const results = await Promise.all(
+            (items || []).map((item) => Promise.resolve(onAddItem(item)))
+          );
+          return results.every(Boolean);
         }}
       />
     </div>
