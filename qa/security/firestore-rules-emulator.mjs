@@ -35,6 +35,47 @@ try {
   await assertFails(setDoc(doc(bob, "users", "alice"), { userId: "bob", profileRevision: 0 }));
   await assertFails(setDoc(doc(bob, "users", "bob"), { userId: "bob" }));
 
+  const mealRef = doc(alice, "users", "alice", "mealLogs", "meal-1");
+  const verifiedMeal = {
+    id: "meal-1",
+    userId: "alice",
+    date: "2026-10-03",
+    mealType: "lunch",
+    nutritionDataStatus: "verified",
+    calories: 500,
+    proteinG: 30,
+    carbsG: 50,
+    fatG: 20,
+    timestamp: "2026-10-03T12:00:00.000Z",
+    requestSignature: "verified-meal",
+    createdAt: new Date(),
+  };
+  await assertSucceeds(setDoc(mealRef, verifiedMeal));
+  await assertSucceeds(getDoc(mealRef));
+  await assertFails(getDoc(doc(bob, "users", "alice", "mealLogs", "meal-1")));
+  await assertFails(updateDoc(mealRef, { calories: 600 }));
+  await assertFails(deleteDoc(mealRef));
+  await assertFails(setDoc(doc(alice, "users", "alice", "mealLogs", "bad-unverified"), {
+    ...verifiedMeal,
+    id: "bad-unverified",
+    nutritionDataStatus: "unknown",
+  }));
+  await assertSucceeds(setDoc(doc(alice, "users", "alice", "mealLogs", "unknown-meal"), {
+    id: "unknown-meal",
+    userId: "alice",
+    date: "2026-10-03",
+    mealType: "snack",
+    nutritionDataStatus: "unknown",
+    timestamp: "2026-10-03T15:00:00.000Z",
+    requestSignature: "unknown-meal",
+    createdAt: new Date(),
+  }));
+  await assertFails(setDoc(doc(bob, "users", "alice", "mealLogs", "bob-attack"), {
+    ...verifiedMeal,
+    id: "bob-attack",
+    userId: "bob",
+  }));
+
   for (const collectionName of ["inventory", "recipes", "mealPlans", "shoppingList"]) {
     const logicalId = collectionName === "mealPlans" ? "2099-12-31" : "shared";
     const aliceId = "u_alice__" + logicalId;
