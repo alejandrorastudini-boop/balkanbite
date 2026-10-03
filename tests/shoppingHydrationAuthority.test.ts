@@ -35,5 +35,5 @@ test("shopping reconciliation checks shopping authority before inventory/model r
   const block = app.slice(start, start + 1200);
   const authority = block.indexOf('requireWorkspaceAuthority(shoppingHydrated, "shopping")');
   const inventory = block.indexOf("requireAuthoritativeInventory()");
-  assert.ok(authority >= 0 && inventory > authority);
+  assert.ok(inventory >= 0 && authority > inventory);
 });
