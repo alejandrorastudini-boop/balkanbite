@@ -1751,8 +1751,6 @@ export default function App() {
   };
 
   const handleReconcileShopping = async ({
-    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
-
     purchasedItemIds,
     itemsToAddToPantry,
     reconciliationId,
@@ -1761,6 +1759,7 @@ export default function App() {
     itemsToAddToPantry: RawReconciliationExtraItem[];
     reconciliationId?: string;
   }): Promise<boolean> => {
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return false;
     if (!requireAuthoritativeInventory()) return false;
 
     const safeReconciliationId =
