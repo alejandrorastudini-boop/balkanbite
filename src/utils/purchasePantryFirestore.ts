@@ -205,6 +205,19 @@ function serializePantryItem(
   return out;
 }
 
+const comparableShoppingItem = (item: ShoppingItem): Record<string, unknown> => ({
+  id: item.id,
+  name: item.name,
+  quantity: item.quantity,
+  unit: item.unit,
+  category: item.category,
+  ...(item.estimatedPriceEUR !== undefined ? { estimatedPriceEUR: item.estimatedPriceEUR } : {}),
+  checked: item.checked,
+  ...(item.amountOrigin !== undefined ? { amountOrigin: item.amountOrigin } : {}),
+  ...(item.purchaseAmountConfirmed !== undefined ? { purchaseAmountConfirmed: item.purchaseAmountConfirmed } : {}),
+  ...(item.reason !== undefined ? { reason: item.reason } : {}),
+});
+
 function comparableItem(item: PantryItem): Record<string, unknown> | null {
   const serialized = serializePantryItem(item, "_comparison_", 0);
   if (!serialized) return null;
@@ -535,7 +548,8 @@ export async function persistPurchasesIntoPantryAtomically(
           const { userId: remoteUserId, updatedAt: _updatedAt, ...remote } = snapshot.data();
           if (remoteUserId !== userId ||
               !isStoredShoppingItemStructurallyValid(remote) ||
-              JSON.stringify(remote) !== JSON.stringify(row.item)) {
+              stableJson(comparableShoppingItem(remote)) !==
+                stableJson(comparableShoppingItem(row.item))) {
             return review("stale-stock");
           }
         }
