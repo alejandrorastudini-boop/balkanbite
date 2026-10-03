@@ -289,7 +289,8 @@ service cloud.firestore {
     function validInventoryCore(itemId) {
       return request.resource.data.id is string &&
         request.resource.data.id.size() > 0 &&
-        itemId == 'u_' + request.auth.uid + '__' + request.resource.data.id &&
+        itemId == 'u_' + request.auth.uid + '__' +
+          request.resource.data.id.replace(':', '%3A') &&
         request.resource.data.name is string &&
         request.resource.data.name.size() > 0 &&
         request.resource.data.quantity is number &&
