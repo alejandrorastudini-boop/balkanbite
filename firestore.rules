@@ -70,6 +70,32 @@ service cloud.firestore {
     // accepted only when the canonical client marks the row verified; unknown
     // or estimated meals cannot carry numeric nutrition fields.
     match /users/{userId}/mealLogs/{mealId} {
+      function validMealIdentity() {
+        return request.resource.data.keys().hasOnly([
+            'userId', 'id', 'date', 'mealType', 'recipeId', 'manualName',
+            'nutritionDataStatus', 'calories', 'proteinG', 'carbsG', 'fatG',
+            'timestamp', 'requestSignature', 'createdAt'
+          ]) &&
+          request.resource.data.keys().hasAll([
+            'userId', 'id', 'date', 'mealType', 'nutritionDataStatus',
+            'timestamp', 'requestSignature', 'createdAt'
+          ]) &&
+          request.resource.data.date is string &&
+          request.resource.data.date.size() == 10 &&
+          request.resource.data.timestamp is string &&
+          request.resource.data.timestamp.size() > 0 &&
+          (request.resource.data.mealType == 'breakfast' ||
+           request.resource.data.mealType == 'lunch' ||
+           request.resource.data.mealType == 'dinner' ||
+           request.resource.data.mealType == 'snack') &&
+          (!request.resource.data.keys().hasAny(['recipeId']) ||
+            (request.resource.data.recipeId is string &&
+             request.resource.data.recipeId.size() > 0)) &&
+          (!request.resource.data.keys().hasAny(['manualName']) ||
+            (request.resource.data.manualName is string &&
+             request.resource.data.manualName.size() > 0));
+      }
+
       function validMealNutrition() {
         let status = request.resource.data.nutritionDataStatus;
         let hasNutrition = request.resource.data.keys().hasAny([
@@ -94,6 +120,7 @@ service cloud.firestore {
         request.resource.data.requestSignature is string &&
         request.resource.data.requestSignature.size() > 0 &&
         request.resource.data.createdAt is timestamp &&
+        validMealIdentity() &&
         validMealNutrition();
       allow update, delete: if false;
     }
