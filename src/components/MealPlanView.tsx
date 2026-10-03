@@ -37,7 +37,7 @@ interface MealPlanViewProps {
   onGenerateAiWeekPlan?: () => void;
   onAdaptToPantry?: () => void;
   isGeneratingPlan?: boolean;
-  onAddItemsToShoppingList?: (items: Array<Omit<ShoppingItem, "id" | "checked">>) => void;
+  onAddItemsToShoppingList?: (items: Array<Omit<ShoppingItem, "id" | "checked">>) => boolean | Promise<boolean>;
 }
 
 export const MealPlanView: React.FC<MealPlanViewProps> = ({
@@ -60,7 +60,26 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [logTipVisible, setLogTipVisible] = useState(false);
+  const [isAddingMissingToShopping, setIsAddingMissingToShopping] = useState(false);
+  const [missingShoppingAddError, setMissingShoppingAddError] = useState(false);
   const { sync: syncToCalendar, isSyncing: isCalendarSyncing } = useGoogleCalendarSync();
+
+  const handleAddMissingToShopping = async () => {
+    if (!onAddItemsToShoppingList || isAddingMissingToShopping) return;
+    setMissingShoppingAddError(false);
+    setIsAddingMissingToShopping(true);
+    try {
+      const saved = await Promise.resolve(
+        onAddItemsToShoppingList(shoppingDiagnostic.itemsToAddToShoppingList)
+      );
+      if (!saved) setMissingShoppingAddError(true);
+    } catch (error) {
+      console.error("Meal-plan shopping add failed:", error);
+      setMissingShoppingAddError(true);
+    } finally {
+      setIsAddingMissingToShopping(false);
+    }
+  };
 
   const selectedDateStr = selectedDate.toISOString().split("T")[0];
   const dailyLogs = mealLogs.filter((log) => log.date === selectedDateStr);
@@ -281,7 +300,8 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => onAddItemsToShoppingList(shoppingDiagnostic.itemsToAddToShoppingList)}
+            onClick={handleAddMissingToShopping}
+            disabled={isAddingMissingToShopping}
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 cursor-pointer"
           >
             <ShoppingBag className="w-4 h-4" />
@@ -291,6 +311,15 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
                 : "Add missing to shopping list"}
             </span>
           </button>
+          {missingShoppingAddError && (
+            <p role="alert" className="text-xs text-red-300">
+              {language === "bg"
+                ? "Не беше запазено. Опитайте отново."
+                : language === "es"
+                ? "No se ha guardado. Inténtalo de nuevo."
+                : "Not saved. Try again."}
+            </p>
+          )}
         </div>
       )}
 
