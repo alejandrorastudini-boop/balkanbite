@@ -90,7 +90,14 @@ try {
   // Legacy unversioned stock may be migrated on its first explicit adjustment.
   await environment.withSecurityRulesDisabled(async context => {
     await setDoc(lot(context.firestore(), "alice", "unversioned"), {
-      id: "unversioned", userId: "alice", quantity: 0.5, unit: "kg",
+      id: "unversioned",
+      userId: "alice",
+      name: "Legacy unversioned stock",
+      quantity: 0.5,
+      unit: "kg",
+      category: "Pantry/Grains",
+      addedAt: "2026-09-24",
+      _deleted: false,
     });
   });
   const migrate = await persistVerifiedInventoryAdjustment(
@@ -113,7 +120,14 @@ try {
   // The same API cannot be used to mutate another account's inventory.
   await environment.withSecurityRulesDisabled(async context => {
     await setDoc(lot(context.firestore(), "bob", "private"), {
-      id: "private", userId: "bob", quantity: 5, unit: "pcs",
+      id: "private",
+      userId: "bob",
+      name: "Legacy private stock",
+      quantity: 5,
+      unit: "pcs",
+      category: "Other",
+      addedAt: "2026-09-24",
+      _deleted: false,
     });
   });
   await assertFails(persistVerifiedInventoryAdjustment(
