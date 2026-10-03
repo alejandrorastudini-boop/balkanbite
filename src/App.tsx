@@ -161,6 +161,9 @@ export default function App() {
     submitPurchasePantryApplication,
     submitInventoryClear,
     submitConfirmedCook,
+    submitShoppingItemCreate,
+    submitShoppingItemReplace,
+    submitShoppingItemRemove,
   } = useFirebaseSync(
     profile,
     setProfile,
@@ -1456,23 +1459,39 @@ export default function App() {
   };
 
   const handleToggleShoppingItem = (id: string) => {
-    setShoppingList((prev) =>
-      prev.map((item) => {
-        if (item.id !== id) return item;
-        const checked = !item.checked;
-        return {
-          ...item,
-          checked,
-          // Checking is the explicit human confirmation that the exact
-          // quantity/unit displayed on the row was actually purchased.
-          purchaseAmountConfirmed: checked,
-        };
-      })
-    );
+    const expected = shoppingList.find(item => item.id === id);
+    if (!expected) return;
+    const checked = !expected.checked;
+    const next = {
+      ...expected,
+      checked,
+      // Checking is the explicit human confirmation that the exact
+      // quantity/unit displayed on the row was actually purchased.
+      purchaseAmountConfirmed: checked,
+    };
+    if (!currentUser) {
+      setShoppingList(prev => prev.map(item => item.id === id ? next : item));
+      return;
+    }
+    void submitShoppingItemReplace(expected, next).then(result => {
+      if (result.outcome === "needs-review") {
+        console.warn("Shopping toggle needs review:", result.reason);
+      }
+    }).catch(error => console.error("Shopping toggle failed:", error));
   };
 
   const handleDeleteShoppingItem = (id: string) => {
-    setShoppingList((prev) => prev.filter((i) => i.id !== id));
+    const expected = shoppingList.find(item => item.id === id);
+    if (!expected) return;
+    if (!currentUser) {
+      setShoppingList(prev => prev.filter(item => item.id !== id));
+      return;
+    }
+    void submitShoppingItemRemove(expected).then(result => {
+      if (result.outcome === "needs-review") {
+        console.warn("Shopping delete needs review:", result.reason);
+      }
+    }).catch(error => console.error("Shopping delete failed:", error));
   };
 
   const handleAddShoppingItem = (item: Omit<ShoppingItem, "id" | "checked">) => {
@@ -1495,7 +1514,15 @@ export default function App() {
       amountOrigin: "user_entered",
       purchaseAmountConfirmed: false,
     };
-    setShoppingList((prev) => [...prev, newItem]);
+    if (!currentUser) {
+      setShoppingList(prev => [...prev, newItem]);
+      return;
+    }
+    void submitShoppingItemCreate(newItem).then(result => {
+      if (result.outcome === "needs-review") {
+        console.warn("Shopping item creation needs review:", result.reason);
+      }
+    }).catch(error => console.error("Shopping item creation failed:", error));
   };
 
   const handleTransferToPantry = async () => {
