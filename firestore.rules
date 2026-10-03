@@ -20,13 +20,494 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      function validHealthStatus(status) {
+        return status == 'known' || status == 'unknown' ||
+          status == 'not_applicable' || status == 'prefer_not_to_say';
+      }
+
+      function validHealthSource(source) {
+        return source == null || source == 'self_reported' ||
+          source == 'measured' || source == 'imported' ||
+          source == 'estimated';
+      }
+
+      function validNumericHealthDatum(datum) {
+        return datum == null || (
+          datum.keys().hasOnly(['status', 'value', 'source', 'recordedAt']) &&
+          datum.keys().hasAll(['status', 'value', 'source', 'recordedAt']) &&
+          validHealthStatus(datum.status) &&
+          validHealthSource(datum.source) &&
+          (datum.recordedAt == null || datum.recordedAt is string) &&
+          ((datum.status == 'known' && datum.value is number && datum.value > 0) ||
+           (datum.status != 'known' && datum.value == null))
+        );
+      }
+
+      function validCategoricalHealthDatum(datum, kind) {
+        return datum == null || (
+          datum.keys().hasOnly(['status', 'value', 'source', 'recordedAt']) &&
+          datum.keys().hasAll(['status', 'value', 'source', 'recordedAt']) &&
+          validHealthStatus(datum.status) &&
+          validHealthSource(datum.source) &&
+          (datum.recordedAt == null || datum.recordedAt is string) &&
+          (
+            (datum.status != 'known' && datum.value == null) ||
+            (datum.status == 'known' && (
+              (kind == 'sex' && (datum.value == 'female' || datum.value == 'male')) ||
+              (kind == 'activity' && (
+                datum.value == 'low_active' ||
+                datum.value == 'moderately_active' ||
+                datum.value == 'active' ||
+                datum.value == 'very_active'
+              )) ||
+              (kind == 'pregnancy' && (
+                datum.value == 'not_pregnant_or_lactating' ||
+                datum.value == 'pregnant_or_lactating'
+              ))
+            ))
+          )
+        );
+      }
+
+      function validHealthProfile(profile) {
+        return profile == null || (
+          profile.keys().hasOnly([
+            'version', 'ageYears', 'heightCm', 'weightKg',
+            'physiologicalSex', 'activityCategory',
+            'pregnancyLactationStatus'
+          ]) &&
+          profile.keys().hasAll([
+            'version', 'ageYears', 'heightCm', 'weightKg',
+            'physiologicalSex', 'activityCategory',
+            'pregnancyLactationStatus'
+          ]) &&
+          profile.version == 1 &&
+          validNumericHealthDatum(profile.ageYears) &&
+          validNumericHealthDatum(profile.heightCm) &&
+          validNumericHealthDatum(profile.weightKg) &&
+          validCategoricalHealthDatum(profile.physiologicalSex, 'sex') &&
+          validCategoricalHealthDatum(profile.activityCategory, 'activity') &&
+          validCategoricalHealthDatum(profile.pregnancyLactationStatus, 'pregnancy')
+        );
+      }
+
+      function validCanonicalProfile() {
+        return request.resource.data.keys().hasOnly([
+            'name', 'language', 'currency', 'cookingSpeed', 'healthGoal',
+            'dietStyle', 'disliked', 'allergies', 'householdSize',
+            'cookingLevel', 'appliances', 'monthlyBudgetEUR', 'healthProfile',
+            'heightCm', 'weightKg', 'budgetTier', 'isProSubscriber',
+            'onboardingCompleted', 'userId', 'profileRevision',
+            'createdAt', 'updatedAt'
+          ]) &&
+          request.resource.data.keys().hasAll([
+            'name', 'language', 'currency', 'cookingSpeed', 'healthGoal',
+            'dietStyle', 'disliked', 'allergies', 'householdSize',
+            'cookingLevel', 'appliances', 'monthlyBudgetEUR', 'healthProfile',
+            'heightCm', 'weightKg', 'budgetTier', 'isProSubscriber',
+            'onboardingCompleted', 'userId', 'profileRevision', 'updatedAt'
+          ]) &&
+          request.resource.data.name is string &&
+          (request.resource.data.language == 'es' ||
+           request.resource.data.language == 'en' ||
+           request.resource.data.language == 'bg') &&
+          (request.resource.data.currency == 'EUR' ||
+           request.resource.data.currency == 'USD') &&
+          (request.resource.data.cookingSpeed == null ||
+           request.resource.data.cookingSpeed == 'fast' ||
+           request.resource.data.cookingSpeed == 'moderate' ||
+           request.resource.data.cookingSpeed == 'elaborate') &&
+          (request.resource.data.healthGoal == null ||
+           request.resource.data.healthGoal == 'balanced' ||
+           request.resource.data.healthGoal == 'muscle' ||
+           request.resource.data.healthGoal == 'fat_loss' ||
+           request.resource.data.healthGoal == 'heart') &&
+          (request.resource.data.dietStyle == null ||
+           request.resource.data.dietStyle == 'all' ||
+           request.resource.data.dietStyle == 'mediterranean' ||
+           request.resource.data.dietStyle == 'vegetarian' ||
+           request.resource.data.dietStyle == 'vegan' ||
+           request.resource.data.dietStyle == 'keto' ||
+           request.resource.data.dietStyle == 'gluten_free') &&
+          request.resource.data.disliked is list &&
+          (request.resource.data.allergies == null ||
+           request.resource.data.allergies is list) &&
+          (request.resource.data.householdSize == null ||
+           (request.resource.data.householdSize is int &&
+            request.resource.data.householdSize > 0)) &&
+          (request.resource.data.cookingLevel == null ||
+           request.resource.data.cookingLevel == 'beginner' ||
+           request.resource.data.cookingLevel == 'intermediate' ||
+           request.resource.data.cookingLevel == 'chef') &&
+          (request.resource.data.appliances == null ||
+           request.resource.data.appliances is list) &&
+          (request.resource.data.monthlyBudgetEUR == null ||
+           (request.resource.data.monthlyBudgetEUR is number &&
+            request.resource.data.monthlyBudgetEUR >= 0)) &&
+          (request.resource.data.budgetTier == null ||
+           request.resource.data.budgetTier == 'strict_budget' ||
+           request.resource.data.budgetTier == 'balanced' ||
+           request.resource.data.budgetTier == 'flexible') &&
+          request.resource.data.onboardingCompleted is bool &&
+          request.resource.data.heightCm == null &&
+          request.resource.data.weightKg == null &&
+          request.resource.data.isProSubscriber == null &&
+          request.resource.data.updatedAt is timestamp &&
+          validHealthProfile(request.resource.data.healthProfile);
+      }
+
+      function validProfileRevisionCreate() {
+        return request.resource.data.profileRevision is int &&
+          request.resource.data.profileRevision == 0 &&
+          request.resource.data.userId == request.auth.uid;
+      }
+
+      function validProfileRevisionUpdate() {
+        return resource.data.get('userId', request.auth.uid) == request.auth.uid &&
+          request.resource.data.userId == request.auth.uid &&
+          resource.data.get('profileRevision', 0) is int &&
+          request.resource.data.profileRevision is int &&
+          request.resource.data.profileRevision ==
+            resource.data.get('profileRevision', 0) + 1;
+      }
+
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        validCanonicalProfile() &&
+        validProfileRevisionCreate();
+      allow update: if isOwner(userId) &&
+        validCanonicalProfile() &&
+        validProfileRevisionUpdate();
+      allow delete: if false;
+    }
+
+    // Progression is append-only evidence derived from confirmed deterministic
+    // state transitions. It stores no food, nutrition, health or monetary data.
+    match /users/{userId}/progressionEvents/{eventId} {
+      function validProgressionEvent() {
+        return request.resource.data.keys().hasOnly([
+            'version', 'eventId', 'type', 'occurredAt', 'evidence',
+            'evidenceCount', 'userId', 'requestSignature', 'createdAt'
+          ]) &&
+          request.resource.data.keys().hasAll([
+            'version', 'eventId', 'type', 'occurredAt', 'evidence',
+            'evidenceCount', 'userId', 'requestSignature', 'createdAt'
+          ]) &&
+          request.resource.data.version == 1 &&
+          request.resource.data.eventId == eventId &&
+          (request.resource.data.type == 'confirmed_purchase_applied' ||
+           request.resource.data.type == 'recipe_cook_inventory_applied') &&
+          request.resource.data.evidence == 'deterministic_state_transition' &&
+          request.resource.data.evidenceCount is int &&
+          request.resource.data.evidenceCount > 0 &&
+          request.resource.data.occurredAt is string &&
+          request.resource.data.occurredAt.size() > 0 &&
+          request.resource.data.requestSignature is string &&
+          request.resource.data.requestSignature.size() > 0 &&
+          request.resource.data.createdAt is timestamp;
+      }
+
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        request.resource.data.userId == request.auth.uid &&
+        validProgressionEvent();
+      allow update, delete: if false;
+    }
+
+    // Meal history is append-only and owner-scoped. Nutrition values are
+    // accepted only when the canonical client marks the row verified; unknown
+    // or estimated meals cannot carry numeric nutrition fields.
+    match /users/{userId}/mealLogs/{mealId} {
+      function validMealIdentity() {
+        return request.resource.data.keys().hasOnly([
+            'userId', 'id', 'date', 'mealType', 'recipeId', 'manualName',
+            'nutritionDataStatus', 'calories', 'proteinG', 'carbsG', 'fatG',
+            'timestamp', 'requestSignature', 'createdAt'
+          ]) &&
+          request.resource.data.keys().hasAll([
+            'userId', 'id', 'date', 'mealType', 'nutritionDataStatus',
+            'timestamp', 'requestSignature', 'createdAt'
+          ]) &&
+          request.resource.data.date is string &&
+          request.resource.data.date.size() == 10 &&
+          request.resource.data.timestamp is string &&
+          request.resource.data.timestamp.size() > 0 &&
+          (request.resource.data.mealType == 'breakfast' ||
+           request.resource.data.mealType == 'lunch' ||
+           request.resource.data.mealType == 'dinner' ||
+           request.resource.data.mealType == 'snack') &&
+          (!request.resource.data.keys().hasAny(['recipeId']) ||
+            (request.resource.data.recipeId is string &&
+             request.resource.data.recipeId.size() > 0)) &&
+          (!request.resource.data.keys().hasAny(['manualName']) ||
+            (request.resource.data.manualName is string &&
+             request.resource.data.manualName.size() > 0));
+      }
+
+      function validMealNutrition() {
+        let status = request.resource.data.nutritionDataStatus;
+        let hasNutrition = request.resource.data.keys().hasAny([
+          'calories', 'proteinG', 'carbsG', 'fatG'
+        ]);
+        return (status == 'verified' &&
+          request.resource.data.calories is number &&
+          request.resource.data.calories >= 0 &&
+          request.resource.data.proteinG is number &&
+          request.resource.data.proteinG >= 0 &&
+          request.resource.data.carbsG is number &&
+          request.resource.data.carbsG >= 0 &&
+          request.resource.data.fatG is number &&
+          request.resource.data.fatG >= 0) ||
+          ((status == 'unknown' || status == 'estimated') && !hasNutrition);
+      }
+
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.id == mealId &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.createdAt is timestamp &&
+        validMealIdentity() &&
+        validMealNutrition();
+      allow update, delete: if false;
+    }
+
+    // Unversioned inventory remains compatible with the current client.
+    // After a cook transaction first versions a lot, stale snapshot/batch
+    // writes may not overwrite it without advancing the observed revision.
+    // Direct deletion of versioned lots is blocked: use a versioned tombstone.
+    function validStockRevisionTransition() {
+      let oldRevision = resource.data.get('cookRevision', 0);
+      let newRevision = request.resource.data.get('cookRevision', 0);
+      return oldRevision is int && oldRevision >= 0 &&
+        newRevision is int &&
+        ((oldRevision == 0 && newRevision == 0) ||
+         newRevision == oldRevision + 1);
+    }
+
+    function validInventoryCore(itemId) {
+      return request.resource.data.id is string &&
+        request.resource.data.id.size() > 0 &&
+        itemId == 'u_' + request.auth.uid + '__' +
+          request.resource.data.id.replace(':', '%3A') &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.quantity is number &&
+        request.resource.data.quantity >= 0 &&
+        request.resource.data.unit is string &&
+        request.resource.data.unit.size() > 0 &&
+        (request.resource.data.category == 'Produce' ||
+         request.resource.data.category == 'Dairy' ||
+         request.resource.data.category == 'Meat/Fish' ||
+         request.resource.data.category == 'Pantry/Grains' ||
+         request.resource.data.category == 'Spices' ||
+         request.resource.data.category == 'Other') &&
+        request.resource.data.addedAt is string &&
+        request.resource.data.addedAt.size() > 0 &&
+        request.resource.data.get('_deleted', false) is bool &&
+        ((request.resource.data.get('_deleted', false) == true &&
+          request.resource.data.quantity == 0) ||
+         (request.resource.data.get('_deleted', false) == false &&
+          request.resource.data.quantity > 0)) &&
+        (request.resource.data.get('estimatedCostEUR', null) == null ||
+          (request.resource.data.estimatedCostEUR is number &&
+           request.resource.data.estimatedCostEUR >= 0)) &&
+        (!request.resource.data.keys().hasAny(['expiryDaysLeft']) ||
+          (request.resource.data.expiryDaysLeft is number &&
+           request.resource.data.expiryDaysLeft >= 0)) &&
+        (!request.resource.data.keys().hasAny(['nameBg']) ||
+          request.resource.data.nameBg is string) &&
+        (!request.resource.data.keys().hasAny(['nameEs']) ||
+          request.resource.data.nameEs is string) &&
+        (!request.resource.data.keys().hasAny(['expiryIsPartial']) ||
+          request.resource.data.expiryIsPartial is bool) &&
+        (!request.resource.data.keys().hasAny(['purchaseHistory']) ||
+          request.resource.data.purchaseHistory is list);
     }
 
     match /inventory/{itemId} {
-      allow create: if ownsIncomingDocument() && ownsDocumentNamespace(itemId);
-      allow read, delete: if ownsExistingDocument();
-      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow create: if ownsIncomingDocument() &&
+        validInventoryCore(itemId) &&
+        ownsDocumentNamespace(itemId) &&
+        request.resource.data.get('cookRevision', 0) is int &&
+        request.resource.data.get('cookRevision', 0) >= 0 &&
+        request.resource.data.get('cookRevision', 0) <= 1;
+      // Creation transactions must be able to prove that an owner-scoped ID
+      // is still absent. Never reveal another account's existing or missing IDs.
+      allow get: if ownsDocumentNamespace(itemId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow delete: if ownsExistingDocument() &&
+        resource.data.get('cookRevision', 0) == 0;
+      allow update: if ownsExistingDocument() && ownsIncomingDocument() &&
+        validInventoryCore(itemId) &&
+        validStockRevisionTransition();
+    }
+
+    // Candidate immutable, owner-scoped journal. This path does not itself
+    // prove that inventory was deducted: the eventual writer must transact
+    // the journal creation and stock updates against current remote state.
+    match /cookConfirmations/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'cookConfirmationId', 'mealId', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'cookConfirmationId', 'mealId', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.cookConfirmationId is string &&
+        request.resource.data.cookConfirmationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.cookConfirmationId &&
+        request.resource.data.mealId is string &&
+        request.resource.data.mealId.size() > 0 &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.deductions is list &&
+        request.resource.data.deductions.size() > 0 &&
+        request.resource.data.createdAt is timestamp;
+      // A first cook must be able to check that its own journal ID is absent.
+      // Never reveal another account's existing or missing journal entries.
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update, delete: if false;
+    }
+
+    // Immutable owner-scoped inventory consumption journal. It records the
+    // exact reviewed voice allocation used by the atomic stock transaction.
+    // As with cookConfirmations, existence alone is not proof of stock change;
+    // only the tested transaction joins journal creation to inventory updates.
+    match /inventoryConsumptions/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.mutationId is string &&
+        request.resource.data.mutationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.mutationId &&
+        request.resource.data.source == 'voice' &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.deductions is list &&
+        request.resource.data.deductions.size() > 0 &&
+        request.resource.data.createdAt is timestamp;
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update, delete: if false;
+    }
+
+    // Immutable owner-scoped journal for deterministic purchase -> pantry
+    // applications. The tested transaction joins this record to only the
+    // affected inventory documents; unrelated stock is never rewritten.
+    match /purchaseApplications/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'acceptedSourceIds', 'newlyAppliedSourceIds',
+          'expectedChanges', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'acceptedSourceIds', 'newlyAppliedSourceIds',
+          'expectedChanges', 'createdAt'
+        ]) &&
+        request.resource.data.mutationId is string &&
+        request.resource.data.mutationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.mutationId &&
+        request.resource.data.source == 'purchase' &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.acceptedSourceIds is list &&
+        request.resource.data.newlyAppliedSourceIds is list &&
+        request.resource.data.newlyAppliedSourceIds.size() > 0 &&
+        request.resource.data.expectedChanges is list &&
+        request.resource.data.expectedChanges.size() > 0 &&
+        request.resource.data.createdAt is timestamp;
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update, delete: if false;
+    }
+
+    // Immutable owner-scoped journal for an all-or-nothing pantry Clear-All.
+    // The client transaction creates this record together with revision-aware
+    // tombstones for the exact reviewed server-confirmed baseline.
+    match /inventoryClearApplications/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'mutationId', 'requestSignature', 'clearedIds', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'mutationId', 'requestSignature', 'clearedIds', 'createdAt'
+        ]) &&
+        request.resource.data.mutationId is string &&
+        request.resource.data.mutationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.mutationId &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.clearedIds is list &&
+        request.resource.data.clearedIds.size() > 0 &&
+        request.resource.data.clearedIds.size() <= 200 &&
+        request.resource.data.createdAt is timestamp;
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update, delete: if false;
+    }
+
+    // Per-owner revision fence for whole-collection recipe/meal-plan
+    // replacements. Every current client command reads this document before
+    // replacing derived state, preventing disjoint concurrent creates from
+    // both masquerading as exact replacements.
+    match /derivedCollectionAuthorities/{authorityId} {
+      function validDerivedAuthority() {
+        return request.resource.data.keys().hasOnly([
+            'userId', 'collectionName', 'revision', 'updatedAt'
+          ]) &&
+          request.resource.data.keys().hasAll([
+            'userId', 'collectionName', 'revision', 'updatedAt'
+          ]) &&
+          (request.resource.data.collectionName == 'recipes' ||
+           request.resource.data.collectionName == 'mealPlans') &&
+          request.resource.data.revision is int &&
+          request.resource.data.revision >= 0 &&
+          request.resource.data.updatedAt is timestamp;
+      }
+
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(authorityId) &&
+        validDerivedAuthority() &&
+        authorityId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.collectionName &&
+        request.resource.data.revision == 0;
+      allow get: if ownsDocumentNamespace(authorityId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update: if ownsExistingDocument() &&
+        ownsIncomingDocument() &&
+        validDerivedAuthority() &&
+        authorityId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.collectionName &&
+        request.resource.data.collectionName == resource.data.collectionName &&
+        request.resource.data.revision == resource.data.revision + 1;
+      allow delete: if false;
     }
 
     match /recipes/{recipeId} {
@@ -43,7 +524,12 @@ service cloud.firestore {
 
     match /shoppingList/{itemId} {
       allow create: if ownsIncomingDocument() && ownsDocumentNamespace(itemId);
-      allow read, delete: if ownsExistingDocument();
+      // Owner-scoped absent-ID lookup is required for transaction-safe create.
+      // It never exposes another account's namespace.
+      allow get: if ownsDocumentNamespace(itemId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow delete: if ownsExistingDocument();
       allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
   }
