@@ -411,12 +411,13 @@ test("guest workspace storage is not overwritten by a signed-in account", () => 
   );
   assert.match(
     appSource,
-    /getUserLocalWorkspaceKey\([\s\S]*"balkanbite_meallogs"[\s\S]*currentUser\.uid/
+    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest"\) return;[\s\S]*localStorage\.setItem\("balkanbite_meallogs"/
   );
   assert.match(
     appSource,
-    /getUserLocalWorkspaceKey\([\s\S]*"balkanbite_chat_messages"[\s\S]*currentUser\.uid/
+    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest"\) return;[\s\S]*"balkanbite_chat_messages"/
   );
+  assert.doesNotMatch(appSource, /getUserLocalWorkspaceKey/);
 });
 
 
