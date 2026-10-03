@@ -741,6 +741,7 @@ export default function App() {
     preview: PurchaseMergeResult,
     occurredAt: string,
     acquiredAt: string,
+    shoppingBaseline: ShoppingItem[] = [],
   ): Promise<"accepted" | "retry-pending" | "rejected"> => {
     const uid = currentUser?.uid;
     const mutationId = buildPurchaseMutationId(purchases);
@@ -778,6 +779,7 @@ export default function App() {
       const persisted = await submitPurchasePantryApplication(
         purchases,
         acquiredAt,
+        shoppingBaseline,
       );
 
       if (persisted.outcome === "needs-review") {
@@ -1597,6 +1599,9 @@ export default function App() {
           preview,
           occurredAt,
           acquiredAt,
+          checkedItems.filter(item =>
+            acceptedPreviewSources.has(`shopping:${item.id}`)
+          ),
         );
       }
     }
