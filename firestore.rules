@@ -255,6 +255,40 @@ service cloud.firestore {
       allow update, delete: if false;
     }
 
+    // Per-owner revision fence for whole-collection recipe/meal-plan
+    // replacements. Every current client command reads this document before
+    // replacing derived state, preventing disjoint concurrent creates from
+    // both masquerading as exact replacements.
+    match /derivedCollectionAuthorities/{authorityId} {
+      function validDerivedAuthority() {
+        return request.resource.data.keys().hasOnly([
+            'userId', 'collectionName', 'revision', 'updatedAt'
+          ]) &&
+          request.resource.data.keys().hasAll([
+            'userId', 'collectionName', 'revision', 'updatedAt'
+          ]) &&
+          (request.resource.data.collectionName == 'recipes' ||
+           request.resource.data.collectionName == 'mealPlans') &&
+          request.resource.data.revision is int &&
+          request.resource.data.revision >= 0 &&
+          request.resource.data.updatedAt is timestamp;
+      }
+
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(authorityId) &&
+        validDerivedAuthority() &&
+        request.resource.data.revision == 0;
+      allow get: if ownsDocumentNamespace(authorityId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update: if ownsExistingDocument() &&
+        ownsIncomingDocument() &&
+        validDerivedAuthority() &&
+        request.resource.data.collectionName == resource.data.collectionName &&
+        request.resource.data.revision == resource.data.revision + 1;
+      allow delete: if false;
+    }
+
     match /recipes/{recipeId} {
       allow create: if ownsIncomingDocument() && ownsDocumentNamespace(recipeId);
       allow read, delete: if ownsExistingDocument();
