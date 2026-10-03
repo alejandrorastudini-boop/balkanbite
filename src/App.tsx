@@ -1552,9 +1552,9 @@ export default function App() {
     }
   };
 
-  const handleToggleShoppingItem = (id: string) => {
+  const handleToggleShoppingItem = async (id: string): Promise<boolean> => {
     const expected = shoppingList.find(item => item.id === id);
-    if (!expected) return;
+    if (!expected) return false;
     const checked = !expected.checked;
     const next = {
       ...expected,
@@ -1565,27 +1565,39 @@ export default function App() {
     };
     if (!currentUser) {
       setShoppingList(prev => prev.map(item => item.id === id ? next : item));
-      return;
+      return true;
     }
-    void submitShoppingItemReplace(expected, next).then(result => {
+    try {
+      const result = await submitShoppingItemReplace(expected, next);
       if (result.outcome === "needs-review") {
         console.warn("Shopping toggle needs review:", result.reason);
+        return false;
       }
-    }).catch(error => console.error("Shopping toggle failed:", error));
+      return true;
+    } catch (error) {
+      console.error("Shopping toggle failed:", error);
+      return false;
+    }
   };
 
-  const handleDeleteShoppingItem = (id: string) => {
+  const handleDeleteShoppingItem = async (id: string): Promise<boolean> => {
     const expected = shoppingList.find(item => item.id === id);
-    if (!expected) return;
+    if (!expected) return false;
     if (!currentUser) {
       setShoppingList(prev => prev.filter(item => item.id !== id));
-      return;
+      return true;
     }
-    void submitShoppingItemRemove(expected).then(result => {
+    try {
+      const result = await submitShoppingItemRemove(expected);
       if (result.outcome === "needs-review") {
         console.warn("Shopping delete needs review:", result.reason);
+        return false;
       }
-    }).catch(error => console.error("Shopping delete failed:", error));
+      return true;
+    } catch (error) {
+      console.error("Shopping delete failed:", error);
+      return false;
+    }
   };
 
   const handleAddShoppingItem = async (
