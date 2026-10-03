@@ -602,7 +602,7 @@ export default function App() {
     setShowShoppingAdvisorModal(true);
   };
 
-  const reconcilePantryDerivedState = (
+  const reconcileGuestPantryDerivedState = (
     updatedPantry: PantryItem[],
     showToast = true,
   ) => {
@@ -617,27 +617,6 @@ export default function App() {
     );
     setMealPlan(newPlan);
 
-    if (showToast) {
-      setAutoMenuToast({
-        isVisible: true,
-        readyMealsCount: readyToCookMealsCount,
-      });
-    }
-  };
-
-  // A committed deduction should update availability flags in the existing
-  // recipe/meal plan without aggressively replacing the user's planned meals.
-  const reconcileCommittedPantryAvailability = (
-    updatedPantry: PantryItem[],
-    showToast = true,
-  ) => {
-    const syncedRecipes = syncRecipesWithPantry(recipes, updatedPantry);
-    setRecipes(syncedRecipes);
-    const { newPlan, readyToCookMealsCount } = syncMealPlanWithPantry(
-      mealPlan,
-      updatedPantry,
-    );
-    setMealPlan(newPlan);
     if (showToast) {
       setAutoMenuToast({
         isVisible: true,
@@ -695,7 +674,7 @@ export default function App() {
 
     setPantry((prevPantry) => {
       const updatedPantry = [...newPantryItemsToAdd, ...prevPantry];
-      reconcilePantryDerivedState(updatedPantry, showToast);
+      reconcileGuestPantryDerivedState(updatedPantry, showToast);
       return updatedPantry;
     });
     return true;
@@ -1645,7 +1624,7 @@ export default function App() {
     if (preview.acceptedSourceIds.length > 0) {
       if (!currentUser) {
         setPantry(preview.pantry);
-        reconcilePantryDerivedState(preview.pantry, true);
+        reconcileGuestPantryDerivedState(preview.pantry, true);
         setShoppingList(preview.shoppingList);
         appendLocalProgressionEvents(
           buildPurchaseProgressEvents({
@@ -1818,7 +1797,7 @@ export default function App() {
 
     if (!currentUser) {
       setPantry(preview.pantry);
-      reconcilePantryDerivedState(preview.pantry, true);
+      reconcileGuestPantryDerivedState(preview.pantry, true);
       setShoppingList(preview.shoppingList);
       appendLocalProgressionEvents(
         buildPurchaseProgressEvents({
