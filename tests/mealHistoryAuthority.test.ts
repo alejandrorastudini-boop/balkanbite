@@ -10,6 +10,8 @@ const server = readFileSync(new URL("../server.ts", import.meta.url), "utf8");
 test("signed-in meal history uses listener-owned cloud authority", () => {
   assert.match(hook, /subscribeMealLogs/);
   assert.match(hook, /appendMealLogAtomically/);
+  assert.match(hook, /mealLogsHydratedUser !== uid/);
+  assert.match(hook, /reason: "unverified-authority"/);
   assert.match(app, /await submitMealLog\(newLog\)/);
   assert.match(app, /Never promote a device-local meal cache into authenticated authority/);
   assert.doesNotMatch(app, /getUserLocalWorkspaceKey\([\s\S]{0,80}"balkanbite_meallogs"/);
