@@ -36,7 +36,7 @@ interface ShoppingViewProps {
   onAddItem: (item: Omit<ShoppingItem, "id" | "checked">) => void;
   onTransferToPantry: () => void;
   onGenerateAiShopping: () => Promise<void>;
-  onClearList?: () => void;
+  onClearList?: () => void | boolean | Promise<void | boolean>;
   onReconcileShopping?: (result: {
     purchasedItemIds: string[];
     itemsToAddToPantry: RawReconciliationExtraItem[];
@@ -596,7 +596,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
       <ConfirmModal
         isOpen={showClearConfirm}
         onClose={() => setShowClearConfirm(false)}
-        onConfirm={() => onClearList?.()}
+        onConfirm={async () => (await onClearList?.()) !== false}
         title={
           language === "bg"
             ? "Изчистване на списъка?"
