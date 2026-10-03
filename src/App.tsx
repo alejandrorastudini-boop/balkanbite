@@ -529,20 +529,8 @@ export default function App() {
   }, [mealPlan, currentUser, workspaceScope, isResetting]);
 
   useEffect(() => {
-    if (isResetting) return;
+    if (isResetting || currentUser || workspaceScope !== "guest") return;
     try {
-      if (currentUser) {
-        if (workspaceScope !== currentUser.uid) return;
-        localStorage.setItem(
-          getUserLocalWorkspaceKey(
-            "balkanbite_meallogs",
-            currentUser.uid
-          ),
-          JSON.stringify(mealLogs)
-        );
-        return;
-      }
-      if (workspaceScope !== "guest") return;
       localStorage.setItem("balkanbite_meallogs", JSON.stringify(mealLogs));
     } catch (e) {
       console.warn("localStorage write error", e);
