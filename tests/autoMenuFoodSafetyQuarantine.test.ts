@@ -9,6 +9,7 @@ test("unresolved food-safety quarantine cannot automatically replace planned mea
   const end = app.indexOf("const requireFoodRecommendationSafetyReview", start);
   assert.ok(start >= 0 && end > start);
   const helper = app.slice(start, end);
+  assert.match(helper, /currentUser && !profileHydrated/);
   assert.match(helper, /foodSafetyQuarantine\.status !== "clear"/);
   assert.match(helper, /return syncMealPlanWithPantry\(existingPlan, updatedPantry\)/);
   assert.match(helper, /return adaptMealPlanToPantry/);
@@ -27,4 +28,13 @@ test("explicit adapt-menu action surfaces unresolved safety review instead of si
   assert.ok(start >= 0 && end > start);
   const handler = app.slice(start, end);
   assert.match(handler, /requireFoodRecommendationSafetyReview\(\)/);
+});
+
+test("signed-in food generation waits for authoritative profile hydration", () => {
+  const start = app.indexOf("const requireFoodRecommendationSafetyReview");
+  const end = app.indexOf("const [showLanding", start);
+  assert.ok(start >= 0 && end > start);
+  const gate = app.slice(start, end);
+  assert.match(gate, /if \(currentUser && !profileHydrated\)/);
+  assert.match(gate, /return false/);
 });
