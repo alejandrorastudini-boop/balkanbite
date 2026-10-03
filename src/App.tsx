@@ -161,6 +161,7 @@ export default function App() {
     submitPurchasePantryApplication,
     submitInventoryClear,
     submitConfirmedCook,
+    submitMealLog,
     submitProfileReplace,
     submitRecipesReplace,
     submitMealPlanReplace,
@@ -179,7 +180,8 @@ export default function App() {
     mealPlan,
     setMealPlan,
     shoppingList,
-    setShoppingList
+    setShoppingList,
+    setMealLogs
   );
 
   const [pantryScope, setPantryScope] = useState<string>("guest");
@@ -1900,7 +1902,7 @@ export default function App() {
     return false;
   };
 
-  const handleLogMeal = (logData: any) => {
+  const handleLogMeal = async (logData: any) => {
     const now = new Date().toISOString();
     const newLog = buildVerifiedMealLog({
       ...logData,
@@ -1911,10 +1913,14 @@ export default function App() {
 
     if (!newLog) {
       console.warn("Meal log rejected because verified nutrition was incomplete or invalid.");
-      return;
+      return false;
     }
-
-    setMealLogs((prev) => [...prev, newLog]);
+    if (!currentUser) {
+      setMealLogs((prev) => [...prev, newLog]);
+      return true;
+    }
+    const result = await submitMealLog(newLog);
+    return result.outcome !== "needs-review";
   };
 
   const handleGenerateAiShopping = async () => {
