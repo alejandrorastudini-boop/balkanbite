@@ -35,6 +35,34 @@ try {
   await assertFails(setDoc(doc(bob, "users", "alice"), { userId: "bob", profileRevision: 0 }));
   await assertFails(setDoc(doc(bob, "users", "bob"), { userId: "bob" }));
 
+  const progressionRef = doc(alice, "users", "alice", "progressionEvents", "cook:action-1");
+  const progressionEvent = {
+    version: 1,
+    eventId: "cook:action-1",
+    type: "recipe_cook_inventory_applied",
+    occurredAt: "2026-10-03T12:00:00.000Z",
+    evidence: "deterministic_state_transition",
+    evidenceCount: 2,
+    userId: "alice",
+    requestSignature: "cook-action-1",
+    createdAt: new Date(),
+  };
+  await assertSucceeds(setDoc(progressionRef, progressionEvent));
+  await assertSucceeds(getDoc(progressionRef));
+  await assertFails(getDoc(doc(bob, "users", "alice", "progressionEvents", "cook:action-1")));
+  await assertFails(updateDoc(progressionRef, { evidenceCount: 3 }));
+  await assertFails(deleteDoc(progressionRef));
+  await assertFails(setDoc(doc(alice, "users", "alice", "progressionEvents", "bad"), {
+    ...progressionEvent,
+    eventId: "bad",
+    evidenceCount: 0,
+  }));
+  await assertFails(setDoc(doc(bob, "users", "alice", "progressionEvents", "bob-attack"), {
+    ...progressionEvent,
+    eventId: "bob-attack",
+    userId: "bob",
+  }));
+
   const mealRef = doc(alice, "users", "alice", "mealLogs", "meal-1");
   const verifiedMeal = {
     id: "meal-1",
