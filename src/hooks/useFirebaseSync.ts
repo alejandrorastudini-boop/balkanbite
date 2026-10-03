@@ -13,7 +13,7 @@ import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile, MealLog } f
 import { isLegacyDemoPantryItemId } from "../utils/legacyDemoPantryIds";
 import { getStartupCloudSyncState } from "../utils/startupCloudSync";
 import { findRemovedDocumentIds, getScopedDocumentId, getSyncedItemKey, selectCanonicalRemoteEntries } from "../utils/cloudCollectionSync";
-import { createSignedInProfileDefaults, sanitizeRemoteUserProfile, serializeUserProfileForFirestore } from "../utils/profileSyncBoundary";
+import { createSignedInProfileDefaults, sanitizeRemoteUserProfile } from "../utils/profileSyncBoundary";
 import { isStoredRecipeStructurallyValid } from "../utils/storedRecipeValidation";
 import { isStoredMealPlanDayStructurallyValid } from "../utils/storedMealPlanValidation";
 import { isStoredShoppingItemStructurallyValid } from "../utils/storedShoppingValidation";
