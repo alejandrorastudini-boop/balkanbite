@@ -33,7 +33,7 @@ interface ShoppingViewProps {
   shoppingList: ShoppingItem[];
   onToggleItem: (id: string) => void;
   onDeleteItem: (id: string) => void;
-  onAddItem: (item: Omit<ShoppingItem, "id" | "checked">) => void;
+  onAddItem: (item: Omit<ShoppingItem, "id" | "checked">) => boolean | Promise<boolean>;
   onTransferToPantry: () => void;
   onGenerateAiShopping: () => Promise<void>;
   onClearList?: () => void | boolean | Promise<void | boolean>;
@@ -71,6 +71,8 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
   const [quantity, setQuantity] = useState<string>("");
   const [unit, setUnit] = useState<string>("");
   const [estimatedCost, setEstimatedCost] = useState<string>("");
+  const [isSavingManualItem, setIsSavingManualItem] = useState(false);
+  const [manualItemSaveError, setManualItemSaveError] = useState<string | null>(null);
 
   const estimatedPricedItems = shoppingList.filter(
     (item) =>
@@ -110,36 +112,58 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
 
   const checkedCount = shoppingList.filter((i) => i.checked).length;
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingManualItem) return;
 
     const parsedQuantity = Number(quantity);
-    const candidate = {
-      name: newItemName,
-      quantity: parsedQuantity,
-      unit,
-    };
+    const candidate = { name: newItemName, quantity: parsedQuantity, unit };
     if (!hasValidManualShoppingRequiredFields(candidate)) return;
 
-    onAddItem({
-      name: newItemName.trim(),
-      quantity: parsedQuantity,
-      unit: unit.trim(),
-      // Manual shopping does not infer a food category from the item name.
-      // Blank remains unclassified until a later explicit/source-backed step.
-      category: "",
-      ...(estimatedCost.trim() !== "" &&
-      Number.isFinite(Number(estimatedCost)) &&
-      Number(estimatedCost) > 0
-        ? { estimatedPriceEUR: Number(estimatedCost) }
-        : {}),
-    });
+    setManualItemSaveError(null);
+    setIsSavingManualItem(true);
+    try {
+      const saved = await Promise.resolve(onAddItem({
+        name: newItemName.trim(),
+        quantity: parsedQuantity,
+        unit: unit.trim(),
+        // Manual shopping does not infer a food category from the item name.
+        category: "",
+        ...(estimatedCost.trim() !== "" &&
+        Number.isFinite(Number(estimatedCost)) &&
+        Number(estimatedCost) > 0
+          ? { estimatedPriceEUR: Number(estimatedCost) }
+          : {}),
+      }));
 
-    setNewItemName("");
-    setQuantity("");
-    setUnit("");
-    setEstimatedCost("");
-    setShowAddModal(false);
+      if (!saved) {
+        setManualItemSaveError(
+          language === "bg"
+            ? "Продуктът не беше запазен. Данните са запазени във формуляра — опитайте отново."
+            : language === "es"
+            ? "El producto no se ha guardado. Tus datos siguen en el formulario; inténtalo de nuevo."
+            : "The item was not saved. Your entries are still in the form; try again."
+        );
+        return;
+      }
+
+      setNewItemName("");
+      setQuantity("");
+      setUnit("");
+      setEstimatedCost("");
+      setShowAddModal(false);
+    } catch (error) {
+      console.error("Manual shopping item save failed:", error);
+      setManualItemSaveError(
+        language === "bg"
+          ? "Продуктът не беше запазен. Данните са запазени във формуляра — опитайте отново."
+          : language === "es"
+          ? "El producto no se ha guardado. Tus datos siguen en el formulario; inténtalo de nuevo."
+          : "The item was not saved. Your entries are still in the form; try again."
+      );
+    } finally {
+      setIsSavingManualItem(false);
+    }
   };
 
   const formatListAsText = () => {
@@ -480,6 +504,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
               </h2>
               <button
                 onClick={() => setShowAddModal(false)}
+                disabled={isSavingManualItem}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.04] text-stone-400 hover:bg-white/[0.08] hover:text-white transition-colors"
               >
                 ✕
@@ -565,10 +590,17 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                 />
               </div>
 
+              {manualItemSaveError && (
+                <p role="alert" className="text-sm text-red-300">
+                  {manualItemSaveError}
+                </p>
+              )}
+
               <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
+                  disabled={isSavingManualItem}
                   className="px-5 py-2.5 rounded-xl bg-white/[0.04] text-stone-300 text-sm font-bold hover:bg-white/[0.08] transition-colors"
                 >
                   {currentText.cancel}
@@ -577,6 +609,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                   id="manual-shopping-submit"
                   type="submit"
                   disabled={
+                    isSavingManualItem ||
                     !hasValidManualShoppingRequiredFields({
                       name: newItemName,
                       quantity: Number(quantity),
@@ -585,7 +618,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                   }
                   className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-stone-950 text-sm font-bold shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-colors"
                 >
-                  {currentText.add}
+                  {isSavingManualItem ? "…" : currentText.add}
                 </button>
               </div>
             </form>
