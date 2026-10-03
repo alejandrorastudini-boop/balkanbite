@@ -514,15 +514,55 @@ service cloud.firestore {
       allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
 
+    function validShoppingItemCore(itemId) {
+      return request.resource.data.keys().hasOnly([
+          'id', 'userId', 'name', 'quantity', 'unit', 'category',
+          'estimatedPriceEUR', 'checked', 'amountOrigin',
+          'purchaseAmountConfirmed', 'reason', 'updatedAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'id', 'userId', 'name', 'quantity', 'unit', 'category',
+          'checked', 'updatedAt'
+        ]) &&
+        request.resource.data.id is string &&
+        request.resource.data.id.size() > 0 &&
+        itemId == 'u_' + request.auth.uid + '__' +
+          request.resource.data.id.replace(':', '%3A') &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.quantity is number &&
+        request.resource.data.quantity > 0 &&
+        request.resource.data.unit is string &&
+        request.resource.data.unit.size() > 0 &&
+        request.resource.data.category is string &&
+        request.resource.data.checked is bool &&
+        request.resource.data.updatedAt is timestamp &&
+        (request.resource.data.get('estimatedPriceEUR', null) == null ||
+          (request.resource.data.estimatedPriceEUR is number &&
+           request.resource.data.estimatedPriceEUR >= 0)) &&
+        (!request.resource.data.keys().hasAny(['amountOrigin']) ||
+          request.resource.data.amountOrigin == 'user_entered' ||
+          request.resource.data.amountOrigin == 'ai_estimated' ||
+          request.resource.data.amountOrigin == 'deterministic_shortfall') &&
+        (!request.resource.data.keys().hasAny(['purchaseAmountConfirmed']) ||
+          request.resource.data.purchaseAmountConfirmed is bool) &&
+        (!request.resource.data.keys().hasAny(['reason']) ||
+          request.resource.data.reason is string);
+    }
+
     match /shoppingList/{itemId} {
-      allow create: if ownsIncomingDocument() && ownsDocumentNamespace(itemId);
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(itemId) &&
+        validShoppingItemCore(itemId);
       // Owner-scoped absent-ID lookup is required for transaction-safe create.
       // It never exposes another account's namespace.
       allow get: if ownsDocumentNamespace(itemId) &&
         (resource == null || ownsExistingDocument());
       allow list: if ownsExistingDocument();
       allow delete: if ownsExistingDocument();
-      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow update: if ownsExistingDocument() &&
+        ownsIncomingDocument() &&
+        validShoppingItemCore(itemId);
     }
   }
 }
