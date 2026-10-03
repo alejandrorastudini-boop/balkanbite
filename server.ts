@@ -31,6 +31,7 @@ function hasOpenAIKey(): boolean {
 
 const MAX_AI_TEXT_CHARS = 8_000;
 const MAX_AI_CONTEXT_ITEMS = 500;
+const MAX_AI_CONTEXT_JSON_CHARS = 250_000;
 const MAX_AI_IMAGE_BASE64_CHARS = 10_000_000;
 
 function isOversizedAiText(value: unknown): boolean {
@@ -43,11 +44,24 @@ function isOversizedAiCollection(value: unknown): boolean {
 
 function rejectOversizedAiRequest(
   res: express.Response,
-  values: { text?: unknown[]; collections?: unknown[]; image?: unknown },
+  values: {
+    text?: unknown[];
+    collections?: unknown[];
+    contexts?: unknown[];
+    image?: unknown;
+  },
 ): boolean {
+  const oversizedContext = (values.contexts ?? []).some(value => {
+    try {
+      return JSON.stringify(value).length > MAX_AI_CONTEXT_JSON_CHARS;
+    } catch {
+      return true;
+    }
+  });
   const oversized =
     (values.text ?? []).some(isOversizedAiText) ||
     (values.collections ?? []).some(isOversizedAiCollection) ||
+    oversizedContext ||
     (typeof values.image === "string" &&
       values.image.length > MAX_AI_IMAGE_BASE64_CHARS);
   if (!oversized) return false;
@@ -321,6 +335,7 @@ app.post("/api/ai/parse-intent", async (req, res) => {
   if (rejectOversizedAiRequest(res, {
     text: [transcript],
     collections: [currentPantry, mealLogs, conversationHistory],
+    contexts: [currentPantry, mealLogs, conversationHistory, foodSafety],
   })) return;
 
   const normalizedLanguage =
@@ -442,6 +457,7 @@ app.post("/api/ai/reconcile-shopping", async (req, res) => {
   if (rejectOversizedAiRequest(res, {
     text: [transcript],
     collections: [currentShoppingList],
+    contexts: [currentShoppingList],
   })) return;
 
   try {
@@ -527,6 +543,7 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
     if (rejectOversizedAiRequest(res, {
       text: [query],
       collections: [pantry],
+      contexts: [pantry, profile, foodSafety],
     })) return;
 
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
@@ -666,6 +683,7 @@ app.post("/api/ai/generate-weekly-plan", async (req, res) => {
   try {
     if (rejectOversizedAiRequest(res, {
       collections: [pantry, recipes],
+      contexts: [pantry, recipes, profile, foodSafety],
     })) return;
 
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
@@ -812,6 +830,7 @@ app.post("/api/ai/suggest-shopping", async (req, res) => {
   try {
     if (rejectOversizedAiRequest(res, {
       collections: [pantry],
+      contexts: [pantry, profile, foodSafety],
     })) return;
 
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
