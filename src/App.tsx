@@ -2321,6 +2321,7 @@ export default function App() {
               onNavigateToRecipes={handleVoiceNavigateToRecipes}
               onLogMeal={handleLogMeal}
               foodSafety={foodSafetyQuarantine}
+              profileAuthorityReady={!currentUser || profileHydrated}
               language={profile.language}
               theme={theme}
             />
@@ -2374,6 +2375,7 @@ export default function App() {
           onNavigateToRecipes={handleVoiceNavigateToRecipes}
           onLogMeal={handleLogMeal}
           foodSafety={foodSafetyQuarantine}
+          profileAuthorityReady={!currentUser || profileHydrated}
           language={profile.language}
         />
 
