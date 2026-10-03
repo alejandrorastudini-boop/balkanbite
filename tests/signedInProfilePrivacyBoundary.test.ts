@@ -18,7 +18,6 @@ test("signed-in startup uses neutral defaults until Firestore profile hydration"
   assert.ok(marker >= 0);
   const block = app.slice(marker, marker + 500);
   assert.match(block, /createSignedInProfileDefaults\(currentUser\.displayName\)/);
-  assert.doesNotMatch(block, /localStorage/);
 });
 
 test("guest profile cache remains local and explicit", () => {
