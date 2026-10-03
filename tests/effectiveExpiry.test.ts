@@ -77,3 +77,17 @@ test("unknown or invalid evidence never fabricates expiry", () => {
     { status: "unknown" },
   );
 });
+
+test("future capture clock skew never inflates confirmed shelf life", () => {
+  const result = deriveEffectiveExpiry(
+    3,
+    "2026-10-02T12:00:00.000Z",
+    new Date("2026-10-01T12:00:00.000Z"),
+  );
+
+  assert.equal(result.status, "known");
+  if (result.status === "known") {
+    assert.equal(result.daysRemaining, 3);
+    assert.equal(result.expired, false);
+  }
+});
