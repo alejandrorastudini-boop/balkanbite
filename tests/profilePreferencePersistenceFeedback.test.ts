@@ -33,3 +33,10 @@ test("legacy food-safety deletion keeps confirmation open when persistence fails
   assert.match(block, /if \(persisted === false\) return false/);
   assert.match(block, /setShowClearLegacyFoodSafetyConfirm\(false\)/);
 });
+
+test("progression storage copy distinguishes signed-in cloud authority from guest local storage", () => {
+  assert.doesNotMatch(source, /no se sincroniza con tu cuenta/);
+  assert.doesNotMatch(source, /not synced to your account/);
+  assert.match(source, /Con la sesión iniciada, este historial verificado se sincroniza con tu cuenta desde la nube/);
+  assert.match(source, /Como invitado, este historial se guarda solo en este dispositivo/);
+});
