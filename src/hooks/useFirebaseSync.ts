@@ -31,6 +31,7 @@ import { persistConfirmedCookAtomically, type AtomicCookExpectedStock } from "..
 import type { CookConfirmation } from "../utils/confirmedCookTransaction";
 import { persistInventoryClearAtomically } from "../utils/inventoryClearFirestore";
 import { clearShoppingItems, createShoppingItem, createShoppingItems, replaceShoppingItem, removeShoppingItem } from "../utils/shoppingMutationFirestore";
+import { replaceDerivedCollectionAtomically } from "../utils/derivedCollectionFirestore";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -856,6 +857,22 @@ export function useFirebaseSync(
     }
   };
 
+  const submitRecipesReplace = async (expected: Recipe[], next: Recipe[]) => {
+    const uid = currentUser?.uid;
+    if (!uid || hydratedCollectionUser.current.recipes !== uid) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+    }
+    return replaceDerivedCollectionAtomically(db, uid, "recipes", expected, next);
+  };
+
+  const submitMealPlanReplace = async (expected: MealPlanDay[], next: MealPlanDay[]) => {
+    const uid = currentUser?.uid;
+    if (!uid || hydratedCollectionUser.current.mealPlans !== uid) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+    }
+    return replaceDerivedCollectionAtomically(db, uid, "mealPlans", expected, next);
+  };
+
   const submitShoppingItemCreate = async (item: ShoppingItem) => {
     const uid = currentUser?.uid;
     if (!uid || hydratedCollectionUser.current.shoppingList !== uid) {
@@ -926,6 +943,8 @@ export function useFirebaseSync(
     submitPurchasePantryApplication,
     submitInventoryClear,
     submitConfirmedCook,
+    submitRecipesReplace,
+    submitMealPlanReplace,
     submitShoppingItemCreate,
     submitShoppingItemsCreate,
     submitShoppingItemsClear,
