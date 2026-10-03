@@ -2324,16 +2324,22 @@ export default function App() {
               onAddMissingToShopping={handleAddMissingToShopping}
               onGenerateAiRecipes={() => handleGenerateAiRecipes()}
               onClearRecipes={handleClearRecipes}
-              onLoadSampleRecipes={() => {
+              onLoadSampleRecipes={async () => {
                 if (!currentUser) {
                   setRecipes(SAMPLE_RECIPES);
-                  return;
+                  return true;
                 }
-                void submitRecipesReplace(recipes, SAMPLE_RECIPES).then(result => {
+                try {
+                  const result = await submitRecipesReplace(recipes, SAMPLE_RECIPES);
                   if (result.outcome === "needs-review") {
                     console.warn("Sample recipe load needs review:", result.reason);
+                    return false;
                   }
-                });
+                  return true;
+                } catch (error) {
+                  console.error("Sample recipe load failed:", error);
+                  return false;
+                }
               }}
               isLoadingAi={isLoadingAi}
               language={profile.language}
