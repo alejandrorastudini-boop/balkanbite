@@ -23,4 +23,6 @@ test("progression persistence is immutable and exact-id idempotent", () => {
   assert.match(firestore, /already-applied/);
   assert.match(firestore, /reason: "conflict"/);
   assert.match(firestore, /isValidProgressionEvent/);
+  assert.match(firestore, /new Set\(events\.map\(event => event\.eventId\)\)/);
+  assert.match(firestore, /for \(const ref of refs\) snapshots\.push\(await tx\.get\(ref\)\)/);
 });
