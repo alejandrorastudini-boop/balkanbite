@@ -684,7 +684,23 @@ export default function App() {
       pendingSignedInDerivedReconciliations.current.delete(key);
       matched = true;
     }
-    if (matched) reconcileCommittedPantryAvailability(pantry, true);
+    if (matched) {
+      const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
+      const { newPlan, readyToCookMealsCount } = syncMealPlanWithPantry(
+        mealPlan,
+        pantry,
+      );
+      void (async () => {
+        const recipeResult = await submitRecipesReplace(recipes, syncedRecipes);
+        if (recipeResult.outcome === "needs-review") return;
+        const mealResult = await submitMealPlanReplace(mealPlan, newPlan);
+        if (mealResult.outcome === "needs-review") return;
+        setAutoMenuToast({
+          isVisible: true,
+          readyMealsCount: readyToCookMealsCount,
+        });
+      })();
+    }
   }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
 
   const updatePantryAndReconcileMenu = (
