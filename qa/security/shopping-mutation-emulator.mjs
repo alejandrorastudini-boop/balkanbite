@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { readFileSync } from "node:fs";
-import { createShoppingItem, removeShoppingItem, replaceShoppingItem } from "../../src/utils/shoppingMutationFirestore.ts";
+import { clearShoppingItems, createShoppingItem, createShoppingItems, removeShoppingItem, replaceShoppingItem } from "../../src/utils/shoppingMutationFirestore.ts";
 
 const projectId = "demo-balkanbite-rules";
 const rules = readFileSync("firestore.rules", "utf8");
@@ -54,6 +54,26 @@ try {
 
   const missing = await removeShoppingItem(aliceDb, "alice", checked);
   assert.deepEqual(missing, { outcome: "needs-review", reason: "missing-item" });
+
+  const bulkA = { ...base, id: "bulk-a", name: "Beans" };
+  const bulkB = { ...base, id: "bulk-b", name: "Tomatoes", quantity: 2 };
+  const bulkCreated = await createShoppingItems(aliceDb, "alice", [bulkA, bulkB]);
+  assert.deepEqual(bulkCreated, { outcome: "applied" });
+
+  const duplicateBulk = await createShoppingItems(aliceDb, "alice", [
+    { ...base, id: "bulk-c", name: "Milk" },
+    bulkB,
+  ]);
+  assert.deepEqual(duplicateBulk, { outcome: "needs-review", reason: "stale-item" });
+
+  const staleBulkClear = await clearShoppingItems(aliceDb, "alice", [
+    bulkA,
+    { ...bulkB, quantity: 99 },
+  ]);
+  assert.deepEqual(staleBulkClear, { outcome: "needs-review", reason: "stale-item" });
+
+  const exactBulkClear = await clearShoppingItems(aliceDb, "alice", [bulkB, bulkA]);
+  assert.deepEqual(exactBulkClear, { outcome: "applied" });
 
   console.log("shopping mutation emulator: PASS");
 } finally {
