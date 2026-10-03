@@ -422,8 +422,8 @@ test("guest workspace storage is not overwritten by a signed-in account", () => 
 
 test("profile Firestore writes serialize optional unknown fields instead of spreading undefined", () => {
   assert.match(
-    firebaseSyncSource,
-    /serializeUserProfileForFirestore\(newProfile\)/
+    profileMutationSource,
+    /serializeUserProfileForFirestore\(initialProfile\)/
   );
   assert.match(
     profileMutationSource,
@@ -431,7 +431,7 @@ test("profile Firestore writes serialize optional unknown fields instead of spre
   );
   assert.doesNotMatch(
     firebaseSyncSource,
-    /setDoc\(userDoc,\s*\{\s*\.\.\.newProfile/
+    /setDoc\(userDoc/
   );
   assert.doesNotMatch(
     firebaseSyncSource,
