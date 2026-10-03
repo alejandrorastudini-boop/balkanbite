@@ -454,7 +454,13 @@ export default function App() {
     if (currentUser) {
       if (!profileHydrated && profileScope !== currentUser.uid) {
         // Never cache authenticated profile/health data in localStorage.
-        // Use neutral non-sensitive defaults until the owner listener hydrates.
+        // Remove the legacy per-user cache left by older builds, then use
+        // neutral non-sensitive defaults until the owner listener hydrates.
+        try {
+          localStorage.removeItem(`balkanbite_profile_user_${currentUser.uid}`);
+        } catch (error) {
+          console.warn("Legacy signed-in profile cache cleanup failed", error);
+        }
         setProfile(createSignedInProfileDefaults(currentUser.displayName));
         setProfileScope(currentUser.uid);
         return;
