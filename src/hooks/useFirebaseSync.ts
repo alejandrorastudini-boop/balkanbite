@@ -575,6 +575,7 @@ export function useFirebaseSync(
   const submitPurchasePantryApplication = async (
     purchases: readonly PantryPurchase[],
     acquiredAt: string,
+    shoppingBaseline: readonly ShoppingItem[] = [],
   ): Promise<PurchasePantryTransactionResult | {
     outcome: "needs-review";
     reason: "unverified-authority" | "in-flight" | "stale-local-view" | "invalid-request";
@@ -628,6 +629,7 @@ export function useFirebaseSync(
         baselinePantry,
         purchases,
         acquiredAt,
+        shoppingBaseline,
       });
     } finally {
       inFlightPurchaseApplications.current.delete(mutationId);
