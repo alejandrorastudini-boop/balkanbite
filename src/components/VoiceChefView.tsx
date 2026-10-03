@@ -34,6 +34,7 @@ interface VoiceChefViewProps {
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
+  profileAuthorityReady?: boolean;
   language: Language;
 }
 
@@ -49,6 +50,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   onNavigateToRecipes,
   onLogMeal,
   foodSafety,
+  profileAuthorityReady = true,
   language,
 }) => {
   const currentText = t[language];
@@ -377,6 +379,23 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   const handleSend = async (textToSend?: string) => {
     const text = (textToSend || inputText).trim();
     if (!text || isProcessing || isConfirmingPendingItems) return;
+    if (!profileAuthorityReady) {
+      onUpdateChatMessages((prev) => [
+        ...prev,
+        {
+          id: `ai-profile-sync-${Date.now()}`,
+          sender: "assistant",
+          text:
+            language === "bg"
+              ? "Изчакайте профилът ви да се синхронизира, преди Chef IA да обработва хранителни заявки."
+              : language === "es"
+              ? "Espera a que tu perfil se sincronice antes de que Chef IA procese solicitudes de alimentación."
+              : "Wait for your profile to sync before Chef AI processes food requests.",
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        },
+      ]);
+      return;
+    }
 
     // A new message supersedes any unconfirmed extraction. Nothing pending is persisted.
     setPendingItems(null);
