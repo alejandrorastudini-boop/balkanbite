@@ -6,7 +6,9 @@ const app = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
 const boundary = readFileSync(new URL("../src/utils/profileSyncBoundary.ts", import.meta.url), "utf8");
 
 test("authenticated profile and health data are never persisted to localStorage", () => {
-  assert.doesNotMatch(app, /balkanbite_profile_user_/);
+  assert.doesNotMatch(app, /localStorage\.setItem\([\s\S]{0,80}balkanbite_profile_user_/);
+  assert.doesNotMatch(app, /localStorage\.getItem\([\s\S]{0,80}balkanbite_profile_user_/);
+  assert.match(app, /localStorage\.removeItem\(\`balkanbite_profile_user_\$\{currentUser\.uid\}\`\)/);
   assert.doesNotMatch(app, /getUserProfileCacheKey/);
   assert.doesNotMatch(app, /parseUserProfileCache/);
   assert.doesNotMatch(boundary, /getUserProfileCacheKey/);
