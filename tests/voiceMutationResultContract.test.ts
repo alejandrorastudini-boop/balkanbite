@@ -48,12 +48,12 @@ test("App returns true only after a valid confirmed shopping batch is scheduled"
   const end = appSource.indexOf("const handleVoiceDeductItems", start);
   const block = appSource.slice(start, end);
 
-  assert.match(block, /\(items: any\[\]\): boolean/);
+  assert.match(block, /async \(items: any\[\]\): Promise<boolean>/);
   assert.match(block, /if \(result\.rejectedCount > 0\)[\s\S]*return false;/);
   assert.match(block, /if \(result\.items\.length === 0\) return false;/);
 
   const persistIndex = block.indexOf(
-    "setShoppingList((prev) => [...prev, ...result.items])",
+    "await submitShoppingItemsCreate(result.items)",
   );
   const successIndex = block.indexOf("return true;", persistIndex);
   assert.ok(persistIndex >= 0);
