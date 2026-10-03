@@ -19,7 +19,7 @@ const typesSource = readFileSync(
   "utf8",
 );
 
-test("guest and user-scoped chat hydration use the domain parser", () => {
+test("guest chat hydration uses the domain parser and signed-in chat stays session-only", () => {
   const start = appSource.indexOf("const [chatMessages, setChatMessages]");
   const end = appSource.indexOf("const [progressionLedger", start);
   assert.ok(start >= 0 && end > start);
@@ -28,9 +28,10 @@ test("guest and user-scoped chat hydration use the domain parser", () => {
   assert.match(initializer, /parseChatMessageCache/);
   assert.doesNotMatch(initializer, /JSON\.parse/);
 
+  assert.doesNotMatch(appSource, /getUserLocalWorkspaceKey/);
   assert.match(
     appSource,
-    /parseChatMessageCache\(\s*localStorage\.getItem\(\s*getUserLocalWorkspaceKey\(\s*"balkanbite_chat_messages"/,
+    /localStorage\.removeItem\(\`balkanbite_chat_messages_user_\$\{currentUser\.uid\}\`\)/,
   );
   assert.match(
     appSource,
