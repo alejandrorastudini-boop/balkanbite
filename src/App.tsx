@@ -69,7 +69,6 @@ import {
   createSignedInProfileDefaults,
   parseGuestProfileCache,
 } from "./utils/profileSyncBoundary";
-import { getUserLocalWorkspaceKey } from "./utils/localWorkspaceScope";
 import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
 import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext";
 import { parseStoredRecipeCache } from "./utils/storedRecipeValidation";
@@ -392,16 +391,15 @@ export default function App() {
       // Signed-in meal history is hydrated from the owner-scoped Firestore listener.
       // Never promote a device-local meal cache into authenticated authority.
       setMealLogs([]);
-      setChatMessages(
-        parseChatMessageCache(
-          localStorage.getItem(
-            getUserLocalWorkspaceKey(
-              "balkanbite_chat_messages",
-              currentUser.uid
-            )
-          )
-        )
-      );
+      // Authenticated Chef IA chat can contain health, allergy and food-history
+      // context. Keep it session-only until a deliberate encrypted/server-backed
+      // chat-history product is designed; never promote legacy local cache.
+      try {
+        localStorage.removeItem(`balkanbite_chat_messages_user_${currentUser.uid}`);
+      } catch (error) {
+        console.warn("Legacy signed-in chat cache cleanup failed", error);
+      }
+      setChatMessages([]);
       // Signed-in progression evidence is hydrated from Firestore only.
       setProgressionLedger([]);
       setWorkspaceScope(currentUser.uid);
@@ -548,20 +546,8 @@ export default function App() {
   }, [mealLogs, currentUser, workspaceScope, isResetting]);
 
   useEffect(() => {
-    if (isResetting) return;
+    if (isResetting || currentUser || workspaceScope !== "guest") return;
     try {
-      if (currentUser) {
-        if (workspaceScope !== currentUser.uid) return;
-        localStorage.setItem(
-          getUserLocalWorkspaceKey(
-            "balkanbite_chat_messages",
-            currentUser.uid
-          ),
-          JSON.stringify(chatMessages)
-        );
-        return;
-      }
-      if (workspaceScope !== "guest") return;
       localStorage.setItem(
         "balkanbite_chat_messages",
         JSON.stringify(chatMessages)
