@@ -77,8 +77,9 @@ test("App sanitizes historical meal-log caches instead of type-casting stored ar
   assert.match(appSource, /parseMealLogCache\(localStorage\.getItem\("balkanbite_meallogs"\)\)/);
   assert.match(
     appSource,
-    /parseMealLogCache\([\s\S]*getUserLocalWorkspaceKey\([\s\S]*"balkanbite_meallogs"/,
+    /Signed-in meal history is hydrated from the owner-scoped Firestore listener\.[\s\S]*setMealLogs\(\[\]\)/,
   );
+  assert.doesNotMatch(appSource, /getUserLocalWorkspaceKey/);
   assert.doesNotMatch(appSource, /parseArrayCache<MealLog>/);
   assert.match(verifiedMealLogSource, /sanitizeStoredMealLog/);
   assert.match(
