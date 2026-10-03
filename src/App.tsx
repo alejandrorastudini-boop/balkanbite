@@ -162,6 +162,7 @@ export default function App() {
     submitInventoryClear,
     submitConfirmedCook,
     submitMealLog,
+    submitProgressionEvents,
     submitProfileReplace,
     submitRecipesReplace,
     submitMealPlanReplace,
@@ -181,7 +182,8 @@ export default function App() {
     setMealPlan,
     shoppingList,
     setShoppingList,
-    setMealLogs
+    setMealLogs,
+    setProgressionLedger
   );
 
   const [pantryScope, setPantryScope] = useState<string>("guest");
@@ -369,16 +371,8 @@ export default function App() {
           )
         )
       );
-      setProgressionLedger(
-        parseProgressionLedgerCache(
-          localStorage.getItem(
-            getUserLocalWorkspaceKey(
-              "balkanbite_progression",
-              currentUser.uid
-            )
-          )
-        )
-      );
+      // Signed-in progression evidence is hydrated from Firestore only.
+      setProgressionLedger([]);
       setWorkspaceScope(currentUser.uid);
       return;
     }
@@ -562,20 +556,8 @@ export default function App() {
   }, [chatMessages, currentUser, workspaceScope, isResetting]);
 
   useEffect(() => {
-    if (isResetting) return;
+    if (isResetting || currentUser || workspaceScope !== "guest") return;
     try {
-      if (currentUser) {
-        if (workspaceScope !== currentUser.uid) return;
-        localStorage.setItem(
-          getUserLocalWorkspaceKey(
-            "balkanbite_progression",
-            currentUser.uid
-          ),
-          JSON.stringify(progressionLedger)
-        );
-        return;
-      }
-      if (workspaceScope !== "guest") return;
       localStorage.setItem(
         "balkanbite_progression",
         JSON.stringify(progressionLedger)
@@ -589,6 +571,13 @@ export default function App() {
     if (events.length === 0) return;
     const expectedScope = currentUser?.uid ?? "guest";
     if (workspaceScope !== expectedScope) return;
+
+    if (currentUser) {
+      const validEvents = appendProgressionEvents([], events).ledger;
+      if (validEvents.length === 0) return;
+      void submitProgressionEvents(validEvents);
+      return;
+    }
 
     setProgressionLedger((current) =>
       appendProgressionEvents(current, events).ledger
