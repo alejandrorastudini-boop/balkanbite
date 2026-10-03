@@ -40,6 +40,6 @@ test("guest workspace rehydration uses the recipe-domain cache parser", () => {
 test("sample recipes remain available only through an explicit sample-load action", () => {
   assert.match(
     appSource,
-    /onLoadSampleRecipes=\{\(\) => setRecipes\(SAMPLE_RECIPES\)\}/,
+    /onLoadSampleRecipes=\{\(\) => \{[\s\S]*setRecipes\(SAMPLE_RECIPES\)[\s\S]*submitRecipesReplace\(recipes, SAMPLE_RECIPES\)/,
   );
 });

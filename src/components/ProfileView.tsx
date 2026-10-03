@@ -42,7 +42,7 @@ import type { ProgressionActivitySummaryV1 } from "../utils/progressionLedger";
 
 interface ProfileViewProps {
   profile: UserProfile;
-  onUpdateProfile: (updated: Partial<UserProfile>) => void;
+  onUpdateProfile: (updated: Partial<UserProfile>) => void | boolean | Promise<void | boolean>;
   onOpenProModal: () => void;
   onResetApp: () => void;
   onGoToLanding?: () => void;
@@ -332,7 +332,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setHealthFieldEditError(null);
   };
 
-  const saveHealthFieldCorrection = () => {
+  const saveHealthFieldCorrection = async () => {
     if (!healthFieldEdit) return;
 
     const { field, status } = healthFieldEdit;
@@ -393,7 +393,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       return;
     }
 
-    onUpdateProfile({ healthProfile: result.profile });
+    const persisted = await onUpdateProfile({ healthProfile: result.profile });
+    if (persisted === false) {
+      setHealthFieldEditError(
+        language === "bg"
+          ? "Промяната не можа да бъде потвърдена в акаунта."
+          : language === "es"
+          ? "No se pudo confirmar el cambio en tu cuenta."
+          : "The change could not be confirmed in your account.",
+      );
+      return;
+    }
     setHealthFieldEdit(null);
     setHealthFieldEditError(null);
   };
@@ -1046,15 +1056,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <ConfirmModal
         isOpen={pendingHealthFieldRemoval !== null}
         onClose={() => setPendingHealthFieldRemoval(null)}
-        onConfirm={() => {
-          if (!pendingHealthFieldRemoval) return;
-          onUpdateProfile({
+        onConfirm={async () => {
+          if (!pendingHealthFieldRemoval) return false;
+          const persisted = await onUpdateProfile({
             healthProfile: removeHealthProfileField(
               profile.healthProfile,
               pendingHealthFieldRemoval,
             ),
           });
+          if (persisted === false) return false;
           setPendingHealthFieldRemoval(null);
+          return true;
         }}
         title={
           language === "bg"
@@ -1086,9 +1098,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <ConfirmModal
         isOpen={showClearHealthDataConfirm}
         onClose={() => setShowClearHealthDataConfirm(false)}
-        onConfirm={() => {
-          onUpdateProfile({ healthProfile: undefined });
+        onConfirm={async () => {
+          const persisted = await onUpdateProfile({ healthProfile: undefined });
+          if (persisted === false) return false;
           setShowClearHealthDataConfirm(false);
+          return true;
         }}
         title={
           language === "es"

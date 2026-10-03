@@ -32,7 +32,7 @@ interface MealPlanViewProps {
   currency?: Currency;
   shoppingList?: ShoppingItem[];
   userName?: string;
-  onClearMealPlan?: () => void;
+  onClearMealPlan?: () => void | boolean | Promise<void | boolean>;
   onNavigateToVoice?: () => void;
   onGenerateAiWeekPlan?: () => void;
   onAdaptToPantry?: () => void;
@@ -670,11 +670,9 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
       <ConfirmModal
         isOpen={showClearConfirm}
         onClose={() => setShowClearConfirm(false)}
-        onConfirm={() => {
-          if (onClearMealPlan) {
-            onClearMealPlan();
-          }
-          setShowClearConfirm(false);
+        onConfirm={async () => {
+          if (!onClearMealPlan) return true;
+          return (await onClearMealPlan()) !== false;
         }}
         title={currentText.mealPlanClearAll}
         description={currentText.mealPlanClearConfirm}

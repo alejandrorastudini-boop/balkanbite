@@ -199,26 +199,39 @@ export function transferCheckedShoppingItems(
  * deliberately not persisted for extras because they are not proof of what was
  * actually paid or of the product's real expiry date.
  */
-export function reconcileConfirmedShoppingPurchases(
-  pantry: PantryItem[],
+export interface ConfirmedShoppingReconciliationInput {
+  requestedIds: string[];
+  unresolvedPurchasedItemIds: string[];
+  purchases: PantryPurchase[];
+  rejectedExtraItems: ShoppingReconciliationResult['rejectedExtraItems'];
+  extraSourceIds: Map<string, number>;
+}
+
+export function buildConfirmedShoppingReconciliationInput(
   shoppingList: ShoppingItem[],
   purchasedItemIds: string[],
   extraPurchasedItems: RawReconciliationExtraItem[],
-  acquiredAt: string,
-  reconciliationId: string
-): ShoppingReconciliationResult {
+  reconciliationId: string,
+): ConfirmedShoppingReconciliationInput {
   const requestedIds = Array.from(new Set(
-    (purchasedItemIds || []).filter((id): id is string => typeof id === 'string' && Boolean(id.trim()))
+    (purchasedItemIds || []).filter(
+      (id): id is string =>
+        typeof id === 'string' && Boolean(id.trim()),
+    ),
   ));
   const shoppingById = new Map(shoppingList.map(item => [item.id, item]));
-  const unresolvedPurchasedItemIds = requestedIds.filter(id => !shoppingById.has(id));
+  const unresolvedPurchasedItemIds = requestedIds.filter(
+    id => !shoppingById.has(id),
+  );
   const listPurchases = requestedIds
     .map(id => shoppingById.get(id))
     .filter((item): item is ShoppingItem => Boolean(item))
     .map(shoppingItemToPurchase);
 
-  const safeReconciliationId = typeof reconciliationId === 'string' ? reconciliationId.trim() : '';
-  const rejectedExtraItems: ShoppingReconciliationResult['rejectedExtraItems'] = [];
+  const safeReconciliationId =
+    typeof reconciliationId === 'string' ? reconciliationId.trim() : '';
+  const rejectedExtraItems:
+    ShoppingReconciliationResult['rejectedExtraItems'] = [];
   const extraSourceIds = new Map<string, number>();
   const extraPurchases: PantryPurchase[] = [];
 
@@ -228,12 +241,26 @@ export function reconcileConfirmedShoppingPurchases(
     const nameEs = optionalText(raw?.nameEs);
     const unit = optionalText(raw?.unit);
     const quantity = raw?.quantity;
-    const normalized = typeof quantity === 'number' && unit
-      ? normalizeQuantity(quantity, unit)
-      : null;
+    const normalized =
+      typeof quantity === 'number' && unit
+        ? normalizeQuantity(quantity, unit)
+        : null;
 
-    if (!safeReconciliationId || !name || !unit || typeof quantity !== 'number' || !Number.isFinite(quantity) || quantity <= 0 || !normalized || normalized.baseQuantity <= 0) {
-      rejectedExtraItems.push({ index, name: name || '', reason: 'invalid_extra' });
+    if (
+      !safeReconciliationId ||
+      !name ||
+      !unit ||
+      typeof quantity !== 'number' ||
+      !Number.isFinite(quantity) ||
+      quantity <= 0 ||
+      !normalized ||
+      normalized.baseQuantity <= 0
+    ) {
+      rejectedExtraItems.push({
+        index,
+        name: name || '',
+        reason: 'invalid_extra',
+      });
       return;
     }
 
@@ -248,20 +275,52 @@ export function reconcileConfirmedShoppingPurchases(
       quantity,
       unit,
       category: optionalText(raw?.category),
-      // Do not copy AI estimatedCostEUR/expiryDaysLeft. Review confirms the
-      // visible food amount/unit, not a receipt price or verified expiry date.
+      // Human review confirms amount/unit, not AI-proposed cost/expiry.
     });
   });
 
+  return {
+    requestedIds,
+    unresolvedPurchasedItemIds,
+    purchases: [...listPurchases, ...extraPurchases],
+    rejectedExtraItems,
+    extraSourceIds,
+  };
+}
+
+/**
+ * Applies a human-confirmed shopping reconciliation without trusting AI-made
+ * pantry defaults. This wrapper deliberately delegates purchase-input
+ * validation to buildConfirmedShoppingReconciliationInput so transactional and
+ * local callers share one deterministic boundary.
+ */
+export function reconcileConfirmedShoppingPurchases(
+  pantry: PantryItem[],
+  shoppingList: ShoppingItem[],
+  purchasedItemIds: string[],
+  extraPurchasedItems: RawReconciliationExtraItem[],
+  acquiredAt: string,
+  reconciliationId: string
+): ShoppingReconciliationResult {
+  const input = buildConfirmedShoppingReconciliationInput(
+    shoppingList,
+    purchasedItemIds,
+    extraPurchasedItems,
+    reconciliationId,
+  );
+
   const result = mergePurchasesIntoPantry(
     pantry,
-    [...listPurchases, ...extraPurchases],
-    acquiredAt
+    input.purchases,
+    acquiredAt,
   );
   const accepted = new Set(result.acceptedSourceIds);
-  const mergeRejectedSources = new Set(result.rejected.map(item => item.sourceId));
+  const mergeRejectedSources = new Set(
+    result.rejected.map(item => item.sourceId),
+  );
+  const rejectedExtraItems = [...input.rejectedExtraItems];
 
-  for (const [sourceId, index] of extraSourceIds) {
+  for (const [sourceId, index] of input.extraSourceIds) {
     if (mergeRejectedSources.has(sourceId)) {
       const raw = extraPurchasedItems[index];
       rejectedExtraItems.push({
@@ -273,13 +332,15 @@ export function reconcileConfirmedShoppingPurchases(
   }
 
   const acceptedShoppingIds = new Set(
-    requestedIds.filter(id => accepted.has(`shopping:${id}`))
+    input.requestedIds.filter(id => accepted.has(`shopping:${id}`)),
   );
 
   return {
     ...result,
-    shoppingList: shoppingList.filter(item => !acceptedShoppingIds.has(item.id)),
-    unresolvedPurchasedItemIds,
+    shoppingList: shoppingList.filter(
+      item => !acceptedShoppingIds.has(item.id),
+    ),
+    unresolvedPurchasedItemIds: input.unresolvedPurchasedItemIds,
     rejectedExtraItems,
   };
 }
