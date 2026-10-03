@@ -1477,9 +1477,9 @@ export default function App() {
   };
 
   const handleAddMissingToShopping = (recipe: Recipe) => {
-    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
 
     if (!requireAuthoritativeInventory()) return;
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
     const { items, unverified } = buildRecipeShoppingNeeds(
       recipe,
       pantry,
@@ -1689,9 +1689,9 @@ export default function App() {
   };
 
   const handleTransferToPantry = async () => {
-    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
 
     if (!requireAuthoritativeInventory()) return;
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
     const checkedItems = shoppingList.filter(item => item.checked);
     if (checkedItems.length === 0) return;
 
@@ -1761,8 +1761,8 @@ export default function App() {
     itemsToAddToPantry: RawReconciliationExtraItem[];
     reconciliationId?: string;
   }): Promise<boolean> => {
-    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return false;
     if (!requireAuthoritativeInventory()) return false;
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return false;
 
     const safeReconciliationId =
       typeof reconciliationId === "string" ? reconciliationId.trim() : "";
