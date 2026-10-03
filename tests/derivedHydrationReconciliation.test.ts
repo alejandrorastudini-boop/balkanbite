@@ -23,7 +23,9 @@ test("derived hydration changes retrigger pending stock reconciliation effects",
 
 test("purchase evidence is retained while derived collections are not authoritative", () => {
   const start = app.indexOf("const finalizeSignedInPurchaseIfVisible");
-  const clear = app.indexOf("pendingSignedInPurchaseApplication.current = null", start);
   const authority = app.indexOf("if (!recipesHydrated || !mealPlanHydrated) return false", start);
-  assert.ok(start >= 0 && authority > start && clear > authority);
+  const visibility = app.indexOf("if (!isPurchaseCommitVisible", authority);
+  const appliedClear = app.indexOf("pendingSignedInPurchaseApplication.current = null", visibility);
+  assert.ok(start >= 0 && authority > start && visibility > authority && appliedClear > visibility);
+  assert.doesNotMatch(app.slice(authority, visibility), /pendingSignedInPurchaseApplication\.current = null/);
 });
