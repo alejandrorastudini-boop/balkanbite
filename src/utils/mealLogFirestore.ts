@@ -21,7 +21,8 @@ export function subscribeMealLogs(
     snapshot => {
       const meals = snapshot.docs
         .flatMap(row => {
-          const meal = sanitizeStoredMealLog({ id: row.id, ...row.data() });
+          const { userId: _userId, requestSignature: _requestSignature, createdAt: _createdAt, ...mealData } = row.data();
+          const meal = sanitizeStoredMealLog({ id: row.id, ...mealData });
           return meal ? [meal] : [];
         })
         .sort((a, b) => b.timestamp.localeCompare(a.timestamp));
@@ -46,7 +47,8 @@ export async function appendMealLogAtomically(
   return runTransaction(db, async tx => {
     const snapshot = await tx.get(ref);
     if (snapshot.exists()) {
-      const existing = sanitizeStoredMealLog({ id: snapshot.id, ...snapshot.data() });
+      const { userId: _userId, requestSignature: _requestSignature, createdAt: _createdAt, ...mealData } = snapshot.data();
+      const existing = sanitizeStoredMealLog({ id: snapshot.id, ...mealData });
       if (existing && signature(existing) === requestSignature) {
         return { outcome: "already-applied" as const, meal };
       }
