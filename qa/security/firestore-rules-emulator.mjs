@@ -58,6 +58,16 @@ try {
   await assertFails(updateDoc(aliceProfile, { userId: "bob", profileRevision: 2 }));
   await assertFails(updateDoc(aliceProfile, {
     profileRevision: 2,
+    dietStyle: "invented-diet",
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(aliceProfile, {
+    profileRevision: 2,
+    monthlyBudgetEUR: -1,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(aliceProfile, {
+    profileRevision: 2,
     heightCm: 180,
     updatedAt: serverTimestamp(),
   }));
