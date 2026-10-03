@@ -14,7 +14,7 @@ test("signed-in single pantry creation dispatches transaction without optimistic
   const handler = appSource.slice(start, end);
   assert.match(
     handler,
-    /if \(currentUser\) \{\s*void dispatchSignedInPantryCreations\(\[newItem\]\);\s*return;\s*\}/,
+    /if \(currentUser\) \{\s*return dispatchSignedInPantryCreations\(\[newItem\]\);\s*\}/,
   );
   const signedIn = handler.slice(handler.indexOf("if (currentUser)"), handler.indexOf("updatePantryAndReconcileMenu"));
   assert.doesNotMatch(signedIn, /setPantry\(/);
