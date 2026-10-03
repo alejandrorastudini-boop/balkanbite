@@ -1561,12 +1561,14 @@ export default function App() {
     }).catch(error => console.error("Shopping delete failed:", error));
   };
 
-  const handleAddShoppingItem = (item: Omit<ShoppingItem, "id" | "checked">) => {
+  const handleAddShoppingItem = async (
+    item: Omit<ShoppingItem, "id" | "checked">
+  ): Promise<boolean> => {
     if (!hasValidManualShoppingRequiredFields(item)) {
       console.warn(
         "Manual shopping item rejected because name, quantity or unit was not explicitly valid."
       );
-      return;
+      return false;
     }
 
     const newItem: ShoppingItem = {
@@ -1583,13 +1585,19 @@ export default function App() {
     };
     if (!currentUser) {
       setShoppingList(prev => [...prev, newItem]);
-      return;
+      return true;
     }
-    void submitShoppingItemCreate(newItem).then(result => {
+    try {
+      const result = await submitShoppingItemCreate(newItem);
       if (result.outcome === "needs-review") {
         console.warn("Shopping item creation needs review:", result.reason);
+        return false;
       }
-    }).catch(error => console.error("Shopping item creation failed:", error));
+      return true;
+    } catch (error) {
+      console.error("Shopping item creation failed:", error);
+      return false;
+    }
   };
 
   const handleClearShoppingList = async (): Promise<boolean> => {
