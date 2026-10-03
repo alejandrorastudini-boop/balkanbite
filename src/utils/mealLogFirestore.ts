@@ -7,7 +7,12 @@ export type MealLogAppendResult =
   | { outcome: "needs-review"; reason: "invalid-request" | "conflict" };
 
 function signature(meal: MealLog): string {
-  return JSON.stringify(meal);
+  const keys = Object.keys(meal).sort() as Array<keyof MealLog>;
+  return JSON.stringify(keys.reduce<Record<string, unknown>>((out, key) => {
+    const value = meal[key];
+    if (value !== undefined) out[key] = value;
+    return out;
+  }, {}));
 }
 
 export function subscribeMealLogs(
