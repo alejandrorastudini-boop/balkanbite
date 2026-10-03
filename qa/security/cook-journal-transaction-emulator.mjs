@@ -48,7 +48,8 @@ try {
   // Isolate plain owner revision 1 -> 2 from cook/journal transactions.
   const revisionProbe = inventory(alice, "alice", "qa-revision-probe");
   await assertSucceeds(setDoc(revisionProbe, {
-    id: "qa-revision-probe", userId: "alice", quantity: 20, unit: "g",
+    id: "qa-revision-probe", userId: "alice", name: "QA revision probe",
+    quantity: 20, unit: "g", category: "Pantry/Grains", addedAt: "2026-10-03",
     cookRevision: 1, _deleted: false,
   }));
   await assertSucceeds(updateDoc(revisionProbe, { quantity: 15, cookRevision: 2 }));
