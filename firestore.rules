@@ -20,6 +20,100 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
+      function validHealthStatus(status) {
+        return status == 'known' || status == 'unknown' ||
+          status == 'not_applicable' || status == 'prefer_not_to_say';
+      }
+
+      function validHealthSource(source) {
+        return source == null || source == 'self_reported' ||
+          source == 'measured' || source == 'imported' ||
+          source == 'estimated';
+      }
+
+      function validNumericHealthDatum(datum) {
+        return datum == null || (
+          datum.keys().hasOnly(['status', 'value', 'source', 'recordedAt']) &&
+          datum.keys().hasAll(['status', 'value', 'source', 'recordedAt']) &&
+          validHealthStatus(datum.status) &&
+          validHealthSource(datum.source) &&
+          (datum.recordedAt == null || datum.recordedAt is string) &&
+          ((datum.status == 'known' && datum.value is number && datum.value > 0) ||
+           (datum.status != 'known' && datum.value == null))
+        );
+      }
+
+      function validCategoricalHealthDatum(datum, kind) {
+        return datum == null || (
+          datum.keys().hasOnly(['status', 'value', 'source', 'recordedAt']) &&
+          datum.keys().hasAll(['status', 'value', 'source', 'recordedAt']) &&
+          validHealthStatus(datum.status) &&
+          validHealthSource(datum.source) &&
+          (datum.recordedAt == null || datum.recordedAt is string) &&
+          (
+            (datum.status != 'known' && datum.value == null) ||
+            (datum.status == 'known' && (
+              (kind == 'sex' && (datum.value == 'female' || datum.value == 'male')) ||
+              (kind == 'activity' && (
+                datum.value == 'low_active' ||
+                datum.value == 'moderately_active' ||
+                datum.value == 'active' ||
+                datum.value == 'very_active'
+              )) ||
+              (kind == 'pregnancy' && (
+                datum.value == 'not_pregnant_or_lactating' ||
+                datum.value == 'pregnant_or_lactating'
+              ))
+            ))
+          )
+        );
+      }
+
+      function validHealthProfile(profile) {
+        return profile == null || (
+          profile.keys().hasOnly([
+            'version', 'ageYears', 'heightCm', 'weightKg',
+            'physiologicalSex', 'activityCategory',
+            'pregnancyLactationStatus'
+          ]) &&
+          profile.keys().hasAll([
+            'version', 'ageYears', 'heightCm', 'weightKg',
+            'physiologicalSex', 'activityCategory',
+            'pregnancyLactationStatus'
+          ]) &&
+          profile.version == 1 &&
+          validNumericHealthDatum(profile.ageYears) &&
+          validNumericHealthDatum(profile.heightCm) &&
+          validNumericHealthDatum(profile.weightKg) &&
+          validCategoricalHealthDatum(profile.physiologicalSex, 'sex') &&
+          validCategoricalHealthDatum(profile.activityCategory, 'activity') &&
+          validCategoricalHealthDatum(profile.pregnancyLactationStatus, 'pregnancy')
+        );
+      }
+
+      function validCanonicalProfile() {
+        return request.resource.data.keys().hasOnly([
+            'name', 'language', 'currency', 'cookingSpeed', 'healthGoal',
+            'dietStyle', 'disliked', 'allergies', 'householdSize',
+            'cookingLevel', 'appliances', 'monthlyBudgetEUR', 'healthProfile',
+            'heightCm', 'weightKg', 'budgetTier', 'isProSubscriber',
+            'onboardingCompleted', 'userId', 'profileRevision',
+            'createdAt', 'updatedAt'
+          ]) &&
+          request.resource.data.name is string &&
+          (request.resource.data.language == 'es' ||
+           request.resource.data.language == 'en' ||
+           request.resource.data.language == 'bg') &&
+          (request.resource.data.currency == 'EUR' ||
+           request.resource.data.currency == 'USD') &&
+          request.resource.data.disliked is list &&
+          request.resource.data.onboardingCompleted is bool &&
+          request.resource.data.heightCm == null &&
+          request.resource.data.weightKg == null &&
+          request.resource.data.isProSubscriber == null &&
+          validHealthProfile(request.resource.data.healthProfile);
+      }
+
       function validProfileRevisionCreate() {
         return request.resource.data.profileRevision is int &&
           request.resource.data.profileRevision == 0 &&
@@ -36,8 +130,12 @@ service cloud.firestore {
       }
 
       allow read: if isOwner(userId);
-      allow create: if isOwner(userId) && validProfileRevisionCreate();
-      allow update: if isOwner(userId) && validProfileRevisionUpdate();
+      allow create: if isOwner(userId) &&
+        validCanonicalProfile() &&
+        validProfileRevisionCreate();
+      allow update: if isOwner(userId) &&
+        validCanonicalProfile() &&
+        validProfileRevisionUpdate();
       allow delete: if false;
     }
 
