@@ -41,3 +41,18 @@ test("derived equality canonicalizes object key order before comparison", () => 
   assert.match(firestore, /\.sort\(\(\[left\], \[right\]\) => left\.localeCompare\(right\)\)/);
   assert.match(firestore, /JSON\.stringify\(canonicalize\(value\)\)/);
 });
+
+test("derived whole-collection replacements use a shared owner revision fence", () => {
+  assert.match(firestore, /"derivedCollectionAuthorities"/);
+  assert.match(firestore, /const authority = await tx\.get\(authorityRef\)/);
+  assert.match(firestore, /authorityData\.revision !== expectedAuthorityRevision/);
+  assert.match(firestore, /revision: expectedAuthorityRevision === null \? 0 : expectedAuthorityRevision \+ 1/);
+});
+
+test("a concurrent authority revision change fails closed before derived writes", () => {
+  const authorityRead = firestore.indexOf("const authority = await tx.get(authorityRef)");
+  const itemWrites = firestore.indexOf("tx.set(ref, { ...next, userId", authorityRead);
+  assert.ok(authorityRead >= 0 && itemWrites > authorityRead);
+  const fenced = firestore.slice(authorityRead, itemWrites);
+  assert.match(fenced, /reason: "stale-state"/);
+});
