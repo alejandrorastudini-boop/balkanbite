@@ -277,6 +277,8 @@ service cloud.firestore {
       allow create: if ownsIncomingDocument() &&
         ownsDocumentNamespace(authorityId) &&
         validDerivedAuthority() &&
+        authorityId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.collectionName &&
         request.resource.data.revision == 0;
       allow get: if ownsDocumentNamespace(authorityId) &&
         (resource == null || ownsExistingDocument());
@@ -284,6 +286,8 @@ service cloud.firestore {
       allow update: if ownsExistingDocument() &&
         ownsIncomingDocument() &&
         validDerivedAuthority() &&
+        authorityId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.collectionName &&
         request.resource.data.collectionName == resource.data.collectionName &&
         request.resource.data.revision == resource.data.revision + 1;
       allow delete: if false;
