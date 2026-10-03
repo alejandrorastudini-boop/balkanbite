@@ -30,7 +30,7 @@ import type { PantryPurchase } from "../utils/purchasePantryMerge";
 import { persistConfirmedCookAtomically, type AtomicCookExpectedStock } from "../utils/confirmedCookFirestore";
 import type { CookConfirmation } from "../utils/confirmedCookTransaction";
 import { persistInventoryClearAtomically } from "../utils/inventoryClearFirestore";
-import { createShoppingItem, replaceShoppingItem, removeShoppingItem } from "../utils/shoppingMutationFirestore";
+import { clearShoppingItems, createShoppingItem, createShoppingItems, replaceShoppingItem, removeShoppingItem } from "../utils/shoppingMutationFirestore";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -860,6 +860,22 @@ export function useFirebaseSync(
     return createShoppingItem(db, uid, item);
   };
 
+  const submitShoppingItemsCreate = async (items: ShoppingItem[]) => {
+    const uid = currentUser?.uid;
+    if (!uid || hydratedCollectionUser.current.shoppingList !== uid) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+    }
+    return createShoppingItems(db, uid, items);
+  };
+
+  const submitShoppingItemsClear = async (expectedItems: ShoppingItem[]) => {
+    const uid = currentUser?.uid;
+    if (!uid || hydratedCollectionUser.current.shoppingList !== uid) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+    }
+    return clearShoppingItems(db, uid, expectedItems);
+  };
+
   const submitShoppingItemReplace = async (expected: ShoppingItem, next: ShoppingItem) => {
     const uid = currentUser?.uid;
     if (!uid || hydratedCollectionUser.current.shoppingList !== uid) {
@@ -907,6 +923,8 @@ export function useFirebaseSync(
     submitInventoryClear,
     submitConfirmedCook,
     submitShoppingItemCreate,
+    submitShoppingItemsCreate,
+    submitShoppingItemsClear,
     submitShoppingItemReplace,
     submitShoppingItemRemove,
   };
