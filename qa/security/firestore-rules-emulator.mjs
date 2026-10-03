@@ -246,6 +246,37 @@ try {
     userId: "bob",
   }));
 
+  await assertSucceeds(setDoc(
+    doc(alice, "inventory", "u_alice__purchase-shopping%3As2"),
+    {
+      id: "purchase-shopping:s2",
+      userId: "alice",
+      name: "Encoded provenance stock",
+      quantity: 1,
+      unit: "pcs",
+      category: "Other",
+      addedAt: "2026-10-03",
+      cookRevision: 0,
+      _deleted: false,
+      deletedAt: null,
+    },
+  ));
+  await assertFails(setDoc(
+    doc(alice, "inventory", "u_alice__purchase-shopping:s2"),
+    {
+      id: "purchase-shopping:s2",
+      userId: "alice",
+      name: "Unencoded provenance stock",
+      quantity: 1,
+      unit: "pcs",
+      category: "Other",
+      addedAt: "2026-10-03",
+      cookRevision: 0,
+      _deleted: false,
+      deletedAt: null,
+    },
+  ));
+
   for (const collectionName of ["inventory", "recipes", "mealPlans", "shoppingList"]) {
     const logicalId = collectionName === "mealPlans" ? "2099-12-31" : "shared";
     const aliceId = "u_alice__" + logicalId;
