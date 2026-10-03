@@ -11,7 +11,7 @@ import {
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
-import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile } from "../types";
+import { PantryItem, Recipe, MealPlanDay, ShoppingItem, UserProfile, MealLog } from "../types";
 import { isLegacyDemoPantryItemId } from "../utils/legacyDemoPantryIds";
 import { getStartupCloudSyncState } from "../utils/startupCloudSync";
 import { findRemovedDocumentIds, getScopedDocumentId, getSyncedItemKey, selectCanonicalRemoteEntries } from "../utils/cloudCollectionSync";
@@ -33,6 +33,7 @@ import { persistInventoryClearAtomically } from "../utils/inventoryClearFirestor
 import { clearShoppingItems, createShoppingItem, createShoppingItems, replaceShoppingItem, removeShoppingItem } from "../utils/shoppingMutationFirestore";
 import { replaceDerivedCollectionAtomically } from "../utils/derivedCollectionFirestore";
 import { replaceUserProfileAtomically } from "../utils/profileMutationFirestore";
+import { appendMealLogAtomically, subscribeMealLogs } from "../utils/mealLogFirestore";
 
 export function useFirebaseSync(
   profile: UserProfile,
