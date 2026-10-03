@@ -31,8 +31,8 @@ import { ConfirmModal } from "./ConfirmModal";
 
 interface ShoppingViewProps {
   shoppingList: ShoppingItem[];
-  onToggleItem: (id: string) => void;
-  onDeleteItem: (id: string) => void;
+  onToggleItem: (id: string) => boolean | Promise<boolean>;
+  onDeleteItem: (id: string) => boolean | Promise<boolean>;
   onAddItem: (item: Omit<ShoppingItem, "id" | "checked">) => boolean | Promise<boolean>;
   onTransferToPantry: () => void;
   onGenerateAiShopping: () => Promise<void>;
@@ -73,6 +73,8 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
   const [estimatedCost, setEstimatedCost] = useState<string>("");
   const [isSavingManualItem, setIsSavingManualItem] = useState(false);
   const [manualItemSaveError, setManualItemSaveError] = useState<string | null>(null);
+  const [pendingRowMutationId, setPendingRowMutationId] = useState<string | null>(null);
+  const [rowMutationError, setRowMutationError] = useState<string | null>(null);
 
   const estimatedPricedItems = shoppingList.filter(
     (item) =>
@@ -163,6 +165,38 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
       );
     } finally {
       setIsSavingManualItem(false);
+    }
+  };
+
+  const runRowMutation = async (
+    id: string,
+    mutation: (id: string) => boolean | Promise<boolean>
+  ) => {
+    if (pendingRowMutationId) return;
+    setRowMutationError(null);
+    setPendingRowMutationId(id);
+    try {
+      const saved = await Promise.resolve(mutation(id));
+      if (!saved) {
+        setRowMutationError(
+          language === "bg"
+            ? "Промяната не беше запазена. Списъкът показва последното потвърдено състояние — опитайте отново."
+            : language === "es"
+            ? "El cambio no se ha guardado. La lista mantiene el último estado confirmado; inténtalo de nuevo."
+            : "The change was not saved. The list keeps the last confirmed state; try again."
+        );
+      }
+    } catch (error) {
+      console.error("Shopping row mutation failed:", error);
+      setRowMutationError(
+        language === "bg"
+          ? "Промяната не беше запазена. Списъкът показва последното потвърдено състояние — опитайте отново."
+          : language === "es"
+          ? "El cambio no se ha guardado. La lista mantiene el último estado confirmado; inténtalo de nuevo."
+          : "The change was not saved. The list keeps the last confirmed state; try again."
+      );
+    } finally {
+      setPendingRowMutationId(null);
     }
   };
 
@@ -418,7 +452,8 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                 <div className="flex items-center gap-4">
                   <button
                     type="button"
-                    onClick={() => onToggleItem(item.id)}
+                    disabled={pendingRowMutationId !== null}
+                    onClick={() => void runRowMutation(item.id, onToggleItem)}
                     aria-label={
                       language === "bg"
                         ? `Потвърди покупката на ${item.quantity} ${displayUnit} ${displayName}`
@@ -481,7 +516,8 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                     {priceDisplay}
                   </span>
                   <button
-                    onClick={() => onDeleteItem(item.id)}
+                    disabled={pendingRowMutationId !== null}
+                    onClick={() => void runRowMutation(item.id, onDeleteItem)}
                     className="text-stone-500 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-xl transition-colors"
                     title={currentText.delete}
                   >
@@ -491,6 +527,12 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {rowMutationError && (
+        <div role="alert" className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          {rowMutationError}
         </div>
       )}
 
