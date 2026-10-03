@@ -1252,7 +1252,14 @@ export default function App() {
         throw new Error(data?.error || "Weekly meal-plan generation returned no usable plan");
       }
       const { newPlan } = syncMealPlanWithPantry(data.mealPlan, pantry);
-      setMealPlan(newPlan);
+      if (!currentUser) {
+        setMealPlan(newPlan);
+      } else {
+        const persisted = await submitMealPlanReplace(mealPlan, newPlan);
+        if (persisted.outcome === "needs-review") {
+          throw new Error("Weekly meal-plan persistence needs review");
+        }
+      }
     } catch (err) {
       console.error("Failed to generate AI weekly menu; existing plan left unchanged:", err);
       alert(
