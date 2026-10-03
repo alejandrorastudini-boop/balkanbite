@@ -52,23 +52,50 @@ export async function replaceDerivedCollectionAtomically(
   const canonicalObserved = observed.docs.filter(snapshot =>
     snapshot.id === getScopedDocumentId(userId, String(snapshot.data().id ?? snapshot.data().date ?? ""))
   );
-  if (canonicalObserved.length !== expectedById.size) {
+  const observedMatches = (target: Map<string, DerivedCollectionItem>): boolean => {
+    if (canonicalObserved.length !== target.size) return false;
+    return canonicalObserved.every(snapshot => {
+      const data = snapshot.data();
+      const id = String(data.id ?? data.date ?? "");
+      const targetItem = target.get(id);
+      return Boolean(
+        targetItem &&
+        valid(collectionName, comparable(data)) &&
+        stable(comparable(data)) === stable(targetItem)
+      );
+    });
+  };
+
+  const matchesExpected = observedMatches(expectedById);
+  const matchesNext = observedMatches(nextById);
+  if (!matchesExpected && matchesNext) {
+    return { outcome: "already-applied" };
+  }
+  if (!matchesExpected) {
     return { outcome: "needs-review", reason: "stale-state" };
   }
-  for (const snapshot of canonicalObserved) {
-    const data = snapshot.data();
-    const id = String(data.id ?? data.date ?? "");
-    const expected = expectedById.get(id);
-    if (!expected || !valid(collectionName, comparable(data)) ||
-        stable(comparable(data)) !== stable(expected)) {
-      return { outcome: "needs-review", reason: "stale-state" };
-    }
+  if (matchesNext) {
+    return { outcome: "already-applied" };
   }
 
   return runTransaction(db, async tx => {
     const allIds = Array.from(new Set([...expectedById.keys(), ...nextById.keys()])).sort();
     const refs = allIds.map(id => doc(db, collectionName, getScopedDocumentId(userId, id)));
     const snapshots = await Promise.all(refs.map(ref => tx.get(ref)));
+
+    const transactionMatchesNext = allIds.every((id, index) => {
+      const snapshot = snapshots[index];
+      const next = nextById.get(id);
+      if (!next) return !snapshot.exists();
+      if (!snapshot.exists()) return false;
+      const data = snapshot.data();
+      return data.userId === userId &&
+        valid(collectionName, comparable(data)) &&
+        stable(comparable(data)) === stable(next);
+    });
+    if (transactionMatchesNext) {
+      return { outcome: "already-applied" as const };
+    }
 
     for (let index = 0; index < allIds.length; index += 1) {
       const id = allIds[index];
