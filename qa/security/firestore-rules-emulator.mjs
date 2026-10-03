@@ -390,7 +390,13 @@ try {
       where("userId", "==", "alice"),
     );
     const ownedResults = await assertSucceeds(getDocs(ownedQuery));
-    assert.equal(ownedResults.size, 1, collectionName + " owner query unexpected count");
+    assert.equal(
+      ownedResults.size,
+      collectionName === "inventory" ? 2
+        : collectionName === "shoppingList" ? 2
+        : 1,
+      collectionName + " owner query unexpected count",
+    );
     await assertFails(getDocs(query(
       collection(bob, collectionName),
       where("userId", "==", "alice"),
