@@ -281,6 +281,7 @@ export default function App() {
     updatedPantry: PantryItem[],
     syncedRecipes: Recipe[],
     existingPlan: MealPlanDay[],
+    profileForAdaptation: UserProfile = profile,
   ) => {
     if (
       (currentUser && !profileHydrated) ||
@@ -295,7 +296,7 @@ export default function App() {
       updatedPantry,
       syncedRecipes,
       existingPlan,
-      profile,
+      profileForAdaptation,
     );
   };
 
