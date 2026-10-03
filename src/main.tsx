@@ -2,6 +2,8 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import {
+  isCookConfirmationQaRoute,
+  isDerivedInventoryPropagationQaRoute,
   isFreshGuestOnboardingQaRoute,
   isManualShoppingQaRoute,
   isProfileHealthDataQaRoute,
@@ -34,6 +36,18 @@ async function bootstrap() {
   if (isManualShoppingQaRoute()) {
     const {ManualShoppingQaHarness} = await import('./qa/ManualShoppingQaHarness.tsx');
     root.render(<ManualShoppingQaHarness />);
+    return;
+  }
+
+  if (isCookConfirmationQaRoute()) {
+    const {CookConfirmationQaHarness} = await import('./qa/CookConfirmationQaHarness.tsx');
+    root.render(<CookConfirmationQaHarness />);
+    return;
+  }
+
+  if (isDerivedInventoryPropagationQaRoute()) {
+    const {DerivedInventoryPropagationQaHarness} = await import('./qa/DerivedInventoryPropagationQaHarness.tsx');
+    root.render(<DerivedInventoryPropagationQaHarness />);
     return;
   }
 
