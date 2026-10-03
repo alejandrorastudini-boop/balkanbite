@@ -2253,7 +2253,17 @@ export default function App() {
               onAddMissingToShopping={handleAddMissingToShopping}
               onGenerateAiRecipes={() => handleGenerateAiRecipes()}
               onClearRecipes={handleClearRecipes}
-              onLoadSampleRecipes={() => setRecipes(SAMPLE_RECIPES)}
+              onLoadSampleRecipes={() => {
+                if (!currentUser) {
+                  setRecipes(SAMPLE_RECIPES);
+                  return;
+                }
+                void submitRecipesReplace(recipes, SAMPLE_RECIPES).then(result => {
+                  if (result.outcome === "needs-review") {
+                    console.warn("Sample recipe load needs review:", result.reason);
+                  }
+                });
+              }}
               isLoadingAi={isLoadingAi}
               language={profile.language}
               currency={profile.currency}
