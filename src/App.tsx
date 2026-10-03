@@ -67,9 +67,7 @@ import {
 import { loadGuestPantry } from "./utils/guestPantry";
 import {
   createSignedInProfileDefaults,
-  getUserProfileCacheKey,
   parseGuestProfileCache,
-  parseUserProfileCache,
 } from "./utils/profileSyncBoundary";
 import { getUserLocalWorkspaceKey } from "./utils/localWorkspaceScope";
 import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
@@ -455,14 +453,9 @@ export default function App() {
 
     if (currentUser) {
       if (!profileHydrated && profileScope !== currentUser.uid) {
-        const cachedProfile = parseUserProfileCache(
-          localStorage.getItem(getUserProfileCacheKey(currentUser.uid)),
-          currentUser.displayName
-        );
-        setProfile(
-          cachedProfile ??
-            createSignedInProfileDefaults(currentUser.displayName)
-        );
+        // Never cache authenticated profile/health data in localStorage.
+        // Use neutral non-sensitive defaults until the owner listener hydrates.
+        setProfile(createSignedInProfileDefaults(currentUser.displayName));
         setProfileScope(currentUser.uid);
         return;
       }
@@ -489,29 +482,13 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (isResetting) return;
+    if (isResetting || currentUser || profileScope !== "guest") return;
     try {
-      if (currentUser) {
-        if (!profileHydrated || profileScope !== currentUser.uid) return;
-        localStorage.setItem(
-          getUserProfileCacheKey(currentUser.uid),
-          JSON.stringify(profile)
-        );
-        return;
-      }
-
-      if (profileScope !== "guest") return;
       localStorage.setItem("balkanbite_profile", JSON.stringify(profile));
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [
-    profile,
-    currentUser,
-    profileHydrated,
-    profileScope,
-    isResetting,
-  ]);
+  }, [profile, currentUser, profileScope, isResetting]);
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest") return;
