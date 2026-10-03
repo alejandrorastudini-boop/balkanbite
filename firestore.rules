@@ -194,7 +194,12 @@ service cloud.firestore {
 
     match /shoppingList/{itemId} {
       allow create: if ownsIncomingDocument() && ownsDocumentNamespace(itemId);
-      allow read, delete: if ownsExistingDocument();
+      // Owner-scoped absent-ID lookup is required for transaction-safe create.
+      // It never exposes another account's namespace.
+      allow get: if ownsDocumentNamespace(itemId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow delete: if ownsExistingDocument();
       allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
   }
