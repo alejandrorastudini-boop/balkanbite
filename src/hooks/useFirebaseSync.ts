@@ -30,6 +30,7 @@ import type { PantryPurchase } from "../utils/purchasePantryMerge";
 import { persistConfirmedCookAtomically, type AtomicCookExpectedStock } from "../utils/confirmedCookFirestore";
 import type { CookConfirmation } from "../utils/confirmedCookTransaction";
 import { persistInventoryClearAtomically } from "../utils/inventoryClearFirestore";
+import { createShoppingItem, replaceShoppingItem, removeShoppingItem } from "../utils/shoppingMutationFirestore";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -335,6 +336,7 @@ export function useFirebaseSync(
       // legacy local-state bulk writer here would reintroduce a second authority.
       if (
         collectionName === "inventory" ||
+        collectionName === "shoppingList" ||
         !currentUser ||
         loading ||
         hydratedCollectionUser.current[collectionName] !== currentUser.uid
@@ -850,6 +852,30 @@ export function useFirebaseSync(
     }
   };
 
+  const submitShoppingItemCreate = async (item: ShoppingItem) => {
+    const uid = currentUser?.uid;
+    if (!uid || hydratedCollectionUser.current.shoppingList !== uid) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+    }
+    return createShoppingItem(db, uid, item);
+  };
+
+  const submitShoppingItemReplace = async (expected: ShoppingItem, next: ShoppingItem) => {
+    const uid = currentUser?.uid;
+    if (!uid || hydratedCollectionUser.current.shoppingList !== uid) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+    }
+    return replaceShoppingItem(db, uid, expected, next);
+  };
+
+  const submitShoppingItemRemove = async (expected: ShoppingItem) => {
+    const uid = currentUser?.uid;
+    if (!uid || hydratedCollectionUser.current.shoppingList !== uid) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+    }
+    return removeShoppingItem(db, uid, expected);
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -880,5 +906,8 @@ export function useFirebaseSync(
     submitPurchasePantryApplication,
     submitInventoryClear,
     submitConfirmedCook,
+    submitShoppingItemCreate,
+    submitShoppingItemReplace,
+    submitShoppingItemRemove,
   };
 }
