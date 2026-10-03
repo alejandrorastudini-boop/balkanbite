@@ -2393,7 +2393,7 @@ export default function App() {
             (!currentUser || profileHydrated) &&
             !profile.onboardingCompleted
           }
-          onComplete={(upd) => { void handleProfileUpdate(upd); }}
+          onComplete={(upd) => handleProfileUpdate(upd)}
           language={profile.language}
         />
 
