@@ -1062,12 +1062,14 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <ConfirmModal
         isOpen={showClearLegacyFoodSafetyConfirm}
         onClose={() => setShowClearLegacyFoodSafetyConfirm(false)}
-        onConfirm={() => {
-          onUpdateProfile({
+        onConfirm={async () => {
+          const persisted = await onUpdateProfile({
             allergies: undefined,
             ...(legacyDietRestriction ? { dietStyle: "all" as const } : {}),
           });
+          if (persisted === false) return false;
           setShowClearLegacyFoodSafetyConfirm(false);
+          return true;
         }}
         title={
           language === "bg"
