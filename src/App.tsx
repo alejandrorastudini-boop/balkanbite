@@ -863,7 +863,15 @@ export default function App() {
         );
         // Historical source proof is enough to close a replay. Do not create a
         // new progression event because this call did not newly apply stock.
-        reconcilePantryDerivedState(pantry, true);
+        const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
+        const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+          pantry, syncedRecipes, mealPlan, profile,
+        );
+        const recipeResult = await submitRecipesReplace(recipes, syncedRecipes);
+        if (recipeResult.outcome === "needs-review") return "retry-pending";
+        const mealResult = await submitMealPlanReplace(mealPlan, newPlan);
+        if (mealResult.outcome === "needs-review") return "retry-pending";
+        setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
         return "accepted";
       }
 
