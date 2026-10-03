@@ -35,6 +35,42 @@ try {
   await assertFails(setDoc(doc(bob, "users", "alice"), { userId: "bob", profileRevision: 0 }));
   await assertFails(setDoc(doc(bob, "users", "bob"), { userId: "bob" }));
 
+  const recipeAuthority = doc(alice, "derivedCollectionAuthorities", "u_alice__recipes");
+  await assertSucceeds(setDoc(recipeAuthority, {
+    userId: "alice",
+    collectionName: "recipes",
+    revision: 0,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(getDoc(recipeAuthority));
+  await assertFails(getDoc(doc(bob, "derivedCollectionAuthorities", "u_alice__recipes")));
+  await assertSucceeds(updateDoc(recipeAuthority, {
+    revision: 1,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(recipeAuthority, {
+    revision: 3,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(recipeAuthority, {
+    collectionName: "mealPlans",
+    revision: 2,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(deleteDoc(recipeAuthority));
+  await assertFails(setDoc(doc(alice, "derivedCollectionAuthorities", "u_alice__wrong"), {
+    userId: "alice",
+    collectionName: "recipes",
+    revision: 0,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(setDoc(doc(bob, "derivedCollectionAuthorities", "u_alice__mealPlans"), {
+    userId: "bob",
+    collectionName: "mealPlans",
+    revision: 0,
+    updatedAt: serverTimestamp(),
+  }));
+
   const progressionRef = doc(alice, "users", "alice", "progressionEvents", "cook:action-1");
   const progressionEvent = {
     version: 1,
