@@ -33,7 +33,7 @@ try {
   await assertFails(getDoc(doc(bob, "users", "alice")));
   await assertFails(getDoc(doc(stranger, "users", "alice")));
   await assertFails(setDoc(doc(bob, "users", "alice"), { userId: "bob", profileRevision: 0 }));
-  await assertFails(setDoc(doc(alice, "users", "profile-without-revision"), { userId: "alice" }));
+  await assertFails(setDoc(doc(bob, "users", "bob"), { userId: "bob" }));
 
   for (const collectionName of ["inventory", "recipes", "mealPlans", "shoppingList"]) {
     const logicalId = collectionName === "mealPlans" ? "2099-12-31" : "shared";
