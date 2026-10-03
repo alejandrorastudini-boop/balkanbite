@@ -41,6 +41,38 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Meal history is append-only and owner-scoped. Nutrition values are
+    // accepted only when the canonical client marks the row verified; unknown
+    // or estimated meals cannot carry numeric nutrition fields.
+    match /users/{userId}/mealLogs/{mealId} {
+      function validMealNutrition() {
+        let status = request.resource.data.nutritionDataStatus;
+        let hasNutrition = request.resource.data.keys().hasAny([
+          'calories', 'proteinG', 'carbsG', 'fatG'
+        ]);
+        return (status == 'verified' &&
+          request.resource.data.calories is number &&
+          request.resource.data.calories >= 0 &&
+          request.resource.data.proteinG is number &&
+          request.resource.data.proteinG >= 0 &&
+          request.resource.data.carbsG is number &&
+          request.resource.data.carbsG >= 0 &&
+          request.resource.data.fatG is number &&
+          request.resource.data.fatG >= 0) ||
+          ((status == 'unknown' || status == 'estimated') && !hasNutrition);
+      }
+
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.id == mealId &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.createdAt is timestamp &&
+        validMealNutrition();
+      allow update, delete: if false;
+    }
+
     // Unversioned inventory remains compatible with the current client.
     // After a cook transaction first versions a lot, stale snapshot/batch
     // writes may not overwrite it without advancing the observed revision.
