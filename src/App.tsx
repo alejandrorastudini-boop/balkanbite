@@ -746,7 +746,20 @@ export default function App() {
       );
       // Preserve the existing purchase UX, but only after stock + provenance
       // are visible in a server-confirmed pantry snapshot.
-      reconcilePantryDerivedState(committedPantry, true);
+      const syncedRecipes = syncRecipesWithPantry(recipes, committedPantry);
+      const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+        committedPantry,
+        syncedRecipes,
+        mealPlan,
+        profile,
+      );
+      void (async () => {
+        const recipeResult = await submitRecipesReplace(recipes, syncedRecipes);
+        if (recipeResult.outcome === "needs-review") return;
+        const mealResult = await submitMealPlanReplace(mealPlan, newPlan);
+        if (mealResult.outcome === "needs-review") return;
+        setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
+      })();
     }
     return true;
   };
