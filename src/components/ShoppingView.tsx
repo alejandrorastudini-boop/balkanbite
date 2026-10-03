@@ -27,6 +27,7 @@ import {
 } from "../utils/foodTranslator";
 import { hasValidManualShoppingRequiredFields } from "../utils/manualShoppingValidation";
 import { VoiceShoppingReconcileModal } from "./VoiceShoppingReconcileModal";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface ShoppingViewProps {
   shoppingList: ShoppingItem[];
@@ -35,7 +36,7 @@ interface ShoppingViewProps {
   onAddItem: (item: Omit<ShoppingItem, "id" | "checked">) => void;
   onTransferToPantry: () => void;
   onGenerateAiShopping: () => Promise<void>;
-  onClearList?: () => void;
+  onClearList?: () => void | boolean | Promise<void | boolean>;
   onReconcileShopping?: (result: {
     purchasedItemIds: string[];
     itemsToAddToPantry: RawReconciliationExtraItem[];
@@ -64,6 +65,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
   const currentText = t[language];
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [quantity, setQuantity] = useState<string>("");
@@ -241,7 +243,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
           {shoppingList.length > 0 && onClearList && (
             <button
               id="clear-shopping-list-btn"
-              onClick={onClearList}
+              onClick={() => setShowClearConfirm(true)}
               className="px-3 py-2.5 rounded-xl bg-white/[0.04] hover:bg-red-500/10 hover:text-red-400 text-stone-400 text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/[0.06] cursor-pointer"
               title={language === "es" ? "Vaciar lista actual" : language === "bg" ? "Изчисти списъка" : "Clear list"}
             >
@@ -590,6 +592,33 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
           </div>
         </div>
       )}
+
+      <ConfirmModal
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={async () => (await onClearList?.()) !== false}
+        title={
+          language === "bg"
+            ? "Изчистване на списъка?"
+            : language === "es"
+            ? "¿Vaciar la lista?"
+            : "Clear shopping list?"
+        }
+        description={
+          language === "bg"
+            ? "Това ще премахне всички продукти от текущия списък за пазаруване."
+            : language === "es"
+            ? "Esto eliminará todos los productos de la lista de compra actual."
+            : "This will remove every item from the current shopping list."
+        }
+        confirmText={
+          language === "bg" ? "Изчисти" : language === "es" ? "Vaciar" : "Clear"
+        }
+        cancelText={
+          language === "bg" ? "Отказ" : language === "es" ? "Cancelar" : "Cancel"
+        }
+        danger
+      />
 
       {/* Voice Shopping Reconciliation Modal */}
       <VoiceShoppingReconcileModal
