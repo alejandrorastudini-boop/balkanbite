@@ -88,8 +88,10 @@ try {
   console.log("PASS: versioned update, stale-batch rejection, concurrency and tombstone");
 
   // Legacy unversioned stock may be migrated on its first explicit adjustment.
-  await setDoc(lot(alice, "alice", "unversioned"), {
-    id: "unversioned", userId: "alice", quantity: 0.5, unit: "kg",
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(lot(context.firestore(), "alice", "unversioned"), {
+      id: "unversioned", userId: "alice", quantity: 0.5, unit: "kg",
+    });
   });
   const migrate = await persistVerifiedInventoryAdjustment(
     alice, "alice", expected("unversioned", 0.5, "kg", 0),
@@ -109,8 +111,10 @@ try {
   ), { outcome: "needs-review", reason: "invalid-request" });
 
   // The same API cannot be used to mutate another account's inventory.
-  await setDoc(lot(bob, "bob", "private"), {
-    id: "private", userId: "bob", quantity: 5, unit: "pcs",
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(lot(context.firestore(), "bob", "private"), {
+      id: "private", userId: "bob", quantity: 5, unit: "pcs",
+    });
   });
   await assertFails(persistVerifiedInventoryAdjustment(
     alice, "bob", expected("private", 5, "pcs", 0),
