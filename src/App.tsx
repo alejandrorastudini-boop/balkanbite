@@ -1843,7 +1843,14 @@ export default function App() {
         });
 
         if (newItems.length > 0) {
-          setShoppingList((prev) => [...prev, ...newItems]);
+          if (!currentUser) {
+            setShoppingList(prev => [...prev, ...newItems]);
+          } else {
+            const persisted = await submitShoppingItemsCreate(newItems);
+            if (persisted.outcome === "needs-review") {
+              console.warn("AI shopping batch needs review:", persisted.reason);
+            }
+          }
         }
       }
     } catch (err) {
@@ -1882,7 +1889,7 @@ export default function App() {
     return updatePantryAndReconcileMenu(parsed, true);
   };
 
-  const handleVoiceAddShoppingItems = (items: any[]): boolean => {
+  const handleVoiceAddShoppingItems = async (items: any[]): Promise<boolean> => {
     const now = Date.now();
     const result = buildConfirmedVoiceShoppingItems(
       items || [],
@@ -1901,7 +1908,15 @@ export default function App() {
     }
 
     if (result.items.length === 0) return false;
-    setShoppingList((prev) => [...prev, ...result.items]);
+    if (!currentUser) {
+      setShoppingList(prev => [...prev, ...result.items]);
+      return true;
+    }
+    const persisted = await submitShoppingItemsCreate(result.items);
+    if (persisted.outcome === "needs-review") {
+      console.warn("Voice shopping batch needs review:", persisted.reason);
+      return false;
+    }
     return true;
   };
 
