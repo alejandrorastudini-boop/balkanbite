@@ -277,6 +277,24 @@ export default function App() {
 
   const foodSafetyQuarantine = getFoodSafetyQuarantine(profile);
 
+  const adaptMealPlanSafelyToPantry = (
+    updatedPantry: PantryItem[],
+    syncedRecipes: Recipe[],
+    existingPlan: MealPlanDay[],
+  ) => {
+    if (foodSafetyQuarantine.status !== "clear") {
+      // Unresolved legacy allergy/restriction data must never trigger automatic
+      // meal replacement. Availability flags may still be refreshed safely.
+      return syncMealPlanWithPantry(existingPlan, updatedPantry);
+    }
+    return adaptMealPlanToPantry(
+      updatedPantry,
+      syncedRecipes,
+      existingPlan,
+      profile,
+    );
+  };
+
   const requireFoodRecommendationSafetyReview = (): boolean => {
     if (foodSafetyQuarantine.status === "clear") return true;
 
@@ -592,7 +610,7 @@ export default function App() {
     const syncedRecipes = syncRecipesWithPantry(recipes, updatedPantry);
     setRecipes(syncedRecipes);
 
-    const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+    const { newPlan, readyToCookMealsCount } = adaptMealPlanSafelyToPantry(
       updatedPantry,
       syncedRecipes,
       mealPlan,
@@ -690,7 +708,7 @@ export default function App() {
       // Preserve the existing purchase UX, but only after stock + provenance
       // are visible in a server-confirmed pantry snapshot.
       const syncedRecipes = syncRecipesWithPantry(recipes, committedPantry);
-      const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+      const { newPlan, readyToCookMealsCount } = adaptMealPlanSafelyToPantry(
         committedPantry,
         syncedRecipes,
         mealPlan,
@@ -804,7 +822,7 @@ export default function App() {
         // listener already owns visibility of rows deleted by the transaction. Do not create a
         // new progression event because this call did not newly apply stock.
         const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
-        const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+        const { newPlan, readyToCookMealsCount } = adaptMealPlanSafelyToPantry(
           pantry, syncedRecipes, mealPlan, profile,
         );
         const recipeResult = await submitRecipesReplace(recipes, syncedRecipes);
@@ -861,7 +879,7 @@ export default function App() {
 
     pendingSignedInCreations.current = null;
     const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
-    const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+    const { newPlan, readyToCookMealsCount } = adaptMealPlanSafelyToPantry(
       pantry, syncedRecipes, mealPlan, profile,
     );
     void (async () => {
@@ -1059,8 +1077,9 @@ export default function App() {
 
   const handleAdaptMenuToPantry = async () => {
     if (!requireAuthoritativeInventory()) return false;
+    if (!requireFoodRecommendationSafetyReview()) return false;
     const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
-    const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
+    const { newPlan, readyToCookMealsCount } = adaptMealPlanSafelyToPantry(
       pantry,
       syncedRecipes,
       mealPlan,
