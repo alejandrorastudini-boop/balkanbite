@@ -1109,12 +1109,12 @@ export default function App() {
     return true;
   };
 
-  const handleAddPantryItem = (item: Omit<PantryItem, "id" | "addedAt">) => {
-    if (!requireAuthoritativeInventory()) return;
+  const handleAddPantryItem = async (item: Omit<PantryItem, "id" | "addedAt">): Promise<boolean> => {
+    if (!requireAuthoritativeInventory()) return false;
 
     // Manual pantry persistence requires explicit identity + amount.
     // Optional category, cost, and expiry remain unknown when blank.
-    if (!hasValidPantryAcquisitionRequiredFields(item)) return;
+    if (!hasValidPantryAcquisitionRequiredFields(item)) return false;
 
     const newItem: PantryItem = {
       ...item,
@@ -1122,10 +1122,10 @@ export default function App() {
       addedAt: new Date().toISOString().split("T")[0],
     };
     if (currentUser) {
-      void dispatchSignedInPantryCreations([newItem]);
-      return;
+      return dispatchSignedInPantryCreations([newItem]);
     }
     updatePantryAndReconcileMenu([newItem], true);
+    return true;
   };
 
   const handleAddMultiplePantryItems = (items: Array<Omit<PantryItem, "id" | "addedAt">>) => {
