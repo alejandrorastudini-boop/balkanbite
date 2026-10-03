@@ -716,11 +716,8 @@ export default function App() {
     }
 
     pendingSignedInPurchaseApplication.current = null;
-    const accepted = new Set(pending.acceptedSourceIds);
-    setShoppingList(current =>
-      current.filter(item => !accepted.has(`shopping:${item.id}`)),
-    );
-
+    // Shopping rows were retired in the same authoritative purchase transaction.
+    // The owner listener is the only signed-in source allowed to remove them locally.
     if (pending.newlyAppliedSourceIds.length > 0) {
       appendLocalProgressionEvents(
         buildPurchaseProgressEvents({
@@ -841,11 +838,8 @@ export default function App() {
           return "rejected";
         }
         pendingSignedInPurchaseApplication.current = null;
-        const accepted = new Set(evidence.acceptedSourceIds);
-        setShoppingList(current =>
-          current.filter(item => !accepted.has(`shopping:${item.id}`)),
-        );
-        // Historical source proof is enough to close a replay. Do not create a
+        // Historical source proof is enough to close a replay. The shopping
+        // listener already owns visibility of rows deleted by the transaction. Do not create a
         // new progression event because this call did not newly apply stock.
         const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
         const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
