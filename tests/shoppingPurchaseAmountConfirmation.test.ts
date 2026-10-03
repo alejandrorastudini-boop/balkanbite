@@ -37,7 +37,7 @@ test("AI shopping suggestions remain planning estimates until human confirmation
 test("checking a shopping row explicitly confirms the displayed purchased amount", () => {
   assert.match(
     appSource,
-    /const checked = !item\.checked;[\s\S]{0,260}purchaseAmountConfirmed: checked/,
+    /const checked = !expected\.checked;[\s\S]{0,260}purchaseAmountConfirmed: checked/,
   );
   assert.match(
     shoppingSource,

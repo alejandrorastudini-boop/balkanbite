@@ -12,6 +12,10 @@ const firebaseSyncSource = readFileSync(
   new URL("../src/hooks/useFirebaseSync.ts", import.meta.url),
   "utf8"
 );
+const profileMutationSource = readFileSync(
+  new URL("../src/utils/profileMutationFirestore.ts", import.meta.url),
+  "utf8"
+);
 const pantryViewSource = readFileSync(
   new URL("../src/components/PantryView.tsx", import.meta.url),
   "utf8"
@@ -202,11 +206,13 @@ test("App wiring keeps the shell independent from delayed inventory and gates cl
   );
 
   assert.match(firebaseSyncSource, /getStartupCloudSyncState\(/);
-  assert.match(firebaseSyncSource, /cloudInventoryWritesAllowed/);
+  assert.match(firebaseSyncSource, /inventoryIsProvisional/);
   assert.match(
     firebaseSyncSource,
-    /if\s*\([^)]*!cloudInventoryWritesAllowed[^)]*\)\s*return/
+    /collectionName === "inventory" \|\|[\s\S]{0,160}!currentUser/
   );
+  assert.match(firebaseSyncSource, /inventoryEditAuthority\.current/);
+  assert.match(firebaseSyncSource, /inventoryServerConfirmedUser/);
 });
 
 
@@ -295,14 +301,14 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
     assert.match(
       appSource,
       new RegExp(
-        `const ${handlerName} = [^\\n]*=> \\{\\n\\s*if \\(!requireAuthoritativeInventory\\(\\)\\) return(?: false)?;`
+        `const ${handlerName} = [\\s\\S]{0,240}?=> \\{\\n\\s*if \\(!requireAuthoritativeInventory\\(\\)\\) return(?: false)?;`
       )
     );
   }
 
   assert.match(
     appSource,
-    /const handleCookRecipe = [^\n]*=> \{\n\s*if \(!requireAuthoritativeInventory\(\)\) \{[\s\S]*return \{ success: false, issueCount: 1 \};/
+    /const handleCookRecipe = async \([\s\S]{0,180}?\): Promise<RecipeCookOutcome> => \{\n\s*if \(!requireAuthoritativeInventory\(\)\) \{[\s\S]*?return \{ success: false, issueCount: 1 \};/
   );
 
   assert.match(
@@ -416,16 +422,16 @@ test("guest workspace storage is not overwritten by a signed-in account", () => 
 
 test("profile Firestore writes serialize optional unknown fields instead of spreading undefined", () => {
   assert.match(
-    firebaseSyncSource,
-    /serializeUserProfileForFirestore\(newProfile\)/
+    profileMutationSource,
+    /serializeUserProfileForFirestore\(initialProfile\)/
   );
   assert.match(
-    firebaseSyncSource,
-    /serializeUserProfileForFirestore\(profile\)/
+    profileMutationSource,
+    /serializeUserProfileForFirestore\(nextProfile\)/
   );
   assert.doesNotMatch(
     firebaseSyncSource,
-    /setDoc\(userDoc,\s*\{\s*\.\.\.newProfile/
+    /setDoc\(userDoc/
   );
   assert.doesNotMatch(
     firebaseSyncSource,
@@ -436,6 +442,10 @@ test("profile Firestore writes serialize optional unknown fields instead of spre
     /Failed to create user profile/
   );
   assert.match(
+    firebaseSyncSource,
+    /submitProfileReplace/
+  );
+  assert.doesNotMatch(
     firebaseSyncSource,
     /Failed to save user profile/
   );
