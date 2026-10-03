@@ -1543,6 +1543,25 @@ export default function App() {
     }).catch(error => console.error("Shopping item creation failed:", error));
   };
 
+  const handleClearShoppingList = async (): Promise<boolean> => {
+    if (shoppingList.length === 0) return true;
+    if (!currentUser) {
+      setShoppingList([]);
+      return true;
+    }
+    try {
+      const result = await submitShoppingItemsClear(shoppingList);
+      if (result.outcome === "needs-review") {
+        console.warn("Shopping clear needs review:", result.reason);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("Shopping clear failed:", error);
+      return false;
+    }
+  };
+
   const handleTransferToPantry = async () => {
     if (!requireAuthoritativeInventory()) return;
     const checkedItems = shoppingList.filter(item => item.checked);
@@ -2179,7 +2198,7 @@ export default function App() {
               onAddItem={handleAddShoppingItem}
               onTransferToPantry={handleTransferToPantry}
               onGenerateAiShopping={handleGenerateAiShopping}
-              onClearList={() => setShoppingList([])}
+              onClearList={handleClearShoppingList}
               onReconcileShopping={handleReconcileShopping}
               isLoadingAi={isLoadingAi}
               language={profile.language}
