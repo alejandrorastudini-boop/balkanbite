@@ -134,10 +134,10 @@ try {
     requestSignature: "unknown-meal",
     createdAt: new Date(),
   }));
+  const { mealType: _mealType, ...mealWithoutType } = verifiedMeal;
   await assertFails(setDoc(doc(alice, "users", "alice", "mealLogs", "missing-type"), {
-    ...verifiedMeal,
+    ...mealWithoutType,
     id: "missing-type",
-    mealType: undefined,
   }));
   await assertFails(setDoc(doc(alice, "users", "alice", "mealLogs", "bad-type"), {
     ...verifiedMeal,
