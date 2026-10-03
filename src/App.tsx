@@ -1089,21 +1089,29 @@ export default function App() {
     }).catch(error => console.error("Advisor shopping batch failed:", error));
   };
 
-  const handleAdaptMenuToPantry = () => {
-    if (!requireAuthoritativeInventory()) return;
+  const handleAdaptMenuToPantry = async () => {
+    if (!requireAuthoritativeInventory()) return false;
     const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
-    setRecipes(syncedRecipes);
     const { newPlan, readyToCookMealsCount } = adaptMealPlanToPantry(
       pantry,
       syncedRecipes,
       mealPlan,
       profile
     );
-    setMealPlan(newPlan);
+    if (!currentUser) {
+      setRecipes(syncedRecipes);
+      setMealPlan(newPlan);
+    } else {
+      const recipeResult = await submitRecipesReplace(recipes, syncedRecipes);
+      if (recipeResult.outcome === "needs-review") return false;
+      const mealResult = await submitMealPlanReplace(mealPlan, newPlan);
+      if (mealResult.outcome === "needs-review") return false;
+    }
     setAutoMenuToast({
       isVisible: true,
       readyMealsCount: readyToCookMealsCount,
     });
+    return true;
   };
 
   const handleAddPantryItem = (item: Omit<PantryItem, "id" | "addedAt">) => {
