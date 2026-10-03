@@ -1417,8 +1417,8 @@ export default function App() {
     return { success: true };
   };
 
-  const handleAddMissingToShopping = (recipe: Recipe) => {
-    if (!requireAuthoritativeInventory()) return;
+  const handleAddMissingToShopping = async (recipe: Recipe): Promise<boolean> => {
+    if (!requireAuthoritativeInventory()) return false;
     const { items, unverified } = buildRecipeShoppingNeeds(
       recipe,
       pantry,
@@ -1450,11 +1450,30 @@ export default function App() {
       if (!currentUser) {
         setShoppingList(prev => [...prev, ...newShoppingItems]);
       } else {
-        void submitShoppingItemsCreate(newShoppingItems).then(result => {
+        try {
+          const result = await submitShoppingItemsCreate(newShoppingItems);
           if (result.outcome === "needs-review") {
             console.warn("Recipe shopping batch needs review:", result.reason);
+            alert(
+              profile.language === "bg"
+                ? "Не успях да потвърдя добавянето към списъка. Опитайте отново."
+                : profile.language === "es"
+                ? "No he podido confirmar que se añadiera a la lista. Inténtalo de nuevo."
+                : "I could not confirm the shopping-list update. Try again."
+            );
+            return false;
           }
-        }).catch(error => console.error("Recipe shopping batch failed:", error));
+        } catch (error) {
+          console.error("Recipe shopping batch failed:", error);
+          alert(
+            profile.language === "bg"
+              ? "Не успях да запазя липсващите продукти. Опитайте отново."
+              : profile.language === "es"
+              ? "No he podido guardar los faltantes. Inténtalo de nuevo."
+              : "I could not save the missing items. Try again."
+          );
+          return false;
+        }
       }
     }
 
@@ -1466,7 +1485,7 @@ export default function App() {
           ? `No he añadido automáticamente ${unverified.length} ingrediente(s) porque las unidades disponibles no se pueden comparar de forma segura.`
           : `I did not automatically add ${unverified.length} ingredient(s) because the available units cannot be safely compared.`
       );
-      return;
+      return true;
     }
 
     if (newShoppingItems.length === 0) {
@@ -1477,7 +1496,7 @@ export default function App() {
           ? "Ya tienes cantidad suficiente en la despensa o pendiente en la lista de compra."
           : "You already have enough quantity in the pantry or pending on the shopping list."
       );
-      return;
+      return true;
     }
 
     alert(
@@ -1487,6 +1506,7 @@ export default function App() {
         ? `¡Añadiste ${newShoppingItems.length} faltante(s) cuantitativo(s) verificado(s) a tu lista de compra!`
         : `Added ${newShoppingItems.length} verified quantitative shortfall(s) to your shopping list!`
     );
+    return true;
   };
 
   const handleGenerateAiRecipes = async (queryText?: string) => {
