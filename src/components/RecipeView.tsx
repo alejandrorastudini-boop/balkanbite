@@ -29,7 +29,7 @@ interface RecipeViewProps {
   onCookRecipe: (recipe: Recipe, cookConfirmationId: string) => RecipeCookOutcome | Promise<RecipeCookOutcome>;
   onAddMissingToShopping: (recipe: Recipe) => void;
   onGenerateAiRecipes: () => Promise<void>;
-  onClearRecipes?: () => void;
+  onClearRecipes?: () => void | boolean | Promise<void | boolean>;
   onLoadSampleRecipes?: () => void;
   isLoadingAi: boolean;
   language: Language;
@@ -638,11 +638,9 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
       <ConfirmModal
         isOpen={showClearConfirm}
         onClose={() => setShowClearConfirm(false)}
-        onConfirm={() => {
-          if (onClearRecipes) {
-            onClearRecipes();
-          }
-          setShowClearConfirm(false);
+        onConfirm={async () => {
+          if (!onClearRecipes) return true;
+          return (await onClearRecipes()) !== false;
         }}
         title={currentText.recipesClearAll}
         description={currentText.recipesClearConfirm}
