@@ -277,6 +277,39 @@ try {
     },
   ));
 
+  const shoppingRuleProbe = doc(alice, "shoppingList", "u_alice__rule-probe");
+  const validShoppingRuleProbe = {
+    id: "rule-probe",
+    userId: "alice",
+    name: "QA shopping item",
+    quantity: 1,
+    unit: "pcs",
+    category: "Other",
+    checked: false,
+    amountOrigin: "user_entered",
+    purchaseAmountConfirmed: true,
+    updatedAt: serverTimestamp(),
+  };
+  await assertSucceeds(setDoc(shoppingRuleProbe, validShoppingRuleProbe));
+  await assertFails(setDoc(doc(alice, "shoppingList", "u_alice__negative-shopping"), {
+    ...validShoppingRuleProbe,
+    id: "negative-shopping",
+    quantity: -1,
+  }));
+  await assertFails(setDoc(doc(alice, "shoppingList", "u_alice__bad-origin"), {
+    ...validShoppingRuleProbe,
+    id: "bad-origin",
+    amountOrigin: "invented",
+  }));
+  await assertFails(setDoc(doc(alice, "shoppingList", "u_alice__extra-shopping"), {
+    ...validShoppingRuleProbe,
+    id: "extra-shopping",
+    unexpectedField: "not-canonical",
+  }));
+  await assertFails(updateDoc(shoppingRuleProbe, {
+    purchaseAmountConfirmed: "yes",
+  }));
+
   for (const collectionName of ["inventory", "recipes", "mealPlans", "shoppingList"]) {
     const logicalId = collectionName === "mealPlans" ? "2099-12-31" : "shared";
     const aliceId = "u_alice__" + logicalId;
