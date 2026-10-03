@@ -408,7 +408,8 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
             </div>
           </div>
           <button
-            onClick={onClose}
+            disabled={isSaving}
+            onClick={() => { if (!isSaving) onClose(); }}
             className="p-2 rounded-xl bg-white/[0.04] text-stone-400 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -715,7 +716,8 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
             <>
               <button
                 type="button"
-                onClick={onClose}
+                disabled={isSaving}
+                onClick={() => { if (!isSaving) onClose(); }}
                 className="px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-stone-400 hover:text-white text-xs font-bold transition-colors cursor-pointer"
               >
                 {language === "es" ? "Cancelar" : language === "bg" ? "Отказ" : "Cancel"}
@@ -756,7 +758,9 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
             <>
               <button
                 type="button"
+                disabled={isSaving}
                 onClick={() => {
+                  if (isSaving) return;
                   setStep("input");
                   setSelectedExtraItems([]);
                   reconciliationIdRef.current = "";
