@@ -1299,6 +1299,7 @@ export default function App() {
   };
 
   const handleClearRecipes = async () => {
+    if (!requireWorkspaceAuthority(recipesHydrated, "recipes")) return false;
     if (!currentUser) {
       setRecipes([]);
       return true;
@@ -1308,6 +1309,7 @@ export default function App() {
   };
 
   const handleClearMealPlan = async () => {
+    if (!requireWorkspaceAuthority(mealPlanHydrated, "mealPlan")) return false;
     if (!currentUser) {
       setMealPlan([]);
       return true;
@@ -2359,6 +2361,7 @@ export default function App() {
               onGenerateAiRecipes={() => handleGenerateAiRecipes()}
               onClearRecipes={handleClearRecipes}
               onLoadSampleRecipes={() => {
+                if (!requireWorkspaceAuthority(recipesHydrated, "recipes")) return;
                 if (!currentUser) {
                   setRecipes(SAMPLE_RECIPES);
                   return;
