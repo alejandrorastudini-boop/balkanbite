@@ -53,18 +53,22 @@ test("profile progression slice does not expose commercial reward mechanics", ()
 });
 
 
-test("progression profile discloses that activity history is device-local", () => {
+test("progression profile discloses account-scoped cloud authority and guest-local storage", () => {
   assert.match(profileSource, /profile-progress-storage-copy/);
   assert.match(
     profileSource,
+    /When signed in, this verified history is synchronized with your account from the cloud/,
+  );
+  assert.match(
+    profileSource,
+    /Con la sesión iniciada, este historial verificado se sincroniza con tu cuenta desde la nube/,
+  );
+  assert.match(
+    profileSource,
+    /As a guest, this history is stored only on this device/,
+  );
+  assert.doesNotMatch(
+    profileSource,
     /stored only on this device and is not synced to your account/,
-  );
-  assert.match(
-    profileSource,
-    /se guarda solo en este dispositivo y no se sincroniza con tu cuenta/,
-  );
-  assert.match(
-    profileSource,
-    /се съхранява само на това устройство и не се синхронизира с вашия акаунт/,
   );
 });
