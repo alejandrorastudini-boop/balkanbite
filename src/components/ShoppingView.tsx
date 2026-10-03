@@ -41,7 +41,7 @@ interface ShoppingViewProps {
     purchasedItemIds: string[];
     itemsToAddToPantry: RawReconciliationExtraItem[];
     reconciliationId?: string;
-  }) => void;
+  }) => boolean | Promise<boolean>;
   isLoadingAi: boolean;
   language: Language;
   currency: Currency;
@@ -701,10 +701,9 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
         onClose={() => setShowVoiceModal(false)}
         shoppingList={shoppingList}
         language={language}
-        onConfirmReconciliation={(res) => {
-          if (onReconcileShopping) {
-            onReconcileShopping(res);
-          }
+        onConfirmReconciliation={async (res) => {
+          if (!onReconcileShopping) return false;
+          return onReconcileShopping(res);
         }}
       />
     </div>
