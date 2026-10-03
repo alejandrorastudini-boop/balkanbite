@@ -1117,6 +1117,8 @@ export default function App() {
   const handleAddMultipleShoppingItems = (
     items: Array<Omit<ShoppingItem, "id" | "checked">>
   ) => {
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
+
     const newItems: ShoppingItem[] = items.map((item, idx) => ({
       ...item,
       id: `s-advisor-${Date.now()}-${idx}`,
@@ -1473,6 +1475,8 @@ export default function App() {
   };
 
   const handleAddMissingToShopping = (recipe: Recipe) => {
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
+
     if (!requireAuthoritativeInventory()) return;
     const { items, unverified } = buildRecipeShoppingNeeds(
       recipe,
@@ -1589,6 +1593,8 @@ export default function App() {
   };
 
   const handleToggleShoppingItem = (id: string) => {
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
+
     const expected = shoppingList.find(item => item.id === id);
     if (!expected) return;
     const checked = !expected.checked;
@@ -1611,6 +1617,8 @@ export default function App() {
   };
 
   const handleDeleteShoppingItem = (id: string) => {
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
+
     const expected = shoppingList.find(item => item.id === id);
     if (!expected) return;
     if (!currentUser) {
@@ -1625,6 +1633,8 @@ export default function App() {
   };
 
   const handleAddShoppingItem = (item: Omit<ShoppingItem, "id" | "checked">) => {
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
+
     if (!hasValidManualShoppingRequiredFields(item)) {
       console.warn(
         "Manual shopping item rejected because name, quantity or unit was not explicitly valid."
@@ -1656,6 +1666,8 @@ export default function App() {
   };
 
   const handleClearShoppingList = async (): Promise<boolean> => {
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return false;
+
     if (shoppingList.length === 0) return true;
     if (!currentUser) {
       setShoppingList([]);
@@ -1675,6 +1687,8 @@ export default function App() {
   };
 
   const handleTransferToPantry = async () => {
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
+
     if (!requireAuthoritativeInventory()) return;
     const checkedItems = shoppingList.filter(item => item.checked);
     if (checkedItems.length === 0) return;
@@ -1737,6 +1751,8 @@ export default function App() {
   };
 
   const handleReconcileShopping = async ({
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
+
     purchasedItemIds,
     itemsToAddToPantry,
     reconciliationId,
@@ -2034,6 +2050,8 @@ export default function App() {
   };
 
   const handleVoiceAddShoppingItems = async (items: any[]): Promise<boolean> => {
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return false;
+
     const now = Date.now();
     const result = buildConfirmedVoiceShoppingItems(
       items || [],
