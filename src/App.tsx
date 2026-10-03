@@ -356,16 +356,9 @@ export default function App() {
     if (currentUser) {
       if (workspaceScope === currentUser.uid) return;
 
-      setMealLogs(
-        parseMealLogCache(
-          localStorage.getItem(
-            getUserLocalWorkspaceKey(
-              "balkanbite_meallogs",
-              currentUser.uid
-            )
-          )
-        )
-      );
+      // Signed-in meal history is hydrated from the owner-scoped Firestore listener.
+      // Never promote a device-local meal cache into authenticated authority.
+      setMealLogs([]);
       setChatMessages(
         parseChatMessageCache(
           localStorage.getItem(
