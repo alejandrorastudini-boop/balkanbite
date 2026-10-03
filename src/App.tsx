@@ -161,6 +161,8 @@ export default function App() {
     submitPurchasePantryApplication,
     submitInventoryClear,
     submitConfirmedCook,
+    submitRecipesReplace,
+    submitMealPlanReplace,
     submitShoppingItemCreate,
     submitShoppingItemsCreate,
     submitShoppingItemsClear,
@@ -1209,12 +1211,22 @@ export default function App() {
     return false;
   };
 
-  const handleClearRecipes = () => {
-    setRecipes([]);
+  const handleClearRecipes = async () => {
+    if (!currentUser) {
+      setRecipes([]);
+      return true;
+    }
+    const result = await submitRecipesReplace(recipes, []);
+    return result.outcome !== "needs-review";
   };
 
-  const handleClearMealPlan = () => {
-    setMealPlan([]);
+  const handleClearMealPlan = async () => {
+    if (!currentUser) {
+      setMealPlan([]);
+      return true;
+    }
+    const result = await submitMealPlanReplace(mealPlan, []);
+    return result.outcome !== "needs-review";
   };
 
   const [isGeneratingPlan, setIsGeneratingPlan] = useState(false);
