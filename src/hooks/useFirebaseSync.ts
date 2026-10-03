@@ -2,12 +2,10 @@ import React, { useEffect, useRef, useState } from "react";
 import {
   collection,
   doc,
-  setDoc,
-  onSnapshot,
+   onSnapshot,
   query,
   where,
-  Timestamp,
-  writeBatch
+   writeBatch
 } from "firebase/firestore";
 import { auth, db } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
@@ -32,7 +30,7 @@ import type { CookConfirmation } from "../utils/confirmedCookTransaction";
 import { persistInventoryClearAtomically } from "../utils/inventoryClearFirestore";
 import { clearShoppingItems, createShoppingItem, createShoppingItems, replaceShoppingItem, removeShoppingItem } from "../utils/shoppingMutationFirestore";
 import { replaceDerivedCollectionAtomically } from "../utils/derivedCollectionFirestore";
-import { replaceUserProfileAtomically } from "../utils/profileMutationFirestore";
+import { ensureUserProfileExistsAtomically, replaceUserProfileAtomically } from "../utils/profileMutationFirestore";
 import { appendMealLogAtomically, subscribeMealLogs } from "../utils/mealLogFirestore";
 import { appendProgressionEventsAtomically, subscribeProgressionEvents } from "../utils/progressionFirestore";
 import type { ProgressionEventV1 } from "../utils/progressionLedger";
@@ -166,15 +164,22 @@ export function useFirebaseSync(
           currentUser.displayName
         );
         setProfile(newProfile);
-        void setDoc(userDoc, {
-          ...serializeUserProfileForFirestore(newProfile),
-          userId: currentUser.uid,
-          profileRevision: 0,
-          createdAt: Timestamp.now(),
-          updatedAt: Timestamp.now()
+        profileRevision.current = null;
+        // Bootstrap is create-if-absent inside a transaction. Do not mark the
+        // profile authoritative until the listener observes the created (or
+        // concurrently-created) document with a valid revision.
+        void ensureUserProfileExistsAtomically(
+          db,
+          currentUser.uid,
+          newProfile,
+        ).then(result => {
+          if (result.outcome === "needs-review") {
+            console.error("Failed to establish signed-in profile authority:", result.reason);
+          }
         }).catch((error) => {
           console.error("Failed to create user profile:", error);
         });
+        return;
       }
       setProfileHydratedUser(currentUser.uid);
       setLoading(false);
