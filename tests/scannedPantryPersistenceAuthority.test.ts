@@ -26,6 +26,8 @@ test("scan modal waits for save confirmation before resetting reviewed candidate
 test("scan modal blocks duplicate save attempts while persistence is pending", () => {
   assert.match(scanModal, /if \(isSaving\) return;/);
   assert.match(scanModal, /disabled=\{selectedCount === 0 \|\| isSaving\}/);
+  assert.match(scanModal, /disabled=\{isSaving\} onClick=\{\(\) => \{ if \(isSaving\) return; handleResetModal\(\); onClose\(\); \}\}/);
+  assert.match(scanModal, /disabled=\{isSaving\} onClick=\{\(\) => \{ if \(isSaving\) return; setScanMode\(mode\); handleResetModal\(\); \}\}/);
 });
 
 test("pantry view propagates the batch persistence result to scan modal", () => {
