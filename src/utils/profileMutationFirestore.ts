@@ -29,7 +29,7 @@ export async function replaceUserProfileAtomically(
       return { outcome: "needs-review" as const, reason: "stale-state" as const };
     }
     const data = snapshot.data();
-    if (data.userId !== userId) {
+    if (data.userId !== undefined && data.userId !== userId) {
       return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
     }
     const revision = data.profileRevision ?? 0;
