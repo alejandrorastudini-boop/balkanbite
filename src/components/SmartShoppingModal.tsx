@@ -24,7 +24,7 @@ interface SmartShoppingModalProps {
   diagnostic: ShoppingAlertDiagnostic;
   language: Language;
   currency: Currency;
-  onAddMissingToShoppingList: (items: Array<Omit<ShoppingItem, "id" | "checked">>) => void;
+  onAddMissingToShoppingList: (items: Array<Omit<ShoppingItem, "id" | "checked">>) => boolean | Promise<boolean>;
   onGoToShoppingTab: () => void;
   onRequestBrowserNotifications?: () => void;
   hasNotificationPermission?: boolean;
@@ -42,6 +42,8 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
   hasNotificationPermission = false,
 }) => {
   const [addedSuccess, setAddedSuccess] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState(false);
 
   if (!isOpen) return null;
 
@@ -80,13 +82,27 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
     ? "Неизвестна обща сума"
     : "Total unknown";
 
-  const handleAddMissing = () => {
-    if (itemsToAddToShoppingList.length > 0) {
-      onAddMissingToShoppingList(itemsToAddToShoppingList);
+  const handleAddMissing = async () => {
+    if (itemsToAddToShoppingList.length === 0 || isAdding) return;
+    setAddError(false);
+    setIsAdding(true);
+    try {
+      const saved = await Promise.resolve(
+        onAddMissingToShoppingList(itemsToAddToShoppingList)
+      );
+      if (!saved) {
+        setAddError(true);
+        return;
+      }
       setAddedSuccess(true);
       setTimeout(() => {
         setAddedSuccess(false);
       }, 4000);
+    } catch (error) {
+      console.error("Smart shopping add failed:", error);
+      setAddError(true);
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -378,7 +394,7 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
             <button
               type="button"
               onClick={handleAddMissing}
-              disabled={addedSuccess}
+              disabled={addedSuccess || isAdding}
               className="w-full py-3 rounded-2xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold text-sm flex items-center justify-center gap-2 transition-all shadow-[0_4px_20px_rgba(16,185,129,0.3)] cursor-pointer disabled:opacity-80"
             >
               {addedSuccess ? (
@@ -405,6 +421,15 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
                 </>
               )}
             </button>
+          )}
+          {addError && (
+            <p role="alert" className="text-xs text-red-300">
+              {language === "bg"
+                ? "Не беше запазено. Опитайте отново."
+                : language === "es"
+                ? "No se ha guardado. Inténtalo de nuevo."
+                : "Not saved. Try again."}
+            </p>
           )}
 
           <div className="flex gap-2">
