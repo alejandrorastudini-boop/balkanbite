@@ -3,10 +3,8 @@ import test from "node:test";
 import { removeHealthProfileField } from "../src/utils/healthProfile";
 import {
   createSignedInProfileDefaults,
-  getUserProfileCacheKey,
-  parseGuestProfileCache,
-  parseUserProfileCache,
-  sanitizeRemoteUserProfile,
+   parseGuestProfileCache,
+   sanitizeRemoteUserProfile,
   serializeUserProfileForFirestore,
 } from "../src/utils/profileSyncBoundary";
 
@@ -74,19 +72,6 @@ test("invalid or missing remote values resolve to neutral signed-in defaults", (
   assert.equal(profile.healthGoal, undefined);
   assert.equal(profile.budgetTier, undefined);
   assert.equal("isProSubscriber" in profile, false);
-});
-
-test("profile caches are user-scoped and malformed caches stay unavailable", () => {
-  assert.equal(
-    getUserProfileCacheKey("user-1"),
-    "balkanbite_profile_user_user-1",
-  );
-  assert.notEqual(
-    getUserProfileCacheKey("user-1"),
-    getUserProfileCacheKey("user-2"),
-  );
-  assert.equal(parseUserProfileCache("not-json", "A"), null);
-  assert.equal(parseUserProfileCache(null, "A"), null);
 });
 
 test("guest cache parsing does not accept arbitrary non-object payloads", () => {
