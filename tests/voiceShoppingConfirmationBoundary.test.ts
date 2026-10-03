@@ -123,7 +123,7 @@ test("App defensively rebuilds confirmed voice-shopping rows", () => {
   );
   assert.match(
     appSource,
-    /setShoppingList\(\(prev\) => \[\.\.\.prev, \.\.\.result\.items\]\)/,
+    /submitShoppingItemsCreate\(result\.items\)/,
   );
   assert.match(
     captureSource,
@@ -158,7 +158,7 @@ test("App rejects the whole confirmed voice-shopping batch if any row fails reva
   );
   const returnIndex = handlerBlock.indexOf("return false;", rejectedIndex);
   const persistIndex = handlerBlock.indexOf(
-    "setShoppingList((prev) => [...prev, ...result.items])",
+    "await submitShoppingItemsCreate(result.items)",
   );
 
   assert.ok(rejectedIndex >= 0);
