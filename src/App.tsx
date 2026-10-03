@@ -726,6 +726,7 @@ export default function App() {
       return false;
     }
     if (!inventoryHydrated || !inventoryServerConfirmed) return false;
+    if (!recipesHydrated || !mealPlanHydrated) return false;
     if (!isPurchaseCommitVisible(pending, currentUser.uid, committedPantry)) {
       return false;
     }
