@@ -44,7 +44,8 @@ export function useFirebaseSync(
   mealPlan: MealPlanDay[],
   setMealPlan: React.Dispatch<React.SetStateAction<MealPlanDay[]>>,
   shoppingList: ShoppingItem[],
-  setShoppingList: React.Dispatch<React.SetStateAction<ShoppingItem[]>>
+  setShoppingList: React.Dispatch<React.SetStateAction<ShoppingItem[]>>,
+  setMealLogs: React.Dispatch<React.SetStateAction<MealLog[]>>
 ) {
   const [currentUser, setCurrentUser] = useState<User | null>(null);
   // `loading` remains the internal write gate: profile/collection writes stay
@@ -172,6 +173,29 @@ export function useFirebaseSync(
     });
     return unsub;
   }, [currentUser]);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    const uid = currentUser.uid;
+    setMealLogs([]);
+    return subscribeMealLogs(
+      db,
+      uid,
+      meals => {
+        if (auth.currentUser?.uid !== uid) return;
+        setMealLogs(meals);
+      },
+      error => {
+        console.error("Failed to hydrate meal history:", error);
+      },
+    );
+  }, [currentUser, setMealLogs]);
+
+  const submitMealLog = async (meal: MealLog) => {
+    const uid = currentUser?.uid;
+    if (!uid) return { outcome: "needs-review" as const, reason: "invalid-request" as const };
+    return appendMealLogAtomically(db, uid, meal);
+  };
 
   // Signed-in profile state is listener-owned. Explicit user edits use the
   // revision-aware command below; never bulk-write arbitrary local profile state.
@@ -947,6 +971,7 @@ export function useFirebaseSync(
     submitPurchasePantryApplication,
     submitInventoryClear,
     submitConfirmedCook,
+    submitMealLog,
     submitProfileReplace,
     submitRecipesReplace,
     submitMealPlanReplace,
