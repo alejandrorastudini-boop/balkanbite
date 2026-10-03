@@ -229,7 +229,10 @@ export function useFirebaseSync(
 
   const submitProgressionEvents = async (events: readonly ProgressionEventV1[]) => {
     const uid = currentUser?.uid;
-    if (!uid || progressionHydratedUser !== uid) return false;
+    if (!uid) return false;
+    // Progression events use stable deterministic IDs and immutable create-only
+    // transactions, so they do not require collection hydration before append.
+    // This avoids dropping confirmed purchase/cook evidence during startup.
     return appendProgressionEventsAtomically(db, uid, events);
   };
 
