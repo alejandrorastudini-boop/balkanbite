@@ -41,6 +41,31 @@ service cloud.firestore {
       allow delete: if false;
     }
 
+    // Progression is append-only evidence derived from confirmed deterministic
+    // state transitions. It stores no food, nutrition, health or monetary data.
+    match /users/{userId}/progressionEvents/{eventId} {
+      function validProgressionEvent() {
+        return request.resource.data.version == 1 &&
+          request.resource.data.eventId == eventId &&
+          (request.resource.data.type == 'confirmed_purchase_applied' ||
+           request.resource.data.type == 'recipe_cook_inventory_applied') &&
+          request.resource.data.evidence == 'deterministic_state_transition' &&
+          request.resource.data.evidenceCount is int &&
+          request.resource.data.evidenceCount > 0 &&
+          request.resource.data.occurredAt is string &&
+          request.resource.data.occurredAt.size() > 0 &&
+          request.resource.data.requestSignature is string &&
+          request.resource.data.requestSignature.size() > 0 &&
+          request.resource.data.createdAt is timestamp;
+      }
+
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        request.resource.data.userId == request.auth.uid &&
+        validProgressionEvent();
+      allow update, delete: if false;
+    }
+
     // Meal history is append-only and owner-scoped. Nutrition values are
     // accepted only when the canonical client marks the row verified; unknown
     // or estimated meals cannot carry numeric nutrition fields.
