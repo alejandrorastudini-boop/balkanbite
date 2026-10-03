@@ -186,6 +186,8 @@ export default function App() {
   const [pantryScope, setPantryScope] = useState<string>("guest");
   const [profileScope, setProfileScope] = useState<string>("guest");
   const [workspaceScope, setWorkspaceScope] = useState<string>("guest");
+  const visibleChatMessages =
+    currentUser && workspaceScope !== currentUser.uid ? [] : chatMessages;
   const pendingSignedInCreations = useRef<{ userId: string; ids: Set<string> } | null>(null);
   const pendingSignedInVoiceConsumptions = useRef<Map<string, {
     userId: string;
@@ -388,12 +390,6 @@ export default function App() {
     if (currentUser) {
       if (workspaceScope === currentUser.uid) return;
 
-      // Clear every cloud-backed workspace collection before owner listeners
-      // hydrate. Guest or previous-account data must never flash in, or feed AI
-      // requests for, the newly authenticated account.
-      setRecipes([]);
-      setShoppingList([]);
-      setMealPlan([]);
       // Signed-in meal history is hydrated from the owner-scoped Firestore listener.
       // Never promote a device-local meal cache into authenticated authority.
       setMealLogs([]);
@@ -2304,7 +2300,7 @@ export default function App() {
             <VoiceChefView
               pantry={pantry}
               mealLogs={mealLogs}
-              chatMessages={chatMessages}
+              chatMessages={visibleChatMessages}
               onUpdateChatMessages={setChatMessages}
               onClearChat={() => setChatMessages([])}
               onAddItemsToPantry={handleVoiceAddItems}
@@ -2358,7 +2354,7 @@ export default function App() {
           onExpandToTab={() => setActiveTab("voice")}
           pantry={pantry}
           mealLogs={mealLogs}
-          chatMessages={chatMessages}
+          chatMessages={visibleChatMessages}
           onUpdateChatMessages={setChatMessages}
           onClearChat={() => setChatMessages([])}
           onAddItemsToPantry={handleVoiceAddItems}
