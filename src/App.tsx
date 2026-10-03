@@ -152,6 +152,9 @@ export default function App() {
     canRenderApp,
     inventoryServerConfirmed,
     profileHydrated,
+    recipesHydrated,
+    mealPlanHydrated,
+    shoppingHydrated,
     submitInventoryEdit,
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
@@ -299,6 +302,27 @@ export default function App() {
       existingPlan,
       profileForAdaptation,
     );
+  };
+
+  const requireWorkspaceAuthority = (
+    ready: boolean,
+    label: "recipes" | "mealPlan" | "shopping",
+  ): boolean => {
+    if (!currentUser || ready) return true;
+    const noun =
+      label === "recipes"
+        ? profile.language === "bg" ? "рецептите" : profile.language === "es" ? "las recetas" : "recipes"
+        : label === "mealPlan"
+        ? profile.language === "bg" ? "менюто" : profile.language === "es" ? "el menú" : "the meal plan"
+        : profile.language === "bg" ? "списъка за пазаруване" : profile.language === "es" ? "la lista de compra" : "the shopping list";
+    alert(
+      profile.language === "bg"
+        ? `Изчакайте да се синхронизира ${noun}, преди да продължите.`
+        : profile.language === "es"
+        ? `Espera a que se sincronice ${noun} antes de continuar.`
+        : `Wait for ${noun} to sync before continuing.`,
+    );
+    return false;
   };
 
   const requireFoodRecommendationSafetyReview = (): boolean => {
@@ -1080,6 +1104,8 @@ export default function App() {
 
   const handleAdaptMenuToPantry = async () => {
     if (!requireAuthoritativeInventory()) return false;
+    if (!requireWorkspaceAuthority(mealPlanHydrated, "mealPlan")) return false;
+    if (!requireWorkspaceAuthority(recipesHydrated, "recipes")) return false;
     if (!requireFoodRecommendationSafetyReview()) return false;
     const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
     const { newPlan, readyToCookMealsCount } = adaptMealPlanSafelyToPantry(
@@ -1260,6 +1286,8 @@ export default function App() {
 
   const handleGenerateAiWeekPlan = async () => {
     if (!requireAuthoritativeInventory()) return;
+    if (!requireWorkspaceAuthority(mealPlanHydrated, "mealPlan")) return;
+    if (!requireWorkspaceAuthority(recipesHydrated, "recipes")) return;
     if (!requireFoodRecommendationSafetyReview()) return;
     setIsGeneratingPlan(true);
     try {
@@ -1486,6 +1514,7 @@ export default function App() {
 
   const handleGenerateAiRecipes = async (queryText?: string) => {
     if (!requireAuthoritativeInventory()) return;
+    if (!requireWorkspaceAuthority(recipesHydrated, "recipes")) return;
     if (!requireFoodRecommendationSafetyReview()) return;
     setIsLoadingAi(true);
     try {
@@ -1868,6 +1897,7 @@ export default function App() {
 
   const handleGenerateAiShopping = async () => {
     if (!requireAuthoritativeInventory()) return;
+    if (!requireWorkspaceAuthority(shoppingHydrated, "shopping")) return;
     if (!requireFoodRecommendationSafetyReview()) return;
     setIsLoadingAi(true);
     try {
