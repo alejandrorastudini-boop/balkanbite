@@ -161,6 +161,7 @@ export default function App() {
     submitPurchasePantryApplication,
     submitInventoryClear,
     submitConfirmedCook,
+    submitProfileReplace,
     submitRecipesReplace,
     submitMealPlanReplace,
     submitShoppingItemCreate,
@@ -229,6 +230,17 @@ export default function App() {
     preparedSignedInCooks.current.clear();
     pendingSignedInDerivedReconciliations.current.clear();
   }, [currentUser?.uid]);
+
+  const handleProfileUpdate = async (update: Partial<UserProfile>) => {
+    const next = { ...profile, ...update };
+    if (!currentUser) {
+      setProfile(next);
+      return true;
+    }
+    if (!profileHydrated) return false;
+    const result = await submitProfileReplace(profile, next);
+    return result.outcome !== "needs-review";
+  };
 
   const [activeTab, setActiveTab] = useState<TabType>("home");
   const [showProModal, setShowProModal] = useState<boolean>(false);
@@ -2153,9 +2165,9 @@ export default function App() {
     return (
       <LandingPage
         language={profile.language}
-        onLanguageChange={(lang: Language) => setProfile((p) => ({ ...p, language: lang }))}
+        onLanguageChange={(lang: Language) => { void handleProfileUpdate({ language: lang }); }}
         currency={profile.currency}
-        onCurrencyChange={(curr: Currency) => setProfile((p) => ({ ...p, currency: curr }))}
+        onCurrencyChange={(curr: Currency) => { void handleProfileUpdate({ currency: curr }); }}
         onOpenApp={() => {
           setShowLanding(false);
           if (!currentUser) {
@@ -2181,9 +2193,9 @@ export default function App() {
       <div className="w-full max-w-6xl mx-auto min-h-screen relative pb-28 px-2.5 sm:px-6 lg:px-8">
         <Header
           language={profile.language}
-          onLanguageChange={(lang: Language) => setProfile((p) => ({ ...p, language: lang }))}
+          onLanguageChange={(lang: Language) => { void handleProfileUpdate({ language: lang }); }}
           currency={profile.currency}
-          onCurrencyChange={(curr: Currency) => setProfile((p) => ({ ...p, currency: curr }))}
+          onCurrencyChange={(curr: Currency) => { void handleProfileUpdate({ currency: curr }); }}
           theme={theme}
           onToggleTheme={() => setTheme(theme === "dark" ? "light" : "dark")}
           onGoToLanding={() => setShowLanding(true)}
@@ -2356,7 +2368,7 @@ export default function App() {
           {activeTab === "profile" && (
             <ProfileView
               profile={profile}
-              onUpdateProfile={(upd) => setProfile((prev) => ({ ...prev, ...upd }))}
+              onUpdateProfile={(upd) => { void handleProfileUpdate(upd); }}
               onOpenProModal={() => setShowProModal(true)}
               onResetApp={handleResetApp}
               onGoToLanding={() => setShowLanding(true)}
@@ -2432,7 +2444,7 @@ export default function App() {
             (!currentUser || profileHydrated) &&
             !profile.onboardingCompleted
           }
-          onComplete={(upd) => setProfile((prev) => ({ ...prev, ...upd }))}
+          onComplete={(upd) => { void handleProfileUpdate(upd); }}
           language={profile.language}
         />
 
