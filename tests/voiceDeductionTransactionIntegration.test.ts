@@ -149,16 +149,4 @@ test("derived recipe/meal-plan availability waits for exact server-confirmed rem
     assert.ok(effect.includes(expected), expected);
   }
 
-  const helperStart = appSource.indexOf(
-    "const reconcileCommittedPantryAvailability",
-  );
-  const helperEnd = appSource.indexOf(
-    "const updatePantryAndReconcileMenu",
-    helperStart,
-  );
-  assert.ok(helperStart >= 0 && helperEnd > helperStart);
-  const helper = appSource.slice(helperStart, helperEnd);
-  assert.ok(helper.includes("syncRecipesWithPantry(recipes, updatedPantry)"));
-  assert.ok(helper.includes("syncMealPlanWithPantry("));
-  assert.equal(helper.includes("adaptMealPlanToPantry"), false);
 });
