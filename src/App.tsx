@@ -162,6 +162,8 @@ export default function App() {
     submitInventoryClear,
     submitConfirmedCook,
     submitShoppingItemCreate,
+    submitShoppingItemsCreate,
+    submitShoppingItemsClear,
     submitShoppingItemReplace,
     submitShoppingItemRemove,
   } = useFirebaseSync(
