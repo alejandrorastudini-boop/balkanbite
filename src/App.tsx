@@ -1056,24 +1056,31 @@ export default function App() {
     }
   }, [shoppingDiagnostic, hasNotificationPermission, profile.language, inventoryIsProvisional]);
 
-  const handleAddMultipleShoppingItems = (
+  const handleAddMultipleShoppingItems = async (
     items: Array<Omit<ShoppingItem, "id" | "checked">>
-  ) => {
+  ): Promise<boolean> => {
     const newItems: ShoppingItem[] = items.map((item, idx) => ({
       ...item,
       id: `s-advisor-${Date.now()}-${idx}`,
       checked: false,
       purchaseAmountConfirmed: false,
     }));
+    if (newItems.length === 0) return false;
     if (!currentUser) {
       setShoppingList(prev => [...newItems, ...prev]);
-      return;
+      return true;
     }
-    void submitShoppingItemsCreate(newItems).then(result => {
+    try {
+      const result = await submitShoppingItemsCreate(newItems);
       if (result.outcome === "needs-review") {
         console.warn("Advisor shopping batch needs review:", result.reason);
+        return false;
       }
-    }).catch(error => console.error("Advisor shopping batch failed:", error));
+      return true;
+    } catch (error) {
+      console.error("Advisor shopping batch failed:", error);
+      return false;
+    }
   };
 
   const handleAdaptMenuToPantry = async () => {
