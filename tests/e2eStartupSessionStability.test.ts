@@ -89,7 +89,7 @@ test("inventory listener has both timeout and explicit error exits from endless 
   );
   assert.match(
     firebaseSyncSource,
-    /onSnapshot\(q, \(snapshot\) => \{[\s\S]*\}, \(error\) => \{[\s\S]*setInventorySyncErrorUser\(currentUser\.uid\);/,
+    /onSnapshot\(q, \{ includeMetadataChanges: collectionName === "inventory" \}, \(snapshot\) => \{[\s\S]*\}, \(error\) => \{[\s\S]*setInventorySyncErrorUser\(currentUser\.uid\);/,
   );
 });
 
