@@ -22,3 +22,14 @@ test("dislike draft clears only after persistence succeeds", () => {
   assert.match(block, /await persistPreferenceUpdate\(\{ disliked: updated \}\)/);
   assert.match(block, /setNewDislike\(""/);
 });
+
+test("legacy food-safety deletion keeps confirmation open when persistence fails", () => {
+  const start = source.indexOf("isOpen={showClearLegacyFoodSafetyConfirm}");
+  const end = source.indexOf('title={', start);
+  assert.ok(start >= 0 && end > start);
+  const block = source.slice(start, end);
+  assert.match(block, /onConfirm=\{async \(\) =>/);
+  assert.match(block, /const persisted = await onUpdateProfile/);
+  assert.match(block, /if \(persisted === false\) return false/);
+  assert.match(block, /setShowClearLegacyFoodSafetyConfirm\(false\)/);
+});
