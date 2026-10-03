@@ -143,7 +143,8 @@ test("derived recipe/meal-plan availability waits for exact server-confirmed rem
     "expectedQuantity === null",
     "!visible.has(itemId)",
     "visible.get(itemId) === expectedQuantity",
-    "reconcileCommittedPantryAvailability(pantry, true)",
+    "submitRecipesReplace(recipes, syncedRecipes)",
+    "submitMealPlanReplace(mealPlan, newPlan)",
   ]) {
     assert.ok(effect.includes(expected), expected);
   }
