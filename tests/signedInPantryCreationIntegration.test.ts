@@ -56,7 +56,8 @@ test("derived menu state waits until every confirmed created ID is visible in ow
   assert.match(effect, /const visibleIds = new Set\(pantry\.map\(item => item\.id\)\)/);
   assert.match(effect, /if \(!\[\.\.\.pending\.ids\]\.every\(id => visibleIds\.has\(id\)\)\) return;/);
   assert.match(effect, /pendingSignedInCreations\.current = null;/);
-  assert.match(effect, /reconcilePantryDerivedState\(pantry, true\)/);
+  assert.match(effect, /submitRecipesReplace\(recipes, syncedRecipes\)/);
+  assert.match(effect, /submitMealPlanReplace\(mealPlan, newPlan\)/);
 });
 
 test("sync hook uses creation primitive with current signed-in owner and has an in-flight guard", () => {
