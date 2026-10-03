@@ -8,7 +8,8 @@ const firestore = readFileSync(new URL("../src/utils/progressionFirestore.ts", i
 
 test("signed-in progression is listener-owned and never promoted from local storage", () => {
   assert.match(hook, /subscribeProgressionEvents/);
-  assert.match(hook, /progressionHydratedUser !== uid/);
+  assert.doesNotMatch(hook, /progressionHydratedUser !== uid/);
+  assert.match(hook, /do not require collection hydration before append/);
   assert.match(app, /Signed-in progression evidence is hydrated from Firestore only/);
   assert.doesNotMatch(app, /getUserLocalWorkspaceKey\([\s\S]{0,80}"balkanbite_progression"/);
 });
@@ -34,4 +35,14 @@ test("signed-in cook progression reuses the stable confirmation id", () => {
   const signedInCook = app.slice(start, end);
   assert.match(signedInCook, /actionId: cookConfirmationId/);
   assert.doesNotMatch(signedInCook, /randomUUID/);
+});
+
+test("confirmed signed-in progression can append during listener hydration", () => {
+  const start = hook.indexOf("const submitProgressionEvents");
+  const end = hook.indexOf("const submitProfileReplace", start);
+  assert.ok(start >= 0 && end > start);
+  const submit = hook.slice(start, end);
+  assert.match(submit, /if \(!uid\) return false/);
+  assert.doesNotMatch(submit, /progressionHydratedUser/);
+  assert.match(submit, /appendProgressionEventsAtomically/);
 });
