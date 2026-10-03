@@ -40,7 +40,11 @@ export function deriveEffectiveExpiry(
   if (capturedMs === null || !Number.isFinite(nowMs)) return { status: "unknown" };
 
   const expiresMs = capturedMs + expiryDaysAtCapture * DAY_MS;
-  const remainingMs = expiresMs - nowMs;
+  // Clock skew must never manufacture more shelf life than the user/source
+  // originally confirmed. A future capture timestamp therefore ages from zero,
+  // rather than increasing the confirmed relative duration.
+  const effectiveNowMs = Math.max(nowMs, capturedMs);
+  const remainingMs = expiresMs - effectiveNowMs;
   const expired = remainingMs < 0;
   const daysRemaining = expired ? 0 : Math.ceil(remainingMs / DAY_MS);
 
