@@ -10,6 +10,7 @@ test("signed-in profile no longer bulk-writes on arbitrary local state changes",
   assert.doesNotMatch(hook, /\[profile, currentUser, loading, profileHydratedUser\]/);
   assert.match(hook, /submitProfileReplace/);
   assert.match(hook, /profileRevision\.current/);
+  assert.match(app, /onUpdateProfile=\{\(upd\) => handleProfileUpdate\(upd\)\}/);
 });
 
 test("profile command verifies exact revision and exact sanitized baseline", () => {
@@ -22,6 +23,6 @@ test("profile command verifies exact revision and exact sanitized baseline", () 
 test("signed-in UI profile edits route through explicit profile authority", () => {
   assert.match(app, /const handleProfileUpdate = async/);
   assert.match(app, /await submitProfileReplace\(profile, next\)/);
-  assert.match(app, /onUpdateProfile=\{\(upd\) => \{ void handleProfileUpdate\(upd\); \}\}/);
+  assert.match(app, /onUpdateProfile=\{\(upd\) => handleProfileUpdate\(upd\)\}/);
   assert.match(app, /onComplete=\{\(upd\) => \{ void handleProfileUpdate\(upd\); \}\}/);
 });
