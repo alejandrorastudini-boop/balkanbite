@@ -254,6 +254,18 @@ try {
     const bobRef = doc(bob, collectionName, bobId);
     const itemField = collectionName === "mealPlans"
       ? { date: logicalId }
+      : collectionName === "inventory"
+      ? {
+          id: logicalId,
+          name: "QA stock",
+          quantity: 1,
+          unit: "pcs",
+          category: "Other",
+          addedAt: "2026-10-03",
+          cookRevision: 0,
+          _deleted: false,
+          deletedAt: null,
+        }
       : { id: logicalId };
 
     await assertSucceeds(setDoc(aliceRef, { ...itemField, userId: "alice" }));
@@ -267,6 +279,20 @@ try {
 
     await assertFails(updateDoc(doc(bob, collectionName, aliceId), { id: "attack" }));
     await assertFails(updateDoc(aliceRef, { userId: "bob" }));
+    if (collectionName === "inventory") {
+      await assertFails(updateDoc(aliceRef, {
+        quantity: -1,
+        cookRevision: 1,
+      }));
+      await assertFails(updateDoc(aliceRef, {
+        id: "different-logical-id",
+        cookRevision: 1,
+      }));
+      await assertFails(updateDoc(aliceRef, {
+        category: "Invented",
+        cookRevision: 1,
+      }));
+    }
 
     await assertFails(setDoc(
       doc(alice, collectionName, "u_bob__reserved"),
