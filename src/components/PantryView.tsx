@@ -22,7 +22,7 @@ import { ScanModal } from "./ScanModal";
 interface PantryViewProps {
   pantry: PantryItem[];
   onAddItem: (item: Omit<PantryItem, "id" | "addedAt">) => boolean | Promise<boolean>;
-  onAddMultipleItems?: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => void;
+  onAddMultipleItems?: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => boolean | Promise<boolean>;
   onUpdateQuantity: (id: string, newQty: number, viewed: PantryItem) => void;
   onDeleteItem: (id: string, viewed: PantryItem) => void;
   onClearAll: (mutationId: string) => boolean | Promise<boolean>;
