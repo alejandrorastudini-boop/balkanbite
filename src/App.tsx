@@ -388,6 +388,12 @@ export default function App() {
     if (currentUser) {
       if (workspaceScope === currentUser.uid) return;
 
+      // Clear every cloud-backed workspace collection before owner listeners
+      // hydrate. Guest or previous-account data must never flash in, or feed AI
+      // requests for, the newly authenticated account.
+      setRecipes([]);
+      setShoppingList([]);
+      setMealPlan([]);
       // Signed-in meal history is hydrated from the owner-scoped Firestore listener.
       // Never promote a device-local meal cache into authenticated authority.
       setMealLogs([]);
