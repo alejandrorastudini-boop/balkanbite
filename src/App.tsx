@@ -664,6 +664,7 @@ export default function App() {
       return;
     }
     if (!inventoryHydrated || !inventoryServerConfirmed) return;
+    if (!recipesHydrated || !mealPlanHydrated) return;
 
     let matched = false;
     for (const [key, pending] of pendingSignedInDerivedReconciliations.current) {
@@ -692,7 +693,14 @@ export default function App() {
         });
       })();
     }
-  }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
+  }, [
+    pantry,
+    currentUser,
+    inventoryHydrated,
+    inventoryServerConfirmed,
+    recipesHydrated,
+    mealPlanHydrated,
+  ]);
 
   const updatePantryAndReconcileMenu = (
     newPantryItemsToAdd: PantryItem[],
@@ -754,7 +762,14 @@ export default function App() {
 
   useEffect(() => {
     finalizeSignedInPurchaseIfVisible(pantry);
-  }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
+  }, [
+    pantry,
+    currentUser,
+    inventoryHydrated,
+    inventoryServerConfirmed,
+    recipesHydrated,
+    mealPlanHydrated,
+  ]);
 
   const dispatchSignedInPurchaseApplication = async (
     purchases: PantryPurchase[],
@@ -901,6 +916,7 @@ export default function App() {
       return;
     }
     if (!inventoryHydrated || !inventoryServerConfirmed) return;
+    if (!recipesHydrated || !mealPlanHydrated) return;
     const visibleIds = new Set(pantry.map(item => item.id));
     if (![...pending.ids].every(id => visibleIds.has(id))) return;
 
@@ -916,7 +932,14 @@ export default function App() {
       if (mealResult.outcome === "needs-review") return;
       setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
     })();
-  }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
+  }, [
+    pantry,
+    currentUser,
+    inventoryHydrated,
+    inventoryServerConfirmed,
+    recipesHydrated,
+    mealPlanHydrated,
+  ]);
 
   // A voice deduction is reconciled only after the exact resulting quantities
   // are visible in a server-confirmed pantry snapshot. Pending/cache snapshots
@@ -928,6 +951,7 @@ export default function App() {
       return;
     }
     if (!inventoryHydrated || !inventoryServerConfirmed) return;
+    if (!recipesHydrated || !mealPlanHydrated) return;
 
     const visible = new Map(pantry.map(item => [item.id, item.quantity]));
     let matchedCommittedConsumption = false;
@@ -960,7 +984,14 @@ export default function App() {
         setAutoMenuToast({ isVisible: true, readyMealsCount: readyToCookMealsCount });
       })();
     }
-  }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
+  }, [
+    pantry,
+    currentUser,
+    inventoryHydrated,
+    inventoryServerConfirmed,
+    recipesHydrated,
+    mealPlanHydrated,
+  ]);
 
   const dispatchSignedInPantryCreations = async (
     items: PantryItem[],
