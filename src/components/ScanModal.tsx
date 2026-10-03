@@ -59,7 +59,7 @@ interface ScanModalProps {
   onClose: () => void;
   language: Language;
   currency: Currency;
-  onAddItems: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => void;
+  onAddItems: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => boolean | Promise<boolean>;
 }
 
 export const ScanModal: React.FC<ScanModalProps> = ({
@@ -73,6 +73,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   const [scanMode, setScanMode] = useState<"fridge" | "receipt" | "barcode">("fridge");
   const [imagePreview, setImagePreview] = useState<string | null>(null);
   const [isScanning, setIsScanning] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
@@ -90,6 +91,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     setScannedItems([]);
     setImagePreview(null);
     setIsScanning(false);
+    setIsSaving(false);
     setErrorMsg(null);
     setBarcodeInput("");
   }, [isOpen]);
@@ -342,7 +344,8 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     setScannedItems((prev) => prev.filter((item) => item.id !== id));
   };
 
-  const handleSaveToPantry = () => {
+  const handleSaveToPantry = async () => {
+    if (isSaving) return;
     // Row selection is the user's explicit confirmation of the displayed
     // product identity/category. Recheck quantity/unit confirmations at the
     // persistence boundary so no stale or future UI path can save a candidate
@@ -358,9 +361,35 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       return;
     }
 
-    onAddItems(payload as Array<Omit<PantryItem, "id" | "addedAt">>);
-    handleResetModal();
-    onClose();
+    setIsSaving(true);
+    try {
+      const saved = await Promise.resolve(
+        onAddItems(payload as Array<Omit<PantryItem, "id" | "addedAt">>)
+      );
+      if (!saved) {
+        setErrorMsg(
+          language === "es"
+            ? "No se han guardado los alimentos. Los candidatos revisados se conservan para que puedas intentarlo de nuevo."
+            : language === "bg"
+            ? "Храните не бяха запазени. Прегледаните предложения са запазени, за да опитате отново."
+            : "The foods were not saved. Your reviewed candidates are preserved so you can try again."
+        );
+        return;
+      }
+      handleResetModal();
+      onClose();
+    } catch (error) {
+      console.error("Failed to save scanned pantry items:", error);
+      setErrorMsg(
+        language === "es"
+          ? "No se han guardado los alimentos. Los candidatos revisados se conservan para que puedas intentarlo de nuevo."
+          : language === "bg"
+          ? "Храните не бяха запазени. Прегледаните предложения са запазени, за да опитате отново."
+          : "The foods were not saved. Your reviewed candidates are preserved so you can try again."
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const handleResetModal = () => {
