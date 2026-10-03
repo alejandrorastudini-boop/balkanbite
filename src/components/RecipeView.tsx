@@ -268,7 +268,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
             {recipes.length === 0 && onLoadSampleRecipes && (
               <button
                 type="button"
-                disabled={isLoadingSampleRecipes}\n                onClick={() => void handleLoadSampleRecipes()}
+                disabled={isLoadingSampleRecipes}
+                onClick={() => void handleLoadSampleRecipes()}
                 className="px-3 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-stone-200 text-xs font-bold flex items-center gap-1.5 border border-white/[0.08] cursor-pointer transition-all shrink-0"
               >
                 <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
@@ -345,7 +346,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
               {onLoadSampleRecipes && (
                 <button
                   type="button"
-                  disabled={isLoadingSampleRecipes}\n                onClick={() => void handleLoadSampleRecipes()}
+                  disabled={isLoadingSampleRecipes}
+                onClick={() => void handleLoadSampleRecipes()}
                   className="px-5 py-2.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-stone-200 border border-white/[0.08] text-sm font-bold inline-flex items-center gap-2 transition-all cursor-pointer shadow-sm"
                 >
                   <BookOpen className="w-4 h-4 text-emerald-400" />
