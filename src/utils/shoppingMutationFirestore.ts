@@ -1,7 +1,6 @@
 import {
-  deleteDoc,
   doc,
-  getDoc,
+  runTransaction,
   serverTimestamp,
   setDoc,
   type Firestore,
@@ -32,10 +31,12 @@ export async function createShoppingItem(
     return { outcome: "needs-review", reason: "invalid-request" };
   }
   const ref = doc(db, "shoppingList", getScopedDocumentId(userId, item.id));
-  const existing = await getDoc(ref);
-  if (existing.exists()) return { outcome: "needs-review", reason: "stale-item" };
-  await setDoc(ref, { ...item, userId, updatedAt: serverTimestamp() });
-  return { outcome: "applied" };
+  return runTransaction(db, async tx => {
+    const existing = await tx.get(ref);
+    if (existing.exists()) return { outcome: "needs-review" as const, reason: "stale-item" as const };
+    tx.set(ref, { ...item, userId, updatedAt: serverTimestamp() });
+    return { outcome: "applied" as const };
+  });
 }
 
 export async function replaceShoppingItem(
@@ -49,14 +50,16 @@ export async function replaceShoppingItem(
     return { outcome: "needs-review", reason: "invalid-request" };
   }
   const ref = doc(db, "shoppingList", getScopedDocumentId(userId, expected.id));
-  const existing = await getDoc(ref);
-  if (!existing.exists()) return { outcome: "needs-review", reason: "missing-item" };
-  const { userId: remoteUserId, updatedAt: _updatedAt, ...remote } = existing.data();
-  if (remoteUserId !== userId || !validItem(remote) || !sameItem(remote, expected)) {
-    return { outcome: "needs-review", reason: "stale-item" };
-  }
-  await setDoc(ref, { ...next, userId, updatedAt: serverTimestamp() });
-  return { outcome: "applied" };
+  return runTransaction(db, async tx => {
+    const existing = await tx.get(ref);
+    if (!existing.exists()) return { outcome: "needs-review" as const, reason: "missing-item" as const };
+    const { userId: remoteUserId, updatedAt: _updatedAt, ...remote } = existing.data();
+    if (remoteUserId !== userId || !validItem(remote) || !sameItem(remote, expected)) {
+      return { outcome: "needs-review" as const, reason: "stale-item" as const };
+    }
+    tx.set(ref, { ...next, userId, updatedAt: serverTimestamp() });
+    return { outcome: "applied" as const };
+  });
 }
 
 export async function removeShoppingItem(
@@ -68,12 +71,14 @@ export async function removeShoppingItem(
     return { outcome: "needs-review", reason: "invalid-request" };
   }
   const ref = doc(db, "shoppingList", getScopedDocumentId(userId, expected.id));
-  const existing = await getDoc(ref);
-  if (!existing.exists()) return { outcome: "needs-review", reason: "missing-item" };
-  const { userId: remoteUserId, updatedAt: _updatedAt, ...remote } = existing.data();
-  if (remoteUserId !== userId || !validItem(remote) || !sameItem(remote, expected)) {
-    return { outcome: "needs-review", reason: "stale-item" };
-  }
-  await deleteDoc(ref);
-  return { outcome: "applied" };
+  return runTransaction(db, async tx => {
+    const existing = await tx.get(ref);
+    if (!existing.exists()) return { outcome: "needs-review" as const, reason: "missing-item" as const };
+    const { userId: remoteUserId, updatedAt: _updatedAt, ...remote } = existing.data();
+    if (remoteUserId !== userId || !validItem(remote) || !sameItem(remote, expected)) {
+      return { outcome: "needs-review" as const, reason: "stale-item" as const };
+    }
+    tx.delete(ref);
+    return { outcome: "applied" as const };
+  });
 }
