@@ -30,7 +30,7 @@ interface RecipeViewProps {
   onAddMissingToShopping: (recipe: Recipe) => boolean | Promise<boolean>;
   onGenerateAiRecipes: () => Promise<void>;
   onClearRecipes?: () => void | boolean | Promise<void | boolean>;
-  onLoadSampleRecipes?: () => void;
+  onLoadSampleRecipes?: () => boolean | Promise<boolean>;
   isLoadingAi: boolean;
   language: Language;
   currency: Currency;
@@ -53,6 +53,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [cookFeedback, setCookFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const [shoppingAddRecipeId, setShoppingAddRecipeId] = useState<string | null>(null);
+  const [isLoadingSampleRecipes, setIsLoadingSampleRecipes] = useState(false);
+  const [sampleRecipeError, setSampleRecipeError] = useState<string | null>(null);
   const cookFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
   const [pendingCook, setPendingCook] = useState<{
@@ -60,6 +62,35 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
     cookConfirmationId: string;
   } | null>(null);
   const cookMutationSequenceRef = useRef(0);
+
+  const handleLoadSampleRecipes = async () => {
+    if (!onLoadSampleRecipes || isLoadingSampleRecipes) return;
+    setSampleRecipeError(null);
+    setIsLoadingSampleRecipes(true);
+    try {
+      const saved = await Promise.resolve(onLoadSampleRecipes());
+      if (!saved) {
+        setSampleRecipeError(
+          language === "bg"
+            ? "Примерните рецепти не бяха запазени. Опитайте отново."
+            : language === "es"
+            ? "Las recetas de ejemplo no se han guardado. Inténtalo de nuevo."
+            : "The sample recipes were not saved. Try again."
+        );
+      }
+    } catch (error) {
+      console.error("Sample recipe load failed:", error);
+      setSampleRecipeError(
+        language === "bg"
+          ? "Примерните рецепти не бяха запазени. Опитайте отново."
+          : language === "es"
+          ? "Las recetas de ejemplo no se han guardado. Inténtalo de nuevo."
+          : "The sample recipes were not saved. Try again."
+      );
+    } finally {
+      setIsLoadingSampleRecipes(false);
+    }
+  };
 
   const createCookConfirmationId = () => {
     if (typeof globalThis.crypto?.randomUUID === "function") {
@@ -237,7 +268,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
             {recipes.length === 0 && onLoadSampleRecipes && (
               <button
                 type="button"
-                onClick={onLoadSampleRecipes}
+                disabled={isLoadingSampleRecipes}\n                onClick={() => void handleLoadSampleRecipes()}
                 className="px-3 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-stone-200 text-xs font-bold flex items-center gap-1.5 border border-white/[0.08] cursor-pointer transition-all shrink-0"
               >
                 <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
@@ -247,6 +278,12 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
           </div>
         </div>
       </div>
+
+      {sampleRecipeError && (
+        <div role="alert" className="p-3 rounded-xl text-xs bg-amber-950/70 border border-amber-500/50 text-amber-200">
+          {sampleRecipeError}
+        </div>
+      )}
 
       {/* Cook result notification */}
       {cookFeedback && (
@@ -308,7 +345,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
               {onLoadSampleRecipes && (
                 <button
                   type="button"
-                  onClick={onLoadSampleRecipes}
+                  disabled={isLoadingSampleRecipes}\n                onClick={() => void handleLoadSampleRecipes()}
                   className="px-5 py-2.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-stone-200 border border-white/[0.08] text-sm font-bold inline-flex items-center gap-2 transition-all cursor-pointer shadow-sm"
                 >
                   <BookOpen className="w-4 h-4 text-emerald-400" />
