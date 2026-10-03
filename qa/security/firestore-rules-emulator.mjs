@@ -330,6 +330,16 @@ try {
           _deleted: false,
           deletedAt: null,
         }
+      : collectionName === "shoppingList"
+      ? {
+          id: logicalId,
+          name: "QA shopping",
+          quantity: 1,
+          unit: "pcs",
+          category: "Other",
+          checked: false,
+          updatedAt: serverTimestamp(),
+        }
       : { id: logicalId };
 
     await assertSucceeds(setDoc(aliceRef, { ...itemField, userId: "alice" }));
