@@ -25,7 +25,7 @@ test("signed-in UI profile edits route through explicit profile authority", () =
   assert.match(app, /const handleProfileUpdate = async/);
   assert.match(app, /await submitProfileReplace\(profile, next\)/);
   assert.match(app, /onUpdateProfile=\{\(upd\) => handleProfileUpdate\(upd\)\}/);
-  assert.match(app, /onComplete=\{\(upd\) => \{ void handleProfileUpdate\(upd\); \}\}/);
+  assert.match(app, /onComplete=\{\(upd\) => handleProfileUpdate\(upd\)\}/);
 });
 
 test("sensitive health edits wait for cloud persistence outcome", () => {
