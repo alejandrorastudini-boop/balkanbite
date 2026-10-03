@@ -1,4 +1,4 @@
-import { collection, doc, Firestore, getDocs, query, runTransaction, serverTimestamp, where } from "firebase/firestore";
+import { collection, doc, Firestore, getDoc, getDocs, query, runTransaction, serverTimestamp, where } from "firebase/firestore";
 import type { MealPlanDay, Recipe } from "../types";
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isStoredMealPlanDayStructurallyValid } from "./storedMealPlanValidation";
@@ -12,6 +12,9 @@ export type DerivedCollectionMutationResult =
 
 const safeUid = (value: unknown): value is string =>
   typeof value === "string" && value.trim().length > 0 && !value.includes("/");
+
+const validAuthorityRevision = (value: unknown): value is number =>
+  typeof value === "number" && Number.isSafeInteger(value) && value >= 0;
 
 const logicalId = (collectionName: DerivedCollectionName, item: DerivedCollectionItem) =>
   collectionName === "recipes" ? (item as Recipe).id : (item as MealPlanDay).date;
@@ -59,6 +62,25 @@ export async function replaceDerivedCollectionAtomically(
     return { outcome: "needs-review", reason: "invalid-request" };
   }
 
+  const authorityRef = doc(
+    db,
+    "derivedCollectionAuthorities",
+    getScopedDocumentId(userId, collectionName),
+  );
+  const authoritySnapshot = await getDoc(authorityRef);
+  let expectedAuthorityRevision: number | null = null;
+  if (authoritySnapshot.exists()) {
+    const authority = authoritySnapshot.data();
+    if (
+      authority.userId !== userId ||
+      authority.collectionName !== collectionName ||
+      !validAuthorityRevision(authority.revision)
+    ) {
+      return { outcome: "needs-review", reason: "unverified-authority" };
+    }
+    expectedAuthorityRevision = authority.revision;
+  }
+
   const ownerQuery = query(collection(db, collectionName), where("userId", "==", userId));
   const observed = await getDocs(ownerQuery);
   const canonicalObserved = observed.docs.filter(snapshot =>
@@ -91,6 +113,25 @@ export async function replaceDerivedCollectionAtomically(
   }
 
   return runTransaction(db, async tx => {
+    const authority = await tx.get(authorityRef);
+    if (expectedAuthorityRevision === null) {
+      if (authority.exists()) {
+        return { outcome: "needs-review" as const, reason: "stale-state" as const };
+      }
+    } else {
+      if (!authority.exists()) {
+        return { outcome: "needs-review" as const, reason: "stale-state" as const };
+      }
+      const authorityData = authority.data();
+      if (
+        authorityData.userId !== userId ||
+        authorityData.collectionName !== collectionName ||
+        authorityData.revision !== expectedAuthorityRevision
+      ) {
+        return { outcome: "needs-review" as const, reason: "stale-state" as const };
+      }
+    }
+
     const allIds = Array.from(new Set([...expectedById.keys(), ...nextById.keys()])).sort();
     const refs = allIds.map(id => doc(db, collectionName, getScopedDocumentId(userId, id)));
     const snapshots = await Promise.all(refs.map(ref => tx.get(ref)));
@@ -132,6 +173,12 @@ export async function replaceDerivedCollectionAtomically(
       if (next) tx.set(ref, { ...next, userId, updatedAt: serverTimestamp() });
       else tx.delete(ref);
     }
+    tx.set(authorityRef, {
+      userId,
+      collectionName,
+      revision: expectedAuthorityRevision === null ? 0 : expectedAuthorityRevision + 1,
+      updatedAt: serverTimestamp(),
+    });
     return { outcome: "applied" as const };
   });
 }
