@@ -286,8 +286,40 @@ service cloud.firestore {
          newRevision == oldRevision + 1);
     }
 
+    function validInventoryCore(itemId) {
+      return request.resource.data.id is string &&
+        request.resource.data.id.size() > 0 &&
+        itemId == 'u_' + request.auth.uid + '__' + request.resource.data.id &&
+        request.resource.data.name is string &&
+        request.resource.data.name.size() > 0 &&
+        request.resource.data.quantity is number &&
+        request.resource.data.quantity >= 0 &&
+        request.resource.data.unit is string &&
+        request.resource.data.unit.size() > 0 &&
+        (request.resource.data.category == 'Produce' ||
+         request.resource.data.category == 'Dairy' ||
+         request.resource.data.category == 'Meat/Fish' ||
+         request.resource.data.category == 'Pantry/Grains' ||
+         request.resource.data.category == 'Spices' ||
+         request.resource.data.category == 'Other') &&
+        request.resource.data.addedAt is string &&
+        request.resource.data.addedAt.size() > 0 &&
+        request.resource.data.get('_deleted', false) is bool &&
+        ((request.resource.data.get('_deleted', false) == true &&
+          request.resource.data.quantity == 0) ||
+         (request.resource.data.get('_deleted', false) == false &&
+          request.resource.data.quantity > 0)) &&
+        (request.resource.data.get('estimatedCostEUR', null) == null ||
+          (request.resource.data.estimatedCostEUR is number &&
+           request.resource.data.estimatedCostEUR >= 0)) &&
+        (!request.resource.data.keys().hasAny(['expiryDaysLeft']) ||
+          (request.resource.data.expiryDaysLeft is number &&
+           request.resource.data.expiryDaysLeft >= 0));
+    }
+
     match /inventory/{itemId} {
       allow create: if ownsIncomingDocument() &&
+        validInventoryCore(itemId) &&
         ownsDocumentNamespace(itemId) &&
         request.resource.data.get('cookRevision', 0) is int &&
         request.resource.data.get('cookRevision', 0) >= 0 &&
@@ -300,6 +332,7 @@ service cloud.firestore {
       allow delete: if ownsExistingDocument() &&
         resource.data.get('cookRevision', 0) == 0;
       allow update: if ownsExistingDocument() && ownsIncomingDocument() &&
+        validInventoryCore(itemId) &&
         validStockRevisionTransition();
     }
 
