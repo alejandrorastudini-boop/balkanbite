@@ -21,7 +21,19 @@ const valid = (collectionName: DerivedCollectionName, item: unknown): item is De
     ? isStoredRecipeStructurallyValid(item)
     : isStoredMealPlanDayStructurallyValid(item);
 
-const stable = (value: unknown) => JSON.stringify(value);
+const canonicalize = (value: unknown): unknown => {
+  if (Array.isArray(value)) return value.map(canonicalize);
+  if (value && typeof value === "object") {
+    return Object.fromEntries(
+      Object.entries(value as Record<string, unknown>)
+        .sort(([left], [right]) => left.localeCompare(right))
+        .map(([key, nested]) => [key, canonicalize(nested)]),
+    );
+  }
+  return value;
+};
+
+const stable = (value: unknown) => JSON.stringify(canonicalize(value));
 
 const comparable = (data: Record<string, unknown>) => {
   const { userId: _userId, updatedAt: _updatedAt, ...rest } = data;
