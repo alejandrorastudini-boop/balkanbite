@@ -27,7 +27,7 @@ service cloud.firestore {
       }
 
       function validProfileRevisionUpdate() {
-        return resource.data.userId == request.auth.uid &&
+        return resource.data.get('userId', request.auth.uid) == request.auth.uid &&
           request.resource.data.userId == request.auth.uid &&
           resource.data.get('profileRevision', 0) is int &&
           request.resource.data.profileRevision is int &&
