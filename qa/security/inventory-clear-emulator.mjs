@@ -27,11 +27,13 @@ const baseline = [
 
 try {
   await setDoc(lot(alice, "alice", "rice"), {
-    id: "rice", userId: "alice", quantity: 100, unit: "g",
+    id: "rice", userId: "alice", name: "Synthetic rice", quantity: 100, unit: "g",
+    category: "Pantry/Grains", addedAt: "2026-10-03",
     cookRevision: 1, _deleted: false,
   });
   await setDoc(lot(alice, "alice", "milk"), {
-    id: "milk", userId: "alice", quantity: 1, unit: "L",
+    id: "milk", userId: "alice", name: "Synthetic milk", quantity: 1, unit: "L",
+    category: "Dairy", addedAt: "2026-10-03",
     cookRevision: 0, _deleted: false,
   });
 
