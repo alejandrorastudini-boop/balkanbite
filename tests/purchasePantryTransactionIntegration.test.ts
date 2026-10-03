@@ -76,7 +76,7 @@ test("shopping rows and progression finalize only after exact confirmed purchase
   const removeShopping = block.indexOf("setShoppingList(", proof);
   const progression = block.indexOf("buildPurchaseProgressEvents(", proof);
   const derived = block.indexOf(
-    "reconcilePantryDerivedState(committedPantry, true)",
+    "submitRecipesReplace(recipes, syncedRecipes)",
     proof,
   );
 
@@ -85,6 +85,7 @@ test("shopping rows and progression finalize only after exact confirmed purchase
   assert.ok(removeShopping > proof);
   assert.ok(progression > removeShopping);
   assert.ok(derived > progression);
+  assert.ok(block.includes("submitMealPlanReplace(mealPlan, newPlan)"));
   assert.ok(block.includes("accepted.has(`shopping:${item.id}`)"));
 });
 
