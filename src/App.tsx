@@ -282,9 +282,13 @@ export default function App() {
     syncedRecipes: Recipe[],
     existingPlan: MealPlanDay[],
   ) => {
-    if (foodSafetyQuarantine.status !== "clear") {
-      // Unresolved legacy allergy/restriction data must never trigger automatic
-      // meal replacement. Availability flags may still be refreshed safely.
+    if (
+      (currentUser && !profileHydrated) ||
+      foodSafetyQuarantine.status !== "clear"
+    ) {
+      // An unhydrated signed-in profile or unresolved legacy allergy/restriction
+      // data must never trigger automatic meal replacement. Availability flags
+      // may still be refreshed safely.
       return syncMealPlanWithPantry(existingPlan, updatedPantry);
     }
     return adaptMealPlanToPantry(
@@ -296,6 +300,16 @@ export default function App() {
   };
 
   const requireFoodRecommendationSafetyReview = (): boolean => {
+    if (currentUser && !profileHydrated) {
+      alert(
+        profile.language === "bg"
+          ? "Изчакайте профилът ви да се синхронизира, преди да генерирате или пренареждате храна."
+          : profile.language === "es"
+          ? "Espera a que tu perfil se sincronice antes de generar o reorganizar comida."
+          : "Wait for your profile to sync before generating or rearranging food.",
+      );
+      return false;
+    }
     if (foodSafetyQuarantine.status === "clear") return true;
 
     alert(getFoodSafetyQuarantineMessage(profile.language));
