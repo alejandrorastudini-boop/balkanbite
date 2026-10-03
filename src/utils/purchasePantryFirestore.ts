@@ -4,7 +4,8 @@ import {
   serverTimestamp,
   type Firestore,
 } from "firebase/firestore";
-import type { PantryItem, PantryPurchaseRecord } from "../types";
+import type { PantryItem, PantryPurchaseRecord, ShoppingItem } from "../types";
+import { isStoredShoppingItemStructurallyValid } from "./storedShoppingValidation";
 import {
   mergePurchasesIntoPantry,
   type PantryPurchase,
@@ -22,6 +23,7 @@ export interface PurchasePantryTransactionRequest {
   baselinePantry: readonly PurchaseBaselineItem[];
   purchases: readonly PantryPurchase[];
   acquiredAt: string;
+  shoppingBaseline?: readonly ShoppingItem[];
 }
 
 export interface PurchasePantryExpectedChange {
@@ -303,6 +305,7 @@ export function buildPurchasePantryTransactionPlan(
     baselinePantry,
     purchases,
     acquiredAt,
+    shoppingBaseline = [],
   } = request;
 
   if (
@@ -312,7 +315,10 @@ export function buildPurchasePantryTransactionPlan(
     baselinePantry.length > 300 ||
     !validatePurchases(purchases) ||
     typeof acquiredAt !== "string" ||
-    !acquiredAt.trim()
+    !acquiredAt.trim() ||
+    !Array.isArray(shoppingBaseline) ||
+    shoppingBaseline.length > 50 ||
+    shoppingBaseline.some(item => !isStoredShoppingItemStructurallyValid(item))
   ) {
     return null;
   }
@@ -412,6 +418,7 @@ export function buildPurchasePantryTransactionPlan(
     expectedChanges,
     acceptedSourceIds: [...merge.acceptedSourceIds].sort(),
     newlyAppliedSourceIds: [...merge.newlyAppliedSourceIds].sort(),
+    shoppingBaseline: [...shoppingBaseline].map(item => ({ ...item })).sort((a, b) => a.id.localeCompare(b.id)),
     rejected: [...merge.rejected].sort((a, b) =>
       a.sourceId.localeCompare(b.sourceId) ||
       a.reason.localeCompare(b.reason) ||
@@ -489,6 +496,10 @@ export async function persistPurchasesIntoPantryAtomically(
       getScopedDocumentId(userId, entry.after.id),
     ),
   }));
+  const shoppingRows = (request.shoppingBaseline ?? []).map(item => ({
+    item,
+    ref: doc(db, "shoppingList", getScopedDocumentId(userId, item.id)),
+  }));
 
   for (let outerAttempt = 0; outerAttempt < 3; outerAttempt++) {
     try {
@@ -516,6 +527,17 @@ export async function persistPurchasesIntoPantryAtomically(
             expectedChanges:
               data.expectedChanges as PurchasePantryExpectedChange[],
           };
+        }
+
+        for (const row of shoppingRows) {
+          const snapshot = await tx.get(row.ref);
+          if (!snapshot.exists()) return review("stale-stock");
+          const { userId: remoteUserId, updatedAt: _updatedAt, ...remote } = snapshot.data();
+          if (remoteUserId !== userId ||
+              !isStoredShoppingItemStructurallyValid(remote) ||
+              JSON.stringify(remote) !== JSON.stringify(row.item)) {
+            return review("stale-stock");
+          }
         }
 
         for (const entry of updates) {
@@ -566,6 +588,10 @@ export async function persistPurchasesIntoPantryAtomically(
           const next = serializePantryItem(entry.after, userId, 0);
           if (!next) return review("invalid-baseline", entry.after.id);
           tx.set(entry.ref, next);
+        }
+
+        for (const row of shoppingRows) {
+          tx.delete(row.ref);
         }
 
         tx.set(journalRef, {
