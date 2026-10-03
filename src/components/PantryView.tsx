@@ -21,7 +21,7 @@ import { ScanModal } from "./ScanModal";
 
 interface PantryViewProps {
   pantry: PantryItem[];
-  onAddItem: (item: Omit<PantryItem, "id" | "addedAt">) => void;
+  onAddItem: (item: Omit<PantryItem, "id" | "addedAt">) => boolean | Promise<boolean>;
   onAddMultipleItems?: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => void;
   onUpdateQuantity: (id: string, newQty: number, viewed: PantryItem) => void;
   onDeleteItem: (id: string, viewed: PantryItem) => void;
@@ -48,6 +48,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isSavingItem, setIsSavingItem] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearMutationId, setClearMutationId] = useState<string | null>(null);
@@ -107,7 +108,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
     setShowClearConfirm(true);
   };
 
-  const handleCreateItem = (e: React.FormEvent) => {
+  const handleCreateItem = async (e: React.FormEvent) => {
+    if (isSavingItem) return;
     e.preventDefault();
     const requiredFields = validateManualPantryRequiredFields({
       quantity: String(quantity),
@@ -147,7 +149,10 @@ export const PantryView: React.FC<PantryViewProps> = ({
     }
 
     setFormError("");
-    onAddItem({
+    setIsSavingItem(true);
+    let saved = false;
+    try {
+      saved = await Promise.resolve(onAddItem({
       name: name.trim(),
       quantity: requiredFields.quantity,
       unit: requiredFields.unit,
@@ -158,7 +163,23 @@ export const PantryView: React.FC<PantryViewProps> = ({
       ...(requiredFields.cost !== undefined
         ? { estimatedCostEUR: requiredFields.cost }
         : {}),
-    });
+    }
+      ));
+    } catch (error) {
+      console.error("Manual pantry item save failed:", error);
+    } finally {
+      setIsSavingItem(false);
+    }
+    if (!saved) {
+      setFormError(
+        language === "bg"
+          ? "Продуктът не беше запазен. Данните остават във формуляра — опитайте отново."
+          : language === "es"
+            ? "El alimento no se ha guardado. Tus datos siguen en el formulario; inténtalo de nuevo."
+            : "The item was not saved. Your entries remain in the form; try again.",
+      );
+      return;
+    }
 
     setName("");
     setQuantity("");
@@ -527,6 +548,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
               </h2>
               <button
                 onClick={() => setShowAddModal(false)}
+                disabled={isSavingItem}
                 className="text-stone-400 hover:text-white text-sm"
               >
                 ✕
@@ -693,12 +715,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
+                  disabled={isSavingItem}
                   className="px-3 py-1.5 rounded-lg bg-stone-700 text-stone-300 hover:bg-stone-600 text-xs font-semibold cursor-pointer"
                 >
                   {currentText.cancel}
                 </button>
                 <button
                   type="submit"
+                  disabled={isSavingItem}
                   className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md cursor-pointer"
                 >
                   {currentText.save}
