@@ -55,7 +55,7 @@ export const ManualShoppingQaHarness: React.FC = () => {
         onDeleteItem={(id) =>
           setItems((current) => current.filter((item) => item.id !== id))
         }
-        onAddItem={(item) =>
+        onAddItem={(item) => {
           setItems((current) => [
             ...current,
             {
@@ -65,8 +65,9 @@ export const ManualShoppingQaHarness: React.FC = () => {
               amountOrigin: "user_entered",
               purchaseAmountConfirmed: false,
             },
-          ])
-        }
+          ]);
+          return true;
+        }}
         onTransferToPantry={() => {}}
         onGenerateAiShopping={async () => {}}
         onClearList={() => setItems([])}
