@@ -131,6 +131,8 @@ export function useFirebaseSync(
         setRecipes([]);
         setMealPlan([]);
         setShoppingList([]);
+        setMealLogs([]);
+        setProgressionLedger([]);
       }
 
       authSessionUserId.current = nextUserId;
