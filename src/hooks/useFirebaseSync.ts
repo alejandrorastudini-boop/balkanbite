@@ -1010,6 +1010,12 @@ export function useFirebaseSync(
     inventorySyncError,
     inventoryServerConfirmed,
     profileHydrated,
+    recipesHydrated:
+      !currentUser || hydratedCollectionUser.current.recipes === currentUser.uid,
+    mealPlanHydrated:
+      !currentUser || hydratedCollectionUser.current.mealPlans === currentUser.uid,
+    shoppingHydrated:
+      !currentUser || hydratedCollectionUser.current.shoppingList === currentUser.uid,
     captureInventoryEditBaseline,
     submitInventoryEdit,
     submitInventoryCreations,
