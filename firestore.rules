@@ -45,7 +45,15 @@ service cloud.firestore {
     // state transitions. It stores no food, nutrition, health or monetary data.
     match /users/{userId}/progressionEvents/{eventId} {
       function validProgressionEvent() {
-        return request.resource.data.version == 1 &&
+        return request.resource.data.keys().hasOnly([
+            'version', 'eventId', 'type', 'occurredAt', 'evidence',
+            'evidenceCount', 'userId', 'requestSignature', 'createdAt'
+          ]) &&
+          request.resource.data.keys().hasAll([
+            'version', 'eventId', 'type', 'occurredAt', 'evidence',
+            'evidenceCount', 'userId', 'requestSignature', 'createdAt'
+          ]) &&
+          request.resource.data.version == 1 &&
           request.resource.data.eventId == eventId &&
           (request.resource.data.type == 'confirmed_purchase_applied' ||
            request.resource.data.type == 'recipe_cook_inventory_applied') &&
