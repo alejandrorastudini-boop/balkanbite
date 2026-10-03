@@ -35,7 +35,7 @@ test("App independently rejects incomplete manual shopping additions", () => {
   const handler = appSource.slice(start, end);
 
   assert.match(handler, /hasValidManualShoppingRequiredFields\(item\)/);
-  assert.match(handler, /return;/);
+  assert.match(handler, /return false;/);
   assert.match(handler, /category:[\s\S]*item\.category\.trim\(\)[\s\S]*: ""/);
   assert.doesNotMatch(handler, /category:\s*"Produce"/);
 });
