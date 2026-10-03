@@ -24,15 +24,74 @@ const stranger = environment.unauthenticatedContext().firestore();
 
 try {
   const aliceProfile = doc(alice, "users", "alice");
-  await assertSucceeds(setDoc(aliceProfile, { userId: "alice", nickname: "QA", profileRevision: 0 }));
-  await assertSucceeds(updateDoc(aliceProfile, { nickname: "QA2", profileRevision: 1 }));
-  await assertFails(updateDoc(aliceProfile, { nickname: "stale", profileRevision: 1 }));
+  const canonicalProfile = {
+    name: "QA",
+    language: "en",
+    currency: "EUR",
+    cookingSpeed: null,
+    healthGoal: null,
+    dietStyle: null,
+    disliked: [],
+    allergies: null,
+    householdSize: null,
+    cookingLevel: null,
+    appliances: null,
+    monthlyBudgetEUR: null,
+    healthProfile: null,
+    heightCm: null,
+    weightKg: null,
+    budgetTier: null,
+    isProSubscriber: null,
+    onboardingCompleted: false,
+    userId: "alice",
+    profileRevision: 0,
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
+  };
+  await assertSucceeds(setDoc(aliceProfile, canonicalProfile));
+  await assertSucceeds(updateDoc(aliceProfile, {
+    name: "QA2",
+    profileRevision: 1,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(aliceProfile, { name: "stale", profileRevision: 1 }));
   await assertFails(updateDoc(aliceProfile, { userId: "bob", profileRevision: 2 }));
+  await assertFails(updateDoc(aliceProfile, {
+    profileRevision: 2,
+    heightCm: 180,
+    updatedAt: serverTimestamp(),
+  }));
+  await assertFails(updateDoc(aliceProfile, {
+    profileRevision: 2,
+    healthProfile: {
+      version: 1,
+      ageYears: { status: "known", value: -5, source: "self_reported", recordedAt: null },
+      heightCm: null,
+      weightKg: null,
+      physiologicalSex: null,
+      activityCategory: null,
+      pregnancyLactationStatus: null,
+    },
+    updatedAt: serverTimestamp(),
+  }));
+  await assertSucceeds(updateDoc(aliceProfile, {
+    profileRevision: 2,
+    healthProfile: {
+      version: 1,
+      ageYears: { status: "known", value: 35, source: "self_reported", recordedAt: null },
+      heightCm: null,
+      weightKg: null,
+      physiologicalSex: null,
+      activityCategory: null,
+      pregnancyLactationStatus: null,
+    },
+    updatedAt: serverTimestamp(),
+  }));
   await assertFails(deleteDoc(aliceProfile));
   await assertSucceeds(getDoc(aliceProfile));
   await assertFails(getDoc(doc(bob, "users", "alice")));
   await assertFails(getDoc(doc(stranger, "users", "alice")));
-  await assertFails(setDoc(doc(bob, "users", "alice"), { userId: "bob", profileRevision: 0 }));
+  await assertFails(setDoc(doc(bob, "users", "alice"), { ...canonicalProfile, userId: "bob" }));
   await assertFails(setDoc(doc(bob, "users", "bob"), { userId: "bob" }));
 
   const recipeAuthority = doc(alice, "derivedCollectionAuthorities", "u_alice__recipes");
