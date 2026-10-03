@@ -315,7 +315,15 @@ service cloud.firestore {
            request.resource.data.estimatedCostEUR >= 0)) &&
         (!request.resource.data.keys().hasAny(['expiryDaysLeft']) ||
           (request.resource.data.expiryDaysLeft is number &&
-           request.resource.data.expiryDaysLeft >= 0));
+           request.resource.data.expiryDaysLeft >= 0)) &&
+        (!request.resource.data.keys().hasAny(['nameBg']) ||
+          request.resource.data.nameBg is string) &&
+        (!request.resource.data.keys().hasAny(['nameEs']) ||
+          request.resource.data.nameEs is string) &&
+        (!request.resource.data.keys().hasAny(['expiryIsPartial']) ||
+          request.resource.data.expiryIsPartial is bool) &&
+        (!request.resource.data.keys().hasAny(['purchaseHistory']) ||
+          request.resource.data.purchaseHistory is list);
     }
 
     match /inventory/{itemId} {
