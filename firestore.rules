@@ -100,17 +100,59 @@ service cloud.firestore {
             'onboardingCompleted', 'userId', 'profileRevision',
             'createdAt', 'updatedAt'
           ]) &&
+          request.resource.data.keys().hasAll([
+            'name', 'language', 'currency', 'cookingSpeed', 'healthGoal',
+            'dietStyle', 'disliked', 'allergies', 'householdSize',
+            'cookingLevel', 'appliances', 'monthlyBudgetEUR', 'healthProfile',
+            'heightCm', 'weightKg', 'budgetTier', 'isProSubscriber',
+            'onboardingCompleted', 'userId', 'profileRevision', 'updatedAt'
+          ]) &&
           request.resource.data.name is string &&
           (request.resource.data.language == 'es' ||
            request.resource.data.language == 'en' ||
            request.resource.data.language == 'bg') &&
           (request.resource.data.currency == 'EUR' ||
            request.resource.data.currency == 'USD') &&
+          (request.resource.data.cookingSpeed == null ||
+           request.resource.data.cookingSpeed == 'fast' ||
+           request.resource.data.cookingSpeed == 'moderate' ||
+           request.resource.data.cookingSpeed == 'elaborate') &&
+          (request.resource.data.healthGoal == null ||
+           request.resource.data.healthGoal == 'balanced' ||
+           request.resource.data.healthGoal == 'muscle' ||
+           request.resource.data.healthGoal == 'fat_loss' ||
+           request.resource.data.healthGoal == 'heart') &&
+          (request.resource.data.dietStyle == null ||
+           request.resource.data.dietStyle == 'all' ||
+           request.resource.data.dietStyle == 'mediterranean' ||
+           request.resource.data.dietStyle == 'vegetarian' ||
+           request.resource.data.dietStyle == 'vegan' ||
+           request.resource.data.dietStyle == 'keto' ||
+           request.resource.data.dietStyle == 'gluten_free') &&
           request.resource.data.disliked is list &&
+          (request.resource.data.allergies == null ||
+           request.resource.data.allergies is list) &&
+          (request.resource.data.householdSize == null ||
+           (request.resource.data.householdSize is int &&
+            request.resource.data.householdSize > 0)) &&
+          (request.resource.data.cookingLevel == null ||
+           request.resource.data.cookingLevel == 'beginner' ||
+           request.resource.data.cookingLevel == 'intermediate' ||
+           request.resource.data.cookingLevel == 'chef') &&
+          (request.resource.data.appliances == null ||
+           request.resource.data.appliances is list) &&
+          (request.resource.data.monthlyBudgetEUR == null ||
+           (request.resource.data.monthlyBudgetEUR is number &&
+            request.resource.data.monthlyBudgetEUR >= 0)) &&
+          (request.resource.data.budgetTier == null ||
+           request.resource.data.budgetTier == 'strict_budget' ||
+           request.resource.data.budgetTier == 'balanced' ||
+           request.resource.data.budgetTier == 'flexible') &&
           request.resource.data.onboardingCompleted is bool &&
           request.resource.data.heightCm == null &&
           request.resource.data.weightKg == null &&
           request.resource.data.isProSubscriber == null &&
+          request.resource.data.updatedAt is timestamp &&
           validHealthProfile(request.resource.data.healthProfile);
       }
 
