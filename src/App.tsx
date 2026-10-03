@@ -1417,19 +1417,14 @@ export default function App() {
     // No signed-in setPantry here. The inventory listener has already exposed
     // the exact server-confirmed result before submitConfirmedCook accepts.
     preparedSignedInCooks.current.delete(cookConfirmationId);
-    const actionId = createProgressionActionId(
-      typeof globalThis.crypto?.randomUUID === "function"
-        ? () => globalThis.crypto.randomUUID()
-        : undefined,
-    );
-    if (actionId) {
-      const event = buildRecipeCookProgressEvent({
-        actionId,
-        occurredAt: prepared.occurredAt,
-        result: prepared.result,
-      });
-      if (event) appendLocalProgressionEvents([event]);
-    }
+    // The reviewed confirmation ID is stable across transport retries, so the
+    // progression event must derive from it rather than a fresh random UUID.
+    const event = buildRecipeCookProgressEvent({
+      actionId: cookConfirmationId,
+      occurredAt: prepared.occurredAt,
+      result: prepared.result,
+    });
+    if (event) appendLocalProgressionEvents([event]);
     return { success: true };
   };
 
