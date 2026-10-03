@@ -32,6 +32,7 @@ import type { CookConfirmation } from "../utils/confirmedCookTransaction";
 import { persistInventoryClearAtomically } from "../utils/inventoryClearFirestore";
 import { clearShoppingItems, createShoppingItem, createShoppingItems, replaceShoppingItem, removeShoppingItem } from "../utils/shoppingMutationFirestore";
 import { replaceDerivedCollectionAtomically } from "../utils/derivedCollectionFirestore";
+import { replaceUserProfileAtomically } from "../utils/profileMutationFirestore";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -57,6 +58,7 @@ export function useFirebaseSync(
   const [inventoryServerConfirmedUser, setInventoryServerConfirmedUser] = useState<string | null>(null);
   const [profileHydratedUser, setProfileHydratedUser] = useState<string | null>(null);
   const authSessionUserId = useRef<string | null | undefined>(undefined);
+  const profileRevision = useRef<number | null>(null);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
   const lastHydratedCollectionJson = useRef<Record<string, string>>({});
   const hydratedCollectionDocumentIds = useRef<Record<string, Set<string>>>({});
@@ -98,6 +100,7 @@ export function useFirebaseSync(
       // Clear cloud-backed UI state in the same auth transition so guest or
       // previous-account rows cannot flash as the new account's data.
       hydratedCollectionUser.current = {};
+      profileRevision.current = null;
       lastHydratedCollectionJson.current = {};
       hydratedCollectionDocumentIds.current = {};
       inventoryEditAuthority.current = {
@@ -139,7 +142,13 @@ export function useFirebaseSync(
 
     const unsub = onSnapshot(userDoc, (docSnap) => {
       if (docSnap.exists()) {
-        const data = sanitizeRemoteUserProfile(docSnap.data());
+        const rawProfile = docSnap.data();
+        const observedRevision = rawProfile.profileRevision ?? 0;
+        profileRevision.current =
+          Number.isInteger(observedRevision) && observedRevision >= 0
+            ? observedRevision
+            : null;
+        const data = sanitizeRemoteUserProfile(rawProfile);
         if (JSON.stringify(data) !== JSON.stringify(profile)) {
           setProfile(data);
         }
@@ -151,6 +160,7 @@ export function useFirebaseSync(
         void setDoc(userDoc, {
           ...serializeUserProfileForFirestore(newProfile),
           userId: currentUser.uid,
+          profileRevision: 0,
           createdAt: Timestamp.now(),
           updatedAt: Timestamp.now()
         }).catch((error) => {
@@ -163,23 +173,17 @@ export function useFirebaseSync(
     return unsub;
   }, [currentUser]);
 
-  // Save profile changes only after this exact account hydrated its own profile.
-  useEffect(() => {
-    if (
-      !currentUser ||
-      loading ||
-      profileHydratedUser !== currentUser.uid
-    ) {
-      return;
+  // Signed-in profile state is listener-owned. Explicit user edits use the
+  // revision-aware command below; never bulk-write arbitrary local profile state.
+
+  const submitProfileReplace = async (expected: UserProfile, next: UserProfile) => {
+    const uid = currentUser?.uid;
+    const revision = profileRevision.current;
+    if (!uid || profileHydratedUser !== uid || revision === null) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
     }
-    const userDoc = doc(db, "users", currentUser.uid);
-    void setDoc(userDoc, {
-      ...serializeUserProfileForFirestore(profile),
-      updatedAt: Timestamp.now()
-    }, { merge: true }).catch((error) => {
-      console.error("Failed to save user profile:", error);
-    });
-  }, [profile, currentUser, loading, profileHydratedUser]);
+    return replaceUserProfileAtomically(db, uid, expected, revision, next);
+  };
 
   const { canRenderApp, inventoryIsProvisional } =
     getStartupCloudSyncState(
@@ -943,6 +947,7 @@ export function useFirebaseSync(
     submitPurchasePantryApplication,
     submitInventoryClear,
     submitConfirmedCook,
+    submitProfileReplace,
     submitRecipesReplace,
     submitMealPlanReplace,
     submitShoppingItemCreate,
