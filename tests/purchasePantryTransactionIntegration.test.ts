@@ -73,7 +73,6 @@ test("shopping rows and progression finalize only after exact confirmed purchase
     "pendingSignedInPurchaseApplication.current = null",
     proof,
   );
-  const removeShopping = block.indexOf("setShoppingList(", proof);
   const progression = block.indexOf("buildPurchaseProgressEvents(", proof);
   const derived = block.indexOf(
     "submitRecipesReplace(recipes, syncedRecipes)",
@@ -82,11 +81,11 @@ test("shopping rows and progression finalize only after exact confirmed purchase
 
   assert.ok(proof >= 0);
   assert.ok(clear > proof);
-  assert.ok(removeShopping > proof);
-  assert.ok(progression > removeShopping);
+  assert.equal(block.indexOf("setShoppingList(", proof), -1);
+  assert.ok(progression > clear);
   assert.ok(derived > progression);
   assert.ok(block.includes("submitMealPlanReplace(mealPlan, newPlan)"));
-  assert.ok(block.includes("accepted.has(`shopping:${item.id}`)"));
+  assert.ok(block.includes("Shopping rows were retired in the same authoritative purchase transaction"));
 });
 
 test("shared dispatcher retains purchase evidence for in-flight/authority gaps and transport uncertainty", () => {
