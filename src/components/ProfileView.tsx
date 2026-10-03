@@ -646,11 +646,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           id="profile-progress-storage-copy"
           className="text-xs text-stone-500 leading-relaxed"
         >
-          {language === "bg"
-            ? "Засега тази история на активността се съхранява само на това устройство и не се синхронизира с вашия акаунт."
+          {user
+            ? language === "bg"
+              ? "За влезли потребители тази потвърдена история се синхронизира с акаунта от облака."
+              : language === "es"
+              ? "Con la sesión iniciada, este historial verificado se sincroniza con tu cuenta desde la nube."
+              : "When signed in, this verified history is synchronized with your account from the cloud."
+            : language === "bg"
+            ? "Като гост тази история се съхранява само на това устройство."
             : language === "es"
-            ? "Por ahora, este historial de actividad se guarda solo en este dispositivo y no se sincroniza con tu cuenta."
-            : "For now, this activity history is stored only on this device and is not synced to your account."}
+            ? "Como invitado, este historial se guarda solo en este dispositivo."
+            : "As a guest, this history is stored only on this device."}
         </p>
       </div>
 
