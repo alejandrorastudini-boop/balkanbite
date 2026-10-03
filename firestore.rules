@@ -20,13 +20,239 @@ service cloud.firestore {
     }
 
     match /users/{userId} {
-      allow read, write: if isOwner(userId);
+      function validProfileRevisionCreate() {
+        return request.resource.data.profileRevision is int &&
+          request.resource.data.profileRevision == 0 &&
+          request.resource.data.userId == request.auth.uid;
+      }
+
+      function validProfileRevisionUpdate() {
+        return resource.data.get('userId', request.auth.uid) == request.auth.uid &&
+          request.resource.data.userId == request.auth.uid &&
+          resource.data.get('profileRevision', 0) is int &&
+          request.resource.data.profileRevision is int &&
+          request.resource.data.profileRevision ==
+            resource.data.get('profileRevision', 0) + 1;
+      }
+
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) && validProfileRevisionCreate();
+      allow update: if isOwner(userId) && validProfileRevisionUpdate();
+      allow delete: if false;
+    }
+
+    // Progression is append-only evidence derived from confirmed deterministic
+    // state transitions. It stores no food, nutrition, health or monetary data.
+    match /users/{userId}/progressionEvents/{eventId} {
+      function validProgressionEvent() {
+        return request.resource.data.version == 1 &&
+          request.resource.data.eventId == eventId &&
+          (request.resource.data.type == 'confirmed_purchase_applied' ||
+           request.resource.data.type == 'recipe_cook_inventory_applied') &&
+          request.resource.data.evidence == 'deterministic_state_transition' &&
+          request.resource.data.evidenceCount is int &&
+          request.resource.data.evidenceCount > 0 &&
+          request.resource.data.occurredAt is string &&
+          request.resource.data.occurredAt.size() > 0 &&
+          request.resource.data.requestSignature is string &&
+          request.resource.data.requestSignature.size() > 0 &&
+          request.resource.data.createdAt is timestamp;
+      }
+
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        request.resource.data.userId == request.auth.uid &&
+        validProgressionEvent();
+      allow update, delete: if false;
+    }
+
+    // Meal history is append-only and owner-scoped. Nutrition values are
+    // accepted only when the canonical client marks the row verified; unknown
+    // or estimated meals cannot carry numeric nutrition fields.
+    match /users/{userId}/mealLogs/{mealId} {
+      function validMealNutrition() {
+        let status = request.resource.data.nutritionDataStatus;
+        let hasNutrition = request.resource.data.keys().hasAny([
+          'calories', 'proteinG', 'carbsG', 'fatG'
+        ]);
+        return (status == 'verified' &&
+          request.resource.data.calories is number &&
+          request.resource.data.calories >= 0 &&
+          request.resource.data.proteinG is number &&
+          request.resource.data.proteinG >= 0 &&
+          request.resource.data.carbsG is number &&
+          request.resource.data.carbsG >= 0 &&
+          request.resource.data.fatG is number &&
+          request.resource.data.fatG >= 0) ||
+          ((status == 'unknown' || status == 'estimated') && !hasNutrition);
+      }
+
+      allow read: if isOwner(userId);
+      allow create: if isOwner(userId) &&
+        request.resource.data.userId == request.auth.uid &&
+        request.resource.data.id == mealId &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.createdAt is timestamp &&
+        validMealNutrition();
+      allow update, delete: if false;
+    }
+
+    // Unversioned inventory remains compatible with the current client.
+    // After a cook transaction first versions a lot, stale snapshot/batch
+    // writes may not overwrite it without advancing the observed revision.
+    // Direct deletion of versioned lots is blocked: use a versioned tombstone.
+    function validStockRevisionTransition() {
+      let oldRevision = resource.data.get('cookRevision', 0);
+      let newRevision = request.resource.data.get('cookRevision', 0);
+      return oldRevision is int && oldRevision >= 0 &&
+        newRevision is int &&
+        ((oldRevision == 0 && newRevision == 0) ||
+         newRevision == oldRevision + 1);
     }
 
     match /inventory/{itemId} {
-      allow create: if ownsIncomingDocument() && ownsDocumentNamespace(itemId);
-      allow read, delete: if ownsExistingDocument();
-      allow update: if ownsExistingDocument() && ownsIncomingDocument();
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(itemId) &&
+        request.resource.data.get('cookRevision', 0) is int &&
+        request.resource.data.get('cookRevision', 0) >= 0 &&
+        request.resource.data.get('cookRevision', 0) <= 1;
+      // Creation transactions must be able to prove that an owner-scoped ID
+      // is still absent. Never reveal another account's existing or missing IDs.
+      allow get: if ownsDocumentNamespace(itemId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow delete: if ownsExistingDocument() &&
+        resource.data.get('cookRevision', 0) == 0;
+      allow update: if ownsExistingDocument() && ownsIncomingDocument() &&
+        validStockRevisionTransition();
+    }
+
+    // Candidate immutable, owner-scoped journal. This path does not itself
+    // prove that inventory was deducted: the eventual writer must transact
+    // the journal creation and stock updates against current remote state.
+    match /cookConfirmations/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'cookConfirmationId', 'mealId', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'cookConfirmationId', 'mealId', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.cookConfirmationId is string &&
+        request.resource.data.cookConfirmationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.cookConfirmationId &&
+        request.resource.data.mealId is string &&
+        request.resource.data.mealId.size() > 0 &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.deductions is list &&
+        request.resource.data.deductions.size() > 0 &&
+        request.resource.data.createdAt is timestamp;
+      // A first cook must be able to check that its own journal ID is absent.
+      // Never reveal another account's existing or missing journal entries.
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update, delete: if false;
+    }
+
+    // Immutable owner-scoped inventory consumption journal. It records the
+    // exact reviewed voice allocation used by the atomic stock transaction.
+    // As with cookConfirmations, existence alone is not proof of stock change;
+    // only the tested transaction joins journal creation to inventory updates.
+    match /inventoryConsumptions/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'deductions', 'createdAt'
+        ]) &&
+        request.resource.data.mutationId is string &&
+        request.resource.data.mutationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.mutationId &&
+        request.resource.data.source == 'voice' &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.deductions is list &&
+        request.resource.data.deductions.size() > 0 &&
+        request.resource.data.createdAt is timestamp;
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update, delete: if false;
+    }
+
+    // Immutable owner-scoped journal for deterministic purchase -> pantry
+    // applications. The tested transaction joins this record to only the
+    // affected inventory documents; unrelated stock is never rewritten.
+    match /purchaseApplications/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'acceptedSourceIds', 'newlyAppliedSourceIds',
+          'expectedChanges', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'mutationId', 'source', 'requestSignature',
+          'acceptedSourceIds', 'newlyAppliedSourceIds',
+          'expectedChanges', 'createdAt'
+        ]) &&
+        request.resource.data.mutationId is string &&
+        request.resource.data.mutationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.mutationId &&
+        request.resource.data.source == 'purchase' &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.acceptedSourceIds is list &&
+        request.resource.data.newlyAppliedSourceIds is list &&
+        request.resource.data.newlyAppliedSourceIds.size() > 0 &&
+        request.resource.data.expectedChanges is list &&
+        request.resource.data.expectedChanges.size() > 0 &&
+        request.resource.data.createdAt is timestamp;
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update, delete: if false;
+    }
+
+    // Immutable owner-scoped journal for an all-or-nothing pantry Clear-All.
+    // The client transaction creates this record together with revision-aware
+    // tombstones for the exact reviewed server-confirmed baseline.
+    match /inventoryClearApplications/{documentId} {
+      allow create: if ownsIncomingDocument() &&
+        ownsDocumentNamespace(documentId) &&
+        request.resource.data.keys().hasOnly([
+          'userId', 'mutationId', 'requestSignature', 'clearedIds', 'createdAt'
+        ]) &&
+        request.resource.data.keys().hasAll([
+          'userId', 'mutationId', 'requestSignature', 'clearedIds', 'createdAt'
+        ]) &&
+        request.resource.data.mutationId is string &&
+        request.resource.data.mutationId.size() > 0 &&
+        documentId ==
+          'u_' + request.auth.uid + '__' + request.resource.data.mutationId &&
+        request.resource.data.requestSignature is string &&
+        request.resource.data.requestSignature.size() > 0 &&
+        request.resource.data.clearedIds is list &&
+        request.resource.data.clearedIds.size() > 0 &&
+        request.resource.data.clearedIds.size() <= 200 &&
+        request.resource.data.createdAt is timestamp;
+      allow get: if ownsDocumentNamespace(documentId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow update, delete: if false;
     }
 
     match /recipes/{recipeId} {
@@ -43,7 +269,12 @@ service cloud.firestore {
 
     match /shoppingList/{itemId} {
       allow create: if ownsIncomingDocument() && ownsDocumentNamespace(itemId);
-      allow read, delete: if ownsExistingDocument();
+      // Owner-scoped absent-ID lookup is required for transaction-safe create.
+      // It never exposes another account's namespace.
+      allow get: if ownsDocumentNamespace(itemId) &&
+        (resource == null || ownsExistingDocument());
+      allow list: if ownsExistingDocument();
+      allow delete: if ownsExistingDocument();
       allow update: if ownsExistingDocument() && ownsIncomingDocument();
     }
   }
