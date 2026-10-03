@@ -1489,7 +1489,14 @@ export default function App() {
           ...r,
           imageUrl: getRecipeImageUrl(r),
         }));
-        setRecipes(enriched);
+        if (!currentUser) {
+          setRecipes(enriched);
+        } else {
+          const persisted = await submitRecipesReplace(recipes, enriched);
+          if (persisted.outcome === "needs-review") {
+            throw new Error("Recipe persistence needs review");
+          }
+        }
       }
     } catch (err) {
       console.error("Failed to generate recipes:", err);
