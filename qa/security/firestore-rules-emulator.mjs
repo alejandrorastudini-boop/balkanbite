@@ -134,6 +134,31 @@ try {
     requestSignature: "unknown-meal",
     createdAt: new Date(),
   }));
+  await assertFails(setDoc(doc(alice, "users", "alice", "mealLogs", "missing-type"), {
+    ...verifiedMeal,
+    id: "missing-type",
+    mealType: undefined,
+  }));
+  await assertFails(setDoc(doc(alice, "users", "alice", "mealLogs", "bad-type"), {
+    ...verifiedMeal,
+    id: "bad-type",
+    mealType: "brunch",
+  }));
+  await assertFails(setDoc(doc(alice, "users", "alice", "mealLogs", "bad-date"), {
+    ...verifiedMeal,
+    id: "bad-date",
+    date: "2026-1-3",
+  }));
+  await assertFails(setDoc(doc(alice, "users", "alice", "mealLogs", "empty-name"), {
+    ...verifiedMeal,
+    id: "empty-name",
+    manualName: "",
+  }));
+  await assertFails(setDoc(doc(alice, "users", "alice", "mealLogs", "extra-field"), {
+    ...verifiedMeal,
+    id: "extra-field",
+    unexpectedField: "not-canonical",
+  }));
   await assertFails(setDoc(doc(bob, "users", "alice", "mealLogs", "bob-attack"), {
     ...verifiedMeal,
     id: "bob-attack",
