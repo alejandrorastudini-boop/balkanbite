@@ -221,6 +221,7 @@ export default function App() {
     preview: ShoppingReconciliationResult;
     occurredAt: string;
     acquiredAt: string;
+    shoppingBaseline: ShoppingItem[];
   }>>(new Map());
   useEffect(() => {
     preparedSignedInCooks.current.clear();
@@ -1705,6 +1706,9 @@ export default function App() {
         purchase => accepted.has(purchase.sourceId),
       );
 
+      const shoppingBaseline = shoppingList.filter(item =>
+        accepted.has(`shopping:${item.id}`)
+      );
       prepared = {
         userId: currentUser?.uid ?? "guest",
         reviewFingerprint,
@@ -1712,6 +1716,7 @@ export default function App() {
         preview,
         occurredAt,
         acquiredAt,
+        shoppingBaseline,
       };
 
       if (currentUser && safeReconciliationId && purchases.length > 0) {
@@ -1773,6 +1778,7 @@ export default function App() {
       preview,
       prepared.occurredAt,
       prepared.acquiredAt,
+      prepared.shoppingBaseline,
     );
 
     if (outcome === "accepted") {
