@@ -93,6 +93,17 @@ try {
     eventId: "bad",
     evidenceCount: 0,
   }));
+  await assertFails(setDoc(doc(alice, "users", "alice", "progressionEvents", "extra-field"), {
+    ...progressionEvent,
+    eventId: "extra-field",
+    unexpectedField: "not-canonical",
+  }));
+  const progressionWithoutOccurredAt = { ...progressionEvent };
+  delete progressionWithoutOccurredAt.occurredAt;
+  await assertFails(setDoc(doc(alice, "users", "alice", "progressionEvents", "missing-time"), {
+    ...progressionWithoutOccurredAt,
+    eventId: "missing-time",
+  }));
   await assertFails(setDoc(doc(bob, "users", "alice", "progressionEvents", "bob-attack"), {
     ...progressionEvent,
     eventId: "bob-attack",
