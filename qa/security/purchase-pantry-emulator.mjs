@@ -28,6 +28,8 @@ const invRef = (db, uid, id) =>
   doc(db, "inventory", getScopedDocumentId(uid, id));
 const journalRef = (db, uid, id) =>
   doc(db, "purchaseApplications", getScopedDocumentId(uid, id));
+const shoppingRef = (db, uid, id) =>
+  doc(db, "shoppingList", getScopedDocumentId(uid, id));
 
 const pantryItem = (
   id,
@@ -90,12 +92,33 @@ try {
     },
   ];
 
+  const shoppingBaseline = [
+    {
+      id: "s1", name: "Tomate", quantity: 0.5, unit: "kg",
+      category: "Produce", checked: true,
+      amountOrigin: "user_entered", purchaseAmountConfirmed: true,
+    },
+    {
+      id: "s2", name: "Leche", quantity: 1, unit: "L",
+      category: "Dairy", checked: true,
+      amountOrigin: "user_entered", purchaseAmountConfirmed: true,
+    },
+  ];
+  await environment.withSecurityRulesDisabled(async context => {
+    for (const item of shoppingBaseline) {
+      await setDoc(shoppingRef(context.firestore(), "alice", item.id), {
+        ...item, userId: "alice", updatedAt: new Date("2026-09-29T00:00:00Z"),
+      });
+    }
+  });
+
   const request = {
     userId: "alice",
     mutationId: "purchase-apply-1",
     baselinePantry: [tomato, unrelated],
     purchases,
     acquiredAt: "2026-09-29",
+    shoppingBaseline,
   };
 
   const first = await persistPurchasesIntoPantryAtomically(alice, request);
@@ -103,6 +126,8 @@ try {
   assert.deepEqual(first.acceptedSourceIds, ["shopping:s1", "shopping:s2"]);
   assert.deepEqual(first.newlyAppliedSourceIds, ["shopping:s1", "shopping:s2"]);
   assert.equal(first.expectedChanges.length, 2);
+  assert.equal((await getDoc(shoppingRef(alice, "alice", "s1"))).exists(), false);
+  assert.equal((await getDoc(shoppingRef(alice, "alice", "s2"))).exists(), false);
 
   const tomatoAfter = await readStock(alice, "alice", "tomato");
   assert.equal(tomatoAfter.quantity, 1.5);
