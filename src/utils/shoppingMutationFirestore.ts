@@ -2,7 +2,6 @@ import {
   doc,
   runTransaction,
   serverTimestamp,
-  setDoc,
   type Firestore,
 } from "firebase/firestore";
 import type { ShoppingItem } from "../types";
