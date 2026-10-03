@@ -2368,7 +2368,7 @@ export default function App() {
           {activeTab === "profile" && (
             <ProfileView
               profile={profile}
-              onUpdateProfile={(upd) => { void handleProfileUpdate(upd); }}
+              onUpdateProfile={(upd) => handleProfileUpdate(upd)}
               onOpenProModal={() => setShowProModal(true)}
               onResetApp={handleResetApp}
               onGoToLanding={() => setShowLanding(true)}
