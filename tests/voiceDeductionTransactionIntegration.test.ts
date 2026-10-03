@@ -48,7 +48,9 @@ test("cancel or a new extraction deliberately abandons the old voice mutation ID
       .includes("pendingMutationIdRef.current = null"),
   );
 
-  const sendBlock = voiceSource.slice(sendStart, sendStart + 950);
+  const sendFetch = voiceSource.indexOf('fetch("/api/ai/parse-intent"', sendStart);
+  assert.ok(sendFetch > sendStart);
+  const sendBlock = voiceSource.slice(sendStart, sendFetch);
   assert.ok(sendBlock.includes("pendingMutationIdRef.current = null"));
 });
 
