@@ -8,6 +8,43 @@ export type ProfileMutationResult =
 
 const stable = (profile: UserProfile) => JSON.stringify(serializeUserProfileForFirestore(profile));
 
+
+export async function ensureUserProfileExistsAtomically(
+  db: Firestore,
+  userId: string,
+  initialProfile: UserProfile,
+): Promise<ProfileMutationResult> {
+  if (!userId || userId.includes("/")) {
+    return { outcome: "needs-review", reason: "invalid-request" };
+  }
+  const serialized = serializeUserProfileForFirestore(initialProfile);
+  const ref = doc(db, "users", userId);
+
+  return runTransaction(db, async tx => {
+    const snapshot = await tx.get(ref);
+    if (snapshot.exists()) {
+      const data = snapshot.data();
+      if (data.userId !== undefined && data.userId !== userId) {
+        return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+      }
+      const revision = data.profileRevision ?? 0;
+      if (!Number.isInteger(revision) || revision < 0) {
+        return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+      }
+      return { outcome: "already-applied" as const, revision };
+    }
+
+    tx.set(ref, {
+      ...serialized,
+      userId,
+      profileRevision: 0,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    return { outcome: "applied" as const, revision: 0 };
+  });
+}
+
 export async function replaceUserProfileAtomically(
   db: Firestore,
   userId: string,
