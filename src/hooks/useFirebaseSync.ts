@@ -59,6 +59,7 @@ export function useFirebaseSync(
   const [inventorySyncErrorUser, setInventorySyncErrorUser] = useState<string | null>(null);
   const [inventoryServerConfirmedUser, setInventoryServerConfirmedUser] = useState<string | null>(null);
   const [profileHydratedUser, setProfileHydratedUser] = useState<string | null>(null);
+  const [mealLogsHydratedUser, setMealLogsHydratedUser] = useState<string | null>(null);
   const authSessionUserId = useRef<string | null | undefined>(undefined);
   const profileRevision = useRef<number | null>(null);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
@@ -103,6 +104,7 @@ export function useFirebaseSync(
       // previous-account rows cannot flash as the new account's data.
       hydratedCollectionUser.current = {};
       profileRevision.current = null;
+      setMealLogsHydratedUser(null);
       lastHydratedCollectionJson.current = {};
       hydratedCollectionDocumentIds.current = {};
       inventoryEditAuthority.current = {
@@ -179,12 +181,14 @@ export function useFirebaseSync(
     if (!currentUser) return;
     const uid = currentUser.uid;
     setMealLogs([]);
+    setMealLogsHydratedUser(null);
     return subscribeMealLogs(
       db,
       uid,
       meals => {
         if (auth.currentUser?.uid !== uid) return;
         setMealLogs(meals);
+        setMealLogsHydratedUser(uid);
       },
       error => {
         console.error("Failed to hydrate meal history:", error);
@@ -195,6 +199,9 @@ export function useFirebaseSync(
   const submitMealLog = async (meal: MealLog) => {
     const uid = currentUser?.uid;
     if (!uid) return { outcome: "needs-review" as const, reason: "invalid-request" as const };
+    if (mealLogsHydratedUser !== uid) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+    }
     return appendMealLogAtomically(db, uid, meal);
   };
 
