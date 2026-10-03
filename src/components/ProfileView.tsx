@@ -229,6 +229,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const safeProgressionSummary =
     progressionSummary ?? EMPTY_PROGRESSION_SUMMARY;
   const [newDislike, setNewDislike] = useState("");
+  const [preferenceMutationPending, setPreferenceMutationPending] = useState(false);
+  const [preferenceMutationError, setPreferenceMutationError] = useState<string | null>(null);
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showClearHealthDataConfirm, setShowClearHealthDataConfirm] = useState(false);
   const [pendingHealthFieldRemoval, setPendingHealthFieldRemoval] =
@@ -298,16 +300,49 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
-  const handleAddDislike = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDislike.trim()) return;
-    const updated = [...profile.disliked, newDislike.trim()];
-    onUpdateProfile({ disliked: updated });
-    setNewDislike("");
+  const persistPreferenceUpdate = async (update: Partial<UserProfile>) => {
+    if (preferenceMutationPending) return false;
+    setPreferenceMutationError(null);
+    setPreferenceMutationPending(true);
+    try {
+      const persisted = await Promise.resolve(onUpdateProfile(update));
+      if (persisted === false) {
+        setPreferenceMutationError(
+          language === "bg"
+            ? "Промяната не беше запазена. Опитайте отново."
+            : language === "es"
+            ? "El cambio no se ha guardado. Inténtalo de nuevo."
+            : "The change was not saved. Try again."
+        );
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("Profile preference update failed:", error);
+      setPreferenceMutationError(
+        language === "bg"
+          ? "Промяната не беше запазена. Опитайте отново."
+          : language === "es"
+          ? "El cambio no se ha guardado. Inténtalo de nuevo."
+          : "The change was not saved. Try again."
+      );
+      return false;
+    } finally {
+      setPreferenceMutationPending(false);
+    }
   };
 
-  const handleRemoveDislike = (itemToRemove: string) => {
-    onUpdateProfile({
+  const handleAddDislike = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDislike.trim() || preferenceMutationPending) return;
+    const updated = [...profile.disliked, newDislike.trim()];
+    if (await persistPreferenceUpdate({ disliked: updated })) {
+      setNewDislike("");
+    }
+  };
+
+  const handleRemoveDislike = async (itemToRemove: string) => {
+    await persistPreferenceUpdate({
       disliked: profile.disliked.filter((i) => i !== itemToRemove),
     });
   };
@@ -656,12 +691,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-4 shadow-inner">
         <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 w-fit"><Clock className="w-4 h-4 text-emerald-400" /><span>{currentText.cookingSpeed}</span></div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{[{ id: "fast", label: currentText.speedFast }, { id: "moderate", label: currentText.speedModerate }, { id: "elaborate", label: currentText.speedElaborate }].map((opt) => <button key={opt.id} onClick={() => onUpdateProfile({ cookingSpeed: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.cookingSpeed === opt.id ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.cookingSpeed === opt.id && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 ml-1" />}</div></button>)}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{[{ id: "fast", label: currentText.speedFast }, { id: "moderate", label: currentText.speedModerate }, { id: "elaborate", label: currentText.speedElaborate }].map((opt) => <button key={opt.id} disabled={preferenceMutationPending} onClick={() => void persistPreferenceUpdate({ cookingSpeed: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.cookingSpeed === opt.id ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.cookingSpeed === opt.id && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 ml-1" />}</div></button>)}</div>
       </div>
 
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-4 shadow-inner">
         <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-teal-500/10 px-3 py-1.5 rounded-lg border border-teal-500/20 w-fit"><Utensils className="w-4 h-4 text-teal-400" /><span>{currentText.dietType}</span></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{[{ id: "all", label: currentText.dietAll }, { id: "mediterranean", label: currentText.dietMed }, { id: "vegetarian", label: currentText.dietVegetarian }, { id: "vegan", label: currentText.dietVegan }].map((opt) => <button key={opt.id} onClick={() => onUpdateProfile({ dietStyle: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.dietStyle === opt.id ? "bg-teal-500/10 border-teal-500/40 text-teal-300 shadow-[0_0_15px_rgba(20,184,166,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.dietStyle === opt.id && <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 ml-1" />}</div></button>)}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{[{ id: "all", label: currentText.dietAll }, { id: "mediterranean", label: currentText.dietMed }, { id: "vegetarian", label: currentText.dietVegetarian }, { id: "vegan", label: currentText.dietVegan }].map((opt) => <button key={opt.id} disabled={preferenceMutationPending} onClick={() => void persistPreferenceUpdate({ dietStyle: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.dietStyle === opt.id ? "bg-teal-500/10 border-teal-500/40 text-teal-300 shadow-[0_0_15px_rgba(20,184,166,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.dietStyle === opt.id && <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 ml-1" />}</div></button>)}</div>
       </div>
 
 
@@ -1013,6 +1048,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                 : "Delete health data"}
             </span>
           </button>
+        </div>
+      )}
+
+      {preferenceMutationError && (
+        <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-950/50 px-3 py-2 text-xs text-amber-200">
+          {preferenceMutationError}
         </div>
       )}
 
