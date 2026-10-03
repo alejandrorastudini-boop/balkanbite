@@ -18,7 +18,7 @@ test("shopping clear button opens review instead of deleting immediately", () =>
 
 test("shopping clear review uses shared guarded confirmation modal", () => {
   assert.match(source, /<ConfirmModal[\s\S]*isOpen=\{showClearConfirm\}/);
-  assert.match(source, /onConfirm=\{\(\) => onClearList\?\.\(\)\}/);
+  assert.match(source, /onConfirm=\{async \(\) => \(await onClearList\?\.\(\)\) !== false\}/);
   assert.match(source, /onClose=\{\(\) => setShowClearConfirm\(false\)\}/);
   assert.match(source, /danger/);
 });
