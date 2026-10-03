@@ -35,3 +35,9 @@ test("derived replacement rechecks exact post-state inside transaction", () => {
   assert.match(firestore, /if \(transactionMatchesNext\)/);
   assert.match(firestore, /return \{ outcome: "already-applied" as const \}/);
 });
+
+test("derived equality canonicalizes object key order before comparison", () => {
+  assert.match(firestore, /Object\.entries\(value as Record<string, unknown>\)/);
+  assert.match(firestore, /\.sort\(\(\[left\], \[right\]\) => left\.localeCompare\(right\)\)/);
+  assert.match(firestore, /JSON\.stringify\(canonicalize\(value\)\)/);
+});
