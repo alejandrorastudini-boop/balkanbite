@@ -29,6 +29,35 @@ function hasOpenAIKey(): boolean {
   return Boolean(process.env.OPENAI_API_KEY?.trim());
 }
 
+const MAX_AI_TEXT_CHARS = 8_000;
+const MAX_AI_CONTEXT_ITEMS = 500;
+const MAX_AI_IMAGE_BASE64_CHARS = 10_000_000;
+
+function isOversizedAiText(value: unknown): boolean {
+  return typeof value === "string" && value.length > MAX_AI_TEXT_CHARS;
+}
+
+function isOversizedAiCollection(value: unknown): boolean {
+  return Array.isArray(value) && value.length > MAX_AI_CONTEXT_ITEMS;
+}
+
+function rejectOversizedAiRequest(
+  res: express.Response,
+  values: { text?: unknown[]; collections?: unknown[]; image?: unknown },
+): boolean {
+  const oversized =
+    (values.text ?? []).some(isOversizedAiText) ||
+    (values.collections ?? []).some(isOversizedAiCollection) ||
+    (typeof values.image === "string" &&
+      values.image.length > MAX_AI_IMAGE_BASE64_CHARS);
+  if (!oversized) return false;
+  res.status(413).json({
+    error: "AI request exceeds safe processing limits",
+    code: "AI_REQUEST_TOO_LARGE",
+  });
+  return true;
+}
+
 function foodRecommendationRequiresReview(
   profile: unknown,
   foodSafety: unknown,
@@ -289,6 +318,10 @@ app.post("/api/ai/parse-intent", async (req, res) => {
   if (!transcript || typeof transcript !== "string") {
     return res.status(400).json({ error: "Transcript is required" });
   }
+  if (rejectOversizedAiRequest(res, {
+    text: [transcript],
+    collections: [currentPantry, mealLogs, conversationHistory],
+  })) return;
 
   const normalizedLanguage =
     language === "bg" ? "bg" : language === "es" ? "es" : "en";
@@ -406,6 +439,10 @@ app.post("/api/ai/reconcile-shopping", async (req, res) => {
   if (!transcript || typeof transcript !== "string") {
     return res.status(400).json({ error: "Transcript is required" });
   }
+  if (rejectOversizedAiRequest(res, {
+    text: [transcript],
+    collections: [currentShoppingList],
+  })) return;
 
   try {
     if (!hasOpenAIKey()) {
@@ -486,6 +523,11 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
       query = "",
       language = "en",
     } = req.body;
+
+    if (rejectOversizedAiRequest(res, {
+      text: [query],
+      collections: [pantry],
+    })) return;
 
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
       return res.status(409).json(
@@ -622,6 +664,10 @@ app.post("/api/ai/generate-weekly-plan", async (req, res) => {
     language = "es",
   } = req.body || {};
   try {
+    if (rejectOversizedAiRequest(res, {
+      collections: [pantry, recipes],
+    })) return;
+
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
       return res.status(409).json(
         foodSafetyBlockedPayload(
@@ -764,6 +810,10 @@ app.post("/api/ai/suggest-shopping", async (req, res) => {
     language = "es",
   } = req.body || {};
   try {
+    if (rejectOversizedAiRequest(res, {
+      collections: [pantry],
+    })) return;
+
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
       return res.status(409).json(
         foodSafetyBlockedPayload(
@@ -844,6 +894,7 @@ app.post("/api/ai/scan-image", async (req, res) => {
     if (!image) {
       return res.status(400).json({ error: "Missing image data" });
     }
+    if (rejectOversizedAiRequest(res, { image })) return;
 
     // Strip prefix if user passed data:image/...;base64,...
     const base64Data = image.includes(",") ? image.split(",")[1] : image;
