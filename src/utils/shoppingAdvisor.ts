@@ -189,7 +189,7 @@ function addVerifiedShortfallToCandidateMap(
   reason: string
 ) {
   const normalizedShortfall = normalizeQuantity(shortfallAmount, unit);
-  const normalizedName = ingredientName.toLowerCase().trim();
+  const normalizedName = normalizedFoodIdentity(ingredientName);
   const dimensionKey = normalizedShortfall?.unit.dimension || `raw:${unit.toLowerCase().trim()}`;
   const key = `${normalizedName}::${dimensionKey}`;
   const existing = candidates.get(key);
