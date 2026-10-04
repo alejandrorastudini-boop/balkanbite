@@ -4,6 +4,8 @@ import {
   buildInventoryLotFromConfirmedAcquisition,
   deriveInventoryLotExpiry,
   inventoryLotStateMatchesQuantity,
+  initializeLegacyInventoryLotState,
+  collapseLotAllocationAfterManualQuantityEdit,
   isValidInventoryLot,
   quantityInParentUnit,
   type InventoryLot,
@@ -178,4 +180,21 @@ test("confirmed acquisition constructor does not invent monetary lot evidence", 
   });
   assert.ok(created);
   assert.equal(created.initialCostEUR, undefined);
+});
+
+
+test("legacy stock migrates entirely to unallocated quantity without fabricated lots", () => {
+  assert.deepEqual(initializeLegacyInventoryLotState(2.5), {
+    unallocatedQuantity: 2.5,
+    activeLots: [],
+  });
+  assert.equal(initializeLegacyInventoryLotState(0), null);
+  assert.equal(initializeLegacyInventoryLotState(Number.NaN), null);
+});
+
+test("generic manual absolute edit collapses prior lot allocation to declared unallocated stock", () => {
+  assert.deepEqual(collapseLotAllocationAfterManualQuantityEdit(0.8), {
+    unallocatedQuantity: 0.8,
+    activeLots: [],
+  });
 });
