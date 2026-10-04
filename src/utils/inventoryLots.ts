@@ -1,6 +1,5 @@
 import { deriveEffectiveExpiry, type EffectiveExpiry } from "./effectiveExpiry";
 import { normalizeQuantity } from "./quantityUnits";
-import type { PantryPurchase } from "./purchasePantryMerge";
 
 export type InventoryLotSource =
   | "shopping_list"
@@ -240,45 +239,4 @@ export function appendConfirmedInventoryLot(
   )
     ? stateAfter
     : null;
-}
-
-
-export function inventoryLotFromConfirmedPurchase(
-  purchase: PantryPurchase,
-  parentUnit: string,
-  acquiredAt: string,
-): InventoryLot | null {
-  if (
-    !purchase ||
-    !safeEmbeddedIdentity(purchase.sourceId) ||
-    (purchase.source !== "shopping_list" &&
-      purchase.source !== "confirmed_reconciliation") ||
-    !validCalendarDate(acquiredAt)
-  ) {
-    return null;
-  }
-
-  const convertedQuantity = quantityInParentUnit(
-    purchase.quantity,
-    purchase.unit,
-    parentUnit,
-  );
-  if (!convertedQuantity) return null;
-
-  const lot: InventoryLot = {
-    id: `lot:${purchase.sourceId}`,
-    sourceId: purchase.sourceId,
-    source: purchase.source,
-    acquiredAt,
-    initialQuantity: convertedQuantity,
-    remainingQuantity: convertedQuantity,
-    ...(purchase.expiryDaysLeft !== undefined
-      ? { expiryDaysAtAcquisition: purchase.expiryDaysLeft }
-      : {}),
-    ...(purchase.estimatedCostEUR !== undefined
-      ? { initialCostEUR: purchase.estimatedCostEUR }
-      : {}),
-  };
-
-  return isValidInventoryLot(lot) ? lot : null;
 }
