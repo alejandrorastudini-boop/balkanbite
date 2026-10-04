@@ -524,7 +524,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             <ChefHat className="w-4 h-4 text-rose-500" />
             <span className="text-xs font-bold">{currentText.navRecipes}</span>
             <span className={`text-[10px] ${isDark ? "text-stone-400" : "text-slate-500"}`}>
-              {recipes.length} {language === "es" ? "recetas listas" : "ready recipes"}
+              {recipes.length} {language === "es" ? "recetas" : language === "bg" ? "рецепти" : "recipes"}
             </span>
           </button>
         </div>
