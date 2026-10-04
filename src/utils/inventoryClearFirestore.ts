@@ -131,7 +131,7 @@ export async function persistInventoryClearAtomically(
         for (const { expected, ref } of stockRefs) {
           tx.update(ref, {
             quantity: 0,
-            lotState: { unallocatedQuantity: 0, activeLots: [] },
+            lotState: { version: 1, unallocatedQuantity: 0, activeLots: [] },
             cookRevision: expected.cookRevision + 1,
             _deleted: true,
             deletedAt: serverTimestamp(),
