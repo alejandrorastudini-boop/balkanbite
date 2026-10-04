@@ -331,6 +331,7 @@ export async function persistConfirmedCookAtomically(
                 }
               : {
                   quantity,
+                  estimatedCostEUR: null,
                   cookRevision: cookRevision + 1,
                   _deleted: false,
                   deletedAt: null,
