@@ -183,7 +183,7 @@ test("cook lot evidence rejects impossible reviewed calendar dates", () => {
 });
 
 
-test("cook lot evidence must account for the complete confirmed aggregate deduction", () => {
+test("cook lot evidence exactly reconciles with the complete aggregate confirmed deduction", () => {
   const confirmation = {
     cookConfirmationId: "cook-lot-reconcile",
     mealId: "musaka",
