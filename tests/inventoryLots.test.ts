@@ -308,3 +308,101 @@ test("FEFO recommendation excludes explicitly expired lots from food-use advice"
   assert.deepEqual(recommendation?.usableLots, []);
   assert.deepEqual(recommendation?.expiredLotIds, ["lot-expired"]);
 });
+
+
+test("confirmed acquisition creates a lot in the parent pantry unit", async () => {
+  const { buildConfirmedAcquisitionLot } = await import("../src/utils/inventoryLots");
+  assert.deepEqual(
+    buildConfirmedAcquisitionLot({
+      source: "shopping_list",
+      sourceId: "shopping-42",
+      acquiredAt: "2026-10-04",
+      quantity: 500,
+      unit: "g",
+      parentUnit: "kg",
+      expiryDaysAtAcquisition: 3,
+      initialCostEUR: 4,
+    }),
+    {
+      id: "lot:shopping_list:shopping-42",
+      sourceId: "shopping-42",
+      source: "shopping_list",
+      acquiredAt: "2026-10-04",
+      initialQuantity: 0.5,
+      remainingQuantity: 0.5,
+      expiryDaysAtAcquisition: 3,
+      initialCostEUR: 4,
+    },
+  );
+});
+
+test("confirmed acquisition fails closed for incompatible or invalid evidence", async () => {
+  const { buildConfirmedAcquisitionLot } = await import("../src/utils/inventoryLots");
+  assert.equal(
+    buildConfirmedAcquisitionLot({
+      source: "shopping_list",
+      sourceId: "shopping-42",
+      acquiredAt: "2026-10-04",
+      quantity: 2,
+      unit: "pcs",
+      parentUnit: "kg",
+    }),
+    null,
+  );
+  assert.equal(
+    buildConfirmedAcquisitionLot({
+      source: "shopping_list",
+      sourceId: "shopping-42",
+      acquiredAt: "2026-02-30",
+      quantity: 1,
+      unit: "kg",
+      parentUnit: "kg",
+    }),
+    null,
+  );
+});
+
+test("confirmed acquisition appends without rewriting legacy unallocated stock", async () => {
+  const { appendConfirmedAcquisitionLot, buildConfirmedAcquisitionLot } =
+    await import("../src/utils/inventoryLots");
+  const acquired = buildConfirmedAcquisitionLot({
+    source: "shopping_list",
+    sourceId: "shopping-42",
+    acquiredAt: "2026-10-04",
+    quantity: 0.5,
+    unit: "kg",
+    parentUnit: "kg",
+  });
+  assert.ok(acquired);
+  assert.deepEqual(
+    appendConfirmedAcquisitionLot(
+      1,
+      "kg",
+      { unallocatedQuantity: 1, activeLots: [] },
+      acquired,
+    ),
+    {
+      unallocatedQuantity: 1,
+      activeLots: [acquired],
+    },
+  );
+});
+
+test("same acquisition provenance cannot be appended twice", async () => {
+  const { appendConfirmedAcquisitionLot, buildConfirmedAcquisitionLot } =
+    await import("../src/utils/inventoryLots");
+  const acquired = buildConfirmedAcquisitionLot({
+    source: "shopping_list",
+    sourceId: "shopping-42",
+    acquiredAt: "2026-10-04",
+    quantity: 0.5,
+    unit: "kg",
+    parentUnit: "kg",
+  });
+  assert.ok(acquired);
+  const state = { unallocatedQuantity: 1, activeLots: [acquired] };
+  assert.equal(
+    appendConfirmedAcquisitionLot(1.5, "kg", state, acquired),
+    null,
+  );
+});
