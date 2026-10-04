@@ -182,6 +182,7 @@ function subtractPendingShoppingAmount(
   shortfallAmount: number,
   unit: string,
   shoppingList: ShoppingItem[],
+  remainingPendingBaseById: Map<string, number>,
 ): number {
   const required = normalizeQuantity(shortfallAmount, unit);
   if (!required) return shortfallAmount;
@@ -191,7 +192,16 @@ function subtractPendingShoppingAmount(
     if (item.checked || normalizedFoodIdentity(item.name) !== identity) continue;
     const pending = normalizeQuantity(item.quantity, item.unit);
     if (!pending || pending.unit.dimension !== required.unit.dimension) continue;
-    pendingBase += pending.baseQuantity;
+    const remaining = remainingPendingBaseById.has(item.id)
+      ? remainingPendingBaseById.get(item.id) || 0
+      : pending.baseQuantity;
+    if (!remainingPendingBaseById.has(item.id)) {
+      remainingPendingBaseById.set(item.id, pending.baseQuantity);
+    }
+    const used = Math.min(remaining, Math.max(0, required.baseQuantity - pendingBase));
+    pendingBase += used;
+    remainingPendingBaseById.set(item.id, remaining - used);
+    if (pendingBase + 1e-9 >= required.baseQuantity) break;
   }
   return Math.max(0, required.baseQuantity - pendingBase) / required.unit.factorToBase;
 }
@@ -277,6 +287,7 @@ export function evaluateShoppingNeeds(
     Omit<ShoppingItem, "id" | "checked">
   > = new Map();
   const remainingBaseByPantryId = new Map<string, number>();
+  const remainingPendingBaseById = new Map<string, number>();
 
   (upcomingDays || []).forEach(({ day, dayOffset }) => {
     const dayName =
@@ -355,6 +366,7 @@ export function evaluateShoppingNeeds(
           assessment.shortfallAmount,
           assessment.unit,
           shoppingList,
+          remainingPendingBaseById,
         );
 
         if (remainingShoppingAmount > 1e-9) {
