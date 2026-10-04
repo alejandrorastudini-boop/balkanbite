@@ -16,6 +16,7 @@ import { PantryItem, Language, Currency } from "../types";
 import { t } from "../utils/translations";
 import { validateManualPantryRequiredFields } from "../utils/manualPantryValidation";
 import { knownPantryCostEUR, summarizePantryCosts } from "../utils/pantryCostSummary";
+import { derivePantryItemExpiry } from "../utils/effectiveExpiry";
 import { ConfirmModal } from "./ConfirmModal";
 import { ScanModal } from "./ScanModal";
 
@@ -92,9 +93,15 @@ export const PantryView: React.FC<PantryViewProps> = ({
     return matchesSearch && matchesCat;
   });
 
-  const expiringCount = pantry.filter(
-    (i) => i.expiryDaysLeft !== undefined && i.expiryDaysLeft <= 3
-  ).length;
+  const expiryNow = new Date();
+  const expiringCount = pantry.filter((item) => {
+    const expiry = derivePantryItemExpiry(item, expiryNow);
+    return (
+      expiry.status === "known" &&
+      !expiry.expired &&
+      expiry.daysRemaining <= 3
+    );
+  }).length;
 
   const totalValueEUR = summarizePantryCosts(pantry).totalEUR;
 
@@ -430,11 +437,16 @@ export const PantryView: React.FC<PantryViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {filteredItems.map((item) => {
+            const effectiveExpiry = derivePantryItemExpiry(item, expiryNow);
+            const hasKnownExpiry = effectiveExpiry.status === "known";
             const isExpiring =
-              item.expiryDaysLeft !== undefined && item.expiryDaysLeft <= 3;
+              hasKnownExpiry &&
+              !effectiveExpiry.expired &&
+              effectiveExpiry.daysRemaining <= 3;
             const isCritical =
-              item.expiryDaysLeft !== undefined && item.expiryDaysLeft <= 1;
-              
+              hasKnownExpiry &&
+              (effectiveExpiry.expired || effectiveExpiry.daysRemaining <= 1);
+
             const displayName =
               language === "bg" && item.nameBg ? item.nameBg : item.name;
             const itemCostEUR = knownPantryCostEUR(item.estimatedCostEUR);
@@ -465,16 +477,35 @@ export const PantryView: React.FC<PantryViewProps> = ({
                       {item.expiryDaysLeft !== undefined && (
                         <span
                           className={`text-[10px] flex items-center gap-1 font-bold px-2 py-0.5 rounded-full border ${
-                            isCritical 
-                              ? "text-rose-400 bg-rose-500/10 border-rose-500/20 animate-pulse" 
-                              : isExpiring 
-                                ? "text-amber-400 bg-amber-500/10 border-amber-500/20" 
-                                : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                            item.expiryIsPartial
+                              ? "text-stone-300 bg-white/[0.04] border-white/[0.08]"
+                              : isCritical
+                                ? "text-rose-400 bg-rose-500/10 border-rose-500/20 animate-pulse"
+                                : isExpiring
+                                  ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                  : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                           }`}
                         >
                           <Calendar className="w-3 h-3" />
-                          {item.expiryIsPartial && (language === "es" ? "Parte del stock: " : language === "bg" ? "Част от запаса: " : "Some stock: ")}
-                          {item.expiryDaysLeft} {currentText.shelfLifeDays}
+                          {item.expiryIsPartial
+                            ? language === "es"
+                              ? "Caducidad parcial: revisar"
+                              : language === "bg"
+                                ? "Частичен срок: преглед"
+                                : "Partial expiry: review"
+                            : effectiveExpiry.status === "known"
+                              ? effectiveExpiry.expired
+                                ? language === "es"
+                                  ? "Fecha indicada superada"
+                                  : language === "bg"
+                                    ? "Посоченият срок е изтекъл"
+                                    : "Entered expiry has passed"
+                                : `${effectiveExpiry.daysRemaining} ${currentText.shelfLifeDays}`
+                              : language === "es"
+                                ? "Caducidad desconocida"
+                                : language === "bg"
+                                  ? "Неизвестен срок"
+                                  : "Expiry unknown"}
                         </span>
                       )}
                     </div>
