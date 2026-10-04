@@ -325,12 +325,14 @@ export async function persistConfirmedCookAtomically(
             quantity === 0
               ? {
                   quantity: 0,
+                  lotState: { unallocatedQuantity: 0, activeLots: [] },
                   cookRevision: cookRevision + 1,
                   _deleted: true,
                   deletedAt: serverTimestamp(),
                 }
               : {
                   quantity,
+                  lotState: { unallocatedQuantity: quantity, activeLots: [] },
                   estimatedCostEUR: null,
                   cookRevision: cookRevision + 1,
                   _deleted: false,
