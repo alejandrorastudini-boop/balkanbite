@@ -70,3 +70,65 @@ test("acquisition quantity converts deterministically into the parent unit", () 
   assert.equal(quantityInParentUnit(1.5, "L", "ml"), 1500);
   assert.equal(quantityInParentUnit(2, "pcs", "kg"), null);
 });
+
+
+test("confirmed acquisition becomes a parent-unit active lot without inventing evidence", async () => {
+  const { buildInventoryLotFromConfirmedAcquisition } = await import("../src/utils/inventoryLots");
+  assert.deepEqual(
+    buildInventoryLotFromConfirmedAcquisition(
+      {
+        sourceId: "shopping:item-2",
+        source: "shopping_list",
+        quantity: 500,
+        unit: "g",
+        acquiredAt: "2026-10-04",
+      },
+      "kg",
+    ),
+    {
+      id: "lot:shopping:item-2",
+      sourceId: "shopping:item-2",
+      source: "shopping_list",
+      acquiredAt: "2026-10-04",
+      initialQuantity: 0.5,
+      remainingQuantity: 0.5,
+    },
+  );
+});
+
+test("confirmed acquisition fails closed for incompatible or invalid evidence", async () => {
+  const { buildInventoryLotFromConfirmedAcquisition } = await import("../src/utils/inventoryLots");
+  assert.equal(
+    buildInventoryLotFromConfirmedAcquisition(
+      {
+        sourceId: "shopping:item-3",
+        source: "shopping_list",
+        quantity: 2,
+        unit: "pcs",
+        acquiredAt: "2026-10-04",
+      },
+      "kg",
+    ),
+    null,
+  );
+  assert.equal(
+    buildInventoryLotFromConfirmedAcquisition(
+      {
+        sourceId: "shopping:item-4",
+        source: "shopping_list",
+        quantity: 1,
+        unit: "kg",
+        acquiredAt: "2026-10-04",
+        expiryDaysAtAcquisition: 1.5,
+      },
+      "kg",
+    ),
+    null,
+  );
+});
+
+test("adding the same confirmed acquisition source is idempotent", async () => {
+  const { addConfirmedAcquisitionLot } = await import("../src/utils/inventoryLots");
+  const state = { unallocatedQuantity: 0.25, activeLots: [lot] };
+  assert.equal(addConfirmedAcquisitionLot(state, lot), state);
+});
