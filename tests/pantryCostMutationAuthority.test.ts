@@ -43,3 +43,17 @@ test("aggregate quantity mutations collapse lot precision instead of inferring F
   assert.match(clear, /quantity: 0,[\s\S]*lotState: \{ unallocatedQuantity: 0, activeLots: \[\] \}/);
   assert.match(app, /quantity: newQty,[\s\S]*lotState: \{ unallocatedQuantity: newQty, activeLots: \[\] \}/);
 });
+
+
+test("authoritative aggregate writers fail closed on corrupt persisted lot state", () => {
+  for (const path of [
+    "src/utils/inventoryAdjustmentFirestore.ts",
+    "src/utils/confirmedCookFirestore.ts",
+    "src/utils/verifiedVoiceConsumptionFirestore.ts",
+    "src/utils/inventoryClearFirestore.ts",
+  ]) {
+    const source = read(path);
+    assert.match(source, /lotState !== undefined/);
+    assert.match(source, /inventoryLotStateMatchesQuantity\(/);
+  }
+});
