@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  applyConfirmedInventoryLotDeduction,
   buildInventoryLotFromConfirmedAcquisition,
   deriveInventoryLotExpiry,
   inventoryLotStateMatchesQuantity,
@@ -416,4 +417,135 @@ test("lot-state validation fails closed on missing or unsupported schema version
     } as any),
     false,
   );
+});
+
+
+test("confirmed physical lot deduction changes only the explicitly selected acquisition lot", () => {
+  const second: InventoryLot = {
+    ...lot,
+    id: "lot-second",
+    sourceId: "shopping:second",
+    initialQuantity: 0.5,
+    remainingQuantity: 0.5,
+    expiryDaysAtAcquisition: 5,
+  };
+  const state: InventoryLotState = {
+    version: 1,
+    unallocatedQuantity: 0.25,
+    activeLots: [lot, second],
+  };
+  const result = applyConfirmedInventoryLotDeduction(
+    1.5,
+    "kg",
+    state,
+    [{ lotId: lot.id, quantity: 0.25 }],
+    "food-use",
+    new Date(2026, 9, 5, 12),
+  );
+  assert.deepEqual(result, {
+    outcome: "applied",
+    state: {
+      version: 1,
+      unallocatedQuantity: 0.25,
+      activeLots: [
+        { ...lot, remainingQuantity: 0.5 },
+        second,
+      ],
+    },
+  });
+});
+
+test("confirmed lot deduction never substitutes FEFO or unallocated stock for missing physical confirmation", () => {
+  const state: InventoryLotState = {
+    version: 1,
+    unallocatedQuantity: 0.25,
+    activeLots: [lot],
+  };
+  assert.deepEqual(
+    applyConfirmedInventoryLotDeduction(
+      1,
+      "kg",
+      state,
+      [{ lotId: "not-confirmed", quantity: 0.25 }],
+      "food-use",
+    ),
+    { outcome: "invalid", state: null },
+  );
+  assert.deepEqual(
+    applyConfirmedInventoryLotDeduction(
+      1,
+      "kg",
+      state,
+      [{ lotId: lot.id, quantity: 0.8 }],
+      "food-use",
+    ),
+    { outcome: "invalid", state: null },
+  );
+});
+
+test("food-use blocks explicitly expired confirmed lots while disposal removal may deduct them", () => {
+  const expired: InventoryLot = {
+    ...lot,
+    id: "lot-expired-confirmed",
+    sourceId: "shopping:expired-confirmed",
+    acquiredAt: "2026-10-01",
+    initialQuantity: 0.5,
+    remainingQuantity: 0.5,
+    expiryDaysAtAcquisition: 1,
+  };
+  const state: InventoryLotState = {
+    version: 1,
+    unallocatedQuantity: 0,
+    activeLots: [expired],
+  };
+  const now = new Date(2026, 9, 5, 12);
+  assert.deepEqual(
+    applyConfirmedInventoryLotDeduction(
+      0.5,
+      "kg",
+      state,
+      [{ lotId: expired.id, quantity: 0.5 }],
+      "food-use",
+      now,
+    ),
+    {
+      outcome: "expiry-review-required",
+      state: null,
+      lotIds: [expired.id],
+    },
+  );
+  assert.deepEqual(
+    applyConfirmedInventoryLotDeduction(
+      0.5,
+      "kg",
+      state,
+      [{ lotId: expired.id, quantity: 0.5 }],
+      "removal",
+      now,
+    ),
+    { outcome: "applied", state: null },
+  );
+});
+
+test("confirmed lot deduction preserves unallocated uncertainty and cannot claim full depletion around it", () => {
+  const state: InventoryLotState = {
+    version: 1,
+    unallocatedQuantity: 0.25,
+    activeLots: [lot],
+  };
+  const result = applyConfirmedInventoryLotDeduction(
+    1,
+    "kg",
+    state,
+    [{ lotId: lot.id, quantity: 0.75 }],
+    "removal",
+  );
+  assert.deepEqual(result, {
+    outcome: "applied",
+    state: {
+      version: 1,
+      unallocatedQuantity: 0.25,
+      activeLots: [],
+    },
+  });
 });
