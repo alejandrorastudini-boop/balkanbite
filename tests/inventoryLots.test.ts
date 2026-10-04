@@ -120,3 +120,19 @@ test("confirmed acquisition rejects incompatible unit dimensions without mutatio
   assert.equal(result.outcome, "invalid");
   assert.equal(result.state, state);
 });
+
+
+test("same acquisition source with conflicting evidence is rejected", () => {
+  const state = { unallocatedQuantity: 0, activeLots: [lot] };
+  const result = addConfirmedAcquisitionLot(state, "kg", {
+    sourceId: lot.sourceId,
+    source: lot.source,
+    acquiredAt: lot.acquiredAt,
+    quantity: 0.5,
+    unit: "kg",
+    expiryDaysAtAcquisition: lot.expiryDaysAtAcquisition,
+    initialCostEUR: lot.initialCostEUR,
+  });
+  assert.equal(result.outcome, "invalid");
+  assert.equal(result.state, state);
+});
