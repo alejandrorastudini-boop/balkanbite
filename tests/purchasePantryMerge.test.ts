@@ -168,6 +168,7 @@ test('invalid lot overlay evidence degrades to unallocated without losing a vali
 test('new purchase repairs an inconsistent prior lot overlay conservatively', () => {
  const prior=stock(1,'kg',{
   lotState:{
+   version:1,
    unallocatedQuantity:0,
    activeLots:[{
     id:'shopping:old',
