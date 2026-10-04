@@ -12,7 +12,10 @@ import {
 } from "./confirmedCookTransaction";
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
-import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
+import {
+  inventoryLotStateMatchesQuantity,
+  type ConfirmedInventoryLotDeduction,
+} from "./inventoryLots";
 
 export interface AtomicCookExpectedStock {
   pantryItemId: string;
@@ -25,10 +28,22 @@ export type AtomicCookResult =
   | { outcome: "recorded" | "already-recorded"; record: ConsumptionRecord }
   | { outcome: "needs-review"; pendingIngredients: PendingCookIngredient[] };
 
+export interface ConfirmedCookLotEvidence {
+  pantryItemId: string;
+  reviewedOn: string;
+  deductions: readonly ConfirmedInventoryLotDeduction[];
+}
+
 export interface AtomicCookRequest {
   userId: string;
   confirmation: CookConfirmation;
   expectedStock: readonly AtomicCookExpectedStock[];
+  /**
+   * Optional future physical-lot evidence. Supplying it changes request
+   * identity, but writers deliberately remain aggregate-only until an explicit
+   * reviewed-lot UX is wired end to end.
+   */
+  lotEvidence?: readonly ConfirmedCookLotEvidence[];
 }
 
 const safeTokenId = (value: unknown): value is string =>
@@ -92,6 +107,44 @@ function normalizeExpectedStock(
   );
 }
 
+function normalizeLotEvidence(
+  lotEvidence: readonly ConfirmedCookLotEvidence[] | undefined,
+  expectedIds: ReadonlySet<string>,
+): Array<{ pantryItemId: string; reviewedOn: string; deductions: ConfirmedInventoryLotDeduction[] }> | null {
+  if (lotEvidence === undefined) return [];
+  if (!Array.isArray(lotEvidence) || lotEvidence.length === 0 || lotEvidence.length > 30) return null;
+  const pantryIds = new Set<string>();
+  const normalized = [];
+  for (const evidence of lotEvidence) {
+    if (
+      !evidence ||
+      !isSafeInventoryLogicalId(evidence.pantryItemId) ||
+      !expectedIds.has(evidence.pantryItemId) ||
+      pantryIds.has(evidence.pantryItemId) ||
+      !/^\\d{4}-\\d{2}-\\d{2}$/.test(evidence.reviewedOn) ||
+      !Array.isArray(evidence.deductions) ||
+      evidence.deductions.length === 0 ||
+      evidence.deductions.length > 60
+    ) return null;
+    const lotIds = new Set<string>();
+    const deductions = [];
+    for (const deduction of evidence.deductions) {
+      if (
+        !deduction ||
+        !safeTokenId(deduction.lotId) ||
+        lotIds.has(deduction.lotId) ||
+        !validQuantity(deduction.quantity)
+      ) return null;
+      lotIds.add(deduction.lotId);
+      deductions.push({ lotId: deduction.lotId, quantity: deduction.quantity });
+    }
+    deductions.sort((a, b) => a.lotId.localeCompare(b.lotId) || a.quantity - b.quantity);
+    pantryIds.add(evidence.pantryItemId);
+    normalized.push({ pantryItemId: evidence.pantryItemId, reviewedOn: evidence.reviewedOn, deductions });
+  }
+  return normalized.sort((a, b) => a.pantryItemId.localeCompare(b.pantryItemId));
+}
+
 /**
  * Deterministic comparison of the exact reviewed cook request.
  * This is not a cryptographic signature or authorization token.
@@ -99,6 +152,7 @@ function normalizeExpectedStock(
 export function cookAllocationSignature(
   confirmation: CookConfirmation,
   expectedStock: readonly AtomicCookExpectedStock[],
+  lotEvidence?: readonly ConfirmedCookLotEvidence[],
 ): string | null {
   if (
     !safeTokenId(confirmation.cookConfirmationId) ||
@@ -153,6 +207,9 @@ export function cookAllocationSignature(
     return null;
   }
 
+  const normalizedLotEvidence = normalizeLotEvidence(lotEvidence, expectedIds);
+  if (!normalizedLotEvidence) return null;
+
   allocations.sort((a, b) =>
     a.ingredientId.localeCompare(b.ingredientId) ||
     a.pantryItemId.localeCompare(b.pantryItemId) ||
@@ -161,10 +218,11 @@ export function cookAllocationSignature(
   );
 
   return JSON.stringify({
-    version: 2,
+    version: 3,
     mealId: confirmation.mealId,
     allocations,
     expectedStock: normalizedExpected,
+    lotEvidence: normalizedLotEvidence,
   });
 }
 
@@ -188,7 +246,7 @@ export async function persistConfirmedCookAtomically(
 
   const normalizedExpected = normalizeExpectedStock(request.expectedStock);
   const signature = normalizedExpected
-    ? cookAllocationSignature(confirmation, normalizedExpected)
+    ? cookAllocationSignature(confirmation, normalizedExpected, request.lotEvidence)
     : null;
   if (!normalizedExpected || !signature) {
     return reject("invalid-ingredient");
