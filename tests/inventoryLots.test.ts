@@ -9,6 +9,7 @@ import {
   collapseLotAllocationAfterAggregateDeduction,
   isValidInventoryLot,
   quantityInParentUnit,
+  recommendInventoryLotsForUse,
   type InventoryLot,
 } from "../src/utils/inventoryLots";
 
@@ -242,4 +243,68 @@ test("aggregate deduction rejects increases and inconsistent pre-deduction lot s
     collapseLotAllocationAfterAggregateDeduction(2, 1, "kg", before),
     { outcome: "invalid", state: null },
   );
+});
+
+
+test("FEFO recommendation ranks usable known expiry first without mutating lot state", () => {
+  const later: InventoryLot = {
+    ...lot,
+    id: "lot-later",
+    sourceId: "shopping:later",
+    acquiredAt: "2026-10-04",
+    initialQuantity: 0.5,
+    remainingQuantity: 0.5,
+    expiryDaysAtAcquisition: 5,
+  };
+  const sooner: InventoryLot = {
+    ...lot,
+    id: "lot-sooner",
+    sourceId: "shopping:sooner",
+    acquiredAt: "2026-10-04",
+    initialQuantity: 0.25,
+    remainingQuantity: 0.25,
+    expiryDaysAtAcquisition: 2,
+  };
+  const unknown: InventoryLot = {
+    ...lot,
+    id: "lot-unknown",
+    sourceId: "shopping:unknown",
+    acquiredAt: "2026-10-03",
+    initialQuantity: 0.25,
+    remainingQuantity: 0.25,
+    expiryDaysAtAcquisition: undefined,
+  };
+  const state = {
+    unallocatedQuantity: 0,
+    activeLots: [later, unknown, sooner],
+  };
+  const snapshot = structuredClone(state);
+  const recommendation = recommendInventoryLotsForUse(
+    state,
+    new Date(2026, 9, 5, 12, 0, 0),
+  );
+  assert.deepEqual(
+    recommendation?.usableLots.map((item) => item.id),
+    ["lot-sooner", "lot-later", "lot-unknown"],
+  );
+  assert.deepEqual(recommendation?.expiredLotIds, []);
+  assert.deepEqual(state, snapshot);
+});
+
+test("FEFO recommendation excludes explicitly expired lots from food-use advice", () => {
+  const expired: InventoryLot = {
+    ...lot,
+    id: "lot-expired",
+    sourceId: "shopping:expired",
+    acquiredAt: "2026-10-01",
+    initialQuantity: 0.25,
+    remainingQuantity: 0.25,
+    expiryDaysAtAcquisition: 1,
+  };
+  const recommendation = recommendInventoryLotsForUse(
+    { unallocatedQuantity: 0, activeLots: [expired] },
+    new Date(2026, 9, 5, 12, 0, 0),
+  );
+  assert.deepEqual(recommendation?.usableLots, []);
+  assert.deepEqual(recommendation?.expiredLotIds, ["lot-expired"]);
 });
