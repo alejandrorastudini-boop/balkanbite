@@ -159,6 +159,7 @@ export function normalizeCookLotEvidence(
  */
 export function cookLotEvidenceMatchesConfirmedAllocations(
   confirmation: CookConfirmation,
+  expectedStock: readonly AtomicCookExpectedStock[],
   lotEvidence: readonly ConfirmedCookLotEvidence[] | undefined,
 ): boolean {
   if (lotEvidence === undefined) return true;
@@ -195,7 +196,7 @@ export function cookLotEvidenceMatchesConfirmedAllocations(
   for (const [pantryItemId, confirmed] of confirmedByPantry) {
     const attributed = evidenceByPantry.get(pantryItemId);
     if (attributed === undefined) return false;
-    const expected = confirmation.ingredients.find(item => item.pantryItemId === pantryItemId);
+    const expected = expectedStock.find(item => item.pantryItemId === pantryItemId);
     if (!expected || typeof expected.unit !== "string") return false;
     const evidenceQuantity = normalizeQuantity(attributed, expected.unit);
     if (!evidenceQuantity || !evidenceQuantity.unit.known || evidenceQuantity.unit.dimension !== confirmed.dimension ||
@@ -263,7 +264,7 @@ export function cookAllocationSignature(
   }
 
   const normalizedLotEvidence = normalizeCookLotEvidence(lotEvidence, expectedIds);
-  if (!normalizedLotEvidence || !cookLotEvidenceMatchesConfirmedAllocations(confirmation, lotEvidence)) return null;
+  if (!normalizedLotEvidence || !cookLotEvidenceMatchesConfirmedAllocations(confirmation, normalizedExpected, lotEvidence)) return null;
 
   allocations.sort((a, b) =>
     a.ingredientId.localeCompare(b.ingredientId) ||
