@@ -18,7 +18,7 @@ export type CookLotSelectionResult =
  * emitted because the transaction contract requires complete attribution.
  */
 const validReviewedOn = (value: string) => {
-  const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(value);
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
   if (!match) return false;
   const year = Number(match[1]);
   const month = Number(match[2]);
