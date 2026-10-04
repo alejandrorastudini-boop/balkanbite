@@ -354,3 +354,109 @@ export function getVerifiedInventoryLotState(
     ? state
     : null;
 }
+
+
+export interface ConfirmedInventoryLotDeduction {
+  lotId: string;
+  quantity: number;
+}
+
+export type ConfirmedInventoryLotDeductionPurpose = "food-use" | "removal";
+
+export type ConfirmedInventoryLotDeductionResult =
+  | { outcome: "applied"; state: InventoryLotState | null }
+  | { outcome: "invalid"; state: null }
+  | { outcome: "expiry-review-required"; state: null; lotIds: string[] };
+
+/**
+ * Applies only an explicitly confirmed physical lot allocation.
+ *
+ * Unlike FEFO recommendation, this function never chooses lots. The caller
+ * must provide the exact lot IDs and quantities that were actually confirmed.
+ * Unallocated stock cannot be silently attributed to a known acquisition lot.
+ *
+ * food-use rejects explicitly expired lots. removal may target them because a
+ * confirmed removal can represent disposal rather than eating.
+ */
+export function applyConfirmedInventoryLotDeduction(
+  pantryQuantityBefore: unknown,
+  pantryUnit: unknown,
+  stateBefore: InventoryLotState,
+  deductions: readonly ConfirmedInventoryLotDeduction[],
+  purpose: ConfirmedInventoryLotDeductionPurpose,
+  now: Date = new Date(),
+): ConfirmedInventoryLotDeductionResult {
+  if (
+    !inventoryLotStateMatchesQuantity(pantryQuantityBefore, pantryUnit, stateBefore) ||
+    (purpose !== "food-use" && purpose !== "removal") ||
+    !Array.isArray(deductions) ||
+    deductions.length === 0
+  ) {
+    return { outcome: "invalid", state: null };
+  }
+
+  const byId = new Map(stateBefore.activeLots.map((lot) => [lot.id, lot]));
+  const seen = new Set<string>();
+  const normalized: ConfirmedInventoryLotDeduction[] = [];
+  for (const deduction of deductions) {
+    if (
+      !deduction ||
+      !safeEmbeddedIdentity(deduction.lotId) ||
+      seen.has(deduction.lotId) ||
+      !finitePositive(deduction.quantity)
+    ) {
+      return { outcome: "invalid", state: null };
+    }
+    const lot = byId.get(deduction.lotId);
+    if (!lot || deduction.quantity > lot.remainingQuantity + EPSILON) {
+      return { outcome: "invalid", state: null };
+    }
+    seen.add(deduction.lotId);
+    normalized.push({ lotId: deduction.lotId, quantity: deduction.quantity });
+  }
+
+  if (purpose === "food-use") {
+    const expiredLotIds = normalized
+      .map(({ lotId }) => byId.get(lotId)!)
+      .filter((lot) => {
+        const expiry = deriveInventoryLotExpiry(lot, now);
+        return expiry.status === "known" && expiry.expired;
+      })
+      .map((lot) => lot.id);
+    if (expiredLotIds.length > 0) {
+      return {
+        outcome: "expiry-review-required",
+        state: null,
+        lotIds: expiredLotIds.sort(),
+      };
+    }
+  }
+
+  const deductionById = new Map(normalized.map((item) => [item.lotId, item.quantity]));
+  const activeLots = stateBefore.activeLots.flatMap((lot) => {
+    const deducted = deductionById.get(lot.id) ?? 0;
+    const remaining = Number((lot.remainingQuantity - deducted).toPrecision(15));
+    return remaining <= EPSILON ? [] : [{ ...lot, remainingQuantity: remaining }];
+  });
+  const totalDeducted = normalized.reduce((sum, item) => sum + item.quantity, 0);
+  const quantityAfter =
+    typeof pantryQuantityBefore === "number"
+      ? Number((pantryQuantityBefore - totalDeducted).toPrecision(15))
+      : Number.NaN;
+
+  if (quantityAfter <= EPSILON) {
+    if (stateBefore.unallocatedQuantity > EPSILON || activeLots.length > 0) {
+      return { outcome: "invalid", state: null };
+    }
+    return { outcome: "applied", state: null };
+  }
+
+  const stateAfter: InventoryLotState = {
+    version: 1,
+    unallocatedQuantity: stateBefore.unallocatedQuantity,
+    activeLots,
+  };
+  return inventoryLotStateMatchesQuantity(quantityAfter, pantryUnit, stateAfter)
+    ? { outcome: "applied", state: stateAfter }
+    : { outcome: "invalid", state: null };
+}
