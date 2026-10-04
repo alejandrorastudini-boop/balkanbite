@@ -1,5 +1,5 @@
 import { PantryItem, Recipe, MealPlanDay, UserProfile } from "../types";
-import { assessTotalAvailability, areUnitsCompatible } from "./quantityUnits";
+import { assessTotalAvailability, areUnitsCompatible, normalizeQuantity } from "./quantityUnits";
 import { areReviewedBulgarianFoodAliases } from "./bulgarianFoodAliases";
 import {
   derivePantryItemExpiry,
@@ -134,6 +134,61 @@ export function isIngredientQuantityAvailable(
   return availability.status === "enough";
 }
 
+function reserveIngredientFromPantry(
+  ingredient: Recipe["ingredients"][number],
+  pantry: PantryItem[],
+  remainingBaseByPantryId: Map<string, number>,
+  now: Date,
+): boolean {
+  const required = normalizeQuantity(ingredient.amount, ingredient.unit);
+  if (!required || required.baseQuantity <= 0) return false;
+
+  const candidates = findAuthoritativePantryItems(ingredient.name, pantry)
+    .filter((item) => !pantryItemNeedsExpiryReview(item, now))
+    .flatMap((item) => {
+      const normalized = normalizeQuantity(item.quantity, item.unit);
+      if (!normalized || normalized.unit.dimension !== required.unit.dimension) {
+        return [];
+      }
+      const remaining = remainingBaseByPantryId.has(item.id)
+        ? remainingBaseByPantryId.get(item.id) || 0
+        : normalized.baseQuantity;
+      return [{ item, normalized, remaining }];
+    });
+
+  const availableBase = candidates.reduce((sum, candidate) => sum + candidate.remaining, 0);
+  if (availableBase + 1e-9 < required.baseQuantity) return false;
+
+  let neededBase = required.baseQuantity;
+  for (const candidate of candidates) {
+    if (neededBase <= 1e-9) break;
+    const used = Math.min(candidate.remaining, neededBase);
+    remainingBaseByPantryId.set(candidate.item.id, candidate.remaining - used);
+    neededBase -= used;
+  }
+  return true;
+}
+
+export function syncRecipeWithPantry(
+  recipe: Recipe,
+  pantry: PantryItem[],
+  now: Date = new Date(),
+): Recipe {
+  const remainingBaseByPantryId = new Map<string, number>();
+  return {
+    ...recipe,
+    ingredients: recipe.ingredients.map((ingredient) => ({
+      ...ingredient,
+      inPantry: reserveIngredientFromPantry(
+        ingredient,
+        pantry,
+        remainingBaseByPantryId,
+        now,
+      ),
+    })),
+  };
+}
+
 /**
  * Returns an updated list of recipes where each ingredient's `inPantry` flag
  * means the pantry has enough compatible quantity, not just a name match.
@@ -143,24 +198,8 @@ export function syncRecipesWithPantry(
   pantry: PantryItem[],
   now: Date = new Date(),
 ): Recipe[] {
-  return recipes.map((recipe) => {
-    const updatedIngredients = recipe.ingredients.map((ing) => ({
-      ...ing,
-      inPantry: isIngredientQuantityAvailable(
-        ing.name,
-        ing.amount,
-        ing.unit,
-        pantry,
-        now,
-      ),
-    }));
+  return recipes.map((recipe) => syncRecipeWithPantry(recipe, pantry, now));
 
-    return {
-      ...recipe,
-      ingredients: updatedIngredients,
-    };
-  });
-}
 
 /**
  * Calculates a match score for a recipe given the pantry inventory.
