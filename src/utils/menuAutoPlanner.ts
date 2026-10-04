@@ -199,7 +199,7 @@ export function syncRecipesWithPantry(
   now: Date = new Date(),
 ): Recipe[] {
   return recipes.map((recipe) => syncRecipeWithPantry(recipe, pantry, now));
-
+}
 
 /**
  * Calculates a match score for a recipe given the pantry inventory.
@@ -223,16 +223,11 @@ export function calculateRecipePantryScore(
 
   let inCount = 0;
   let perishableBonus = 0;
+  const reservedRecipe = syncRecipeWithPantry(recipe, pantry, now);
 
-  recipe.ingredients.forEach((ing) => {
+  reservedRecipe.ingredients.forEach((ing) => {
     const matchingItems = findAuthoritativePantryItems(ing.name, pantry);
-    const inPantry = isIngredientQuantityAvailable(
-      ing.name,
-      ing.amount,
-      ing.unit,
-      pantry,
-      now,
-    );
+    const inPantry = ing.inPantry;
 
     if (inPantry) {
       inCount++;
