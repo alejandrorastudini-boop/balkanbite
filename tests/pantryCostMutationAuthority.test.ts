@@ -40,8 +40,8 @@ test("aggregate quantity mutations collapse lot precision instead of inferring F
   assert.match(edit, /lotState: \{ version: 1, unallocatedQuantity: adjustment\.quantity, activeLots: \[\] \}/);
   assert.match(edit, /lotState: \{ version: 1, unallocatedQuantity: 0, activeLots: \[\] \}/);
   assert.match(guest, /lotState: \{[\s\S]*unallocatedQuantity: roundQuantity\(remainingInItemUnit\),[\s\S]*activeLots: \[\]/);
-  assert.match(clear, /quantity: 0,[\s\S]*lotState: \{ unallocatedQuantity: 0, activeLots: \[\] \}/);
-  assert.match(app, /quantity: newQty,[\s\S]*lotState: \{ unallocatedQuantity: newQty, activeLots: \[\] \}/);
+  assert.match(clear, /quantity: 0,[\s\S]*lotState: \{ version: 1, unallocatedQuantity: 0, activeLots: \[\] \}/);
+  assert.match(app, /quantity: newQty,[\s\S]*lotState: \{ version: 1, unallocatedQuantity: newQty, activeLots: \[\] \}/);
 });
 
 
