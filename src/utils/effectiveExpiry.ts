@@ -4,7 +4,7 @@ export type EffectiveExpiry =
   | { status: "unknown" }
   | {
       status: "known";
-      expiresAt: string;
+      expiresOn: string;
       daysRemaining: number;
       expired: boolean;
     };
@@ -13,20 +13,40 @@ function finiteNonnegative(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
-function parseInstant(value: unknown): number | null {
+function utcCalendarDay(value: unknown): number | null {
   if (typeof value !== "string" || !value.trim()) return null;
-  const parsed = Date.parse(value);
-  return Number.isFinite(parsed) ? parsed : null;
+  const parsed = new Date(value);
+  const time = parsed.getTime();
+  if (!Number.isFinite(time)) return null;
+  return Date.UTC(
+    parsed.getUTCFullYear(),
+    parsed.getUTCMonth(),
+    parsed.getUTCDate(),
+  );
+}
+
+function utcCalendarDayFromDate(value: Date): number | null {
+  const time = value.getTime();
+  if (!Number.isFinite(time)) return null;
+  return Date.UTC(
+    value.getUTCFullYear(),
+    value.getUTCMonth(),
+    value.getUTCDate(),
+  );
+}
+
+function isoDate(dayMs: number): string {
+  return new Date(dayMs).toISOString().slice(0, 10);
 }
 
 /**
- * Ages legacy "days until expiry" evidence from the instant at which it was
- * captured. It does not invent an expiry when either input is unknown.
+ * Ages legacy "days until expiry" evidence using calendar-day semantics.
  *
- * The legacy field represents elapsed 24-hour periods, not a local calendar
- * date. New schema work may later store an explicit expiry date, but this
- * helper gives existing confirmed relative data deterministic time semantics
- * without mutating persisted state on render.
+ * Existing pantry creation stores capture provenance as YYYY-MM-DD, so the
+ * historical data cannot support hour-level expiry precision. A value of 0
+ * means the entered expiry day is the capture day; it becomes past only on
+ * the following UTC calendar day. This matches the UTC date convention used
+ * by the existing addedAt writers without inventing a capture time.
  */
 export function deriveEffectiveExpiry(
   expiryDaysAtCapture: unknown,
@@ -35,27 +55,23 @@ export function deriveEffectiveExpiry(
 ): EffectiveExpiry {
   if (!finiteNonnegative(expiryDaysAtCapture)) return { status: "unknown" };
 
-  const capturedMs = parseInstant(capturedAt);
-  const nowMs = now.getTime();
-  if (capturedMs === null || !Number.isFinite(nowMs)) return { status: "unknown" };
+  const capturedDay = utcCalendarDay(capturedAt);
+  const nowDay = utcCalendarDayFromDate(now);
+  if (capturedDay === null || nowDay === null) return { status: "unknown" };
 
-  const expiresMs = capturedMs + expiryDaysAtCapture * DAY_MS;
-  // Clock skew must never manufacture more shelf life than the user/source
-  // originally confirmed. A future capture timestamp therefore ages from zero,
-  // rather than increasing the confirmed relative duration.
-  const effectiveNowMs = Math.max(nowMs, capturedMs);
-  const remainingMs = expiresMs - effectiveNowMs;
-  const expired = remainingMs < 0;
-  const daysRemaining = expired ? 0 : Math.ceil(remainingMs / DAY_MS);
+  const expiresDay = capturedDay + expiryDaysAtCapture * DAY_MS;
+  // Clock skew must never manufacture more shelf life than was confirmed.
+  const effectiveNowDay = Math.max(nowDay, capturedDay);
+  const remainingDays = Math.round((expiresDay - effectiveNowDay) / DAY_MS);
+  const expired = remainingDays < 0;
 
   return {
     status: "known",
-    expiresAt: new Date(expiresMs).toISOString(),
-    daysRemaining,
+    expiresOn: isoDate(expiresDay),
+    daysRemaining: expired ? 0 : remainingDays,
     expired,
   };
 }
-
 
 export interface PantryExpiryEvidence {
   expiryDaysLeft?: number;
