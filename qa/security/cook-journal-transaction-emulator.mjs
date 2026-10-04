@@ -380,6 +380,26 @@ try {
   assert.equal(await isRecorded(alice, "alice", "qa-expired-lot"), false);
   console.log("PASS: expired explicit food-use lot fails closed with no stock or journal mutation");
 
+  // Explicit lot claims may never silently downgrade to aggregate behavior when
+  // the authoritative stock has no physical lot ledger.
+  await createStock(alice, "alice", "legacy-no-lot-ledger", 0.5, "kg", 0);
+  const missingLedgerCook = await persistConfirmedCookAtomically(alice, {
+    userId: "alice",
+    confirmation: confirmation("qa-missing-lot-ledger", "qa-missing-ledger-meal", [
+      allocation("legacy-rice", "legacy-no-lot-ledger", 0.25, "kg"),
+    ]),
+    expectedStock: [expected("legacy-no-lot-ledger", 0.5, "kg", 0)],
+    lotEvidence: [{
+      pantryItemId: "legacy-no-lot-ledger",
+      reviewedOn: "2026-10-04",
+      deductions: [{ lotId: "claimed-lot", quantity: 0.25 }],
+    }],
+  });
+  assert.equal(missingLedgerCook.outcome, "needs-review");
+  assert.equal((await stock(alice, "alice", "legacy-no-lot-ledger")).quantity, 0.5);
+  assert.equal(await isRecorded(alice, "alice", "qa-missing-lot-ledger"), false);
+  console.log("PASS: explicit lot evidence never downgrades to aggregate mutation without a lot ledger");
+
   console.log("PASS: atomic owner-scoped cook inventory+journal, replay, conflicts, multi-lot, A/B isolation.");
 } finally {
   await environment.cleanup();
