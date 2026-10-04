@@ -56,6 +56,37 @@ export function isPantryNameMatch(ingredientName: string, pantryItem: PantryItem
   });
 }
 
+export function isAuthoritativePantryNameMatch(
+  ingredientName: string,
+  pantryItem: PantryItem,
+): boolean {
+  const target = normalizeIngredientName(ingredientName);
+  if (!target) return false;
+  const candidates = [
+    normalizeIngredientName(pantryItem.name),
+    normalizeIngredientName(pantryItem.nameBg || ""),
+    normalizeIngredientName(pantryItem.nameEs || ""),
+  ].filter(Boolean);
+
+  return candidates.some(
+    (candidate) =>
+      target === candidate ||
+      areReviewedBulgarianFoodAliases(target, candidate),
+  );
+}
+
+export function findAuthoritativePantryItems(
+  ingredientName: string,
+  pantry: PantryItem[],
+): PantryItem[] {
+  if (!pantry || pantry.length === 0) return [];
+  return pantry.filter(
+    (item) =>
+      item.quantity > 0 &&
+      isAuthoritativePantryNameMatch(ingredientName, item),
+  );
+}
+
 export function findMatchingPantryItems(
   ingredientName: string,
   pantry: PantryItem[]
@@ -89,7 +120,7 @@ export function isIngredientQuantityAvailable(
   pantry: PantryItem[],
   now: Date = new Date(),
 ): boolean {
-  const matchingItems = findMatchingPantryItems(ingredientName, pantry).filter(
+  const matchingItems = findAuthoritativePantryItems(ingredientName, pantry).filter(
     (item) => !pantryItemNeedsExpiryReview(item, now),
   );
   if (matchingItems.length === 0) return false;
@@ -155,7 +186,7 @@ export function calculateRecipePantryScore(
   let perishableBonus = 0;
 
   recipe.ingredients.forEach((ing) => {
-    const matchingItems = findMatchingPantryItems(ing.name, pantry);
+    const matchingItems = findAuthoritativePantryItems(ing.name, pantry);
     const inPantry = isIngredientQuantityAvailable(
       ing.name,
       ing.amount,
