@@ -6,6 +6,7 @@ import {
   inventoryLotStateMatchesQuantity,
   initializeLegacyInventoryLotState,
   collapseLotAllocationAfterManualQuantityEdit,
+  collapseLotAllocationAfterAggregateDeduction,
   isValidInventoryLot,
   quantityInParentUnit,
   type InventoryLot,
@@ -197,4 +198,48 @@ test("generic manual absolute edit collapses prior lot allocation to declared un
     unallocatedQuantity: 0.8,
     activeLots: [],
   });
+});
+
+
+test("generic aggregate deduction discards unsupported lot precision", () => {
+  const before = {
+    unallocatedQuantity: 0.25,
+    activeLots: [lot],
+  };
+  assert.deepEqual(
+    collapseLotAllocationAfterAggregateDeduction(1, 0.6, "kg", before),
+    {
+      outcome: "remaining-unallocated",
+      state: {
+        unallocatedQuantity: 0.6,
+        activeLots: [],
+      },
+    },
+  );
+});
+
+test("aggregate deduction reports depletion without fabricating zero-quantity lots", () => {
+  const before = {
+    unallocatedQuantity: 0.25,
+    activeLots: [lot],
+  };
+  assert.deepEqual(
+    collapseLotAllocationAfterAggregateDeduction(1, 0, "kg", before),
+    { outcome: "depleted", state: null },
+  );
+});
+
+test("aggregate deduction rejects increases and inconsistent pre-deduction lot state", () => {
+  const before = {
+    unallocatedQuantity: 0.25,
+    activeLots: [lot],
+  };
+  assert.deepEqual(
+    collapseLotAllocationAfterAggregateDeduction(1, 1.1, "kg", before),
+    { outcome: "invalid", state: null },
+  );
+  assert.deepEqual(
+    collapseLotAllocationAfterAggregateDeduction(2, 1, "kg", before),
+    { outcome: "invalid", state: null },
+  );
 });
