@@ -260,7 +260,7 @@ export function calculateRecipePantryScore(
 
   return {
     matchPercentage,
-    perishableUsedCount: perishableBonus > 0 ? Math.floor(perishableBonus / 25) : 0,
+    perishableUsedCount: perishableBonus,
     totalScore,
   };
 }
