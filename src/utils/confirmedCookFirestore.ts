@@ -174,7 +174,7 @@ export function cookLotEvidenceMatchesConfirmedAllocations(
       !ingredient.unit.trim()
     ) return false;
     const normalized = normalizeQuantity(ingredient.quantity, ingredient.unit);
-    if (!normalized || !normalized.unit.known) return false;
+    if (!normalized) return false;
     const current = confirmedByPantry.get(ingredient.pantryItemId);
     if (current && current.dimension !== normalized.unit.dimension) return false;
     confirmedByPantry.set(ingredient.pantryItemId, {
@@ -199,7 +199,7 @@ export function cookLotEvidenceMatchesConfirmedAllocations(
     const expected = expectedStock.find(item => item.pantryItemId === pantryItemId);
     if (!expected || typeof expected.unit !== "string") return false;
     const evidenceQuantity = normalizeQuantity(attributed, expected.unit);
-    if (!evidenceQuantity || !evidenceQuantity.unit.known || evidenceQuantity.unit.dimension !== confirmed.dimension ||
+    if (!evidenceQuantity || evidenceQuantity.unit.dimension !== confirmed.dimension ||
         Math.abs(evidenceQuantity.baseQuantity - confirmed.baseQuantity) > 1e-9) return false;
   }
   return true;
