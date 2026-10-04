@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { CookLotEvidencePlan, CookLotEvidencePrompt } from "../src/utils/cookLotEvidencePlanner";
+import type { CookLotEvidencePlan } from "../src/utils/cookLotEvidencePlanner";
 import { buildCookLotEvidence } from "../src/utils/cookLotEvidenceAdapter";
 
 const reviewPlan: CookLotEvidencePlan = {
@@ -49,7 +49,7 @@ test("any unknown in a complete multi-item review drops all exact attribution", 
   const multi: CookLotEvidencePlan = {
     outcome: "review",
     prompts: [
-      ricePrompt,
+      reviewPlan.prompts[0],
       {
         pantryItemId: "beans",
         requiredQuantity: 0.1,
