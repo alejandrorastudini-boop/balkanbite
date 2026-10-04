@@ -12,6 +12,7 @@ import {
 } from "./confirmedCookTransaction";
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
+import { normalizeQuantity } from "./quantityUnits";
 import {
   inventoryLotStateMatchesQuantity,
   type ConfirmedInventoryLotDeduction,
@@ -163,7 +164,7 @@ export function cookLotEvidenceMatchesConfirmedAllocations(
   if (lotEvidence === undefined) return true;
   if (!Array.isArray(confirmation.ingredients) || confirmation.ingredients.length === 0) return false;
 
-  const confirmedByPantry = new Map<string, { quantity: number; unit: string }>();
+  const confirmedByPantry = new Map<string, { baseQuantity: number; dimension: string }>();
   for (const ingredient of confirmation.ingredients) {
     if (
       !isSafeInventoryLogicalId(ingredient.pantryItemId) ||
@@ -171,11 +172,13 @@ export function cookLotEvidenceMatchesConfirmedAllocations(
       typeof ingredient.unit !== "string" ||
       !ingredient.unit.trim()
     ) return false;
+    const normalized = normalizeQuantity(ingredient.quantity, ingredient.unit);
+    if (!normalized || !normalized.unit.known) return false;
     const current = confirmedByPantry.get(ingredient.pantryItemId);
-    if (current && current.unit !== ingredient.unit) return false;
+    if (current && current.dimension !== normalized.unit.dimension) return false;
     confirmedByPantry.set(ingredient.pantryItemId, {
-      quantity: (current?.quantity ?? 0) + ingredient.quantity,
-      unit: ingredient.unit,
+      baseQuantity: (current?.baseQuantity ?? 0) + normalized.baseQuantity,
+      dimension: normalized.unit.dimension,
     });
   }
 
@@ -191,7 +194,12 @@ export function cookLotEvidenceMatchesConfirmedAllocations(
   if (evidenceByPantry.size !== confirmedByPantry.size) return false;
   for (const [pantryItemId, confirmed] of confirmedByPantry) {
     const attributed = evidenceByPantry.get(pantryItemId);
-    if (attributed === undefined || Math.abs(attributed - confirmed.quantity) > 1e-9) return false;
+    if (attributed === undefined) return false;
+    const expected = confirmation.ingredients.find(item => item.pantryItemId === pantryItemId);
+    if (!expected || typeof expected.unit !== "string") return false;
+    const evidenceQuantity = normalizeQuantity(attributed, expected.unit);
+    if (!evidenceQuantity || !evidenceQuantity.unit.known || evidenceQuantity.unit.dimension !== confirmed.dimension ||
+        Math.abs(evidenceQuantity.baseQuantity - confirmed.baseQuantity) > 1e-9) return false;
   }
   return true;
 }
