@@ -111,6 +111,7 @@ test('new confirmed shopping purchase creates one active lot with estimated prov
  ], date);
  assert.deepEqual(result.newlyAppliedSourceIds,['shopping:lot-new']);
  assert.deepEqual(result.pantry[0].lotState,{
+  version:1,
   unallocatedQuantity:0,
   activeLots:[{
    id:'acquisition:shopping:lot-new',
@@ -130,6 +131,7 @@ test('confirmed purchase merged into legacy stock keeps old quantity unallocated
  ], date);
  assert.equal(result.pantry[0].quantity,1.5);
  assert.deepEqual(result.pantry[0].lotState,{
+  version:1,
   unallocatedQuantity:1,
   activeLots:[{
    id:'acquisition:shopping:lot-merge',
