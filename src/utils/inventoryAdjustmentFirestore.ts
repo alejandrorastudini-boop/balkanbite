@@ -2,6 +2,7 @@ import { shouldMarkExpiryPartialAfterQuantityIncrease } from "./effectiveExpiry"
 import { doc, runTransaction, serverTimestamp, type Firestore } from "firebase/firestore";
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
+import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
 
 /**
  * Revision-aware writer for an already identified pantry lot.
@@ -84,7 +85,9 @@ export async function persistVerifiedInventoryAdjustment(
             remote._deleted === true ||
             !validQuantity(remote.quantity) ||
             typeof remote.unit !== "string" || !remote.unit.trim() ||
-            !validRevision(remote.cookRevision ?? 0)) {
+            !validRevision(remote.cookRevision ?? 0) ||
+            (remote.lotState !== undefined &&
+              !inventoryLotStateMatchesQuantity(remote.quantity, remote.unit, remote.lotState))) {
           return review("invalid-stock");
         }
         const revision = remote.cookRevision ?? 0;
