@@ -72,6 +72,10 @@ function localDateFromPlanKey(value: unknown): Date | null {
     : null;
 }
 
+function calendarDayOrdinal(date: Date): number {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
+}
+
 interface RequirementAssessment {
   status: "covered" | IngredientAvailabilityStatus;
   shortfallAmount: number;
@@ -271,9 +275,8 @@ export function evaluateShoppingNeeds(
         .flatMap((day) => {
           const localDate = localDateFromPlanKey(day.date);
           if (!localDate) return [];
-          const dayOffset = Math.round(
-            (localDate.getTime() - todayLocal.getTime()) / 86_400_000,
-          );
+          const dayOffset =
+            calendarDayOrdinal(localDate) - calendarDayOrdinal(todayLocal);
           return dayOffset >= 0 && dayOffset <= 2
             ? [{ day, dayOffset }]
             : [];
