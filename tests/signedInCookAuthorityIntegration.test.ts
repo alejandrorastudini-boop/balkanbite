@@ -36,3 +36,23 @@ test("acceptance requires server-confirmed quantity and revision evidence", () =
   assert.ok(syncSource.includes("observed.cookRevision !== expected.cookRevision + 1"));
   assert.ok(syncSource.includes("preparedCookConfirmations.current.delete(cookId)"));
 });
+
+
+test("future physical lot evidence is part of immutable cook replay identity without changing aggregate writer behavior", () => {
+  const firestoreSource = readFileSync(
+    new URL("../src/utils/confirmedCookFirestore.ts", import.meta.url),
+    "utf8",
+  );
+  assert.ok(firestoreSource.includes("lotEvidence?: readonly ConfirmedCookLotEvidence[]"));
+  assert.ok(firestoreSource.includes("cookAllocationSignature(confirmation, normalizedExpected, request.lotEvidence)"));
+  assert.ok(firestoreSource.includes("lotEvidence: normalizedLotEvidence"));
+  assert.ok(firestoreSource.includes("version: 3"));
+  assert.ok(
+    firestoreSource.includes("writers deliberately remain aggregate-only until an explicit"),
+  );
+  assert.equal(
+    firestoreSource.includes("applyConfirmedInventoryLotDeduction("),
+    false,
+    "signature support must not silently activate physical lot mutation",
+  );
+});
