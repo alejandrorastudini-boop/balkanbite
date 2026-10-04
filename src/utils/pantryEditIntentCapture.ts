@@ -1,4 +1,5 @@
 import { getScopedDocumentId } from "./cloudCollectionSync";
+import type { InventoryLotState } from "../types";
 import type { VerifiedStockExpectation } from "./inventoryAdjustmentFirestore";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
 import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
@@ -82,7 +83,7 @@ export function verifyServerInventoryForEdits(
         !row.unit.trim() ||
         (row.cookRevision !== undefined && !revision(row.cookRevision)) ||
         (row.lotState !== undefined &&
-          !inventoryLotStateMatchesQuantity(row.quantity, row.unit, row.lotState as any)) ||
+          !inventoryLotStateMatchesQuantity(row.quantity, row.unit, row.lotState as InventoryLotState)) ||
         observed.has(row.id)) {
       return { status: "unavailable", reason: "ambiguous-stock" };
     }
