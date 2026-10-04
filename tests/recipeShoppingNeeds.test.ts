@@ -166,7 +166,7 @@ test("known pending shopping can cover usable shortfall even when other stock ne
     name: "Tomato",
     quantity: 50,
     unit: "g",
-    category: "Produce",
+    category: "Produce" as const,
     checked: false,
   }];
 
