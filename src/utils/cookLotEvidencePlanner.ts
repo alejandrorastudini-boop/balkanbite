@@ -45,8 +45,9 @@ const validReviewedOn = (value: string) => {
  *
  * A single usable lot is not auto-attributed: aggregate deduction remains the
  * conservative truth unless the user explicitly reviews physical evidence.
- * Multiple usable lots are reviewable only when
- * the entire confirmed amount could be attributed to at least one real lot.
+ * Multiple usable lots are reviewable when their combined known remaining
+ * quantity can cover the confirmed amount. This is only a review surface:
+ * the planner never decides how much came from each lot.
  * "Unknown" is always allowed so the caller can preserve conservative
  * aggregate behavior instead of fabricating precision.
  */
@@ -99,7 +100,6 @@ export function planCookLotEvidenceReview(
     const choices = state.activeLots.flatMap<CookLotChoice>(lot => {
       const expiry = deriveInventoryLotExpiry(lot, reviewedAt);
       if (expiry.status === "known" && expiry.expired) return [];
-      if (lot.remainingQuantity + 1e-9 < requiredQuantity) return [];
       return [{
         lotId: lot.id,
         acquiredAt: lot.acquiredAt,
@@ -109,7 +109,11 @@ export function planCookLotEvidenceReview(
       }];
     });
 
-    if (choices.length >= 2) {
+    const reviewableQuantity = choices.reduce(
+      (sum, choice) => sum + choice.remainingQuantity,
+      0,
+    );
+    if (choices.length >= 2 && reviewableQuantity + 1e-9 >= requiredQuantity) {
       prompts.push({
         pantryItemId,
         requiredQuantity,
