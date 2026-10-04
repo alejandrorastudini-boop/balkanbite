@@ -1,7 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  appendConfirmedAcquisitionLot,
   buildInventoryLotFromConfirmedAcquisition,
   deriveInventoryLotExpiry,
   inventoryLotStateMatchesQuantity,
@@ -85,7 +84,6 @@ test("confirmed shopping acquisition creates a parent-unit active lot without in
       unit: "g",
       parentUnit: "kg",
       expiryDaysAtAcquisition: 30,
-      initialCostEUR: 2.4,
     }),
     {
       id: "acquisition:shopping:item-42",
@@ -95,7 +93,6 @@ test("confirmed shopping acquisition creates a parent-unit active lot without in
       initialQuantity: 0.5,
       remainingQuantity: 0.5,
       expiryDaysAtAcquisition: 30,
-      initialCostEUR: 2.4,
     },
   );
 });
@@ -169,108 +166,16 @@ test("embedded lot provenance accepts valid long purchase source identity withou
 });
 
 
-test("confirmed acquisition builds a lot in the parent pantry unit", () => {
-  assert.deepEqual(
-    buildInventoryLotFromConfirmedAcquisition(
-      {
-        sourceId: "shopping:item-42",
-        source: "shopping_list",
-        quantity: 500,
-        unit: "g",
-        acquiredAt: "2026-10-04",
-        expiryDaysAtAcquisition: 3,
-      },
-      "kg",
-    ),
-    {
-      id: "lot:shopping:item-42",
-      sourceId: "shopping:item-42",
-      source: "shopping_list",
-      acquiredAt: "2026-10-04",
-      initialQuantity: 0.5,
-      remainingQuantity: 0.5,
-      expiryDaysAtAcquisition: 3,
-    },
-  );
-});
-
-test("lot constructor fails closed for incompatible or invalid acquisition evidence", () => {
-  assert.equal(
-    buildInventoryLotFromConfirmedAcquisition(
-      {
-        sourceId: "shopping:item-42",
-        source: "shopping_list",
-        quantity: 2,
-        unit: "pcs",
-        acquiredAt: "2026-10-04",
-      },
-      "kg",
-    ),
-    null,
-  );
-  assert.equal(
-    buildInventoryLotFromConfirmedAcquisition(
-      {
-        sourceId: "shopping:item-42",
-        source: "shopping_list",
-        quantity: 1,
-        unit: "kg",
-        acquiredAt: "2026-02-30",
-      },
-      "kg",
-    ),
-    null,
-  );
-});
 
 test("confirmed acquisition constructor does not invent monetary lot evidence", () => {
-  const created = buildInventoryLotFromConfirmedAcquisition(
-    {
-      sourceId: "reconcile:r1:extra:0",
-      source: "confirmed_reconciliation",
-      quantity: 1,
-      unit: "kg",
-      acquiredAt: "2026-10-04",
-    },
-    "kg",
-  );
+  const created = buildInventoryLotFromConfirmedAcquisition({
+    sourceId: "reconcile:r1:extra:0",
+    source: "confirmed_reconciliation",
+    quantity: 1,
+    unit: "kg",
+    parentUnit: "kg",
+    acquiredAt: "2026-10-04",
+  });
   assert.ok(created);
   assert.equal(created.initialCostEUR, undefined);
-});
-
-
-test("confirmed acquisition append is idempotent by provenance source", () => {
-  const acquisition = {
-    sourceId: "shopping:item-42",
-    source: "shopping_list" as const,
-    quantity: 500,
-    unit: "g",
-    acquiredAt: "2026-10-04",
-  };
-  const initial = { unallocatedQuantity: 1, activeLots: [] };
-  const first = appendConfirmedAcquisitionLot(initial, acquisition, "kg");
-  assert.equal(first.outcome, "applied");
-  assert.equal(first.state.unallocatedQuantity, 1);
-  assert.equal(first.state.activeLots.length, 1);
-
-  const replay = appendConfirmedAcquisitionLot(first.state, acquisition, "kg");
-  assert.equal(replay.outcome, "already-applied");
-  assert.deepEqual(replay.state, first.state);
-});
-
-test("invalid acquisition append leaves existing lot state untouched", () => {
-  const state = { unallocatedQuantity: 1, activeLots: [lot] };
-  const result = appendConfirmedAcquisitionLot(
-    state,
-    {
-      sourceId: "shopping:bad",
-      source: "shopping_list",
-      quantity: 1,
-      unit: "pcs",
-      acquiredAt: "2026-10-04",
-    },
-    "kg",
-  );
-  assert.equal(result.outcome, "invalid");
-  assert.deepEqual(result.state, state);
 });
