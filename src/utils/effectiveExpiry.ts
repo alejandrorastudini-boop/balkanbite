@@ -129,3 +129,24 @@ export function pantryItemNeedsExpiryReview(
   // date that is actually past creates that block.
   return expiry.status === "known" && expiry.expired;
 }
+
+
+/**
+ * Milliseconds until the next local calendar day. Constructing the next local
+ * midnight (instead of adding 24h) preserves local-day behavior across DST.
+ */
+export function millisecondsUntilNextLocalDay(value: Date = new Date()): number | null {
+  const nowMs = value.getTime();
+  if (!Number.isFinite(nowMs)) return null;
+  const nextLocalMidnight = new Date(
+    value.getFullYear(),
+    value.getMonth(),
+    value.getDate() + 1,
+    0,
+    0,
+    0,
+    0,
+  );
+  const delay = nextLocalMidnight.getTime() - nowMs;
+  return Number.isFinite(delay) && delay > 0 ? delay : null;
+}
