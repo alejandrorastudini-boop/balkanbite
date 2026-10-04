@@ -110,16 +110,6 @@ export function assessRecipeShoppingNeed(
     };
   }
 
-  if (hasExpiryReviewStock) {
-    return {
-      ingredientName: ingredient.name,
-      status: "unverified",
-      quantity: requiredAmount,
-      unit: requiredUnit,
-      category: matchingItems[0]?.category || "Other",
-    };
-  }
-
   if (
     availability.status === "invalid" ||
     availability.status === "incompatible" ||
@@ -144,9 +134,29 @@ export function assessRecipeShoppingNeed(
     shoppingList
   );
 
+  if (quantity <= 1e-9) {
+    return {
+      ingredientName: ingredient.name,
+      status: "covered",
+      quantity: 0,
+      unit: requiredUnit,
+      category: matchingItems[0]?.category || "Other",
+    };
+  }
+
+  if (hasExpiryReviewStock) {
+    return {
+      ingredientName: ingredient.name,
+      status: "unverified",
+      quantity: requiredAmount,
+      unit: requiredUnit,
+      category: matchingItems[0]?.category || "Other",
+    };
+  }
+
   return {
     ingredientName: ingredient.name,
-    status: quantity <= 1e-9 ? "covered" : "insufficient",
+    status: "insufficient",
     quantity,
     unit: requiredUnit,
     category: matchingItems[0]?.category || "Other",
