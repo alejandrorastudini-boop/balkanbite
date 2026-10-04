@@ -462,6 +462,8 @@ export function evaluateShoppingNeeds(
       ? `Hay ${todayMissing.length} faltantes cuantitativos para las comidas de hoy.`
       : verifiedShortfalls.length > 0
       ? `Hay ${verifiedShortfalls.length} faltantes cuantitativos para tus recetas planificadas.`
+      : expiryReviewRequirements.length > 0
+      ? `Hay ${expiryReviewRequirements.length} ingrediente(s) pendientes de revisar por su fecha indicada.`
       : unverifiedRequirements.length > 0
       ? `Hay ${unverifiedRequirements.length} cantidades que no se pueden verificar con las unidades actuales.`
       : depletedPantryItems.length > 0
@@ -475,6 +477,8 @@ export function evaluateShoppingNeeds(
       ? `There are ${todayMissing.length} quantitative shortfalls for today's meals.`
       : verifiedShortfalls.length > 0
       ? `There are ${verifiedShortfalls.length} quantitative shortfalls for planned recipes.`
+      : expiryReviewRequirements.length > 0
+      ? `${expiryReviewRequirements.length} ingredient(s) need expiry review.`
       : unverifiedRequirements.length > 0
       ? `${unverifiedRequirements.length} quantities cannot be verified with the current units.`
       : depletedPantryItems.length > 0
@@ -488,6 +492,8 @@ export function evaluateShoppingNeeds(
       ? `Има ${todayMissing.length} количествени недостига за днешните ястия.`
       : verifiedShortfalls.length > 0
       ? `Има ${verifiedShortfalls.length} количествени недостига за планираните рецепти.`
+      : expiryReviewRequirements.length > 0
+      ? `${expiryReviewRequirements.length} съставка(и) изискват преглед на срока.`
       : unverifiedRequirements.length > 0
       ? `${unverifiedRequirements.length} количества не могат да бъдат проверени с текущите мерни единици.`
       : depletedPantryItems.length > 0
