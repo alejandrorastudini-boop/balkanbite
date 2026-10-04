@@ -25,7 +25,7 @@ import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAu
 import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, type VerifiedVoiceDeduction } from "../utils/verifiedVoiceConsumptionFirestore";
 import { buildPurchaseMutationId, persistPurchasesIntoPantryAtomically, type PurchasePantryTransactionResult } from "../utils/purchasePantryFirestore";
 import type { PantryPurchase } from "../utils/purchasePantryMerge";
-import { persistConfirmedCookAtomically, type AtomicCookExpectedStock, type ConfirmedCookLotEvidence } from "../utils/confirmedCookFirestore";
+import { normalizeCookLotEvidence, persistConfirmedCookAtomically, type AtomicCookExpectedStock, type ConfirmedCookLotEvidence } from "../utils/confirmedCookFirestore";
 import { confirmCookTransaction, type CookConfirmation } from "../utils/confirmedCookTransaction";
 import { persistInventoryClearAtomically } from "../utils/inventoryClearFirestore";
 import { clearShoppingItems, createShoppingItem, createShoppingItems, replaceShoppingItem, removeShoppingItem } from "../utils/shoppingMutationFirestore";
