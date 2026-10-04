@@ -118,3 +118,36 @@ test("partial merged stock also stops automatic deduction pending review", () =>
   assert.equal(result.issues[0]?.reason, "expiry_review_required");
   assert.deepEqual(result.deductions, []);
 });
+
+
+test("automatic deduction orders usable stock by effective expiry, not stale captured days", () => {
+  const datedPantry: PantryItem[] = [
+    {
+      id: "rice-newer",
+      name: "Rice",
+      quantity: 100,
+      unit: "g",
+      category: "Pantry/Grains",
+      addedAt: "2026-10-04",
+      expiryDaysLeft: 2,
+    },
+    {
+      id: "rice-older",
+      name: "Rice",
+      quantity: 100,
+      unit: "g",
+      category: "Pantry/Grains",
+      addedAt: "2026-09-30",
+      expiryDaysLeft: 5,
+    },
+  ];
+
+  const result = deductRecipeIngredientsFromPantry(
+    datedPantry,
+    [{ name: "Rice", amount: 50, unit: "g", inPantry: true }],
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+
+  assert.deepEqual(result.issues, []);
+  assert.equal(result.deductions[0]?.pantryItemId, "rice-older");
+});
