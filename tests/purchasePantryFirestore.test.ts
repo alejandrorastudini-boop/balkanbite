@@ -201,3 +201,42 @@ test("purchase writer serializes verified lot state and rejects inconsistent ove
     null,
   );
 });
+
+
+test("purchase plan can repair an inconsistent legacy lot overlay instead of trusting or blocking on it", () => {
+  const baseline = [{
+    id: "tomato",
+    name: "Tomate",
+    quantity: 1,
+    unit: "kg",
+    category: "Produce" as const,
+    addedAt: "2026-09-01",
+    cookRevision: 2,
+    lotState: {
+      unallocatedQuantity: 0,
+      activeLots: [{
+        id: "shopping:stale",
+        sourceId: "shopping:stale",
+        source: "shopping_list" as const,
+        acquiredAt: "2026-09-01",
+        initialQuantity: 0.25,
+        remainingQuantity: 0.25,
+      }],
+    },
+  }];
+  const purchases = [purchase("shopping:s1", 0.5)];
+  const plan = buildPurchasePantryTransactionPlan({
+    userId: "alice",
+    mutationId: buildPurchaseMutationId(purchases)!,
+    baselinePantry: baseline,
+    purchases,
+    acquiredAt: "2026-09-29",
+  });
+  assert.ok(plan);
+  assert.equal(plan.updates[0].after.quantity, 1.5);
+  assert.equal(plan.updates[0].after.lotState?.unallocatedQuantity, 1);
+  assert.deepEqual(
+    plan.updates[0].after.lotState?.activeLots.map(lot => lot.sourceId),
+    ["shopping:s1"],
+  );
+});
