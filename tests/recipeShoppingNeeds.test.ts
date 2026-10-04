@@ -24,3 +24,85 @@ test('unknown category and invalid quantities stay conservative', () => {
  assert.equal(buildRecipeShoppingNeeds(recipe(500, 'g'), []).items[0].category, 'Other');
  for (const amount of [NaN, Infinity, -1, 0]) assert.equal(buildRecipeShoppingNeeds(recipe(amount, 'g'), []).items.length, 0);
 });
+
+
+test("expiry-review stock makes recipe shopping need unverified instead of covered or auto-purchased", () => {
+  const ingredient = { name: "Tomato", amount: 100, unit: "g", inPantry: false };
+  const reviewPantry = [{
+    id: "tomato-old",
+    name: "Tomato",
+    quantity: 200,
+    unit: "g",
+    category: "Produce" as const,
+    addedAt: "2026-10-01",
+    expiryDaysLeft: 1,
+  }];
+
+  const assessment = assessRecipeShoppingNeed(
+    ingredient,
+    reviewPantry,
+    [],
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+  assert.equal(assessment.status, "unverified");
+
+  const needs = buildRecipeShoppingNeeds(
+    { ...recipe, ingredients: [ingredient] },
+    reviewPantry,
+    [],
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+  assert.deepEqual(needs.items, []);
+  assert.equal(needs.unverified.length, 1);
+});
+
+test("review stock does not fabricate a shortfall when usable stock alone is insufficient", () => {
+  const ingredient = { name: "Tomato", amount: 100, unit: "g", inPantry: false };
+  const mixedPantry = [
+    {
+      id: "tomato-ok",
+      name: "Tomato",
+      quantity: 50,
+      unit: "g",
+      category: "Produce" as const,
+      addedAt: "2026-10-04",
+    },
+    {
+      id: "tomato-review",
+      name: "Tomato",
+      quantity: 100,
+      unit: "g",
+      category: "Produce" as const,
+      addedAt: "2026-10-01",
+      expiryDaysLeft: 1,
+    },
+  ];
+
+  const assessment = assessRecipeShoppingNeed(
+    ingredient,
+    mixedPantry,
+    [],
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+  assert.equal(assessment.status, "unverified");
+});
+
+test("missing expiry evidence remains eligible for deterministic shopping coverage", () => {
+  const ingredient = { name: "Tomato", amount: 100, unit: "g", inPantry: false };
+  const unknownExpiryPantry = [{
+    id: "tomato-unknown",
+    name: "Tomato",
+    quantity: 100,
+    unit: "g",
+    category: "Produce" as const,
+    addedAt: "2026-09-01",
+  }];
+
+  const assessment = assessRecipeShoppingNeed(
+    ingredient,
+    unknownExpiryPantry,
+    [],
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+  assert.equal(assessment.status, "covered");
+});
