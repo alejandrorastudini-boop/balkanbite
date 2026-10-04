@@ -14,8 +14,10 @@ import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
 import { normalizeQuantity } from "./quantityUnits";
 import {
+  applyConfirmedInventoryLotDeduction,
   inventoryLotStateMatchesQuantity,
   type ConfirmedInventoryLotDeduction,
+  type InventoryLotState,
 } from "./inventoryLots";
 
 export interface AtomicCookExpectedStock {
@@ -317,6 +319,9 @@ export async function persistConfirmedCookAtomically(
   const expectedById = new Map(
     normalizedExpected.map(item => [item.pantryItemId, item]),
   );
+  const lotEvidenceById = new Map(
+    (request.lotEvidence ?? []).map(item => [item.pantryItemId, item]),
+  );
   const stockRefs = normalizedExpected.map(expected => ({
     expected,
     ref: doc(
@@ -355,6 +360,7 @@ export async function persistConfirmedCookAtomically(
 
         const stock = [];
         const revisions = new Map<string, number>();
+        const exactLotStates = new Map<string, InventoryLotState | null>();
 
         for (const { expected, ref } of stockRefs) {
           const snapshot = await tx.get(ref);
@@ -386,6 +392,24 @@ export async function persistConfirmedCookAtomically(
           }
 
           revisions.set(expected.pantryItemId, revision);
+          const evidence = lotEvidenceById.get(expected.pantryItemId);
+          if (evidence) {
+            if (data.lotState === undefined) {
+              return reject("invalid-stock", expected.pantryItemId);
+            }
+            const exact = applyConfirmedInventoryLotDeduction(
+              data.quantity,
+              data.unit,
+              data.lotState as InventoryLotState,
+              evidence.deductions,
+              "food-use",
+              evidence.reviewedOn,
+            );
+            if (exact.outcome !== "applied") {
+              return reject("invalid-stock", expected.pantryItemId);
+            }
+            exactLotStates.set(expected.pantryItemId, exact.state);
+          }
           stock.push({
             id: expected.pantryItemId,
             quantity: data.quantity as number,
@@ -437,6 +461,12 @@ export async function persistConfirmedCookAtomically(
             return reject("invalid-stock", expected.pantryItemId);
           }
 
+          const hasExactLotEvidence = lotEvidenceById.has(expected.pantryItemId);
+          const exactLotState = exactLotStates.get(expected.pantryItemId);
+          if (hasExactLotEvidence && quantity > 0 && !exactLotState) {
+            return reject("invalid-stock", expected.pantryItemId);
+          }
+
           tx.update(
             ref,
             quantity === 0
@@ -449,7 +479,9 @@ export async function persistConfirmedCookAtomically(
                 }
               : {
                   quantity,
-                  lotState: { version: 1, unallocatedQuantity: quantity, activeLots: [] },
+                  lotState: hasExactLotEvidence
+                    ? exactLotState
+                    : { version: 1, unallocatedQuantity: quantity, activeLots: [] },
                   estimatedCostEUR: null,
                   cookRevision: cookRevision + 1,
                   _deleted: false,
