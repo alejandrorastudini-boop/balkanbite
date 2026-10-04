@@ -150,3 +150,65 @@ test("legacy adapter fails closed for invalid stock instead of fabricating state
   assert.equal(legacyPantryQuantityToLotState({ quantity: 0, unit: "kg" }), null);
   assert.equal(legacyPantryQuantityToLotState({ quantity: 1, unit: "" }), null);
 });
+
+
+test("confirmed purchase preserves legacy stock as unallocated and adds only new evidence as a lot", async () => {
+  const { applyConfirmedAcquisitionToLotState } = await import("../src/utils/inventoryLots");
+  const state = applyConfirmedAcquisitionToLotState(
+    1,
+    "kg",
+    undefined,
+    {
+      sourceId: "shopping:item-5",
+      source: "shopping_list",
+      quantity: 500,
+      unit: "g",
+      acquiredAt: "2026-10-04",
+    },
+  );
+  assert.deepEqual(state, {
+    unallocatedQuantity: 1,
+    activeLots: [{
+      id: "lot:shopping:item-5",
+      sourceId: "shopping:item-5",
+      source: "shopping_list",
+      acquiredAt: "2026-10-04",
+      initialQuantity: 0.5,
+      remainingQuantity: 0.5,
+    }],
+  });
+  assert.equal(inventoryLotStateMatchesQuantity(1.5, "kg", state!), true);
+});
+
+test("purchase transition refuses an inconsistent pre-existing lot state", async () => {
+  const { applyConfirmedAcquisitionToLotState } = await import("../src/utils/inventoryLots");
+  assert.equal(
+    applyConfirmedAcquisitionToLotState(
+      1,
+      "kg",
+      { unallocatedQuantity: 0.2, activeLots: [] },
+      {
+        sourceId: "shopping:item-6",
+        source: "shopping_list",
+        quantity: 0.5,
+        unit: "kg",
+        acquiredAt: "2026-10-04",
+      },
+    ),
+    null,
+  );
+});
+
+test("replayed confirmed source does not increase lot state twice", async () => {
+  const { applyConfirmedAcquisitionToLotState } = await import("../src/utils/inventoryLots");
+  const acquisition = {
+    sourceId: "shopping:item-7",
+    source: "shopping_list" as const,
+    quantity: 0.5,
+    unit: "kg",
+    acquiredAt: "2026-10-04",
+  };
+  const first = applyConfirmedAcquisitionToLotState(1, "kg", undefined, acquisition)!;
+  const replay = applyConfirmedAcquisitionToLotState(1.5, "kg", first, acquisition);
+  assert.equal(replay, null);
+});
