@@ -45,6 +45,7 @@ import {
   type PantryConsumptionDeduction,
 } from "./utils/pantryConsumption";
 import { buildRecipeShoppingNeeds } from "./utils/recipeShoppingNeeds";
+import { shouldMarkExpiryPartialAfterQuantityIncrease } from "./utils/effectiveExpiry";
 import type { RecipeCookOutcome } from "./utils/recipeCookFeedback";
 import {
   transferCheckedShoppingItems,
@@ -1238,10 +1239,11 @@ export default function App() {
               ...item,
               quantity: newQty,
               estimatedCostEUR: null,
-              ...(newQty > item.quantity &&
-              typeof item.expiryDaysLeft === "number" &&
-              Number.isFinite(item.expiryDaysLeft) &&
-              item.expiryDaysLeft >= 0
+              ...(shouldMarkExpiryPartialAfterQuantityIncrease(
+                item.quantity,
+                newQty,
+                item.expiryDaysLeft,
+              )
                 ? { expiryIsPartial: true }
                 : {}),
             }
