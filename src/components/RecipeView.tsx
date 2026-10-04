@@ -18,7 +18,7 @@ import {
 import { Recipe, PantryItem, Language, Currency } from "../types";
 import { t } from "../utils/translations";
 import { getRecipeImageUrl } from "../utils/recipeImages";
-import { isIngredientQuantityAvailable } from "../utils/menuAutoPlanner";
+import { syncRecipeWithPantry } from "../utils/menuAutoPlanner";
 import { ConfirmModal } from "./ConfirmModal";
 import { getRecipeCookFeedback, type RecipeCookOutcome } from "../utils/recipeCookFeedback";
 import { formatRecipeCostEUR, recipeCheapFilterLabel, recipeCostCurrencyNotice } from "../utils/recipeCostDisplay";
@@ -158,13 +158,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
     return recipe.nutritionHighlights?.en;
   };
 
-  const isIngredientAvailable = (ingredient: Recipe["ingredients"][number]) =>
-    isIngredientQuantityAvailable(
-      ingredient.name,
-      ingredient.amount,
-      ingredient.unit,
-      pantry
-    );
+  const recipeWithAvailability = (recipe: Recipe) =>
+    syncRecipeWithPantry(recipe, pantry);
 
   const handleCook = async (
     recipe: Recipe,
@@ -362,7 +357,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
           const title = getRecipeTitle(recipe);
           const desc = getRecipeDesc(recipe);
 
-          const inPantryCount = recipe.ingredients.filter(isIngredientAvailable).length;
+          const availableRecipe = recipeWithAvailability(recipe);
+          const inPantryCount = availableRecipe.ingredients.filter((ingredient) => ingredient.inPantry).length;
           const totalIngCount = recipe.ingredients.length;
           const hasMissing = inPantryCount < totalIngCount;
 
@@ -610,11 +606,11 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                 {currentText.ingredients}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {selectedRecipe.ingredients.map((ing, i) => (
+                {recipeWithAvailability(selectedRecipe).ingredients.map((ing, i) => (
                   <div
                     key={i}
                     className={`p-3 rounded-xl border text-sm font-medium flex items-center justify-between transition-colors ${
-                      isIngredientAvailable(ing)
+                      ing.inPantry
                         ? "bg-white/[0.02] border-white/[0.04] text-stone-300"
                         : "bg-amber-500/5 border-amber-500/20 text-amber-200"
                     }`}
