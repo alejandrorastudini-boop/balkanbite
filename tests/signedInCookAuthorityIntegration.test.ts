@@ -76,3 +76,22 @@ test("signed-in cook derives server-confirmation target from the same unit-safe 
   assert.ok(syncSource.includes("expectedRemaining.set(item.id, item.quantity)"));
   assert.equal(syncSource.includes("observed.quantity - consumed"), false);
 });
+
+test("RecipeView only requests exact lot evidence through explicit review with an Unknown path", () => {
+  const recipeSource = readFileSync(
+    new URL("../src/components/RecipeView.tsx", import.meta.url),
+    "utf8",
+  );
+  const modalSource = readFileSync(
+    new URL("../src/components/CookLotReviewModal.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(recipeSource.includes("planCookLotEvidenceReview(pantry, confirmation, reviewedOn)"));
+  assert.ok(recipeSource.includes('pendingCook?.lotPlan.outcome === "review"'));
+  assert.ok(recipeSource.includes("buildCookLotEvidence(pending.lotPlan, selections, pending.reviewedOn)"));
+  assert.ok(recipeSource.includes("onCookRecipe(recipe, cookConfirmationId, lotEvidence)"));
+  assert.ok(modalSource.includes('value') === false || modalSource.includes('"unknown"'));
+  assert.ok(modalSource.includes('selections[prompt.pantryItemId] === "unknown"'));
+  assert.equal(modalSource.includes("choices[0]"), false);
+});
+
