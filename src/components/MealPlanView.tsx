@@ -650,10 +650,19 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             >
               <div className="flex items-center justify-between border-b border-white/[0.04] pb-3">
                 <span className="text-xs font-bold text-emerald-400 capitalize bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
-                  {(localDateFromCalendarKey(day.date) || new Date()).toLocaleDateString(
-                    language === "es" ? "es-ES" : language === "bg" ? "bg-BG" : "en-US",
-                    { weekday: "short", day: "numeric", month: "short" }
-                  )}
+                  {(() => {
+                    const localDate = localDateFromCalendarKey(day.date);
+                    return localDate
+                      ? localDate.toLocaleDateString(
+                          language === "es"
+                            ? "es-ES"
+                            : language === "bg"
+                            ? "bg-BG"
+                            : "en-US",
+                          { weekday: "short", day: "numeric", month: "short" },
+                        )
+                      : "—";
+                  })()}
                 </span>
                 <span className="text-[11px] text-stone-500 font-bold bg-white/[0.04] px-2.5 py-1 rounded-lg border border-white/[0.04]">
                   {day.breakfast ? getRecipeTitle(day.breakfast).slice(0, 18) + "..." : "..."}
