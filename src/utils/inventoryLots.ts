@@ -96,6 +96,48 @@ export function collapseLotAllocationAfterManualQuantityEdit(
   return initializeLegacyInventoryLotState(newQuantity);
 }
 
+export type AggregateDeductionLotResult =
+  | { outcome: "remaining-unallocated"; state: InventoryLotState }
+  | { outcome: "depleted"; state: null }
+  | { outcome: "invalid"; state: null };
+
+/**
+ * Aggregate cook/remove evidence proves the new total, not which physical lot
+ * changed. Validate the old allocation, then deliberately discard lot-level
+ * precision rather than applying an inferred FEFO deduction as fact.
+ */
+export function collapseLotAllocationAfterAggregateDeduction(
+  pantryQuantityBefore: unknown,
+  pantryQuantityAfter: unknown,
+  pantryUnit: unknown,
+  stateBefore: InventoryLotState,
+): AggregateDeductionLotResult {
+  if (
+    !inventoryLotStateMatchesQuantity(
+      pantryQuantityBefore,
+      pantryUnit,
+      stateBefore,
+    ) ||
+    !finiteNonnegative(pantryQuantityAfter) ||
+    typeof pantryQuantityBefore !== "number" ||
+    pantryQuantityAfter > pantryQuantityBefore + EPSILON
+  ) {
+    return { outcome: "invalid", state: null };
+  }
+
+  if (pantryQuantityAfter <= EPSILON) {
+    return { outcome: "depleted", state: null };
+  }
+
+  return {
+    outcome: "remaining-unallocated",
+    state: {
+      unallocatedQuantity: pantryQuantityAfter,
+      activeLots: [],
+    },
+  };
+}
+
 export function inventoryLotStateMatchesQuantity(
   pantryQuantity: unknown,
   pantryUnit: unknown,
