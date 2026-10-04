@@ -90,14 +90,10 @@ export function planCookLotEvidenceReview(
   const [year, month, day] = reviewedOn.split("-").map(Number);
   const reviewedAt = new Date(year, month - 1, day, 12, 0, 0);
   const prompts: CookLotEvidencePrompt[] = [];
-  let hasKnownLotProvenance = false;
-
   for (const [pantryItemId, requiredQuantityRaw] of requiredByItem) {
     const item = byId.get(pantryItemId)!;
     const state = getVerifiedInventoryLotState(item);
-    if (!state || state.activeLots.length === 0) continue;
-    hasKnownLotProvenance = true;
-    if (state.activeLots.length <= 1) continue;
+    if (!state || state.activeLots.length <= 1) continue;
 
     const requiredQuantity = Number(requiredQuantityRaw.toPrecision(15));
     const choices = state.activeLots.flatMap<CookLotChoice>(lot => {
@@ -129,7 +125,7 @@ export function planCookLotEvidenceReview(
   // Exact physical evidence is all-or-nothing for a cook request. If any
   // referenced item has known lot provenance but cannot be reviewed
   // unambiguously here, do not offer partial evidence for other items.
-  if (hasKnownLotProvenance && prompts.length !== requiredByItem.size) {
+  if (prompts.length > 0 && prompts.length !== requiredByItem.size) {
     return { outcome: "not-needed", prompts: [] };
   }
   return prompts.length > 0
