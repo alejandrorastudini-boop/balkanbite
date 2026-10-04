@@ -139,9 +139,9 @@ function reserveIngredientFromPantry(
   pantry: PantryItem[],
   remainingBaseByPantryId: Map<string, number>,
   now: Date,
-): boolean {
+): { covered: boolean; usedItemIds: string[] } {
   const required = normalizeQuantity(ingredient.amount, ingredient.unit);
-  if (!required || required.baseQuantity <= 0) return false;
+  if (!required || required.baseQuantity <= 0) return { covered: false, usedItemIds: [] };
 
   const candidates = findAuthoritativePantryItems(ingredient.name, pantry)
     .filter((item) => !pantryItemNeedsExpiryReview(item, now))
@@ -157,16 +157,18 @@ function reserveIngredientFromPantry(
     });
 
   const availableBase = candidates.reduce((sum, candidate) => sum + candidate.remaining, 0);
-  if (availableBase + 1e-9 < required.baseQuantity) return false;
+  if (availableBase + 1e-9 < required.baseQuantity) return { covered: false, usedItemIds: [] };
 
   let neededBase = required.baseQuantity;
+  const usedItemIds: string[] = [];
   for (const candidate of candidates) {
     if (neededBase <= 1e-9) break;
     const used = Math.min(candidate.remaining, neededBase);
     remainingBaseByPantryId.set(candidate.item.id, candidate.remaining - used);
+    if (used > 1e-9) usedItemIds.push(candidate.item.id);
     neededBase -= used;
   }
-  return true;
+  return { covered: true, usedItemIds };
 }
 
 export function syncRecipeWithPantry(
@@ -184,7 +186,7 @@ export function syncRecipeWithPantry(
         pantry,
         remainingBaseByPantryId,
         now,
-      ),
+      ).covered,
     })),
   };
 }
@@ -223,17 +225,22 @@ export function calculateRecipePantryScore(
 
   let inCount = 0;
   let perishableBonus = 0;
-  const reservedRecipe = syncRecipeWithPantry(recipe, pantry, now);
+  const remainingBaseByPantryId = new Map<string, number>();
 
-  reservedRecipe.ingredients.forEach((ing) => {
-    const matchingItems = findAuthoritativePantryItems(ing.name, pantry);
-    const inPantry = ing.inPantry;
+  recipe.ingredients.forEach((ing) => {
+    const reservation = reserveIngredientFromPantry(
+      ing,
+      pantry,
+      remainingBaseByPantryId,
+      now,
+    );
 
-    if (inPantry) {
+    if (reservation.covered) {
       inCount++;
 
-      const expiringCompatibleItem = matchingItems.find((item) => {
-        if (!areUnitsCompatible(item.unit, ing.unit)) return false;
+      const usedExpiringItem = reservation.usedItemIds.some((id) => {
+        const item = pantry.find((candidate) => candidate.id === id);
+        if (!item) return false;
         const expiry = derivePantryItemExpiry(item, now);
         return (
           expiry.status === "known" &&
@@ -242,8 +249,8 @@ export function calculateRecipePantryScore(
         );
       });
 
-      if (expiringCompatibleItem) {
-        perishableBonus += 25;
+      if (usedExpiringItem) {
+        perishableBonus++;
       }
     }
   });
