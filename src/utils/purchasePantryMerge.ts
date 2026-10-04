@@ -1,4 +1,4 @@
-import type { PantryItem, PantryPurchaseRecord, ShoppingItem } from '../types';
+import type { InventoryLotState, PantryItem, PantryPurchaseRecord, ShoppingItem } from '../types';
 import { normalizeQuantity } from './quantityUnits';
 import {
   appendConfirmedInventoryLot,
@@ -165,6 +165,7 @@ export function mergePurchasesIntoPantry(
           : null;
       merged.lotState =
         nextLotState ?? {
+          version: 1,
           unallocatedQuantity: merged.quantity,
           activeLots: [],
         };
@@ -183,7 +184,7 @@ export function mergePurchasesIntoPantry(
       };
       const acquiredLot = buildLotForParentUnit(created.unit);
       if (acquiredLot) {
-        const state = { unallocatedQuantity: 0, activeLots: [acquiredLot] };
+        const state: InventoryLotState = { version: 1, unallocatedQuantity: 0, activeLots: [acquiredLot] };
         if (inventoryLotStateMatchesQuantity(created.quantity, created.unit, state)) {
           created.lotState = state;
         }
