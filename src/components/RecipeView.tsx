@@ -22,6 +22,7 @@ import { syncRecipeWithPantry } from "../utils/menuAutoPlanner";
 import { ConfirmModal } from "./ConfirmModal";
 import { CookLotReviewModal } from "./CookLotReviewModal";
 import { getRecipeCookFeedback, type RecipeCookOutcome } from "../utils/recipeCookFeedback";
+import { deductRecipeIngredientsFromPantry } from "../utils/pantryConsumption";
 import { formatRecipeCostEUR, recipeCheapFilterLabel, recipeCostCurrencyNotice } from "../utils/recipeCostDisplay";
 import { planCookLotEvidenceReview, type CookLotEvidencePlan } from "../utils/cookLotEvidencePlanner";
 import { buildCookLotEvidence, type CookLotReviewSelection } from "../utils/cookLotEvidenceAdapter";
@@ -203,21 +204,24 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
     setCookFeedback(null);
     const cookConfirmationId = createCookConfirmationId();
     const reviewedOn = new Date().toISOString().slice(0, 10);
-    const preview = syncRecipeWithPantry(recipe, pantry);
+    const preview = deductRecipeIngredientsFromPantry(
+      pantry,
+      recipe.ingredients || [],
+    );
     const confirmation = {
       cookConfirmationId,
       mealId: recipe.id,
       confirmed: true,
-      ingredients: preview.ingredients
-        .filter(ingredient => ingredient.inPantry && ingredient.pantryItemId)
-        .map((ingredient, index) => ({
-          ingredientId: `allocation-${index + 1}`,
-          pantryItemId: ingredient.pantryItemId!,
-          quantity: ingredient.amount,
-          unit: ingredient.unit,
-        })),
+      ingredients: preview.deductions.map((deduction, index) => ({
+        ingredientId: `allocation-${index + 1}`,
+        pantryItemId: deduction.pantryItemId,
+        quantity: deduction.consumedQuantity,
+        unit: deduction.unit,
+      })),
     };
-    const lotPlan = planCookLotEvidenceReview(pantry, confirmation, reviewedOn);
+    const lotPlan = preview.issues.length > 0 || preview.deductions.length === 0
+      ? { outcome: "invalid", prompts: [] } as const
+      : planCookLotEvidenceReview(pantry, confirmation, reviewedOn);
     setPendingCook({ recipe, cookConfirmationId, reviewedOn, lotPlan });
   };
 
