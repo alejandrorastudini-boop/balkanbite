@@ -53,7 +53,12 @@ export function deriveEffectiveExpiry(
   capturedAt: unknown,
   now: Date = new Date(),
 ): EffectiveExpiry {
-  if (!finiteNonnegative(expiryDaysAtCapture)) return { status: "unknown" };
+  if (
+    !finiteNonnegative(expiryDaysAtCapture) ||
+    !Number.isInteger(expiryDaysAtCapture)
+  ) {
+    return { status: "unknown" };
+  }
 
   const capturedDay = utcCalendarDay(capturedAt);
   const nowDay = utcCalendarDayFromDate(now);
