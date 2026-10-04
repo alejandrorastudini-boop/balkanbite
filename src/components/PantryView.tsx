@@ -254,7 +254,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   : language === "bg"
                   ? "Няма данни"
                   : "No data"
-                : `€${totalValueEUR.toFixed(1)}`}
+                : `~€${totalValueEUR.toFixed(1)}`}
             </span>
           </div>
         </div>
