@@ -14,6 +14,14 @@ test("stable reviewed cook confirmation id reaches App", () => {
   assert.ok(appSource.includes("preparedSignedInCooks.current.set(cookConfirmationId, prepared)"));
 });
 
+test("App freezes reviewed lot evidence with the prepared cook and rejects contradictory retry evidence", () => {
+  assert.ok(appSource.includes("lotEvidence?: readonly ConfirmedCookLotEvidence[]"));
+  assert.ok(appSource.includes("normalizeCookLotEvidence(prepared.lotEvidence, expectedIds)"));
+  assert.ok(appSource.includes("normalizeCookLotEvidence(lotEvidence, expectedIds)"));
+  assert.ok(appSource.includes("lotEvidence,\n        confirmation:"));
+  assert.ok(appSource.includes("submitConfirmedCook(pantry, prepared.confirmation, prepared.lotEvidence)"));
+});
+
 test("signed-in cook does not optimistically set pantry", () => {
   const start = appSource.indexOf("const handleCookRecipe = async");
   const end = appSource.indexOf("const handleAddMissingToShopping", start);
