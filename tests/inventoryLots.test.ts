@@ -82,6 +82,8 @@ test("confirmed shopping acquisition creates a parent-unit active lot without in
       quantity: 500,
       unit: "g",
       parentUnit: "kg",
+      expiryDaysAtAcquisition: 30,
+      initialCostEUR: 2.4,
     }),
     {
       id: "acquisition:shopping:item-42",
@@ -90,6 +92,8 @@ test("confirmed shopping acquisition creates a parent-unit active lot without in
       acquiredAt: "2026-10-04",
       initialQuantity: 0.5,
       remainingQuantity: 0.5,
+      expiryDaysAtAcquisition: 30,
+      initialCostEUR: 2.4,
     },
   );
 });
@@ -160,59 +164,4 @@ test("embedded lot provenance accepts valid long purchase source identity withou
   });
   assert.equal(acquisition?.sourceId, sourceId);
   assert.equal(acquisition?.id, `acquisition:${sourceId}`);
-});
-
-
-test("confirmed purchase becomes one active lot in the parent pantry unit", async () => {
-  const { inventoryLotFromConfirmedPurchase } = await import("../src/utils/inventoryLots");
-  const created = inventoryLotFromConfirmedPurchase(
-    {
-      sourceId: "shopping:item-42",
-      source: "shopping_list",
-      name: "Rice",
-      quantity: 500,
-      unit: "g",
-      estimatedCostEUR: 2.4,
-      expiryDaysLeft: 30,
-    },
-    "kg",
-    "2026-10-04",
-  );
-  assert.deepEqual(created, {
-    id: "lot:shopping:item-42",
-    sourceId: "shopping:item-42",
-    source: "shopping_list",
-    acquiredAt: "2026-10-04",
-    initialQuantity: 0.5,
-    remainingQuantity: 0.5,
-    expiryDaysAtAcquisition: 30,
-    initialCostEUR: 2.4,
-  });
-});
-
-test("confirmed purchase lot creation fails closed on incompatible units or invalid evidence", async () => {
-  const { inventoryLotFromConfirmedPurchase } = await import("../src/utils/inventoryLots");
-  const base = {
-    sourceId: "shopping:item-43",
-    source: "shopping_list" as const,
-    name: "Eggs",
-    quantity: 6,
-    unit: "pcs",
-  };
-  assert.equal(
-    inventoryLotFromConfirmedPurchase(base, "kg", "2026-10-04"),
-    null,
-  );
-  assert.equal(
-    inventoryLotFromConfirmedPurchase(
-      { ...base, expiryDaysLeft: 1.5 },
-      "pcs",
-      "2026-10-04",
-    ),
-    null,
-  );
-  assert.equal(
-    inventoryLotFromConfirmedPurchase(base, "pcs", "2026-02-30"),
-    null,
-  );
 });
