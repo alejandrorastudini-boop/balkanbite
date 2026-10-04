@@ -194,7 +194,7 @@ test("cook lot evidence exactly reconciles with the complete aggregate confirmed
     ],
   };
   assert.equal(
-    cookLotEvidenceMatchesConfirmedAllocations(confirmation, [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 1 }], [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 1 }], [{
+    cookLotEvidenceMatchesConfirmedAllocations(confirmation, [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 1 }], [{
       pantryItemId: "potatoes",
       reviewedOn: "2026-10-04",
       deductions: [
@@ -205,7 +205,7 @@ test("cook lot evidence exactly reconciles with the complete aggregate confirmed
     true,
   );
   assert.equal(
-    cookLotEvidenceMatchesConfirmedAllocations(confirmation, [{
+    cookLotEvidenceMatchesConfirmedAllocations(confirmation, [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 1 }], [{
       pantryItemId: "potatoes",
       reviewedOn: "2026-10-04",
       deductions: [{ lotId: "lot-a", quantity: 0.3 }],
