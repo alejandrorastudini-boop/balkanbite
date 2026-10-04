@@ -1,6 +1,7 @@
 import { PantryItem, Recipe, MealPlanDay, UserProfile } from "../types";
 import { assessTotalAvailability, areUnitsCompatible } from "./quantityUnits";
 import { areReviewedBulgarianFoodAliases } from "./bulgarianFoodAliases";
+import { derivePantryItemExpiry } from "./effectiveExpiry";
 
 const normalizeIngredientName = (value: string): string =>
   (value || "")
@@ -126,7 +127,11 @@ export function syncRecipesWithPantry(recipes: Recipe[], pantry: PantryItem[]): 
  * 2. Perishable bonus: gives extra points if a quantitatively covered
  *    ingredient uses compatible pantry stock expiring soon (expiryDaysLeft <= 5)
  */
-export function calculateRecipePantryScore(recipe: Recipe, pantry: PantryItem[]): {
+export function calculateRecipePantryScore(
+  recipe: Recipe,
+  pantry: PantryItem[],
+  now: Date = new Date(),
+): {
   matchPercentage: number;
   perishableUsedCount: number;
   totalScore: number;
@@ -150,12 +155,15 @@ export function calculateRecipePantryScore(recipe: Recipe, pantry: PantryItem[])
     if (inPantry) {
       inCount++;
 
-      const expiringCompatibleItem = matchingItems.find(
-        (item) =>
-          areUnitsCompatible(item.unit, ing.unit) &&
-          item.expiryDaysLeft !== undefined &&
-          item.expiryDaysLeft <= 5
-      );
+      const expiringCompatibleItem = matchingItems.find((item) => {
+        if (!areUnitsCompatible(item.unit, ing.unit)) return false;
+        const expiry = derivePantryItemExpiry(item, now);
+        return (
+          expiry.status === "known" &&
+          !expiry.expired &&
+          expiry.daysRemaining <= 5
+        );
+      });
 
       if (expiringCompatibleItem) {
         perishableBonus += 25;
