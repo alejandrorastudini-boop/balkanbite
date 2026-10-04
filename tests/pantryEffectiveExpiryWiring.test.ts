@@ -10,6 +10,10 @@ const planner = readFileSync(
   new URL("../src/utils/menuAutoPlanner.ts", import.meta.url),
   "utf8",
 );
+const app = readFileSync(
+  new URL("../src/App.tsx", import.meta.url),
+  "utf8",
+);
 
 test("pantry UI derives current expiry instead of rendering stored relative days directly", () => {
   assert.match(pantryView, /derivePantryItemExpiry\(item, expiryNow\)/);
@@ -31,4 +35,20 @@ test("planner uses effective expiry and excludes already-past evidence from anti
   assert.match(planner, /derivePantryItemExpiry\(item, now\)/);
   assert.match(planner, /!expiry\.expired/);
   assert.match(planner, /expiry\.daysRemaining <= 5/);
+});
+
+test("pantry acquisition captures a local calendar date instead of UTC slicing", () => {
+  assert.match(app, /localCalendarDate\(\)/);
+  assert.doesNotMatch(
+    app,
+    /addedAt:\s*new Date\(\)\.toISOString\(\)\.split\("T"\)\[0\]/,
+  );
+});
+
+test("manual expiry input only accepts representable whole calendar days", () => {
+  const expiryInput = pantryView.slice(
+    pantryView.indexOf('id="pantry-expiry-days"'),
+    pantryView.indexOf('id="pantry-cost"'),
+  );
+  assert.match(expiryInput, /step="1"/);
 });
