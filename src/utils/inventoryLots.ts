@@ -116,6 +116,7 @@ export function collapseLotAllocationAfterAggregateDeduction(
   return {
     outcome: "remaining-unallocated",
     state: {
+      version: 1,
       unallocatedQuantity: pantryQuantityAfter,
       activeLots: [],
     },
