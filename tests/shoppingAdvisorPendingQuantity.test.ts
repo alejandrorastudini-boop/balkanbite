@@ -56,3 +56,17 @@ test("equivalent normalized ingredient names aggregate into one candidate", () =
   assert.equal(result.itemsToAddToShoppingList.length, 1);
   assert.equal(result.itemsToAddToShoppingList[0]?.quantity, 2);
 });
+
+
+test("one pending quantity cannot be reused to cover multiple planned meals", () => {
+  const secondDay: MealPlanDay = { date: "2026-10-05", breakfast: recipe };
+  const result = evaluateShoppingNeeds(
+    [],
+    [plan[0], secondDay],
+    [pending("a", 1, "l")],
+    "en",
+    new Date(2026, 9, 4, 12, 0, 0, 0),
+  );
+  assert.equal(result.itemsToAddToShoppingList.length, 1);
+  assert.equal(result.itemsToAddToShoppingList[0]?.quantity, 1);
+});
