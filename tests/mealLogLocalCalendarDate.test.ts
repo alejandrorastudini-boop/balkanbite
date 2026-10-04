@@ -40,3 +40,10 @@ test("meal plan view does not use UTC slicing for local day identity", () => {
   assert.match(view, /localCalendarDate\(day\)/);
   assert.match(view, /localDateFromCalendarKey\(day\.date\)/);
 });
+
+
+test("invalid stored plan date is not rendered as today's date", () => {
+  const view = fs.readFileSync("src/components/MealPlanView.tsx", "utf8");
+  assert.doesNotMatch(view, /localDateFromCalendarKey\(day\.date\) \|\| new Date\(\)/);
+  assert.match(view, /: "—";/);
+});
