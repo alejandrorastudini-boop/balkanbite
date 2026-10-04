@@ -112,7 +112,7 @@ export function mergePurchasesIntoPantry(
     const buildLotForParentUnit = (parentUnit: string) =>
       buildInventoryLotFromConfirmedAcquisition({
         sourceId: record.sourceId,
-        source: record.source,
+        source: purchase.source,
         acquiredAt: record.acquiredAt,
         quantity: record.quantity,
         unit: record.unit,
