@@ -557,27 +557,6 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
         })}
       </div>
 
-      {pendingCook?.lotPlan.outcome === "review" ? (
-        <CookLotReviewModal
-          plan={pendingCook.lotPlan}
-          pantry={pantry}
-          language={language}
-          onClose={() => setPendingCook(null)}
-          onConfirm={confirmPendingCook}
-        />
-      ) : (
-        <ConfirmModal
-          isOpen={pendingCook !== null}
-          onClose={() => setPendingCook(null)}
-          onConfirm={confirmPendingCook}
-          title={language === "es" ? "Confirmar consumo" : language === "bg" ? "Потвърдете консумацията" : "Confirm consumption"}
-          description={language === "es" ? "Se descontarán de tu despensa los ingredientes confirmados de esta receta." : language === "bg" ? "Потвърдените съставки за тази рецепта ще бъдат приспаднати от килера." : "The confirmed ingredients for this recipe will be deducted from your pantry."}
-          confirmText={language === "es" ? "Sí, he cocinado esto" : language === "bg" ? "Да, сготвих това" : "Yes, I cooked this"}
-          cancelText={language === "es" ? "Cancelar" : language === "bg" ? "Отказ" : "Cancel"}
-          danger={false}
-        />
-      )}
-
       {/* Step-by-step Interactive Cooking Drawer / Modal */}
       {selectedRecipe && (
         <div className="fixed inset-0 bg-black/80 backdrop-blur-md z-50 flex items-center justify-center p-4">
@@ -751,40 +730,38 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
       />
 
       {/* Cooking never deducts stock until this explicit reviewed confirmation. */}
-      <ConfirmModal
-        isOpen={pendingCook !== null}
-        onClose={() => setPendingCook(null)}
-        onConfirm={confirmPendingCook}
-        title={
-          language === "es"
-            ? "¿Ya has cocinado esta receta?"
-            : language === "bg"
-            ? "Сготви ли тази рецепта?"
-            : "Have you cooked this recipe?"
-        }
-        description={
-          language === "es"
-            ? "Confirma solo si ya la has cocinado. Se descontarán las cantidades verificadas de la despensa. Si algo cambió o no puede verificarse, no se descontará nada."
-            : language === "bg"
-            ? "Потвърди само ако вече си приготвил рецептата. Проверените количества ще бъдат приспаднати от наличностите. Ако нещо се е променило или не може да бъде проверено, няма да се приспада нищо."
-            : "Confirm only if you have cooked it. Verified amounts will be deducted from your pantry. If anything changed or cannot be verified, nothing will be deducted."
-        }
-        confirmText={
-          language === "es"
-            ? "Sí, descontar"
-            : language === "bg"
-            ? "Да, приспадни"
-            : "Yes, deduct"
-        }
-        cancelText={
-          language === "es"
-            ? "Cancelar"
-            : language === "bg"
-            ? "Отказ"
-            : "Cancel"
-        }
-        danger={false}
-      />
+      {pendingCook?.lotPlan.outcome === "review" ? (
+        <CookLotReviewModal
+          plan={pendingCook.lotPlan}
+          pantry={pantry}
+          language={language}
+          onClose={() => setPendingCook(null)}
+          onConfirm={confirmPendingCook}
+        />
+      ) : (
+        <ConfirmModal
+          isOpen={pendingCook !== null}
+          onClose={() => setPendingCook(null)}
+          onConfirm={confirmPendingCook}
+          title={
+            language === "es"
+              ? "¿Ya has cocinado esta receta?"
+              : language === "bg"
+              ? "Сготви ли тази рецепта?"
+              : "Have you cooked this recipe?"
+          }
+          description={
+            language === "es"
+              ? "Confirma solo si ya la has cocinado. Se descontarán las cantidades verificadas de la despensa. Si algo cambió o no puede verificarse, no se descontará nada."
+              : language === "bg"
+              ? "Потвърди само ако вече си приготвил рецептата. Проверените количества ще бъдат приспаднати от наличностите. Ако нещо се е променило или не може да бъде проверено, няма да се приспада нищо."
+              : "Confirm only if you have cooked it. Verified amounts will be deducted from your pantry. If anything changed or cannot be verified, nothing will be deducted."
+          }
+          confirmText={language === "es" ? "Sí, descontar" : language === "bg" ? "Да, приспадни" : "Yes, deduct"}
+          cancelText={language === "es" ? "Cancelar" : language === "bg" ? "Отказ" : "Cancel"}
+          danger={false}
+        />
+      )}
     </div>
   );
 };
