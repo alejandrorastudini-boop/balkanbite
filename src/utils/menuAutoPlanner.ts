@@ -184,6 +184,7 @@ export function calculateRecipePantryScore(
 export function syncMealPlanWithPantry(
   existingPlan: MealPlanDay[],
   pantry: PantryItem[],
+  now: Date = new Date(),
 ): {
   newPlan: MealPlanDay[];
   readyToCookMealsCount: number;
@@ -196,7 +197,7 @@ export function syncMealPlanWithPantry(
     if (!recipe) return undefined;
 
     const [syncedRecipe] = syncRecipesWithPantry([recipe], pantry);
-    const score = calculateRecipePantryScore(syncedRecipe, pantry);
+    const score = calculateRecipePantryScore(syncedRecipe, pantry, now);
 
     if (score.matchPercentage === 100) readyToCookMealsCount++;
     perishableSavedCount += score.perishableUsedCount;
@@ -231,7 +232,8 @@ export function adaptMealPlanToPantry(
   pantry: PantryItem[],
   recipes: Recipe[],
   existingPlan: MealPlanDay[] = [],
-  profile?: UserProfile
+  profile?: UserProfile,
+  now: Date = new Date(),
 ): {
   newPlan: MealPlanDay[];
   readyToCookMealsCount: number;
@@ -240,11 +242,11 @@ export function adaptMealPlanToPantry(
   const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
 
   if (syncedRecipes.length === 0) {
-    return syncMealPlanWithPantry(existingPlan, pantry);
+    return syncMealPlanWithPantry(existingPlan, pantry, now);
   }
 
   const scoredRecipes = syncedRecipes.map((recipe) => {
-    const scoreData = calculateRecipePantryScore(recipe, pantry);
+    const scoreData = calculateRecipePantryScore(recipe, pantry, now);
     return {
       recipe,
       ...scoreData,
