@@ -324,7 +324,7 @@ test("confirmed acquisition creates a lot in the parent pantry unit", async () =
       initialCostEUR: 4,
     }),
     {
-      id: "lot:shopping_list:shopping-42",
+      id: "shopping-42",
       sourceId: "shopping-42",
       source: "shopping_list",
       acquiredAt: "2026-10-04",
