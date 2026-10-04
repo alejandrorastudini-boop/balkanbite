@@ -20,13 +20,17 @@ import { t } from "../utils/translations";
 import { getRecipeImageUrl } from "../utils/recipeImages";
 import { syncRecipeWithPantry } from "../utils/menuAutoPlanner";
 import { ConfirmModal } from "./ConfirmModal";
+import { CookLotReviewModal } from "./CookLotReviewModal";
 import { getRecipeCookFeedback, type RecipeCookOutcome } from "../utils/recipeCookFeedback";
 import { formatRecipeCostEUR, recipeCheapFilterLabel, recipeCostCurrencyNotice } from "../utils/recipeCostDisplay";
+import { planCookLotEvidenceReview, type CookLotEvidencePlan } from "../utils/cookLotEvidencePlanner";
+import { buildCookLotEvidence, type CookLotReviewSelection } from "../utils/cookLotEvidenceAdapter";
+import type { ConfirmedCookLotEvidence } from "../utils/confirmedCookFirestore";
 
 interface RecipeViewProps {
   recipes: Recipe[];
   pantry: PantryItem[];
-  onCookRecipe: (recipe: Recipe, cookConfirmationId: string) => RecipeCookOutcome | Promise<RecipeCookOutcome>;
+  onCookRecipe: (recipe: Recipe, cookConfirmationId: string, lotEvidence?: readonly ConfirmedCookLotEvidence[]) => RecipeCookOutcome | Promise<RecipeCookOutcome>;
   onAddMissingToShopping: (recipe: Recipe) => boolean | Promise<boolean>;
   onGenerateAiRecipes: () => Promise<void>;
   onClearRecipes?: () => void | boolean | Promise<void | boolean>;
@@ -60,6 +64,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const [pendingCook, setPendingCook] = useState<{
     recipe: Recipe;
     cookConfirmationId: string;
+    reviewedOn: string;
+    lotPlan: CookLotEvidencePlan;
   } | null>(null);
   const cookMutationSequenceRef = useRef(0);
 
@@ -164,11 +170,12 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const handleCook = async (
     recipe: Recipe,
     cookConfirmationId: string,
+    lotEvidence?: readonly ConfirmedCookLotEvidence[],
   ): Promise<RecipeCookOutcome> => {
     let outcome: RecipeCookOutcome;
     try {
       outcome = await Promise.resolve(
-        onCookRecipe(recipe, cookConfirmationId),
+        onCookRecipe(recipe, cookConfirmationId, lotEvidence),
       );
     } catch (error) {
       console.error("Recipe cook confirmation failed:", error);
@@ -194,18 +201,43 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
       cookFeedbackTimerRef.current = null;
     }
     setCookFeedback(null);
-    setPendingCook({
-      recipe,
-      cookConfirmationId: createCookConfirmationId(),
-    });
+    const cookConfirmationId = createCookConfirmationId();
+    const reviewedOn = new Date().toISOString().slice(0, 10);
+    const preview = syncRecipeWithPantry(recipe, pantry);
+    const confirmation = {
+      cookConfirmationId,
+      mealId: recipe.id,
+      confirmed: true,
+      ingredients: preview.ingredients
+        .filter(ingredient => ingredient.inPantry && ingredient.pantryItemId)
+        .map((ingredient, index) => ({
+          ingredientId: `allocation-${index + 1}`,
+          pantryItemId: ingredient.pantryItemId!,
+          quantity: ingredient.amount,
+          unit: ingredient.unit,
+        })),
+    };
+    const lotPlan = planCookLotEvidenceReview(pantry, confirmation, reviewedOn);
+    setPendingCook({ recipe, cookConfirmationId, reviewedOn, lotPlan });
   };
 
-  const confirmPendingCook = async (): Promise<boolean> => {
+  const confirmPendingCook = async (
+    selections?: CookLotReviewSelection,
+  ): Promise<boolean> => {
     const pending = pendingCook;
     if (!pending) return false;
+    let lotEvidence: readonly ConfirmedCookLotEvidence[] | undefined;
+    if (pending.lotPlan.outcome === "invalid") return false;
+    if (pending.lotPlan.outcome === "review") {
+      if (!selections) return false;
+      const built = buildCookLotEvidence(pending.lotPlan, selections, pending.reviewedOn);
+      if (built.outcome === "invalid") return false;
+      lotEvidence = built.outcome === "exact" ? built.lotEvidence : undefined;
+    }
     const outcome = await handleCook(
       pending.recipe,
       pending.cookConfirmationId,
+      lotEvidence,
     );
     if (!outcome.success) return false;
     if (selectedRecipe?.id === pending.recipe.id) {
@@ -524,6 +556,27 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
           );
         })}
       </div>
+
+      {pendingCook?.lotPlan.outcome === "review" ? (
+        <CookLotReviewModal
+          plan={pendingCook.lotPlan}
+          pantry={pantry}
+          language={language}
+          onClose={() => setPendingCook(null)}
+          onConfirm={confirmPendingCook}
+        />
+      ) : (
+        <ConfirmModal
+          isOpen={pendingCook !== null}
+          onClose={() => setPendingCook(null)}
+          onConfirm={confirmPendingCook}
+          title={language === "es" ? "Confirmar consumo" : language === "bg" ? "Потвърдете консумацията" : "Confirm consumption"}
+          description={language === "es" ? "Se descontarán de tu despensa los ingredientes confirmados de esta receta." : language === "bg" ? "Потвърдените съставки за тази рецепта ще бъдат приспаднати от килера." : "The confirmed ingredients for this recipe will be deducted from your pantry."}
+          confirmText={language === "es" ? "Sí, he cocinado esto" : language === "bg" ? "Да, сготвих това" : "Yes, I cooked this"}
+          cancelText={language === "es" ? "Cancelar" : language === "bg" ? "Отказ" : "Cancel"}
+          danger={false}
+        />
+      )}
 
       {/* Step-by-step Interactive Cooking Drawer / Modal */}
       {selectedRecipe && (
