@@ -34,9 +34,11 @@ const finiteNonnegative = (value: unknown): value is number =>
 const finitePositive = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value > 0;
 
-const safeId = (value: unknown): value is string =>
+const safeEmbeddedIdentity = (value: unknown): value is string =>
   typeof value === "string" &&
-  /^[A-Za-z0-9._:-]{1,180}$/.test(value);
+  value.trim().length > 0 &&
+  value.length <= 450 &&
+  !/[\u0000-\u001F\u007F]/.test(value);
 
 const validCalendarDate = (value: unknown): value is string => {
   if (typeof value !== "string") return false;
@@ -57,8 +59,8 @@ const validCalendarDate = (value: unknown): value is string => {
 export function isValidInventoryLot(lot: InventoryLot): boolean {
   return Boolean(
     lot &&
-    safeId(lot.id) &&
-    safeId(lot.sourceId) &&
+    safeEmbeddedIdentity(lot.id) &&
+    safeEmbeddedIdentity(lot.sourceId) &&
     (lot.source === "shopping_list" ||
       lot.source === "confirmed_reconciliation") &&
     validCalendarDate(lot.acquiredAt) &&
