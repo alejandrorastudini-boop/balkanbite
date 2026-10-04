@@ -3,6 +3,7 @@ import test from "node:test";
 import {
   buildPurchaseMutationId,
   buildPurchasePantryTransactionPlan,
+  serializePurchasePantryItemForWrite,
 } from "../src/utils/purchasePantryFirestore";
 
 const purchase = (sourceId: string, quantity = 1) => ({
@@ -140,4 +141,63 @@ test("fully rejected duplicate-source batch is not mislabeled already-applied", 
   assert.deepEqual(plan.merge.newlyAppliedSourceIds, []);
   assert.equal(plan.merge.rejected.length, 2);
   assert.ok(plan.merge.rejected.every(item => item.reason === "duplicate_source"));
+});
+
+
+test("purchase transaction plan carries active lot state for new and merged acquisitions", () => {
+  const baseline = [{
+    id: "tomato",
+    name: "Tomate",
+    quantity: 1,
+    unit: "kg",
+    category: "Produce" as const,
+    addedAt: "2026-09-01",
+    cookRevision: 4,
+  }];
+  const purchases = [purchase("shopping:s1", 0.5), purchase("shopping:s2", 1)];
+  const plan = buildPurchasePantryTransactionPlan({
+    userId: "alice",
+    mutationId: buildPurchaseMutationId(purchases)!,
+    baselinePantry: baseline,
+    purchases,
+    acquiredAt: "2026-09-29",
+  });
+  assert.ok(plan);
+  assert.equal(plan.updates[0].after.lotState?.unallocatedQuantity, 1);
+  assert.equal(plan.updates[0].after.lotState?.activeLots[0].sourceId, "shopping:s1");
+  assert.equal(plan.creations[0].after.lotState?.unallocatedQuantity, 0);
+  assert.equal(plan.creations[0].after.lotState?.activeLots[0].sourceId, "shopping:s2");
+});
+
+test("purchase writer serializes verified lot state and rejects inconsistent overlay", () => {
+  const item = {
+    id: "tomato",
+    name: "Tomate",
+    quantity: 1.5,
+    unit: "kg",
+    category: "Produce" as const,
+    addedAt: "2026-09-01",
+    lotState: {
+      unallocatedQuantity: 1,
+      activeLots: [{
+        id: "acquisition:shopping:s1",
+        sourceId: "shopping:s1",
+        source: "shopping_list" as const,
+        acquiredAt: "2026-09-29",
+        initialQuantity: 0.5,
+        remainingQuantity: 0.5,
+        initialEstimatedCostEUR: 2,
+      }],
+    },
+  };
+  const serialized = serializePurchasePantryItemForWrite(item, "alice", 5);
+  assert.deepEqual(serialized?.lotState, item.lotState);
+  assert.equal(
+    serializePurchasePantryItemForWrite(
+      { ...item, quantity: 2 },
+      "alice",
+      5,
+    ),
+    null,
+  );
 });
