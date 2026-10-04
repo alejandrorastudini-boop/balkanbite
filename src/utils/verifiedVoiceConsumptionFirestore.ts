@@ -290,14 +290,14 @@ export async function persistVerifiedVoiceConsumption(
             remaining <= 1e-9
               ? {
                   quantity: 0,
-                  lotState: { unallocatedQuantity: 0, activeLots: [] },
+                  lotState: { version: 1, unallocatedQuantity: 0, activeLots: [] },
                   cookRevision: stock.cookRevision + 1,
                   _deleted: true,
                   deletedAt: serverTimestamp(),
                 }
               : {
                   quantity: remaining,
-                  lotState: { unallocatedQuantity: remaining, activeLots: [] },
+                  lotState: { version: 1, unallocatedQuantity: remaining, activeLots: [] },
                   estimatedCostEUR: null,
                   cookRevision: stock.cookRevision + 1,
                   _deleted: false,
