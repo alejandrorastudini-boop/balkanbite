@@ -27,7 +27,7 @@ export const CookLotReviewModal: React.FC<Props> = ({ plan, pantry, language, on
   const allocationTotal = (pantryItemId: string) => {
     const selection = selections[pantryItemId];
     if (!selection || typeof selection !== "object") return 0;
-    return Object.values(selection).reduce(
+    return Object.values(selection as CookLotReviewAllocation).reduce<number>(
       (sum, quantity) => sum + (Number.isFinite(quantity) ? quantity : 0),
       0,
     );
