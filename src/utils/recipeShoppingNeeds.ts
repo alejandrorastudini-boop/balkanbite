@@ -1,5 +1,5 @@
 import { PantryItem, Recipe, ShoppingItem } from "../types";
-import { findMatchingPantryItems } from "./menuAutoPlanner";
+import { findAuthoritativePantryItems } from "./menuAutoPlanner";
 import { assessTotalAvailability, normalizeQuantity } from "./quantityUnits";
 import { pantryItemNeedsExpiryReview } from "./effectiveExpiry";
 
@@ -74,7 +74,7 @@ export function assessRecipeShoppingNeed(
     };
   }
 
-  const matchingItems = findMatchingPantryItems(ingredient.name, pantry);
+  const matchingItems = findAuthoritativePantryItems(ingredient.name, pantry);
   const usableMatchingItems = matchingItems.filter(
     (item) => !pantryItemNeedsExpiryReview(item, now),
   );
