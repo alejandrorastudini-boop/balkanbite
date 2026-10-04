@@ -147,3 +147,76 @@ export function quantityInParentUnit(
     ? Number(converted.toPrecision(15))
     : null;
 }
+
+
+export interface ConfirmedAcquisitionLotInput {
+  sourceId: string;
+  source: InventoryLotSource;
+  quantity: number;
+  unit: string;
+  acquiredAt: string;
+  expiryDaysAtAcquisition?: number;
+  initialCostEUR?: number;
+}
+
+/**
+ * Creates active-lot state only from explicit acquisition evidence.
+ * The quantity is converted into the parent PantryItem unit. Invalid or
+ * incompatible evidence fails closed instead of fabricating a lot.
+ */
+export function buildInventoryLotFromConfirmedAcquisition(
+  input: ConfirmedAcquisitionLotInput,
+  parentUnit: string,
+): InventoryLot | null {
+  const parentQuantity = quantityInParentUnit(
+    input.quantity,
+    input.unit,
+    parentUnit,
+  );
+  if (parentQuantity === null) return null;
+
+  const lot: InventoryLot = {
+    id: `lot:${input.sourceId}`,
+    sourceId: input.sourceId,
+    source: input.source,
+    acquiredAt: input.acquiredAt,
+    initialQuantity: parentQuantity,
+    remainingQuantity: parentQuantity,
+    ...(input.expiryDaysAtAcquisition !== undefined
+      ? { expiryDaysAtAcquisition: input.expiryDaysAtAcquisition }
+      : {}),
+    ...(input.initialCostEUR !== undefined
+      ? { initialCostEUR: input.initialCostEUR }
+      : {}),
+  };
+  return isValidInventoryLot(lot) ? lot : null;
+}
+
+/**
+ * Adds a newly confirmed acquisition to an existing lot state. Duplicate
+ * source provenance is an idempotent no-op; duplicate lot identity with
+ * different provenance fails closed.
+ */
+export function addConfirmedAcquisitionLot(
+  state: InventoryLotState,
+  lot: InventoryLot,
+): InventoryLotState | null {
+  if (
+    !state ||
+    !finiteNonnegative(state.unallocatedQuantity) ||
+    !Array.isArray(state.activeLots) ||
+    !isValidInventoryLot(lot)
+  ) {
+    return null;
+  }
+  if (state.activeLots.some((existing) => existing.sourceId === lot.sourceId)) {
+    return state;
+  }
+  if (state.activeLots.some((existing) => existing.id === lot.id)) {
+    return null;
+  }
+  return {
+    unallocatedQuantity: state.unallocatedQuantity,
+    activeLots: [...state.activeLots, lot],
+  };
+}
