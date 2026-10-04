@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { confirmCookTransaction, type ConfirmedCookState } from '../src/utils/confirmedCookTransaction';
-import { cookAllocationSignature, normalizeCookLotEvidence } from '../src/utils/confirmedCookFirestore';
+import { cookAllocationSignature, cookLotEvidenceMatchesConfirmedAllocations, normalizeCookLotEvidence } from '../src/utils/confirmedCookFirestore';
 
 const initialState: ConfirmedCookState = {
   pantry: [
@@ -177,6 +177,61 @@ test("cook lot evidence rejects impossible reviewed calendar dates", () => {
         deductions: [{ lotId: "lot-a", quantity: 0.5 }],
       }],
       new Set(["potatoes"]),
+    ),
+    null,
+  );
+});
+
+
+test("cook lot evidence must account for the complete confirmed aggregate deduction", () => {
+  const confirmation = {
+    cookConfirmationId: "cook-lot-reconcile",
+    mealId: "musaka",
+    confirmed: true,
+    ingredients: [
+      { ingredientId: "potato-a", pantryItemId: "potatoes", quantity: 0.3, unit: "kg" },
+      { ingredientId: "potato-b", pantryItemId: "potatoes", quantity: 0.2, unit: "kg" },
+    ],
+  };
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations(confirmation, [{
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [
+        { lotId: "lot-a", quantity: 0.3 },
+        { lotId: "lot-b", quantity: 0.2 },
+      ],
+    }]),
+    true,
+  );
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations(confirmation, [{
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [{ lotId: "lot-a", quantity: 0.3 }],
+    }]),
+    false,
+  );
+});
+
+test("cook replay signature rejects partial physical lot attribution", () => {
+  const confirmation = {
+    cookConfirmationId: "cook-partial-lot",
+    mealId: "musaka",
+    confirmed: true,
+    ingredients: [
+      { ingredientId: "potato", pantryItemId: "potatoes", quantity: 0.5, unit: "kg" },
+    ],
+  };
+  assert.equal(
+    cookAllocationSignature(
+      confirmation,
+      [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 2 }],
+      [{
+        pantryItemId: "potatoes",
+        reviewedOn: "2026-10-04",
+        deductions: [{ lotId: "lot-a", quantity: 0.3 }],
+      }],
     ),
     null,
   );
