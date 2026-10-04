@@ -91,6 +91,7 @@ export function useFirebaseSync(
     confirmation: CookConfirmation;
     expectedStock: AtomicCookExpectedStock[];
     expectedRemaining: Map<string, number>;
+    lotEvidence?: readonly ConfirmedCookLotEvidence[];
   }>>(new Map());
 
   useEffect(() => {
@@ -791,6 +792,7 @@ export function useFirebaseSync(
   const submitConfirmedCook = async (
     visiblePantry: PantryItem[],
     confirmation: CookConfirmation,
+    lotEvidence?: readonly ConfirmedCookLotEvidence[],
   ): Promise<{ accepted: boolean; issueCount: number }> => {
     const uid = currentUser?.uid;
     const cookId =
@@ -891,6 +893,7 @@ export function useFirebaseSync(
         userId: uid,
         confirmation: prepared.confirmation,
         expectedStock: prepared.expectedStock,
+        lotEvidence: prepared.lotEvidence,
       });
       if (result.outcome === "needs-review") {
         preparedCookConfirmations.current.delete(cookId);
