@@ -17,6 +17,7 @@ import { t } from "../utils/translations";
 import { validateManualPantryRequiredFields } from "../utils/manualPantryValidation";
 import { knownPantryCostEUR, summarizePantryCosts } from "../utils/pantryCostSummary";
 import { derivePantryItemExpiry } from "../utils/effectiveExpiry";
+import { useLocalCalendarDay } from "../hooks/useLocalCalendarDay";
 import { ConfirmModal } from "./ConfirmModal";
 import { ScanModal } from "./ScanModal";
 
@@ -53,6 +54,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
   const [showScanModal, setShowScanModal] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearMutationId, setClearMutationId] = useState<string | null>(null);
+  const calendarDay = useLocalCalendarDay();
 
   // New item form state
   const [name, setName] = useState("");
@@ -93,7 +95,9 @@ export const PantryView: React.FC<PantryViewProps> = ({
     return matchesSearch && matchesCat;
   });
 
-  const expiryNow = new Date();
+  const expiryNow = calendarDay
+    ? new Date(`${calendarDay}T12:00:00`)
+    : new Date();
   const expiringCount = pantry.filter((item) => {
     const expiry = derivePantryItemExpiry(item, expiryNow);
     return (
