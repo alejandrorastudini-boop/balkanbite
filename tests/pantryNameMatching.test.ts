@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { isPantryNameMatch } from "../src/utils/menuAutoPlanner";
+import { isAuthoritativePantryNameMatch, isPantryNameMatch } from "../src/utils/menuAutoPlanner";
 import type { PantryItem } from "../src/types";
 
 const item = (
@@ -41,6 +41,24 @@ test("still checks explicit localized names and reviewed Bulgarian aliases", () 
   );
   assert.equal(
     isPantryNameMatch("йогурт", item("yogurt", { nameBg: "кисело мляко" })),
+    true,
+  );
+});
+
+
+test("authoritative identity rejects descriptive token containment", () => {
+  assert.equal(isAuthoritativePantryNameMatch("egg", item("fresh eggs")), false);
+  assert.equal(isAuthoritativePantryNameMatch("olive oil", item("extra virgin olive oil")), false);
+  assert.equal(isAuthoritativePantryNameMatch("pepper", item("red pepper")), false);
+});
+
+test("authoritative identity keeps exact localized names and reviewed aliases", () => {
+  assert.equal(
+    isAuthoritativePantryNameMatch("tomate", item("tomato", { nameEs: "tomate" })),
+    true,
+  );
+  assert.equal(
+    isAuthoritativePantryNameMatch("йогурт", item("yogurt", { nameBg: "кисело мляко" })),
     true,
   );
 });
