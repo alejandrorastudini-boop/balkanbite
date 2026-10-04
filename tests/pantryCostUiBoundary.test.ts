@@ -2,7 +2,10 @@ import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
 
-const translations = fs.readFileSync(\n  new URL("../src/utils/translations.ts", import.meta.url),\n  "utf8",\n);
+const translations = fs.readFileSync(
+  new URL("../src/utils/translations.ts", import.meta.url),
+  "utf8",
+);
 const source = fs.readFileSync(
   new URL("../src/components/PantryView.tsx", import.meta.url),
   "utf8",
