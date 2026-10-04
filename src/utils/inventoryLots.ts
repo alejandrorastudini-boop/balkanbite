@@ -5,16 +5,6 @@ export type InventoryLotSource =
   | "shopping_list"
   | "confirmed_reconciliation";
 
-export interface ConfirmedLotAcquisition {
-  sourceId: string;
-  source: InventoryLotSource;
-  quantity: number;
-  unit: string;
-  acquiredAt: string;
-  /** Only explicit human/verified expiry evidence belongs here. */
-  expiryDaysAtAcquisition?: number;
-}
-
 export interface InventoryLot {
   /** Stable acquisition provenance identity; not a display name. */
   id: string;
@@ -121,80 +111,6 @@ export function inventoryLotStateMatchesQuantity(
   return Math.abs(total - pantryQuantity) <= EPSILON;
 }
 
-export function buildInventoryLotFromConfirmedAcquisition(
-  acquisition: ConfirmedLotAcquisition,
-  parentUnit: string,
-): InventoryLot | null {
-  if (
-    !safeId(acquisition?.sourceId) ||
-    (acquisition.source !== "shopping_list" &&
-      acquisition.source !== "confirmed_reconciliation") ||
-    !validCalendarDate(acquisition.acquiredAt) ||
-    (acquisition.expiryDaysAtAcquisition !== undefined &&
-      (!finiteNonnegative(acquisition.expiryDaysAtAcquisition) ||
-        !Number.isInteger(acquisition.expiryDaysAtAcquisition)))
-  ) {
-    return null;
-  }
-
-  const quantity = quantityInParentUnit(
-    acquisition.quantity,
-    acquisition.unit,
-    parentUnit,
-  );
-  if (!quantity) return null;
-
-  const lot: InventoryLot = {
-    id: `lot:${acquisition.sourceId}`,
-    sourceId: acquisition.sourceId,
-    source: acquisition.source,
-    acquiredAt: acquisition.acquiredAt,
-    initialQuantity: quantity,
-    remainingQuantity: quantity,
-    ...(acquisition.expiryDaysAtAcquisition !== undefined
-      ? { expiryDaysAtAcquisition: acquisition.expiryDaysAtAcquisition }
-      : {}),
-  };
-  return isValidInventoryLot(lot) ? lot : null;
-}
-
-export type AppendInventoryLotResult =
-  | { outcome: "applied"; state: InventoryLotState }
-  | { outcome: "already-applied"; state: InventoryLotState }
-  | { outcome: "invalid"; state: InventoryLotState };
-
-export function appendConfirmedAcquisitionLot(
-  state: InventoryLotState,
-  acquisition: ConfirmedLotAcquisition,
-  parentUnit: string,
-): AppendInventoryLotResult {
-  if (
-    !state ||
-    !finiteNonnegative(state.unallocatedQuantity) ||
-    !Array.isArray(state.activeLots) ||
-    state.activeLots.some((lot) => !isValidInventoryLot(lot))
-  ) {
-    return { outcome: "invalid", state };
-  }
-
-  if (state.activeLots.some((lot) => lot.sourceId === acquisition.sourceId)) {
-    return { outcome: "already-applied", state };
-  }
-
-  const lot = buildInventoryLotFromConfirmedAcquisition(acquisition, parentUnit);
-  if (!lot || state.activeLots.some((item) => item.id === lot.id)) {
-    return { outcome: "invalid", state };
-  }
-
-  return {
-    outcome: "applied",
-    state: {
-      unallocatedQuantity: state.unallocatedQuantity,
-      activeLots: [...state.activeLots, lot],
-    },
-  };
-}
-
 export function deriveInventoryLotExpiry(
   lot: InventoryLot,
   now: Date = new Date(),
@@ -243,7 +159,6 @@ export interface ConfirmedAcquisitionLotInput {
   unit: string;
   parentUnit: string;
   expiryDaysAtAcquisition?: number;
-  initialCostEUR?: number;
 }
 
 /**
@@ -266,9 +181,7 @@ export function buildInventoryLotFromConfirmedAcquisition(
     converted === null ||
     (input.expiryDaysAtAcquisition !== undefined &&
       (!finiteNonnegative(input.expiryDaysAtAcquisition) ||
-        !Number.isInteger(input.expiryDaysAtAcquisition))) ||
-    (input.initialCostEUR !== undefined &&
-      !finiteNonnegative(input.initialCostEUR))
+        !Number.isInteger(input.expiryDaysAtAcquisition)))
   ) {
     return null;
   }
@@ -282,9 +195,6 @@ export function buildInventoryLotFromConfirmedAcquisition(
     remainingQuantity: converted,
     ...(input.expiryDaysAtAcquisition !== undefined
       ? { expiryDaysAtAcquisition: input.expiryDaysAtAcquisition }
-      : {}),
-    ...(input.initialCostEUR !== undefined
-      ? { initialCostEUR: input.initialCostEUR }
       : {}),
   };
   return isValidInventoryLot(lot) ? lot : null;
