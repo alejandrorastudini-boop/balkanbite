@@ -178,7 +178,7 @@ test("purchase writer serializes verified lot state and rejects inconsistent ove
     category: "Produce" as const,
     addedAt: "2026-09-01",
     lotState: {
-      version: 1,
+      version: 1 as const,
       unallocatedQuantity: 1,
       activeLots: [{
         id: "acquisition:shopping:s1",
@@ -214,7 +214,7 @@ test("purchase plan fails closed on an inconsistent explicit lot overlay", () =>
     addedAt: "2026-09-01",
     cookRevision: 2,
     lotState: {
-      version: 1,
+      version: 1 as const,
       unallocatedQuantity: 0,
       activeLots: [{
         id: "shopping:stale",
