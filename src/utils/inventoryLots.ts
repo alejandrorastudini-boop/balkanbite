@@ -346,3 +346,82 @@ export function appendConfirmedInventoryLot(
     ? stateAfter
     : null;
 }
+
+
+export interface ConfirmedAcquisitionLotInput {
+  source: InventoryLotSource;
+  sourceId: string;
+  acquiredAt: string;
+  quantity: number;
+  unit: string;
+  parentUnit: string;
+  expiryDaysAtAcquisition?: number;
+  initialCostEUR?: number;
+}
+
+/**
+ * Builds active-lot state only from explicit acquisition evidence.
+ * It does not mutate PantryItem or purchaseHistory and fails closed when
+ * quantity/unit/date/expiry/cost evidence is invalid.
+ */
+export function buildConfirmedAcquisitionLot(
+  input: ConfirmedAcquisitionLotInput,
+): InventoryLot | null {
+  const parentQuantity = quantityInParentUnit(
+    input.quantity,
+    input.unit,
+    input.parentUnit,
+  );
+  if (parentQuantity === null) return null;
+
+  const lot: InventoryLot = {
+    id: `lot:${input.source}:${input.sourceId}`,
+    sourceId: input.sourceId,
+    source: input.source,
+    acquiredAt: input.acquiredAt,
+    initialQuantity: parentQuantity,
+    remainingQuantity: parentQuantity,
+    ...(input.expiryDaysAtAcquisition === undefined
+      ? {}
+      : { expiryDaysAtAcquisition: input.expiryDaysAtAcquisition }),
+    ...(input.initialCostEUR === undefined
+      ? {}
+      : { initialCostEUR: input.initialCostEUR }),
+  };
+
+  return isValidInventoryLot(lot) ? lot : null;
+}
+
+export function appendConfirmedAcquisitionLot(
+  pantryQuantityBefore: number,
+  pantryUnit: string,
+  state: InventoryLotState,
+  lot: InventoryLot,
+): InventoryLotState | null {
+  if (
+    !inventoryLotStateMatchesQuantity(
+      pantryQuantityBefore,
+      pantryUnit,
+      state,
+    ) ||
+    !isValidInventoryLot(lot) ||
+    state.activeLots.some(
+      (existing) =>
+        existing.id === lot.id || existing.sourceId === lot.sourceId,
+    )
+  ) {
+    return null;
+  }
+
+  const nextState: InventoryLotState = {
+    unallocatedQuantity: state.unallocatedQuantity,
+    activeLots: [...state.activeLots, lot],
+  };
+  return inventoryLotStateMatchesQuantity(
+    pantryQuantityBefore + lot.remainingQuantity,
+    pantryUnit,
+    nextState,
+  )
+    ? nextState
+    : null;
+}
