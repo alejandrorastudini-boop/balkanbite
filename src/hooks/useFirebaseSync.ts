@@ -814,9 +814,11 @@ export function useFirebaseSync(
 
     const normalizedLotEvidence = normalizeCookLotEvidence(
       lotEvidence,
-      confirmation.ingredients
-        .map(item => item.pantryItemId)
-        .filter((value): value is string => typeof value === "string"),
+      new Set(
+        confirmation.ingredients
+          .map(item => item.pantryItemId)
+          .filter((value): value is string => typeof value === "string"),
+      ),
     );
     if (normalizedLotEvidence === null) {
       return { accepted: false, issueCount: 1 };
