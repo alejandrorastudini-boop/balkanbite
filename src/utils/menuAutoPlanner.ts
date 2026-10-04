@@ -17,26 +17,12 @@ const normalizeIngredientName = (value: string): string =>
 
 const singularStem = (value: string): string => value.replace(/s$/, "");
 
-const ingredientTokens = (value: string): string[] =>
-  normalizeIngredientName(value)
-    .split(/\s+/)
-    .map(singularStem)
-    .filter((word) => word.length > 2);
-
-function hasWholeTokenRequirementMatch(target: string, candidate: string): boolean {
-  const requiredTokens = ingredientTokens(target);
-  const candidateTokens = new Set(ingredientTokens(candidate));
-  return (
-    requiredTokens.length > 0 &&
-    requiredTokens.every((token) => candidateTokens.has(token))
-  );
-}
-
 /**
  * Matches pantry names conservatively. Character-substring matching is unsafe
  * for food identity ("egg" must not match "eggplant", "oil" must not match
  * "boiled"). A requirement can match an exact/localized name, a reviewed
- * Bulgarian alias, or complete requirement tokens present in the pantry name.
+ * Bulgarian alias, or conservative singular/plural equality. Descriptive-name
+ * equivalence requires an explicit reviewed alias rather than token inference.
  */
 export function isPantryNameMatch(ingredientName: string, pantryItem: PantryItem): boolean {
   const target = normalizeIngredientName(ingredientName);
@@ -51,8 +37,7 @@ export function isPantryNameMatch(ingredientName: string, pantryItem: PantryItem
   return candidates.some((candidate) => {
     if (areReviewedBulgarianFoodAliases(target, candidate)) return true;
     if (target === candidate) return true;
-    if (singularStem(target) === singularStem(candidate)) return true;
-    return hasWholeTokenRequirementMatch(target, candidate);
+    return singularStem(target) === singularStem(candidate);
   });
 }
 
