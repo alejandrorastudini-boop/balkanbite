@@ -52,3 +52,12 @@ test("manual expiry input only accepts representable whole calendar days", () =>
   );
   assert.match(expiryInput, /step="1"/);
 });
+
+
+test("mounted pantry refreshes expiry at local day rollover and when returning to the app", () => {
+  assert.match(pantryView, /millisecondsUntilNextLocalDay\(\)/);
+  assert.match(pantryView, /setTimeout\(refreshCalendarDay, delay \+ 50\)/);
+  assert.match(pantryView, /addEventListener\("focus", refreshCalendarDay\)/);
+  assert.match(pantryView, /addEventListener\("visibilitychange", refreshWhenVisible\)/);
+  assert.match(pantryView, /clearTimeout\(timer\)/);
+});
