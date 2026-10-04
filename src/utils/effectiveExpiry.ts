@@ -15,7 +15,7 @@ function finiteNonnegative(value: unknown): value is number {
 
 function storedCalendarDay(value: unknown): number | null {
   if (typeof value !== "string") return null;
-  const match = value.trim().match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+  const match = value.trim().match(/^(\d{4})-(\d{2})-(\d{2})/);
   if (!match) return null;
   const year = Number(match[1]);
   const month = Number(match[2]);
@@ -57,7 +57,7 @@ function isoDate(dayMs: number): string {
  * Existing pantry creation stores capture provenance as YYYY-MM-DD, so the
  * historical data cannot support hour-level expiry precision. A value of 0
  * means the entered expiry day is the capture day; it becomes past only on
- * the following UTC calendar day. The capture date and current date are interpreted as local calendar dates;
+ * the following local calendar day. The capture date and current date are interpreted as local calendar dates;
  * no hour-level precision is invented.
  */
 export function deriveEffectiveExpiry(
