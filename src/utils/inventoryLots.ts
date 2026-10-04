@@ -271,6 +271,11 @@ export function applyConfirmedAcquisitionToLotState(
       !inventoryLotStateMatchesQuantity(currentQuantity, parentUnit, baseState)) {
     return null;
   }
+  if (baseState.activeLots.some(
+    (existing) => existing.sourceId === acquisition.sourceId,
+  )) {
+    return baseState;
+  }
 
   const lot = buildInventoryLotFromConfirmedAcquisition(
     acquisition,
