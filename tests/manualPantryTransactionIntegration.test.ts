@@ -35,9 +35,9 @@ test("signed-in manual quantity edit does not optimistically mutate local pantry
     handler.indexOf("setPantry"),
   );
   assert.doesNotMatch(signedInBlock, /setPantry\(/);
-  assert.match(handler, /setPantry\(\(prev\) =>/);
-});
-
+  assert.ok(handler.includes("setPantry((prev) => {"));
+  assert.ok(handler.includes("const updatedPantry = prev.filter"));
+  assert.ok(handler.includes("reconcileGuestPantryDerivedState(updatedPantry)"));
 test("signed-in manual delete waits for committed remote snapshot while guest delete stays local", () => {
   const start = appSource.indexOf("const handleDeletePantryItem");
   const end = appSource.indexOf("const handleClearPantry", start);
