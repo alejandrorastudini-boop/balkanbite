@@ -339,3 +339,49 @@ test("confirmed acquisition rejects invalid monetary evidence", () => {
     null,
   );
 });
+
+
+test("optional persisted lot state is usable only when it reconciles to the parent pantry item", async () => {
+  const { getVerifiedInventoryLotState } = await import("../src/utils/inventoryLots");
+  const pantry = {
+    id: "milk",
+    name: "Milk",
+    quantity: 1,
+    unit: "L",
+    category: "Dairy" as const,
+    addedAt: "2026-10-04",
+    lotState: {
+      unallocatedQuantity: 0.25,
+      activeLots: [
+        {
+          id: "shopping:milk-1",
+          sourceId: "shopping:milk-1",
+          source: "shopping_list" as const,
+          acquiredAt: "2026-10-04",
+          initialQuantity: 0.75,
+          remainingQuantity: 0.75,
+        },
+      ],
+    },
+  };
+  assert.deepEqual(getVerifiedInventoryLotState(pantry), pantry.lotState);
+  assert.equal(
+    getVerifiedInventoryLotState({ ...pantry, quantity: 2 }),
+    null,
+  );
+});
+
+test("legacy pantry without persisted lot state remains valid but has no invented lot precision", async () => {
+  const { getVerifiedInventoryLotState } = await import("../src/utils/inventoryLots");
+  assert.equal(
+    getVerifiedInventoryLotState({
+      id: "rice",
+      name: "Rice",
+      quantity: 1,
+      unit: "kg",
+      category: "Pantry/Grains",
+      addedAt: "2026-10-04",
+    }),
+    null,
+  );
+});
