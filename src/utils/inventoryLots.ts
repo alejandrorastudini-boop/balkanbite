@@ -1,30 +1,13 @@
+import type {
+  InventoryLot,
+  InventoryLotSource,
+  InventoryLotState,
+  PantryItem,
+} from "../types";
 import { deriveEffectiveExpiry, type EffectiveExpiry } from "./effectiveExpiry";
 import { normalizeQuantity } from "./quantityUnits";
 
-export type InventoryLotSource =
-  | "shopping_list"
-  | "confirmed_reconciliation";
-
-export interface InventoryLot {
-  /** Stable acquisition provenance identity; not a display name. */
-  id: string;
-  sourceId: string;
-  source: InventoryLotSource;
-  acquiredAt: string;
-  /** Stored in the parent PantryItem unit. */
-  initialQuantity: number;
-  remainingQuantity: number;
-  /** Whole calendar days from acquiredAt when explicitly evidenced. */
-  expiryDaysAtAcquisition?: number;
-  /** Optional initial line cost evidence. Never a mutable remaining value. */
-  initialEstimatedCostEUR?: number;
-}
-
-export interface InventoryLotState {
-  /** Stock whose acquisition-lot allocation is unknown. */
-  unallocatedQuantity: number;
-  activeLots: InventoryLot[];
-}
+export type { InventoryLot, InventoryLotSource, InventoryLotState } from "../types";
 
 const EPSILON = 1e-9;
 
@@ -350,5 +333,20 @@ export function appendConfirmedInventoryLot(
     stateAfter,
   )
     ? stateAfter
+    : null;
+}
+
+
+/**
+ * Returns a persisted lot allocation only when it is internally valid and
+ * exactly reconciles to the parent aggregate quantity/unit.
+ */
+export function getVerifiedInventoryLotState(
+  item: PantryItem,
+): InventoryLotState | null {
+  const state = item.lotState;
+  if (!state) return null;
+  return inventoryLotStateMatchesQuantity(item.quantity, item.unit, state)
+    ? state
     : null;
 }
