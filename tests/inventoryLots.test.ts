@@ -339,3 +339,49 @@ test("confirmed acquisition rejects invalid monetary evidence", () => {
     null,
   );
 });
+
+
+test("lot-state persistence boundary accepts only invariant-preserving explicit payloads", async () => {
+  const { parseInventoryLotStateForParent } = await import("../src/utils/inventoryLots");
+  const payload = {
+    unallocatedQuantity: 0.25,
+    activeLots: [lot],
+  };
+  assert.deepEqual(
+    parseInventoryLotStateForParent(payload, 1, "kg"),
+    payload,
+  );
+  assert.equal(
+    parseInventoryLotStateForParent(payload, 1.1, "kg"),
+    null,
+  );
+  assert.equal(
+    parseInventoryLotStateForParent(
+      { unallocatedQuantity: 0.25, activeLots: [{ ...lot, sourceId: "" }] },
+      1,
+      "kg",
+    ),
+    null,
+  );
+  assert.equal(
+    parseInventoryLotStateForParent(
+      { unallocatedQuantity: 1, activeLots: [] },
+      1,
+      "mystery-unit",
+    ),
+    null,
+  );
+});
+
+test("lot-state persistence boundary returns a detached state instead of aliasing input", async () => {
+  const { parseInventoryLotStateForParent } = await import("../src/utils/inventoryLots");
+  const payload = {
+    unallocatedQuantity: 0.25,
+    activeLots: [lot],
+  };
+  const parsed = parseInventoryLotStateForParent(payload, 1, "kg");
+  assert.ok(parsed);
+  assert.notEqual(parsed, payload);
+  assert.notEqual(parsed.activeLots, payload.activeLots);
+  assert.notEqual(parsed.activeLots[0], payload.activeLots[0]);
+});
