@@ -156,6 +156,46 @@ export function normalizeCookLotEvidence(
  * Deterministic comparison of the exact reviewed cook request.
  * This is not a cryptographic signature or authorization token.
  */
+export function cookLotEvidenceMatchesConfirmedAllocations(
+  confirmation: CookConfirmation,
+  lotEvidence: readonly ConfirmedCookLotEvidence[] | undefined,
+): boolean {
+  if (lotEvidence === undefined) return true;
+  if (!Array.isArray(confirmation.ingredients) || confirmation.ingredients.length === 0) return false;
+
+  const confirmedByPantry = new Map<string, { quantity: number; unit: string }>();
+  for (const ingredient of confirmation.ingredients) {
+    if (
+      !isSafeInventoryLogicalId(ingredient.pantryItemId) ||
+      !validQuantity(ingredient.quantity) ||
+      typeof ingredient.unit !== "string" ||
+      !ingredient.unit.trim()
+    ) return false;
+    const current = confirmedByPantry.get(ingredient.pantryItemId);
+    if (current && current.unit !== ingredient.unit) return false;
+    confirmedByPantry.set(ingredient.pantryItemId, {
+      quantity: (current?.quantity ?? 0) + ingredient.quantity,
+      unit: ingredient.unit,
+    });
+  }
+
+  const evidenceByPantry = new Map<string, number>();
+  for (const evidence of lotEvidence) {
+    if (!evidence || !Array.isArray(evidence.deductions)) return false;
+    const total = evidence.deductions.reduce((sum, deduction) =>
+      sum + (validQuantity(deduction?.quantity) ? deduction.quantity : Number.NaN), 0);
+    if (!Number.isFinite(total) || evidenceByPantry.has(evidence.pantryItemId)) return false;
+    evidenceByPantry.set(evidence.pantryItemId, total);
+  }
+
+  if (evidenceByPantry.size !== confirmedByPantry.size) return false;
+  for (const [pantryItemId, confirmed] of confirmedByPantry) {
+    const attributed = evidenceByPantry.get(pantryItemId);
+    if (attributed === undefined || Math.abs(attributed - confirmed.quantity) > 1e-9) return false;
+  }
+  return true;
+}
+
 export function cookAllocationSignature(
   confirmation: CookConfirmation,
   expectedStock: readonly AtomicCookExpectedStock[],
@@ -215,7 +255,7 @@ export function cookAllocationSignature(
   }
 
   const normalizedLotEvidence = normalizeCookLotEvidence(lotEvidence, expectedIds);
-  if (!normalizedLotEvidence) return null;
+  if (!normalizedLotEvidence || !cookLotEvidenceMatchesConfirmedAllocations(confirmation, lotEvidence)) return null;
 
   allocations.sort((a, b) =>
     a.ingredientId.localeCompare(b.ingredientId) ||
