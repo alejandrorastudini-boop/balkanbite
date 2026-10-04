@@ -81,7 +81,7 @@ import {
 } from "./utils/verifiedMealLog";
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
 import { hasValidManualShoppingRequiredFields } from "./utils/manualShoppingValidation";
-import { localCalendarDate } from "./utils/effectiveExpiry";
+import { localCalendarDate, shouldMarkExpiryPartialAfterQuantityIncrease } from "./utils/effectiveExpiry";
 import { isExpectedInventoryResultVisible } from "./utils/expectedInventoryResult";
 import {
   getFoodSafetyQuarantine,
@@ -1234,7 +1234,18 @@ export default function App() {
     setPantry((prev) => {
       const updatedPantry = prev.map((item) =>
         item.id === id
-          ? { ...item, quantity: newQty, estimatedCostEUR: null }
+          ? {
+              ...item,
+              quantity: newQty,
+              estimatedCostEUR: null,
+              ...(shouldMarkExpiryPartialAfterQuantityIncrease(
+                item.quantity,
+                newQty,
+                item.expiryDaysLeft,
+              )
+                ? { expiryIsPartial: true }
+                : {}),
+            }
           : item,
       );
       reconcileGuestPantryDerivedState(updatedPantry);
