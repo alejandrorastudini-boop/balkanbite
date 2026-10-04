@@ -106,6 +106,7 @@ export async function persistVerifiedInventoryAdjustment(
 
         tx.update(reference, {
           quantity: adjustment.quantity,
+          estimatedCostEUR: null,
           cookRevision: nextRevision,
           _deleted: false,
           deletedAt: null,
