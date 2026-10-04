@@ -33,7 +33,9 @@ test("aggregate quantity mutations collapse lot precision instead of inferring F
   const clear = read("src/utils/inventoryClearFirestore.ts");
   const app = read("src/App.tsx");
 
-  assert.match(cook, /lotState: \{ version: 1, unallocatedQuantity: quantity, activeLots: \[\] \}/);
+  assert.match(cook, /lotState: hasExactLotEvidence[\s\S]*\? exactLotState[\s\S]*: \{ version: 1, unallocatedQuantity: quantity, activeLots: \[\] \}/);
+  assert.match(cook, /const evidence = lotEvidenceById\.get\(expected\.pantryItemId\)/);
+  assert.match(cook, /applyConfirmedInventoryLotDeduction\(/);
   assert.match(cook, /lotState: \{ version: 1, unallocatedQuantity: 0, activeLots: \[\] \}/);
   assert.match(voice, /lotState: \{ version: 1, unallocatedQuantity: remaining, activeLots: \[\] \}/);
   assert.match(voice, /lotState: \{ version: 1, unallocatedQuantity: 0, activeLots: \[\] \}/);
