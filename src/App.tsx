@@ -1234,7 +1234,17 @@ export default function App() {
     setPantry((prev) => {
       const updatedPantry = prev.map((item) =>
         item.id === id
-          ? { ...item, quantity: newQty, estimatedCostEUR: null }
+          ? {
+              ...item,
+              quantity: newQty,
+              estimatedCostEUR: null,
+              ...(newQty > item.quantity &&
+              typeof item.expiryDaysLeft === "number" &&
+              Number.isFinite(item.expiryDaysLeft) &&
+              item.expiryDaysLeft >= 0
+                ? { expiryIsPartial: true }
+                : {}),
+            }
           : item,
       );
       reconcileGuestPantryDerivedState(updatedPantry);
