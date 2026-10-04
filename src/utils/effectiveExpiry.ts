@@ -13,26 +13,38 @@ function finiteNonnegative(value: unknown): value is number {
   return typeof value === "number" && Number.isFinite(value) && value >= 0;
 }
 
-function utcCalendarDay(value: unknown): number | null {
-  if (typeof value !== "string" || !value.trim()) return null;
-  const parsed = new Date(value);
-  const time = parsed.getTime();
-  if (!Number.isFinite(time)) return null;
-  return Date.UTC(
-    parsed.getUTCFullYear(),
-    parsed.getUTCMonth(),
-    parsed.getUTCDate(),
-  );
+function storedCalendarDay(value: unknown): number | null {
+  if (typeof value !== "string") return null;
+  const match = value.trim().match(/^(\\d{4})-(\\d{2})-(\\d{2})/);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const result = Date.UTC(year, month - 1, day);
+  const check = new Date(result);
+  if (
+    check.getUTCFullYear() !== year ||
+    check.getUTCMonth() !== month - 1 ||
+    check.getUTCDate() !== day
+  ) {
+    return null;
+  }
+  return result;
 }
 
-function utcCalendarDayFromDate(value: Date): number | null {
+function localCalendarDayFromDate(value: Date): number | null {
   const time = value.getTime();
   if (!Number.isFinite(time)) return null;
   return Date.UTC(
-    value.getUTCFullYear(),
-    value.getUTCMonth(),
-    value.getUTCDate(),
+    value.getFullYear(),
+    value.getMonth(),
+    value.getDate(),
   );
+}
+
+export function localCalendarDate(value: Date = new Date()): string | null {
+  const day = localCalendarDayFromDate(value);
+  return day === null ? null : isoDate(day);
 }
 
 function isoDate(dayMs: number): string {
@@ -45,8 +57,8 @@ function isoDate(dayMs: number): string {
  * Existing pantry creation stores capture provenance as YYYY-MM-DD, so the
  * historical data cannot support hour-level expiry precision. A value of 0
  * means the entered expiry day is the capture day; it becomes past only on
- * the following UTC calendar day. This matches the UTC date convention used
- * by the existing addedAt writers without inventing a capture time.
+ * the following UTC calendar day. The capture date and current date are interpreted as local calendar dates;
+ * no hour-level precision is invented.
  */
 export function deriveEffectiveExpiry(
   expiryDaysAtCapture: unknown,
@@ -60,8 +72,8 @@ export function deriveEffectiveExpiry(
     return { status: "unknown" };
   }
 
-  const capturedDay = utcCalendarDay(capturedAt);
-  const nowDay = utcCalendarDayFromDate(now);
+  const capturedDay = storedCalendarDay(capturedAt);
+  const nowDay = localCalendarDayFromDate(now);
   if (capturedDay === null || nowDay === null) return { status: "unknown" };
 
   const expiresDay = capturedDay + expiryDaysAtCapture * DAY_MS;
