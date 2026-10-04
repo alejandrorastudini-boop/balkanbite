@@ -117,3 +117,12 @@ test("multi-lot review requires explicit per-purchase quantities and never auto-
   assert.ok(modalSource.includes('selections[prompt.pantryItemId] === "unknown"'));
   assert.equal(modalSource.includes("remainingQuantity - prompt.requiredQuantity"), false);
 });
+
+test("multi-lot review disables confirmation until entered quantities exactly match required consumption", () => {
+  const modalSource = readFileSync(
+    new URL("../src/components/CookLotReviewModal.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(modalSource.includes("allocationTotal(prompt.pantryItemId) - prompt.requiredQuantity"));
+  assert.ok(modalSource.includes("disabled={!complete || busy}"));
+});
