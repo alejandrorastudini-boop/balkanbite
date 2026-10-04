@@ -12,6 +12,7 @@ import {
   recommendInventoryLotsForUse,
   type InventoryLot,
 } from "../src/utils/inventoryLots";
+import type { InventoryLotState } from "../src/types";
 
 const lot: InventoryLot = {
   id: "lot-shopping-item-1",
