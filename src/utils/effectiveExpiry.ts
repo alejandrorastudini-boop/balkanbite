@@ -109,3 +109,20 @@ export function derivePantryItemExpiry(
   if (item.expiryIsPartial) return { status: "unknown" };
   return deriveEffectiveExpiry(item.expiryDaysLeft, item.addedAt, now);
 }
+
+
+/**
+ * Automatic planning/use may proceed when expiry is genuinely absent, but not
+ * when explicit expiry evidence is known to be past or cannot be interpreted
+ * reliably. Partial merged expiry also requires review because aggregate stock
+ * is not an authoritative remaining-lot ledger.
+ */
+export function pantryItemNeedsExpiryReview(
+  item: PantryExpiryEvidence,
+  now: Date = new Date(),
+): boolean {
+  if (item.expiryIsPartial) return true;
+  if (item.expiryDaysLeft === undefined) return false;
+  const expiry = derivePantryItemExpiry(item, now);
+  return expiry.status === "unknown" || expiry.expired;
+}
