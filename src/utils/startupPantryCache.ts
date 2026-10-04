@@ -1,4 +1,5 @@
 import { PantryItem } from "../types";
+import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
 
 export function getUserPantryCacheKey(userId: string): string {
   return `balkanbite_pantry_user_${userId}`;
@@ -17,7 +18,9 @@ function isCachedPantryItem(value: unknown): value is PantryItem {
     Number.isFinite(item.quantity) &&
     item.quantity > 0 &&
     typeof item.unit === "string" &&
-    item.unit.trim().length > 0
+    item.unit.trim().length > 0 &&
+    (item.lotState === undefined ||
+      inventoryLotStateMatchesQuantity(item.quantity, item.unit, item.lotState as PantryItem["lotState"]))
   );
 }
 
