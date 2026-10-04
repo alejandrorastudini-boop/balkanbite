@@ -75,6 +75,27 @@ export function isValidInventoryLot(lot: InventoryLot): boolean {
   );
 }
 
+export function initializeLegacyInventoryLotState(
+  pantryQuantity: unknown,
+): InventoryLotState | null {
+  if (!finitePositive(pantryQuantity)) return null;
+  return {
+    unallocatedQuantity: pantryQuantity,
+    activeLots: [],
+  };
+}
+
+/**
+ * A generic absolute quantity correction does not identify which acquisition
+ * lot changed. Preserve truth by discarding the remaining lot allocation and
+ * treating the newly declared amount as unallocated stock.
+ */
+export function collapseLotAllocationAfterManualQuantityEdit(
+  newQuantity: unknown,
+): InventoryLotState | null {
+  return initializeLegacyInventoryLotState(newQuantity);
+}
+
 export function inventoryLotStateMatchesQuantity(
   pantryQuantity: unknown,
   pantryUnit: unknown,
