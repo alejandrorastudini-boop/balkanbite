@@ -36,8 +36,10 @@ test("signed-in manual quantity edit does not optimistically mutate local pantry
   );
   assert.doesNotMatch(signedInBlock, /setPantry\(/);
   assert.ok(handler.includes("setPantry((prev) => {"));
-  assert.ok(handler.includes("const updatedPantry = prev.filter"));
+  assert.ok(handler.includes("const updatedPantry = prev.map"));
   assert.ok(handler.includes("reconcileGuestPantryDerivedState(updatedPantry)"));
+});
+
 test("signed-in manual delete waits for committed remote snapshot while guest delete stays local", () => {
   const start = appSource.indexOf("const handleDeletePantryItem");
   const end = appSource.indexOf("const handleClearPantry", start);
@@ -47,9 +49,9 @@ test("signed-in manual delete waits for committed remote snapshot while guest de
     handler,
     /if \(currentUser\) \{\s*dispatchVerifiedPantryChange\(viewed, "remove"\);\s*return;\s*\}/,
   );
-  assert.match(handler, /setPantry\\(\\(prev\\) => \\{/);
-  assert.match(handler, /const updatedPantry = prev\\.filter/);
-  assert.match(handler, /reconcileGuestPantryDerivedState\\(updatedPantry\\)/);
+  assert.ok(handler.includes("setPantry((prev) => {"));
+  assert.ok(handler.includes("const updatedPantry = prev.filter"));
+  assert.ok(handler.includes("reconcileGuestPantryDerivedState(updatedPantry)"));
 });
 
 test("hook performs verified transaction and does not directly set pantry after commit", () => {
