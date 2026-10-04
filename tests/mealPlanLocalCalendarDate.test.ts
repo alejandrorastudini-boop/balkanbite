@@ -1,12 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { adaptMealPlanToPantry } from "../src/utils/menuAutoPlanner";
-import { INITIAL_RECIPES } from "../src/data/initialData";
+import { SAMPLE_RECIPES } from "../src/data/initialData";
 
 test("adapted weekly plan starts on injected local calendar date", () => {
   const result = adaptMealPlanToPantry(
     [],
-    [INITIAL_RECIPES[0]],
+    [SAMPLE_RECIPES[0]],
     [],
     undefined,
     new Date(2026, 9, 5, 0, 30, 0, 0),
