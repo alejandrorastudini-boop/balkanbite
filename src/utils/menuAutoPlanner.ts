@@ -3,6 +3,7 @@ import { assessTotalAvailability, areUnitsCompatible, normalizeQuantity } from "
 import { areReviewedBulgarianFoodAliases } from "./bulgarianFoodAliases";
 import {
   derivePantryItemExpiry,
+  localCalendarDate,
   pantryItemNeedsExpiryReview,
 } from "./effectiveExpiry";
 
@@ -381,7 +382,7 @@ export function adaptMealPlanToPantry(
 
   const fallbackPool = scoredRecipes;
 
-  const today = new Date();
+  const today = new Date(now);
   const newPlan: MealPlanDay[] = [];
   let readyToCookMealsCount = 0;
   let perishableSavedCount = 0;
@@ -389,7 +390,8 @@ export function adaptMealPlanToPantry(
   for (let dayOffset = 0; dayOffset < 7; dayOffset++) {
     const dateObj = new Date(today);
     dateObj.setDate(today.getDate() + dayOffset);
-    const dateStr = dateObj.toISOString().split("T")[0];
+    const dateStr = localCalendarDate(dateObj);
+    if (!dateStr) continue;
 
     const breakfastIndex = dayOffset % (breakfastPool.length || 1);
     const breakfastEntry =
