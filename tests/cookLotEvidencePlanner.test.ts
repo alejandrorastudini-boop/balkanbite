@@ -127,3 +127,27 @@ test("fails closed on impossible reviewed dates and incompatible units", () => {
     "invalid",
   );
 });
+
+
+test("never offers partial exact evidence when another referenced item cannot be physically attributed", () => {
+  const beans: PantryItem = {
+    id: "beans",
+    name: "Beans",
+    quantity: 1,
+    unit: "kg",
+    category: "Pantry/Grains",
+    addedAt: "2026-10-01",
+    lotState: { version: 1, unallocatedQuantity: 1, activeLots: [] },
+  };
+  const multiItemConfirmation = {
+    ...confirmation(),
+    ingredients: [
+      ...confirmation().ingredients,
+      { ingredientId: "beans-ingredient", pantryItemId: "beans", quantity: 100, unit: "g" },
+    ],
+  };
+  assert.equal(
+    planCookLotEvidenceReview([item(), beans], multiItemConfirmation, "2026-10-04").outcome,
+    "not-needed",
+  );
+});
