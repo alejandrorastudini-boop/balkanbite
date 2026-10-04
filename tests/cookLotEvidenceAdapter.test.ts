@@ -49,7 +49,7 @@ test("any unknown in a complete multi-item review drops all exact attribution", 
   const multi: CookLotEvidencePlan = {
     outcome: "review",
     prompts: [
-      reviewPlan.outcome === "review" ? reviewPlan.prompts[0] : neverPrompt(),
+      ricePrompt,
       {
         pantryItemId: "beans",
         requiredQuantity: 0.1,
