@@ -210,5 +210,5 @@ test("replayed confirmed source does not increase lot state twice", async () => 
   };
   const first = applyConfirmedAcquisitionToLotState(1, "kg", undefined, acquisition)!;
   const replay = applyConfirmedAcquisitionToLotState(1.5, "kg", first, acquisition);
-  assert.equal(replay, null);
+  assert.equal(replay, first);
 });
