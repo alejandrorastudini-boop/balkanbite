@@ -17,7 +17,7 @@ export interface InventoryLot {
   /** Whole calendar days from acquiredAt when explicitly evidenced. */
   expiryDaysAtAcquisition?: number;
   /** Optional initial line cost evidence. Never a mutable remaining value. */
-  initialCostEUR?: number;
+  initialEstimatedCostEUR?: number;
 }
 
 export interface InventoryLotState {
@@ -70,8 +70,8 @@ export function isValidInventoryLot(lot: InventoryLot): boolean {
     (lot.expiryDaysAtAcquisition === undefined ||
       (finiteNonnegative(lot.expiryDaysAtAcquisition) &&
         Number.isInteger(lot.expiryDaysAtAcquisition))) &&
-    (lot.initialCostEUR === undefined ||
-      finiteNonnegative(lot.initialCostEUR))
+    (lot.initialEstimatedCostEUR === undefined ||
+      finiteNonnegative(lot.initialEstimatedCostEUR))
   );
 }
 
@@ -271,7 +271,7 @@ export interface ConfirmedAcquisitionLotInput {
   unit: string;
   parentUnit: string;
   expiryDaysAtAcquisition?: number;
-  initialCostEUR?: number;
+  initialEstimatedCostEUR?: number;
 }
 
 /**
@@ -295,8 +295,8 @@ export function buildInventoryLotFromConfirmedAcquisition(
     (input.expiryDaysAtAcquisition !== undefined &&
       (!finiteNonnegative(input.expiryDaysAtAcquisition) ||
         !Number.isInteger(input.expiryDaysAtAcquisition))) ||
-    (input.initialCostEUR !== undefined &&
-      !finiteNonnegative(input.initialCostEUR))
+    (input.initialEstimatedCostEUR !== undefined &&
+      !finiteNonnegative(input.initialEstimatedCostEUR))
   ) {
     return null;
   }
@@ -311,8 +311,8 @@ export function buildInventoryLotFromConfirmedAcquisition(
     ...(input.expiryDaysAtAcquisition !== undefined
       ? { expiryDaysAtAcquisition: input.expiryDaysAtAcquisition }
       : {}),
-    ...(input.initialCostEUR !== undefined
-      ? { initialCostEUR: input.initialCostEUR }
+    ...(input.initialEstimatedCostEUR !== undefined
+      ? { initialEstimatedCostEUR: input.initialEstimatedCostEUR }
       : {}),
   };
   return isValidInventoryLot(lot) ? lot : null;
