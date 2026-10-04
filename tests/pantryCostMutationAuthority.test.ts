@@ -33,12 +33,12 @@ test("aggregate quantity mutations collapse lot precision instead of inferring F
   const clear = read("src/utils/inventoryClearFirestore.ts");
   const app = read("src/App.tsx");
 
-  assert.match(cook, /lotState: \{ unallocatedQuantity: quantity, activeLots: \[\] \}/);
-  assert.match(cook, /lotState: \{ unallocatedQuantity: 0, activeLots: \[\] \}/);
-  assert.match(voice, /lotState: \{ unallocatedQuantity: remaining, activeLots: \[\] \}/);
-  assert.match(voice, /lotState: \{ unallocatedQuantity: 0, activeLots: \[\] \}/);
-  assert.match(edit, /lotState: \{ unallocatedQuantity: adjustment\.quantity, activeLots: \[\] \}/);
-  assert.match(edit, /lotState: \{ unallocatedQuantity: 0, activeLots: \[\] \}/);
+  assert.match(cook, /lotState: \{ version: 1, unallocatedQuantity: quantity, activeLots: \[\] \}/);
+  assert.match(cook, /lotState: \{ version: 1, unallocatedQuantity: 0, activeLots: \[\] \}/);
+  assert.match(voice, /lotState: \{ version: 1, unallocatedQuantity: remaining, activeLots: \[\] \}/);
+  assert.match(voice, /lotState: \{ version: 1, unallocatedQuantity: 0, activeLots: \[\] \}/);
+  assert.match(edit, /lotState: \{ version: 1, unallocatedQuantity: adjustment\.quantity, activeLots: \[\] \}/);
+  assert.match(edit, /lotState: \{ version: 1, unallocatedQuantity: 0, activeLots: \[\] \}/);
   assert.match(guest, /lotState: \{[\s\S]*unallocatedQuantity: roundQuantity\(remainingInItemUnit\),[\s\S]*activeLots: \[\]/);
   assert.match(clear, /quantity: 0,[\s\S]*lotState: \{ unallocatedQuantity: 0, activeLots: \[\] \}/);
   assert.match(app, /quantity: newQty,[\s\S]*lotState: \{ unallocatedQuantity: newQty, activeLots: \[\] \}/);
