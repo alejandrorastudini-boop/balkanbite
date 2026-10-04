@@ -196,6 +196,7 @@ export function deductRecipeIngredientsFromPantry(
           ...current,
           quantity: roundQuantity(remainingInItemUnit),
           lotState: {
+            version: 1,
             unallocatedQuantity: roundQuantity(remainingInItemUnit),
             activeLots: [],
           },
