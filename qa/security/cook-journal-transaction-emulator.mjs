@@ -275,6 +275,111 @@ try {
   assert.equal((await stock(alice, "alice", purchasedId)).cookRevision, 1);
   console.log("PASS: cook consumes purchase-provenance logical pantry ID");
 
+  // Explicit physical lot evidence is opt-in. When present, the transaction
+  // preserves unrelated lot provenance instead of collapsing all remainder.
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(inventory(context.firestore(), "alice", "lot-aware"), {
+      id: "lot-aware",
+      userId: "alice",
+      name: "QA lot-aware rice",
+      quantity: 1,
+      unit: "kg",
+      category: "Pantry/Grains",
+      addedAt: "2026-10-01",
+      cookRevision: 0,
+      _deleted: false,
+      lotState: {
+        version: 1,
+        unallocatedQuantity: 0,
+        activeLots: [
+          {
+            id: "lot-a",
+            sourceId: "purchase-a",
+            source: "shopping_list",
+            acquiredAt: "2026-10-01",
+            initialQuantity: 0.6,
+            remainingQuantity: 0.6,
+            expiryDaysAtAcquisition: 10,
+          },
+          {
+            id: "lot-b",
+            sourceId: "purchase-b",
+            source: "shopping_list",
+            acquiredAt: "2026-10-02",
+            initialQuantity: 0.4,
+            remainingQuantity: 0.4,
+            expiryDaysAtAcquisition: 10,
+          },
+        ],
+      },
+    });
+  });
+  const exactLotCook = await persistConfirmedCookAtomically(alice, {
+    userId: "alice",
+    confirmation: confirmation("qa-exact-lot", "qa-lot-meal", [
+      allocation("rice-lot", "lot-aware", 0.25, "kg"),
+    ]),
+    expectedStock: [expected("lot-aware", 1, "kg", 0)],
+    lotEvidence: [{
+      pantryItemId: "lot-aware",
+      reviewedOn: "2026-10-04",
+      deductions: [{ lotId: "lot-a", quantity: 0.25 }],
+    }],
+  });
+  assert.equal(exactLotCook.outcome, "recorded");
+  const exactLotStock = await stock(alice, "alice", "lot-aware");
+  assert.equal(exactLotStock.quantity, 0.75);
+  assert.equal(exactLotStock.lotState.unallocatedQuantity, 0);
+  assert.equal(exactLotStock.lotState.activeLots.length, 2);
+  assert.equal(exactLotStock.lotState.activeLots.find(lot => lot.id === "lot-a").remainingQuantity, 0.35);
+  assert.equal(exactLotStock.lotState.activeLots.find(lot => lot.id === "lot-b").remainingQuantity, 0.4);
+  assert.equal(exactLotStock.cookRevision, 1);
+  console.log("PASS: explicit cook lot evidence preserves unrelated physical lot provenance");
+
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(inventory(context.firestore(), "alice", "expired-lot"), {
+      id: "expired-lot",
+      userId: "alice",
+      name: "QA expired lot",
+      quantity: 0.5,
+      unit: "kg",
+      category: "Pantry/Grains",
+      addedAt: "2026-09-01",
+      cookRevision: 0,
+      _deleted: false,
+      lotState: {
+        version: 1,
+        unallocatedQuantity: 0,
+        activeLots: [{
+          id: "expired-a",
+          sourceId: "purchase-expired",
+          source: "shopping_list",
+          acquiredAt: "2026-09-01",
+          initialQuantity: 0.5,
+          remainingQuantity: 0.5,
+          expiryDaysAtAcquisition: 1,
+        }],
+      },
+    });
+  });
+  const expiredLotCook = await persistConfirmedCookAtomically(alice, {
+    userId: "alice",
+    confirmation: confirmation("qa-expired-lot", "qa-expired-meal", [
+      allocation("expired-rice", "expired-lot", 0.25, "kg"),
+    ]),
+    expectedStock: [expected("expired-lot", 0.5, "kg", 0)],
+    lotEvidence: [{
+      pantryItemId: "expired-lot",
+      reviewedOn: "2026-10-04",
+      deductions: [{ lotId: "expired-a", quantity: 0.25 }],
+    }],
+  });
+  assert.equal(expiredLotCook.outcome, "needs-review");
+  assert.equal((await stock(alice, "alice", "expired-lot")).quantity, 0.5);
+  assert.equal((await stock(alice, "alice", "expired-lot")).lotState.activeLots[0].remainingQuantity, 0.5);
+  assert.equal(await isRecorded(alice, "alice", "qa-expired-lot"), false);
+  console.log("PASS: expired explicit food-use lot fails closed with no stock or journal mutation");
+
   console.log("PASS: atomic owner-scoped cook inventory+journal, replay, conflicts, multi-lot, A/B isolation.");
 } finally {
   await environment.cleanup();
