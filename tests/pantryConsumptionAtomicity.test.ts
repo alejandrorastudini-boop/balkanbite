@@ -151,3 +151,36 @@ test("automatic deduction orders usable stock by effective expiry, not stale cap
   assert.deepEqual(result.issues, []);
   assert.equal(result.deductions[0]?.pantryItemId, "rice-older");
 });
+
+
+test("review stock that would complete an otherwise short requirement reports review, not simple shortage", () => {
+  const mixedPantry: PantryItem[] = [
+    {
+      id: "rice-ok",
+      name: "Rice",
+      quantity: 50,
+      unit: "g",
+      category: "Pantry/Grains",
+      addedAt: "2026-10-04",
+    },
+    {
+      id: "rice-review",
+      name: "Rice",
+      quantity: 100,
+      unit: "g",
+      category: "Pantry/Grains",
+      addedAt: "2026-10-01",
+      expiryDaysLeft: 1,
+    },
+  ];
+
+  const result = deductRecipeIngredientsFromPantry(
+    mixedPantry,
+    [{ name: "Rice", amount: 100, unit: "g", inPantry: true }],
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+
+  assert.equal(result.issues[0]?.reason, "expiry_review_required");
+  assert.deepEqual(result.deductions, []);
+  assert.deepEqual(result.pantry, mixedPantry);
+});
