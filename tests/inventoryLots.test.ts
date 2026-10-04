@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  appendConfirmedAcquisitionLot,
   buildInventoryLotFromConfirmedAcquisition,
   deriveInventoryLotExpiry,
   inventoryLotStateMatchesQuantity,
@@ -235,4 +236,41 @@ test("confirmed acquisition constructor does not invent monetary lot evidence", 
   );
   assert.ok(created);
   assert.equal(created.initialCostEUR, undefined);
+});
+
+
+test("confirmed acquisition append is idempotent by provenance source", () => {
+  const acquisition = {
+    sourceId: "shopping:item-42",
+    source: "shopping_list" as const,
+    quantity: 500,
+    unit: "g",
+    acquiredAt: "2026-10-04",
+  };
+  const initial = { unallocatedQuantity: 1, activeLots: [] };
+  const first = appendConfirmedAcquisitionLot(initial, acquisition, "kg");
+  assert.equal(first.outcome, "applied");
+  assert.equal(first.state.unallocatedQuantity, 1);
+  assert.equal(first.state.activeLots.length, 1);
+
+  const replay = appendConfirmedAcquisitionLot(first.state, acquisition, "kg");
+  assert.equal(replay.outcome, "already-applied");
+  assert.deepEqual(replay.state, first.state);
+});
+
+test("invalid acquisition append leaves existing lot state untouched", () => {
+  const state = { unallocatedQuantity: 1, activeLots: [lot] };
+  const result = appendConfirmedAcquisitionLot(
+    state,
+    {
+      sourceId: "shopping:bad",
+      source: "shopping_list",
+      quantity: 1,
+      unit: "pcs",
+      acquiredAt: "2026-10-04",
+    },
+    "kg",
+  );
+  assert.equal(result.outcome, "invalid");
+  assert.deepEqual(result.state, state);
 });
