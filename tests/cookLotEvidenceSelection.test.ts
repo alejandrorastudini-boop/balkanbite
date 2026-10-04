@@ -79,3 +79,15 @@ test("unoffered, duplicate, missing, or non-review selections fail closed", () =
     "invalid",
   );
 });
+
+
+test("selection boundary rejects impossible reviewed calendar dates", () => {
+  assert.equal(
+    buildCookLotEvidenceFromSelections(
+      plan,
+      [{ pantryItemId: "rice", lotId: "lot-a" }],
+      "2026-02-30",
+    ).outcome,
+    "invalid",
+  );
+});
