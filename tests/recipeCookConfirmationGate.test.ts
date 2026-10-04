@@ -34,13 +34,13 @@ test("one stable cookConfirmationId is created when review begins, not on retry"
 
 test("confirmation awaits App result and failure keeps review/drawer open", () => {
   assert.ok(source.includes(
-    "onCookRecipe: (recipe: Recipe, cookConfirmationId: string) => RecipeCookOutcome | Promise<RecipeCookOutcome>",
+    "lotEvidence?: readonly ConfirmedCookLotEvidence[]",
   ));
   assert.ok(source.includes(
     "outcome = await Promise.resolve(",
   ));
   assert.ok(source.includes(
-    "onCookRecipe(recipe, cookConfirmationId)",
+    "onCookRecipe(recipe, cookConfirmationId, lotEvidence)",
   ));
 
   const confirmStart = source.indexOf("const confirmPendingCook = async");
