@@ -138,3 +138,44 @@ test("pending shopping identity normalizes Unicode form, case and whitespace onl
     0,
   );
 });
+
+
+test("known pending shopping can cover usable shortfall even when other stock needs expiry review", () => {
+  const ingredient = { name: "Tomato", amount: 100, unit: "g", inPantry: false };
+  const mixedPantry = [
+    {
+      id: "tomato-ok",
+      name: "Tomato",
+      quantity: 50,
+      unit: "g",
+      category: "Produce" as const,
+      addedAt: "2026-10-04",
+    },
+    {
+      id: "tomato-review",
+      name: "Tomato",
+      quantity: 100,
+      unit: "g",
+      category: "Produce" as const,
+      addedAt: "2026-10-01",
+      expiryDaysLeft: 1,
+    },
+  ];
+  const pendingShopping = [{
+    id: "tomato-pending",
+    name: "Tomato",
+    quantity: 50,
+    unit: "g",
+    category: "Produce",
+    checked: false,
+  }];
+
+  const assessment = assessRecipeShoppingNeed(
+    ingredient,
+    mixedPantry,
+    pendingShopping,
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+  assert.equal(assessment.status, "covered");
+  assert.equal(assessment.quantity, 0);
+});
