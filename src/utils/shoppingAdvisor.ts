@@ -268,7 +268,21 @@ export function evaluateShoppingNeeds(
     );
   });
   const pendingShoppingItems = shoppingList.filter((item) => !item.checked);
-  const upcomingDays = (mealPlan || []).slice(0, 3);
+  const todayKey = localCalendarDate(now);
+  const todayLocal = todayKey ? localDateFromPlanKey(todayKey) : null;
+  const upcomingDays = todayLocal
+    ? (mealPlan || [])
+        .flatMap((day) => {
+          const localDate = localDateFromPlanKey(day.date);
+          if (!localDate) return [];
+          const dayOffset =
+            calendarDayOrdinal(localDate) - calendarDayOrdinal(todayLocal);
+          return dayOffset >= 0 && dayOffset <= 2
+            ? [{ day, dayOffset }]
+            : [];
+        })
+        .sort((a, b) => a.dayOffset - b.dayOffset)
+    : [];
 
   const missingMealIngredients: MissingMealIngredient[] = [];
   const candidateItemsToAdd: Map<
