@@ -195,6 +195,10 @@ export function deductRecipeIngredientsFromPantry(
         workingPantry[index] = {
           ...current,
           quantity: roundQuantity(remainingInItemUnit),
+          lotState: {
+            unallocatedQuantity: roundQuantity(remainingInItemUnit),
+            activeLots: [],
+          },
           // Quantity changed without new monetary evidence. Legacy/current
           // estimatedCostEUR cannot be assumed to be the value of the
           // remaining stock, so keep money unknown instead of stale.
