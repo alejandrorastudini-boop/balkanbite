@@ -1,7 +1,7 @@
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, Language } from "../types";
 import { findMatchingPantryItems } from "./menuAutoPlanner";
 import { normalizeQuantity } from "./quantityUnits";
-import { derivePantryItemExpiry, localCalendarDate, localDateFromCalendarKey, pantryItemNeedsExpiryReview } from "./effectiveExpiry";
+import { derivePantryItemExpiry, localCalendarDate, pantryItemNeedsExpiryReview } from "./effectiveExpiry";
 
 export type IngredientAvailabilityStatus =
   | "missing"
@@ -56,6 +56,21 @@ const normalizedFoodIdentity = (value: string): string =>
     .trim()
     .toLocaleLowerCase()
     .replace(/\s+/g, " ");
+
+function localDateFromPlanKey(value: unknown): Date | null {
+  if (typeof value !== "string") return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+    ? date
+    : null;
+}
 
 interface RequirementAssessment {
   status: "covered" | IngredientAvailabilityStatus;
@@ -240,11 +255,11 @@ export function evaluateShoppingNeeds(
   });
   const pendingShoppingItems = shoppingList.filter((item) => !item.checked);
   const todayKey = localCalendarDate(now);
-  const todayLocal = todayKey ? localDateFromCalendarKey(todayKey) : null;
+  const todayLocal = todayKey ? localDateFromPlanKey(todayKey) : null;
   const upcomingDays = todayLocal
     ? (mealPlan || [])
         .flatMap((day) => {
-          const localDate = localDateFromCalendarKey(day.date);
+          const localDate = localDateFromPlanKey(day.date);
           if (!localDate) return [];
           const dayOffset = Math.round(
             (localDate.getTime() - todayLocal.getTime()) / 86_400_000,
