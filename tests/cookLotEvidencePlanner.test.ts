@@ -110,9 +110,17 @@ test("does not offer expired food-use lots", () => {
   assert.equal(result.outcome, "not-needed");
 });
 
-test("does not prompt when no single physical lot can truthfully cover the confirmed amount", () => {
+test("offers review when multiple real lots together can cover the confirmed amount", () => {
+  const result = planCookLotEvidenceReview([item()], confirmation(700, "g"), "2026-10-04");
+  assert.equal(result.outcome, "review");
+  if (result.outcome !== "review") return;
+  assert.equal(result.prompts[0].requiredQuantity, 0.7);
+  assert.deepEqual(result.prompts[0].choices.map(choice => choice.lotId), ["lot-a", "lot-b"]);
+});
+
+test("does not prompt when real lots together cannot cover the confirmed amount", () => {
   assert.equal(
-    planCookLotEvidenceReview([item()], confirmation(700, "g"), "2026-10-04").outcome,
+    planCookLotEvidenceReview([item()], confirmation(1.1, "kg"), "2026-10-04").outcome,
     "not-needed",
   );
 });
