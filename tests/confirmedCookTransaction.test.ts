@@ -261,7 +261,7 @@ test("cook lot reconciliation converts compatible recipe units into the pantry l
   );
 });
 
-test("cook lot reconciliation refuses incompatible or unknown recipe units", () => {
+test("cook lot reconciliation refuses incompatible units and preserves exact custom-unit identity", () => {
   const expected = [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 3 }];
   const evidence = [{
     pantryItemId: "potatoes",
@@ -279,11 +279,20 @@ test("cook lot reconciliation refuses incompatible or unknown recipe units", () 
   );
   assert.equal(
     cookLotEvidenceMatchesConfirmedAllocations({
-      cookConfirmationId: "cook-unknown-unit",
+      cookConfirmationId: "cook-custom-unit",
       mealId: "musaka",
       confirmed: true,
       ingredients: [{ ingredientId: "potato", pantryItemId: "potatoes", quantity: 0.5, unit: "mystery-scoop" }],
-    }, expected, evidence),
+    }, [{ pantryItemId: "potatoes", quantity: 1, unit: "mystery-scoop", cookRevision: 3 }], evidence),
+    true,
+  );
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations({
+      cookConfirmationId: "cook-different-custom-unit",
+      mealId: "musaka",
+      confirmed: true,
+      ingredients: [{ ingredientId: "potato", pantryItemId: "potatoes", quantity: 0.5, unit: "different-scoop" }],
+    }, [{ pantryItemId: "potatoes", quantity: 1, unit: "mystery-scoop", cookRevision: 3 }], evidence),
     false,
   );
 });
