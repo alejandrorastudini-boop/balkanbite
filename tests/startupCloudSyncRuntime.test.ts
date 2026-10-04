@@ -247,6 +247,43 @@ test("valid user pantry cache is provisional data without invented fields", () =
   assert.deepEqual(parseUserPantryCache("[]"), []);
 });
 
+test("provisional pantry cache preserves valid v1 lot state and rejects corrupt explicit lot state", () => {
+  const valid = [{
+    id: "milk-lot",
+    name: "Milk",
+    quantity: 1,
+    unit: "L",
+    category: "Dairy",
+    addedAt: "2026-10-04",
+    lotState: {
+      version: 1,
+      unallocatedQuantity: 1,
+      activeLots: [],
+    },
+  }];
+  assert.deepEqual(parseUserPantryCache(JSON.stringify(valid)), valid);
+
+  const corrupt = [{
+    ...valid[0],
+    lotState: {
+      version: 1,
+      unallocatedQuantity: 0.5,
+      activeLots: [],
+    },
+  }];
+  assert.equal(parseUserPantryCache(JSON.stringify(corrupt)), null);
+
+  const unsupported = [{
+    ...valid[0],
+    lotState: {
+      version: 2,
+      unallocatedQuantity: 1,
+      activeLots: [],
+    },
+  }];
+  assert.equal(parseUserPantryCache(JSON.stringify(unsupported)), null);
+});
+
 test("one invalid cached item invalidates the provisional cache", () => {
   const mixed = [
     {
