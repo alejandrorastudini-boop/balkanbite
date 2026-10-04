@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  buildInventoryLotFromConfirmedAcquisition,
   deriveInventoryLotExpiry,
   inventoryLotStateMatchesQuantity,
   isValidInventoryLot,
@@ -164,4 +165,74 @@ test("embedded lot provenance accepts valid long purchase source identity withou
   });
   assert.equal(acquisition?.sourceId, sourceId);
   assert.equal(acquisition?.id, `acquisition:${sourceId}`);
+});
+
+
+test("confirmed acquisition builds a lot in the parent pantry unit", () => {
+  assert.deepEqual(
+    buildInventoryLotFromConfirmedAcquisition(
+      {
+        sourceId: "shopping:item-42",
+        source: "shopping_list",
+        quantity: 500,
+        unit: "g",
+        acquiredAt: "2026-10-04",
+        expiryDaysAtAcquisition: 3,
+      },
+      "kg",
+    ),
+    {
+      id: "lot:shopping:item-42",
+      sourceId: "shopping:item-42",
+      source: "shopping_list",
+      acquiredAt: "2026-10-04",
+      initialQuantity: 0.5,
+      remainingQuantity: 0.5,
+      expiryDaysAtAcquisition: 3,
+    },
+  );
+});
+
+test("lot constructor fails closed for incompatible or invalid acquisition evidence", () => {
+  assert.equal(
+    buildInventoryLotFromConfirmedAcquisition(
+      {
+        sourceId: "shopping:item-42",
+        source: "shopping_list",
+        quantity: 2,
+        unit: "pcs",
+        acquiredAt: "2026-10-04",
+      },
+      "kg",
+    ),
+    null,
+  );
+  assert.equal(
+    buildInventoryLotFromConfirmedAcquisition(
+      {
+        sourceId: "shopping:item-42",
+        source: "shopping_list",
+        quantity: 1,
+        unit: "kg",
+        acquiredAt: "2026-02-30",
+      },
+      "kg",
+    ),
+    null,
+  );
+});
+
+test("confirmed acquisition constructor does not invent monetary lot evidence", () => {
+  const created = buildInventoryLotFromConfirmedAcquisition(
+    {
+      sourceId: "reconcile:r1:extra:0",
+      source: "confirmed_reconciliation",
+      quantity: 1,
+      unit: "kg",
+      acquiredAt: "2026-10-04",
+    },
+    "kg",
+  );
+  assert.ok(created);
+  assert.equal(created.initialCostEUR, undefined);
 });
