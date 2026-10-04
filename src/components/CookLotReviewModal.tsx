@@ -22,7 +22,7 @@ export const CookLotReviewModal: React.FC<Props> = ({ plan, pantry, language, on
     ? { title: "¿De qué compra usaste cada alimento?", help: "Indica la cantidad usada de cada compra. No repartimos nada automáticamente. Si no lo sabes, mantendremos el consumo sin inventar el lote.", unknown: "No lo sé", bought: "Comprado", remaining: "Quedaban", expires: "Caduca", used: "Usado", cancel: "Cancelar", confirm: "Confirmar consumo" }
     : language === "bg"
     ? { title: "От коя покупка използвахте всеки продукт?", help: "Посочете използваното количество от всяка покупка. Не разпределяме автоматично. Ако не знаете, ще запазим консумацията без измислена партида.", unknown: "Не знам", bought: "Купено", remaining: "Оставаха", expires: "Годно до", used: "Използвано", cancel: "Отказ", confirm: "Потвърди консумацията" }
-    : { title: "Which purchase did you use for each food?", help: "Choose a purchase only if you recognize it. If you do not know, we will keep the consumption without inventing a lot.", unknown: "I don't know", bought: "Bought", remaining: "Remaining", expires: "Expires", cancel: "Cancel", confirm: "Confirm consumption" };
+    : { title: "Which purchase did you use for each food?", help: "Enter how much you used from each purchase. We never split it automatically. If you do not know, we will keep the consumption without inventing a lot.", unknown: "I don't know", bought: "Bought", remaining: "Remaining", expires: "Expires", used: "Used", cancel: "Cancel", confirm: "Confirm consumption" };
 
   const complete = plan.prompts.every(prompt => selections[prompt.pantryItemId] !== undefined);
   const closeIfIdle = () => { if (!busyRef.current) onClose(); };
