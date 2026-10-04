@@ -220,7 +220,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
       })),
     };
     const lotPlan = preview.issues.length > 0 || preview.deductions.length === 0
-      ? { outcome: "invalid", prompts: [] } as const
+      ? { outcome: "not-needed", prompts: [] } as const
       : planCookLotEvidenceReview(pantry, confirmation, reviewedOn);
     setPendingCook({ recipe, cookConfirmationId, reviewedOn, lotPlan });
   };
