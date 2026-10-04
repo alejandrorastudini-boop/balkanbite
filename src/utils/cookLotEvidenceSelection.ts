@@ -17,12 +17,28 @@ export type CookLotSelectionResult =
  * preserves the aggregate cook path. Mixed exact+unknown evidence is never
  * emitted because the transaction contract requires complete attribution.
  */
+const validReviewedOn = (value: string) => {
+  const match = /^(\\d{4})-(\\d{2})-(\\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+};
+
 export function buildCookLotEvidenceFromSelections(
   plan: CookLotEvidencePlan,
   selections: readonly CookLotSelection[],
   reviewedOn: string,
 ): CookLotSelectionResult {
-  if (plan.outcome !== "review" || !Array.isArray(selections)) {
+  if (
+    plan.outcome !== "review" ||
+    !Array.isArray(selections) ||
+    !validReviewedOn(reviewedOn)
+  ) {
     return { outcome: "invalid", lotEvidence: undefined };
   }
   const selectedByItem = new Map<string, string | null>();
