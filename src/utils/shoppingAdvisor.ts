@@ -1,5 +1,5 @@
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, Language } from "../types";
-import { findMatchingPantryItems } from "./menuAutoPlanner";
+import { findAuthoritativePantryItems } from "./menuAutoPlanner";
 import { normalizeQuantity } from "./quantityUnits";
 import { derivePantryItemExpiry, localCalendarDate, pantryItemNeedsExpiryReview } from "./effectiveExpiry";
 
@@ -99,7 +99,7 @@ function assessRequirementAgainstRemainingPantry(
     };
   }
 
-  const allMatchingItems = findMatchingPantryItems(ingredientName, pantry);
+  const allMatchingItems = findAuthoritativePantryItems(ingredientName, pantry);
   if (allMatchingItems.length === 0) {
     return {
       status: "missing",
