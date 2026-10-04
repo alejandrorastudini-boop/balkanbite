@@ -50,6 +50,13 @@ export interface ShoppingAlertDiagnostic {
   daysUntilNextTripNeeded: number;
 }
 
+const normalizedFoodIdentity = (value: string): string =>
+  (value || "")
+    .normalize("NFKC")
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/\s+/g, " ");
+
 interface RequirementAssessment {
   status: "covered" | IngredientAvailabilityStatus;
   shortfallAmount: number;
@@ -294,14 +301,12 @@ export function evaluateShoppingNeeds(
           assessment.status === "expiry-review"
         ) return;
 
-        const normalizedName = ingredient.name.toLowerCase().trim();
-        const alreadyInShoppingList = shoppingList.some((item) => {
-          const shoppingName = item.name.toLowerCase().trim();
-          return (
-            shoppingName.includes(normalizedName) ||
-            normalizedName.includes(shoppingName)
-          );
-        });
+        const normalizedName = normalizedFoodIdentity(ingredient.name);
+        const alreadyInShoppingList = shoppingList.some(
+          (item) =>
+            normalizedName.length > 0 &&
+            normalizedFoodIdentity(item.name) === normalizedName,
+        );
 
         if (!alreadyInShoppingList) {
           addVerifiedShortfallToCandidateMap(
