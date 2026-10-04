@@ -806,6 +806,18 @@ export function useFirebaseSync(
       preparedCookConfirmations.current.delete(cookId);
       prepared = undefined;
     }
+    if (prepared) {
+      const expectedIds = new Set(prepared.expectedStock.map(item => item.pantryItemId));
+      const frozenEvidence = normalizeCookLotEvidence(prepared.lotEvidence, expectedIds);
+      const replayEvidence = normalizeCookLotEvidence(lotEvidence, expectedIds);
+      if (
+        frozenEvidence === null ||
+        replayEvidence === null ||
+        JSON.stringify(frozenEvidence) !== JSON.stringify(replayEvidence)
+      ) {
+        return { accepted: false, issueCount: 1 };
+      }
+    }
 
     if (!prepared) {
       const authority = inventoryEditAuthority.current;
