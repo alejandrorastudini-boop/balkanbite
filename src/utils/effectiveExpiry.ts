@@ -150,3 +150,21 @@ export function millisecondsUntilNextLocalDay(value: Date = new Date()): number 
   const delay = nextLocalMidnight.getTime() - nowMs;
   return Number.isFinite(delay) && delay > 0 ? delay : null;
 }
+
+
+export function shouldMarkExpiryPartialAfterQuantityIncrease(
+  currentQuantity: unknown,
+  nextQuantity: unknown,
+  expiryDaysLeft: unknown,
+): boolean {
+  return (
+    typeof currentQuantity === "number" &&
+    Number.isFinite(currentQuantity) &&
+    typeof nextQuantity === "number" &&
+    Number.isFinite(nextQuantity) &&
+    nextQuantity > currentQuantity &&
+    typeof expiryDaysLeft === "number" &&
+    Number.isFinite(expiryDaysLeft) &&
+    expiryDaysLeft >= 0
+  );
+}
