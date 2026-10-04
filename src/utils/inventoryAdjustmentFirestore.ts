@@ -101,7 +101,7 @@ export async function persistVerifiedInventoryAdjustment(
         if (adjustment.kind === "remove") {
           tx.update(reference, {
             quantity: 0,
-            lotState: { unallocatedQuantity: 0, activeLots: [] },
+            lotState: { version: 1, unallocatedQuantity: 0, activeLots: [] },
             cookRevision: nextRevision,
             _deleted: true,
             deletedAt: serverTimestamp(),
@@ -111,7 +111,7 @@ export async function persistVerifiedInventoryAdjustment(
 
         tx.update(reference, {
           quantity: adjustment.quantity,
-          lotState: { unallocatedQuantity: adjustment.quantity, activeLots: [] },
+          lotState: { version: 1, unallocatedQuantity: adjustment.quantity, activeLots: [] },
           estimatedCostEUR: null,
           ...(shouldMarkExpiryPartialAfterQuantityIncrease(
             expected.quantity,
