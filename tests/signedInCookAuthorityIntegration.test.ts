@@ -30,6 +30,12 @@ test("uncertain retry preserves exact prepared Firestore request", () => {
   assert.ok(syncSource.includes("Preserve the exact request"));
 });
 
+test("retry rejects contradictory lot evidence instead of silently changing replay identity", () => {
+  assert.ok(syncSource.includes("normalizeCookLotEvidence(prepared.lotEvidence, expectedIds)"));
+  assert.ok(syncSource.includes("normalizeCookLotEvidence(lotEvidence, expectedIds)"));
+  assert.ok(syncSource.includes("JSON.stringify(frozenEvidence) !== JSON.stringify(replayEvidence)"));
+});
+
 test("acceptance requires server-confirmed quantity and revision evidence", () => {
   assert.ok(syncSource.includes("inventoryServerConfirmedUser !== uid"));
   assert.ok(syncSource.includes("observed.quantity !== remaining"));
