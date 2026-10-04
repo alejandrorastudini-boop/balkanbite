@@ -63,6 +63,7 @@ export function initializeLegacyInventoryLotState(
 ): InventoryLotState | null {
   if (!finitePositive(pantryQuantity)) return null;
   return {
+    version: 1,
     unallocatedQuantity: pantryQuantity,
     activeLots: [],
   };
@@ -132,6 +133,7 @@ export function inventoryLotStateMatchesQuantity(
     !pantryUnit.trim() ||
     !normalizeQuantity(pantryQuantity, pantryUnit) ||
     !state ||
+    state.version !== 1 ||
     !finiteNonnegative(state.unallocatedQuantity) ||
     !Array.isArray(state.activeLots)
   ) {
@@ -324,6 +326,7 @@ export function appendConfirmedInventoryLot(
   }
 
   const stateAfter: InventoryLotState = {
+    version: 1,
     unallocatedQuantity: stateBefore.unallocatedQuantity,
     activeLots: [...stateBefore.activeLots, lot],
   };
