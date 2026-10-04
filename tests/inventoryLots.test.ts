@@ -420,7 +420,7 @@ test("lot-state validation fails closed on missing or unsupported schema version
 });
 
 
-test("confirmed physical lot deduction changes only the explicitly selected acquisition lot", () => {
+test("confirmed physical lot deduction changes only the explicitly selected acquisition lot and preserves unrelated provenance", () => {
   const second: InventoryLot = {
     ...lot,
     id: "lot-second",
