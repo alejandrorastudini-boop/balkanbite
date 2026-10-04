@@ -1455,6 +1455,12 @@ export default function App() {
           issueCount: Math.max(1, result.issues.length),
         };
       }
+      const expectedIds = new Set<string>(
+        result.deductions.map(item => item.pantryItemId),
+      );
+      if (normalizeCookLotEvidence(lotEvidence, expectedIds) === null) {
+        return { success: false, issueCount: 1 };
+      }
       prepared = {
         userId: currentUser.uid,
         recipeId: recipe.id,
