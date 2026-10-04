@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildRecipeShoppingNeeds } from '../src/utils/recipeShoppingNeeds';
+import { assessRecipeShoppingNeed, buildRecipeShoppingNeeds } from '../src/utils/recipeShoppingNeeds';
 import { INITIAL_RECIPES } from '../src/data/initialData';
 import type { PantryItem, ShoppingItem } from '../src/types';
 const stock = (quantity: number, unit: string): PantryItem => ({ id: `${quantity}-${unit}`, name: 'Lentejas', quantity, unit, category: 'Pantry/Grains', addedAt: '2026-09-13' });
@@ -47,7 +47,7 @@ test("expiry-review stock makes recipe shopping need unverified instead of cover
   assert.equal(assessment.status, "unverified");
 
   const needs = buildRecipeShoppingNeeds(
-    { ...recipe, ingredients: [ingredient] },
+    { ...INITIAL_RECIPES[0], ingredients: [ingredient] },
     reviewPantry,
     [],
     new Date("2026-10-04T12:00:00.000Z"),
