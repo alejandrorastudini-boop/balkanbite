@@ -86,6 +86,8 @@ test("RecipeView only requests exact lot evidence through explicit review with a
     new URL("../src/components/CookLotReviewModal.tsx", import.meta.url),
     "utf8",
   );
+  assert.ok(recipeSource.includes("deductRecipeIngredientsFromPantry("));
+  assert.ok(recipeSource.includes("preview.deductions.map((deduction, index)"));
   assert.ok(recipeSource.includes("planCookLotEvidenceReview(pantry, confirmation, reviewedOn)"));
   assert.ok(recipeSource.includes('pendingCook?.lotPlan.outcome === "review"'));
   assert.ok(recipeSource.includes("buildCookLotEvidence(pending.lotPlan, selections, pending.reviewedOn)"));
