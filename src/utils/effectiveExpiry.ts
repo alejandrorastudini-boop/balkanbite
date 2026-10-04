@@ -109,3 +109,25 @@ export function derivePantryItemExpiry(
   if (item.expiryIsPartial) return { status: "unknown" };
   return deriveEffectiveExpiry(item.expiryDaysLeft, item.addedAt, now);
 }
+
+
+/**
+ * Milliseconds until the next local calendar day. This intentionally uses the
+ * Date constructor rather than adding 24 hours so daylight-saving transitions
+ * still target local midnight.
+ */
+export function millisecondsUntilNextLocalDay(value: Date = new Date()): number | null {
+  const nowMs = value.getTime();
+  if (!Number.isFinite(nowMs)) return null;
+  const nextLocalMidnight = new Date(
+    value.getFullYear(),
+    value.getMonth(),
+    value.getDate() + 1,
+    0,
+    0,
+    0,
+    0,
+  );
+  const delay = nextLocalMidnight.getTime() - nowMs;
+  return Number.isFinite(delay) && delay > 0 ? delay : null;
+}
