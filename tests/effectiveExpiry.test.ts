@@ -162,3 +162,18 @@ test("missing expiry evidence remains usable without fabricating a freshness cla
     false,
   );
 });
+
+
+test("quantity increase with known expiry becomes partial evidence", async () => {
+  const { shouldMarkExpiryPartialAfterQuantityIncrease } = await import("../src/utils/effectiveExpiry");
+  assert.equal(shouldMarkExpiryPartialAfterQuantityIncrease(2, 3, 4), true);
+  assert.equal(shouldMarkExpiryPartialAfterQuantityIncrease(2, 3, 0), true);
+});
+
+test("decrease, unchanged quantity or unknown expiry does not invent partial expiry", async () => {
+  const { shouldMarkExpiryPartialAfterQuantityIncrease } = await import("../src/utils/effectiveExpiry");
+  assert.equal(shouldMarkExpiryPartialAfterQuantityIncrease(3, 2, 4), false);
+  assert.equal(shouldMarkExpiryPartialAfterQuantityIncrease(2, 2, 4), false);
+  assert.equal(shouldMarkExpiryPartialAfterQuantityIncrease(2, 3, undefined), false);
+  assert.equal(shouldMarkExpiryPartialAfterQuantityIncrease(2, 3, Number.NaN), false);
+});
