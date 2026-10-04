@@ -7,6 +7,7 @@ import {
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import type { VerifiedStockExpectation } from "./inventoryAdjustmentFirestore";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
+import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
 
 export type InventoryClearResult =
   | { outcome: "cleared" | "already-cleared"; clearedIds: string[] }
@@ -115,7 +116,9 @@ export async function persistInventoryClearAtomically(
               data._deleted === true ||
               !validQuantity(data.quantity) ||
               typeof data.unit !== "string" || !data.unit.trim() ||
-              !validRevision(revision)) {
+              !validRevision(revision) ||
+              (data.lotState !== undefined &&
+                !inventoryLotStateMatchesQuantity(data.quantity, data.unit, data.lotState))) {
             return { outcome: "needs-review" as const, reason: "invalid-stock" as const };
           }
           if (data.quantity !== expected.quantity ||
