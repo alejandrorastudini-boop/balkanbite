@@ -1,11 +1,13 @@
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, Language } from "../types";
-import { findMatchingPantryItems } from "./menuAutoPlanner";
+import { findAuthoritativePantryItems } from "./menuAutoPlanner";
 import { normalizeQuantity } from "./quantityUnits";
+import { derivePantryItemExpiry, localCalendarDate, pantryItemNeedsExpiryReview } from "./effectiveExpiry";
 
 export type IngredientAvailabilityStatus =
   | "missing"
   | "insufficient"
-  | "unverified";
+  | "unverified"
+  | "expiry-review";
 
 export interface MissingMealIngredient {
   recipeTitle: string;
@@ -48,6 +50,32 @@ export interface ShoppingAlertDiagnostic {
   daysUntilNextTripNeeded: number;
 }
 
+const normalizedFoodIdentity = (value: string): string =>
+  (value || "")
+    .normalize("NFKC")
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/\s+/g, " ");
+
+function localDateFromPlanKey(value: unknown): Date | null {
+  if (typeof value !== "string") return null;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return null;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const date = new Date(year, month - 1, day);
+  return date.getFullYear() === year &&
+    date.getMonth() === month - 1 &&
+    date.getDate() === day
+    ? date
+    : null;
+}
+
+function calendarDayOrdinal(date: Date): number {
+  return Date.UTC(date.getFullYear(), date.getMonth(), date.getDate()) / 86_400_000;
+}
+
 interface RequirementAssessment {
   status: "covered" | IngredientAvailabilityStatus;
   shortfallAmount: number;
@@ -59,7 +87,8 @@ function assessRequirementAgainstRemainingPantry(
   requiredAmount: number,
   requiredUnit: string,
   pantry: PantryItem[],
-  remainingBaseByPantryId: Map<string, number>
+  remainingBaseByPantryId: Map<string, number>,
+  now: Date,
 ): RequirementAssessment {
   const required = normalizeQuantity(requiredAmount, requiredUnit);
   if (!required) {
@@ -70,8 +99,8 @@ function assessRequirementAgainstRemainingPantry(
     };
   }
 
-  const matchingItems = findMatchingPantryItems(ingredientName, pantry);
-  if (matchingItems.length === 0) {
+  const allMatchingItems = findAuthoritativePantryItems(ingredientName, pantry);
+  if (allMatchingItems.length === 0) {
     return {
       status: "missing",
       shortfallAmount: requiredAmount,
@@ -79,7 +108,7 @@ function assessRequirementAgainstRemainingPantry(
     };
   }
 
-  const compatibleItems = matchingItems
+  const compatibleAllItems = allMatchingItems
     .map((item) => ({
       item,
       normalized: normalizeQuantity(item.quantity, item.unit),
@@ -92,9 +121,20 @@ function assessRequirementAgainstRemainingPantry(
         )
     );
 
-  if (compatibleItems.length === 0) {
+  if (compatibleAllItems.length === 0) {
     return {
       status: "unverified",
+      shortfallAmount: requiredAmount,
+      unit: requiredUnit,
+    };
+  }
+
+  const compatibleItems = compatibleAllItems.filter(
+    ({ item }) => !pantryItemNeedsExpiryReview(item, now),
+  );
+  if (compatibleItems.length === 0) {
+    return {
+      status: "expiry-review",
       shortfallAmount: requiredAmount,
       unit: requiredUnit,
     };
@@ -128,11 +168,46 @@ function assessRequirementAgainstRemainingPantry(
     };
   }
 
+  const reviewBase = compatibleAllItems
+    .filter(({ item }) => pantryItemNeedsExpiryReview(item, now))
+    .reduce((sum, { normalized }) => sum + normalized.baseQuantity, 0);
   return {
-    status: "insufficient",
+    status:
+      reviewBase + 1e-9 >= remainingRequiredBase
+        ? "expiry-review"
+        : "insufficient",
     shortfallAmount: remainingRequiredBase / required.unit.factorToBase,
     unit: requiredUnit,
   };
+}
+
+function subtractPendingShoppingAmount(
+  ingredientName: string,
+  shortfallAmount: number,
+  unit: string,
+  shoppingList: ShoppingItem[],
+  remainingPendingBaseById: Map<string, number>,
+): number {
+  const required = normalizeQuantity(shortfallAmount, unit);
+  if (!required) return shortfallAmount;
+  const identity = normalizedFoodIdentity(ingredientName);
+  let pendingBase = 0;
+  for (const item of shoppingList) {
+    if (item.checked || normalizedFoodIdentity(item.name) !== identity) continue;
+    const pending = normalizeQuantity(item.quantity, item.unit);
+    if (!pending || pending.unit.dimension !== required.unit.dimension) continue;
+    const remaining = remainingPendingBaseById.has(item.id)
+      ? remainingPendingBaseById.get(item.id) || 0
+      : pending.baseQuantity;
+    if (!remainingPendingBaseById.has(item.id)) {
+      remainingPendingBaseById.set(item.id, pending.baseQuantity);
+    }
+    const used = Math.min(remaining, Math.max(0, required.baseQuantity - pendingBase));
+    pendingBase += used;
+    remainingPendingBaseById.set(item.id, remaining - used);
+    if (pendingBase + 1e-9 >= required.baseQuantity) break;
+  }
+  return Math.max(0, required.baseQuantity - pendingBase) / required.unit.factorToBase;
 }
 
 function addVerifiedShortfallToCandidateMap(
@@ -143,7 +218,7 @@ function addVerifiedShortfallToCandidateMap(
   reason: string
 ) {
   const normalizedShortfall = normalizeQuantity(shortfallAmount, unit);
-  const normalizedName = ingredientName.toLowerCase().trim();
+  const normalizedName = normalizedFoodIdentity(ingredientName);
   const dimensionKey = normalizedShortfall?.unit.dimension || `raw:${unit.toLowerCase().trim()}`;
   const key = `${normalizedName}::${dimensionKey}`;
   const existing = candidates.get(key);
@@ -154,6 +229,8 @@ function addVerifiedShortfallToCandidateMap(
       quantity: shortfallAmount,
       unit,
       category: "Other",
+      amountOrigin: "deterministic_shortfall",
+      purchaseAmountConfirmed: false,
       // No verified price source is available in this calculation path, so
       // the optional price stays absent rather than using zero as a price.
       reason,
@@ -179,17 +256,35 @@ export function evaluateShoppingNeeds(
   pantry: PantryItem[],
   mealPlan: MealPlanDay[],
   shoppingList: ShoppingItem[],
-  language: Language = "es"
+  language: Language = "es",
+  now: Date = new Date(),
 ): ShoppingAlertDiagnostic {
   const depletedPantryItems = pantry.filter((item) => item.quantity <= 0);
-  const expiringPantryItems = pantry.filter(
-    (item) =>
-      item.expiryDaysLeft !== undefined &&
-      item.expiryDaysLeft <= 2 &&
-      item.quantity > 0
-  );
+  const expiringPantryItems = pantry.filter((item) => {
+    if (item.quantity <= 0) return false;
+    const expiry = derivePantryItemExpiry(item, now);
+    return (
+      expiry.status === "known" &&
+      !expiry.expired &&
+      expiry.daysRemaining <= 2
+    );
+  });
   const pendingShoppingItems = shoppingList.filter((item) => !item.checked);
-  const upcomingDays = (mealPlan || []).slice(0, 3);
+  const todayKey = localCalendarDate(now);
+  const todayLocal = todayKey ? localDateFromPlanKey(todayKey) : null;
+  const upcomingDays = todayLocal
+    ? (mealPlan || [])
+        .flatMap((day) => {
+          const localDate = localDateFromPlanKey(day.date);
+          if (!localDate) return [];
+          const dayOffset =
+            calendarDayOrdinal(localDate) - calendarDayOrdinal(todayLocal);
+          return dayOffset >= 0 && dayOffset <= 2
+            ? [{ day, dayOffset }]
+            : [];
+        })
+        .sort((a, b) => a.dayOffset - b.dayOffset)
+    : [];
 
   const missingMealIngredients: MissingMealIngredient[] = [];
   const candidateItemsToAdd: Map<
@@ -197,26 +292,27 @@ export function evaluateShoppingNeeds(
     Omit<ShoppingItem, "id" | "checked">
   > = new Map();
   const remainingBaseByPantryId = new Map<string, number>();
+  const remainingPendingBaseById = new Map<string, number>();
 
-  (upcomingDays || []).forEach((day, index) => {
+  (upcomingDays || []).forEach(({ day, dayOffset }) => {
     const dayName =
-      index === 0
+      dayOffset === 0
         ? language === "es"
           ? "Hoy"
           : language === "bg"
           ? "Днес"
           : "Today"
-        : index === 1
+        : dayOffset === 1
         ? language === "es"
           ? "Mañana"
           : language === "bg"
           ? "Утре"
           : "Tomorrow"
         : language === "es"
-        ? `En ${index} días`
+        ? `En ${dayOffset} días`
         : language === "bg"
-        ? `След ${index} дни`
-        : `In ${index} days`;
+        ? `След ${dayOffset} дни`
+        : `In ${dayOffset} days`;
 
     const meals: Array<{
       type: "breakfast" | "lunch" | "dinner";
@@ -247,7 +343,8 @@ export function evaluateShoppingNeeds(
           requiredAmount,
           requiredUnit,
           pantry,
-          remainingBaseByPantryId
+          remainingBaseByPantryId,
+          now,
         );
 
         if (assessment.status === "covered") return;
@@ -264,22 +361,24 @@ export function evaluateShoppingNeeds(
           availabilityStatus: assessment.status,
         });
 
-        if (assessment.status === "unverified") return;
+        if (
+          assessment.status === "unverified" ||
+          assessment.status === "expiry-review"
+        ) return;
 
-        const normalizedName = ingredient.name.toLowerCase().trim();
-        const alreadyInShoppingList = shoppingList.some((item) => {
-          const shoppingName = item.name.toLowerCase().trim();
-          return (
-            shoppingName.includes(normalizedName) ||
-            normalizedName.includes(shoppingName)
-          );
-        });
+        const remainingShoppingAmount = subtractPendingShoppingAmount(
+          ingredient.name,
+          assessment.shortfallAmount,
+          assessment.unit,
+          shoppingList,
+          remainingPendingBaseById,
+        );
 
-        if (!alreadyInShoppingList) {
+        if (remainingShoppingAmount > 1e-9) {
           addVerifiedShortfallToCandidateMap(
             candidateItemsToAdd,
             ingredient.name,
-            assessment.shortfallAmount,
+            remainingShoppingAmount,
             assessment.unit,
             `Para ${recipeTitle} (${dayName})`
           );
@@ -289,10 +388,15 @@ export function evaluateShoppingNeeds(
   });
 
   const verifiedShortfalls = missingMealIngredients.filter(
-    (item) => item.availabilityStatus !== "unverified"
+    (item) =>
+      item.availabilityStatus !== "unverified" &&
+      item.availabilityStatus !== "expiry-review"
   );
   const unverifiedRequirements = missingMealIngredients.filter(
     (item) => item.availabilityStatus === "unverified"
+  );
+  const expiryReviewRequirements = missingMealIngredients.filter(
+    (item) => item.availabilityStatus === "expiry-review"
   );
 
   let score = 0;
@@ -340,6 +444,18 @@ export function evaluateShoppingNeeds(
     );
     reasonsBg.push(
       `${unverifiedRequirements.length} количество(а) не могат да бъдат проверени, защото наличните мерни единици не могат да се преобразуват надеждно.`
+    );
+  }
+
+  if (expiryReviewRequirements.length > 0) {
+    reasonsEs.push(
+      `${expiryReviewRequirements.length} ingrediente(s) requieren revisar la fecha indicada antes de decidir la compra.`
+    );
+    reasonsEn.push(
+      `${expiryReviewRequirements.length} ingredient(s) require expiry review before deciding whether to buy.`
+    );
+    reasonsBg.push(
+      `${expiryReviewRequirements.length} съставка(и) изискват преглед на срока преди решение за покупка.`
     );
   }
 
@@ -417,6 +533,8 @@ export function evaluateShoppingNeeds(
       ? `Hay ${todayMissing.length} faltantes cuantitativos para las comidas de hoy.`
       : verifiedShortfalls.length > 0
       ? `Hay ${verifiedShortfalls.length} faltantes cuantitativos para tus recetas planificadas.`
+      : expiryReviewRequirements.length > 0
+      ? `Hay ${expiryReviewRequirements.length} ingrediente(s) pendientes de revisar por su fecha indicada.`
       : unverifiedRequirements.length > 0
       ? `Hay ${unverifiedRequirements.length} cantidades que no se pueden verificar con las unidades actuales.`
       : depletedPantryItems.length > 0
@@ -430,6 +548,8 @@ export function evaluateShoppingNeeds(
       ? `There are ${todayMissing.length} quantitative shortfalls for today's meals.`
       : verifiedShortfalls.length > 0
       ? `There are ${verifiedShortfalls.length} quantitative shortfalls for planned recipes.`
+      : expiryReviewRequirements.length > 0
+      ? `${expiryReviewRequirements.length} ingredient(s) need expiry review.`
       : unverifiedRequirements.length > 0
       ? `${unverifiedRequirements.length} quantities cannot be verified with the current units.`
       : depletedPantryItems.length > 0
@@ -443,6 +563,8 @@ export function evaluateShoppingNeeds(
       ? `Има ${todayMissing.length} количествени недостига за днешните ястия.`
       : verifiedShortfalls.length > 0
       ? `Има ${verifiedShortfalls.length} количествени недостига за планираните рецепти.`
+      : expiryReviewRequirements.length > 0
+      ? `${expiryReviewRequirements.length} съставка(и) изискват преглед на срока.`
       : unverifiedRequirements.length > 0
       ? `${unverifiedRequirements.length} количества не могат да бъдат проверени с текущите мерни единици.`
       : depletedPantryItems.length > 0

@@ -37,7 +37,7 @@ interface VoiceShoppingReconcileModalProps {
     purchasedItemIds: string[];
     itemsToAddToPantry: ReconciliationExtraItem[];
     reconciliationId: string;
-  }) => void;
+  }) => boolean | Promise<boolean>;
 }
 
 interface ReconciliationData {
@@ -312,18 +312,44 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
     );
   };
 
-  const handleConfirmAndSave = () => {
+  const handleConfirmAndSave = async () => {
     if (!reconciliationResult || isSaving || !hasExplicitConfirmation) return;
     const reconciliationId = reconciliationIdRef.current;
     if (!reconciliationId) return;
 
     setIsSaving(true);
-    onConfirmReconciliation({
-      purchasedItemIds: selectedPurchasedIds,
-      itemsToAddToPantry: selectedExtraItems,
-      reconciliationId,
-    });
-    onClose();
+    setAnalysisError(null);
+    try {
+      const saved = await Promise.resolve(
+        onConfirmReconciliation({
+          purchasedItemIds: selectedPurchasedIds,
+          itemsToAddToPantry: selectedExtraItems,
+          reconciliationId,
+        }),
+      );
+      if (saved) {
+        onClose();
+        return;
+      }
+      setAnalysisError(
+        language === "bg"
+          ? "Покупката не беше потвърдена. Прегледът е запазен за безопасен повторен опит."
+          : language === "es"
+          ? "La compra no se confirmó. La revisión se conserva para reintentar de forma segura."
+          : "The purchase was not confirmed. Your review is preserved for a safe retry.",
+      );
+    } catch (error) {
+      console.error("Error saving shopping reconciliation:", error);
+      setAnalysisError(
+        language === "bg"
+          ? "Не успяхме да потвърдим покупката. Прегледът е запазен за повторен опит."
+          : language === "es"
+          ? "No pudimos confirmar la compra. La revisión se conserva para reintentar."
+          : "We could not confirm the purchase. Your review is preserved for retry.",
+      );
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (!isOpen) return null;
@@ -382,7 +408,8 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
             </div>
           </div>
           <button
-            onClick={onClose}
+            disabled={isSaving}
+            onClick={() => { if (!isSaving) onClose(); }}
             className="p-2 rounded-xl bg-white/[0.04] text-stone-400 hover:text-white hover:bg-white/[0.08] transition-colors cursor-pointer"
           >
             <X className="w-5 h-5" />
@@ -689,7 +716,8 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
             <>
               <button
                 type="button"
-                onClick={onClose}
+                disabled={isSaving}
+                onClick={() => { if (!isSaving) onClose(); }}
                 className="px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-stone-400 hover:text-white text-xs font-bold transition-colors cursor-pointer"
               >
                 {language === "es" ? "Cancelar" : language === "bg" ? "Отказ" : "Cancel"}
@@ -730,7 +758,9 @@ export const VoiceShoppingReconcileModal: React.FC<VoiceShoppingReconcileModalPr
             <>
               <button
                 type="button"
+                disabled={isSaving}
                 onClick={() => {
+                  if (isSaving) return;
                   setStep("input");
                   setSelectedExtraItems([]);
                   reconciliationIdRef.current = "";

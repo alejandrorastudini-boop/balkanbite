@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { confirmCookTransaction, type ConfirmedCookState } from '../src/utils/confirmedCookTransaction';
+import { cookAllocationSignature, cookLotEvidenceMatchesConfirmedAllocations, normalizeCookLotEvidence } from '../src/utils/confirmedCookFirestore';
 
 const initialState: ConfirmedCookState = {
   pantry: [
@@ -86,4 +87,212 @@ test('does not deduct again when the same cook confirmation is retried', () => {
   assert.equal(retry.outcome, 'already-recorded');
   assert.deepEqual(retry.state, first.state);
   if (retry.outcome === 'already-recorded') assert.deepEqual(retry.record, first.record);
+});
+
+
+test("cook replay signature changes when explicit physical lot evidence changes", () => {
+  const confirmation = {
+    cookConfirmationId: "cook-lot-signature",
+    mealId: "musaka",
+    confirmed: true,
+    ingredients: [
+      { ingredientId: "potato", pantryItemId: "potatoes", quantity: 0.5, unit: "kg" },
+    ],
+  };
+  const expected = [
+    { pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 4 },
+  ];
+  const first = cookAllocationSignature(confirmation, expected, [
+    {
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [{ lotId: "lot-a", quantity: 0.5 }],
+    },
+  ]);
+  const retry = cookAllocationSignature(confirmation, expected, [
+    {
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [{ lotId: "lot-a", quantity: 0.5 }],
+    },
+  ]);
+  const changedLot = cookAllocationSignature(confirmation, expected, [
+    {
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [{ lotId: "lot-b", quantity: 0.5 }],
+    },
+  ]);
+  assert.ok(first);
+  assert.equal(retry, first);
+  assert.notEqual(changedLot, first);
+});
+
+test("cook lot evidence normalization is order-stable and rejects duplicate physical lot IDs", () => {
+  const expectedIds = new Set(["potatoes"]);
+  assert.deepEqual(
+    normalizeCookLotEvidence(
+      [{
+        pantryItemId: "potatoes",
+        reviewedOn: "2026-10-04",
+        deductions: [
+          { lotId: "lot-b", quantity: 0.2 },
+          { lotId: "lot-a", quantity: 0.3 },
+        ],
+      }],
+      expectedIds,
+    ),
+    [{
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [
+        { lotId: "lot-a", quantity: 0.3 },
+        { lotId: "lot-b", quantity: 0.2 },
+      ],
+    }],
+  );
+  assert.equal(
+    normalizeCookLotEvidence(
+      [{
+        pantryItemId: "potatoes",
+        reviewedOn: "2026-10-04",
+        deductions: [
+          { lotId: "lot-a", quantity: 0.2 },
+          { lotId: "lot-a", quantity: 0.3 },
+        ],
+      }],
+      expectedIds,
+    ),
+    null,
+  );
+});
+
+
+test("cook lot evidence rejects impossible reviewed calendar dates", () => {
+  assert.equal(
+    normalizeCookLotEvidence(
+      [{
+        pantryItemId: "potatoes",
+        reviewedOn: "2026-02-30",
+        deductions: [{ lotId: "lot-a", quantity: 0.5 }],
+      }],
+      new Set(["potatoes"]),
+    ),
+    null,
+  );
+});
+
+
+test("cook lot evidence exactly reconciles with the complete aggregate confirmed deduction", () => {
+  const confirmation = {
+    cookConfirmationId: "cook-lot-reconcile",
+    mealId: "musaka",
+    confirmed: true,
+    ingredients: [
+      { ingredientId: "potato-a", pantryItemId: "potatoes", quantity: 0.3, unit: "kg" },
+      { ingredientId: "potato-b", pantryItemId: "potatoes", quantity: 0.2, unit: "kg" },
+    ],
+  };
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations(confirmation, [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 1 }], [{
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [
+        { lotId: "lot-a", quantity: 0.3 },
+        { lotId: "lot-b", quantity: 0.2 },
+      ],
+    }]),
+    true,
+  );
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations(confirmation, [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 1 }], [{
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [{ lotId: "lot-a", quantity: 0.3 }],
+    }]),
+    false,
+  );
+});
+
+test("cook replay signature rejects partial physical lot attribution", () => {
+  const confirmation = {
+    cookConfirmationId: "cook-partial-lot",
+    mealId: "musaka",
+    confirmed: true,
+    ingredients: [
+      { ingredientId: "potato", pantryItemId: "potatoes", quantity: 0.5, unit: "kg" },
+    ],
+  };
+  assert.equal(
+    cookAllocationSignature(
+      confirmation,
+      [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 2 }],
+      [{
+        pantryItemId: "potatoes",
+        reviewedOn: "2026-10-04",
+        deductions: [{ lotId: "lot-a", quantity: 0.3 }],
+      }],
+    ),
+    null,
+  );
+});
+
+
+test("cook lot reconciliation converts compatible recipe units into the pantry lot unit", () => {
+  const confirmation = {
+    cookConfirmationId: "cook-unit-normalization",
+    mealId: "musaka",
+    confirmed: true,
+    ingredients: [
+      { ingredientId: "potato", pantryItemId: "potatoes", quantity: 500, unit: "g" },
+    ],
+  };
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations(
+      confirmation,
+      [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 3 }],
+      [{
+        pantryItemId: "potatoes",
+        reviewedOn: "2026-10-04",
+        deductions: [{ lotId: "lot-a", quantity: 0.5 }],
+      }],
+    ),
+    true,
+  );
+});
+
+test("cook lot reconciliation refuses incompatible units and preserves exact custom-unit identity", () => {
+  const expected = [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 3 }];
+  const evidence = [{
+    pantryItemId: "potatoes",
+    reviewedOn: "2026-10-04",
+    deductions: [{ lotId: "lot-a", quantity: 0.5 }],
+  }];
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations({
+      cookConfirmationId: "cook-bad-unit",
+      mealId: "musaka",
+      confirmed: true,
+      ingredients: [{ ingredientId: "potato", pantryItemId: "potatoes", quantity: 0.5, unit: "l" }],
+    }, expected, evidence),
+    false,
+  );
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations({
+      cookConfirmationId: "cook-custom-unit",
+      mealId: "musaka",
+      confirmed: true,
+      ingredients: [{ ingredientId: "potato", pantryItemId: "potatoes", quantity: 0.5, unit: "mystery-scoop" }],
+    }, [{ pantryItemId: "potatoes", quantity: 1, unit: "mystery-scoop", cookRevision: 3 }], evidence),
+    true,
+  );
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations({
+      cookConfirmationId: "cook-different-custom-unit",
+      mealId: "musaka",
+      confirmed: true,
+      ingredients: [{ ingredientId: "potato", pantryItemId: "potatoes", quantity: 0.5, unit: "different-scoop" }],
+    }, [{ pantryItemId: "potatoes", quantity: 1, unit: "mystery-scoop", cookRevision: 3 }], evidence),
+    false,
+  );
 });

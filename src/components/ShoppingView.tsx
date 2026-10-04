@@ -27,20 +27,21 @@ import {
 } from "../utils/foodTranslator";
 import { hasValidManualShoppingRequiredFields } from "../utils/manualShoppingValidation";
 import { VoiceShoppingReconcileModal } from "./VoiceShoppingReconcileModal";
+import { ConfirmModal } from "./ConfirmModal";
 
 interface ShoppingViewProps {
   shoppingList: ShoppingItem[];
-  onToggleItem: (id: string) => void;
-  onDeleteItem: (id: string) => void;
-  onAddItem: (item: Omit<ShoppingItem, "id" | "checked">) => void;
+  onToggleItem: (id: string) => boolean | Promise<boolean>;
+  onDeleteItem: (id: string) => boolean | Promise<boolean>;
+  onAddItem: (item: Omit<ShoppingItem, "id" | "checked">) => boolean | Promise<boolean>;
   onTransferToPantry: () => void;
   onGenerateAiShopping: () => Promise<void>;
-  onClearList?: () => void;
+  onClearList?: () => void | boolean | Promise<void | boolean>;
   onReconcileShopping?: (result: {
     purchasedItemIds: string[];
     itemsToAddToPantry: RawReconciliationExtraItem[];
     reconciliationId?: string;
-  }) => void;
+  }) => boolean | Promise<boolean>;
   isLoadingAi: boolean;
   language: Language;
   currency: Currency;
@@ -64,11 +65,16 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
   const currentText = t[language];
   const [showAddModal, setShowAddModal] = useState(false);
   const [showVoiceModal, setShowVoiceModal] = useState(false);
+  const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [copied, setCopied] = useState(false);
   const [newItemName, setNewItemName] = useState("");
   const [quantity, setQuantity] = useState<string>("");
   const [unit, setUnit] = useState<string>("");
   const [estimatedCost, setEstimatedCost] = useState<string>("");
+  const [isSavingManualItem, setIsSavingManualItem] = useState(false);
+  const [manualItemSaveError, setManualItemSaveError] = useState<string | null>(null);
+  const [pendingRowMutationId, setPendingRowMutationId] = useState<string | null>(null);
+  const [rowMutationError, setRowMutationError] = useState<string | null>(null);
 
   const estimatedPricedItems = shoppingList.filter(
     (item) =>
@@ -108,36 +114,90 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
 
   const checkedCount = shoppingList.filter((i) => i.checked).length;
 
-  const handleCreate = (e: React.FormEvent) => {
+  const handleCreate = async (e: React.FormEvent) => {
     e.preventDefault();
+    if (isSavingManualItem) return;
 
     const parsedQuantity = Number(quantity);
-    const candidate = {
-      name: newItemName,
-      quantity: parsedQuantity,
-      unit,
-    };
+    const candidate = { name: newItemName, quantity: parsedQuantity, unit };
     if (!hasValidManualShoppingRequiredFields(candidate)) return;
 
-    onAddItem({
-      name: newItemName.trim(),
-      quantity: parsedQuantity,
-      unit: unit.trim(),
-      // Manual shopping does not infer a food category from the item name.
-      // Blank remains unclassified until a later explicit/source-backed step.
-      category: "",
-      ...(estimatedCost.trim() !== "" &&
-      Number.isFinite(Number(estimatedCost)) &&
-      Number(estimatedCost) > 0
-        ? { estimatedPriceEUR: Number(estimatedCost) }
-        : {}),
-    });
+    setManualItemSaveError(null);
+    setIsSavingManualItem(true);
+    try {
+      const saved = await Promise.resolve(onAddItem({
+        name: newItemName.trim(),
+        quantity: parsedQuantity,
+        unit: unit.trim(),
+        // Manual shopping does not infer a food category from the item name.
+        category: "",
+        ...(estimatedCost.trim() !== "" &&
+        Number.isFinite(Number(estimatedCost)) &&
+        Number(estimatedCost) > 0
+          ? { estimatedPriceEUR: Number(estimatedCost) }
+          : {}),
+      }));
 
-    setNewItemName("");
-    setQuantity("");
-    setUnit("");
-    setEstimatedCost("");
-    setShowAddModal(false);
+      if (!saved) {
+        setManualItemSaveError(
+          language === "bg"
+            ? "Продуктът не беше запазен. Данните са запазени във формуляра — опитайте отново."
+            : language === "es"
+            ? "El producto no se ha guardado. Tus datos siguen en el formulario; inténtalo de nuevo."
+            : "The item was not saved. Your entries are still in the form; try again."
+        );
+        return;
+      }
+
+      setNewItemName("");
+      setQuantity("");
+      setUnit("");
+      setEstimatedCost("");
+      setShowAddModal(false);
+    } catch (error) {
+      console.error("Manual shopping item save failed:", error);
+      setManualItemSaveError(
+        language === "bg"
+          ? "Продуктът не беше запазен. Данните са запазени във формуляра — опитайте отново."
+          : language === "es"
+          ? "El producto no se ha guardado. Tus datos siguen en el formulario; inténtalo de nuevo."
+          : "The item was not saved. Your entries are still in the form; try again."
+      );
+    } finally {
+      setIsSavingManualItem(false);
+    }
+  };
+
+  const runRowMutation = async (
+    id: string,
+    mutation: (id: string) => boolean | Promise<boolean>
+  ) => {
+    if (pendingRowMutationId) return;
+    setRowMutationError(null);
+    setPendingRowMutationId(id);
+    try {
+      const saved = await Promise.resolve(mutation(id));
+      if (!saved) {
+        setRowMutationError(
+          language === "bg"
+            ? "Промяната не беше запазена. Списъкът показва последното потвърдено състояние — опитайте отново."
+            : language === "es"
+            ? "El cambio no se ha guardado. La lista mantiene el último estado confirmado; inténtalo de nuevo."
+            : "The change was not saved. The list keeps the last confirmed state; try again."
+        );
+      }
+    } catch (error) {
+      console.error("Shopping row mutation failed:", error);
+      setRowMutationError(
+        language === "bg"
+          ? "Промяната не беше запазена. Списъкът показва последното потвърдено състояние — опитайте отново."
+          : language === "es"
+          ? "El cambio no se ha guardado. La lista mantiene el último estado confirmado; inténtalo de nuevo."
+          : "The change was not saved. The list keeps the last confirmed state; try again."
+      );
+    } finally {
+      setPendingRowMutationId(null);
+    }
   };
 
   const formatListAsText = () => {
@@ -241,7 +301,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
           {shoppingList.length > 0 && onClearList && (
             <button
               id="clear-shopping-list-btn"
-              onClick={onClearList}
+              onClick={() => setShowClearConfirm(true)}
               className="px-3 py-2.5 rounded-xl bg-white/[0.04] hover:bg-red-500/10 hover:text-red-400 text-stone-400 text-xs font-bold flex items-center gap-1.5 transition-colors border border-white/[0.06] cursor-pointer"
               title={language === "es" ? "Vaciar lista actual" : language === "bg" ? "Изчисти списъка" : "Clear list"}
             >
@@ -392,7 +452,8 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                 <div className="flex items-center gap-4">
                   <button
                     type="button"
-                    onClick={() => onToggleItem(item.id)}
+                    disabled={pendingRowMutationId !== null}
+                    onClick={() => void runRowMutation(item.id, onToggleItem)}
                     aria-label={
                       language === "bg"
                         ? `Потвърди покупката на ${item.quantity} ${displayUnit} ${displayName}`
@@ -455,7 +516,8 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                     {priceDisplay}
                   </span>
                   <button
-                    onClick={() => onDeleteItem(item.id)}
+                    disabled={pendingRowMutationId !== null}
+                    onClick={() => void runRowMutation(item.id, onDeleteItem)}
                     className="text-stone-500 hover:text-red-400 hover:bg-red-500/10 p-2 rounded-xl transition-colors"
                     title={currentText.delete}
                   >
@@ -465,6 +527,12 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
               </div>
             );
           })}
+        </div>
+      )}
+
+      {rowMutationError && (
+        <div role="alert" className="mb-3 rounded-xl border border-red-500/20 bg-red-500/10 px-3 py-2 text-xs text-red-200">
+          {rowMutationError}
         </div>
       )}
 
@@ -478,6 +546,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
               </h2>
               <button
                 onClick={() => setShowAddModal(false)}
+                disabled={isSavingManualItem}
                 className="w-8 h-8 flex items-center justify-center rounded-full bg-white/[0.04] text-stone-400 hover:bg-white/[0.08] hover:text-white transition-colors"
               >
                 ✕
@@ -563,10 +632,17 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                 />
               </div>
 
+              {manualItemSaveError && (
+                <p role="alert" className="text-sm text-red-300">
+                  {manualItemSaveError}
+                </p>
+              )}
+
               <div className="flex justify-end gap-3 pt-3">
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
+                  disabled={isSavingManualItem}
                   className="px-5 py-2.5 rounded-xl bg-white/[0.04] text-stone-300 text-sm font-bold hover:bg-white/[0.08] transition-colors"
                 >
                   {currentText.cancel}
@@ -575,6 +651,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                   id="manual-shopping-submit"
                   type="submit"
                   disabled={
+                    isSavingManualItem ||
                     !hasValidManualShoppingRequiredFields({
                       name: newItemName,
                       quantity: Number(quantity),
@@ -583,7 +660,7 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                   }
                   className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 disabled:opacity-50 disabled:cursor-not-allowed text-stone-950 text-sm font-bold shadow-[0_0_15px_rgba(16,185,129,0.3)] transition-colors"
                 >
-                  {currentText.add}
+                  {isSavingManualItem ? "…" : currentText.add}
                 </button>
               </div>
             </form>
@@ -591,16 +668,42 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
         </div>
       )}
 
+      <ConfirmModal
+        isOpen={showClearConfirm}
+        onClose={() => setShowClearConfirm(false)}
+        onConfirm={async () => (await onClearList?.()) !== false}
+        title={
+          language === "bg"
+            ? "Изчистване на списъка?"
+            : language === "es"
+            ? "¿Vaciar la lista?"
+            : "Clear shopping list?"
+        }
+        description={
+          language === "bg"
+            ? "Това ще премахне всички продукти от текущия списък за пазаруване."
+            : language === "es"
+            ? "Esto eliminará todos los productos de la lista de compra actual."
+            : "This will remove every item from the current shopping list."
+        }
+        confirmText={
+          language === "bg" ? "Изчисти" : language === "es" ? "Vaciar" : "Clear"
+        }
+        cancelText={
+          language === "bg" ? "Отказ" : language === "es" ? "Cancelar" : "Cancel"
+        }
+        danger
+      />
+
       {/* Voice Shopping Reconciliation Modal */}
       <VoiceShoppingReconcileModal
         isOpen={showVoiceModal}
         onClose={() => setShowVoiceModal(false)}
         shoppingList={shoppingList}
         language={language}
-        onConfirmReconciliation={(res) => {
-          if (onReconcileShopping) {
-            onReconcileShopping(res);
-          }
+        onConfirmReconciliation={async (res) => {
+          if (!onReconcileShopping) return false;
+          return onReconcileShopping(res);
         }}
       />
     </div>

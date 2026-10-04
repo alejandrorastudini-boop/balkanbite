@@ -1,0 +1,469 @@
+import type {
+  InventoryLot,
+  InventoryLotSource,
+  InventoryLotState,
+  PantryItem,
+} from "../types";
+import { deriveEffectiveExpiry, type EffectiveExpiry } from "./effectiveExpiry";
+import { normalizeQuantity } from "./quantityUnits";
+
+export type { InventoryLot, InventoryLotSource, InventoryLotState } from "../types";
+
+const EPSILON = 1e-9;
+
+const finiteNonnegative = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value >= 0;
+
+const finitePositive = (value: unknown): value is number =>
+  typeof value === "number" && Number.isFinite(value) && value > 0;
+
+const safeEmbeddedIdentity = (value: unknown): value is string =>
+  typeof value === "string" &&
+  value.trim().length > 0 &&
+  value.length <= 450 &&
+  !/[\u0000-\u001F\u007F]/.test(value);
+
+const validCalendarDate = (value: unknown): value is string => {
+  if (typeof value !== "string") return false;
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value);
+  if (!match) return false;
+  const year = Number(match[1]);
+  const month = Number(match[2]);
+  const day = Number(match[3]);
+  const stamp = Date.UTC(year, month - 1, day);
+  const check = new Date(stamp);
+  return (
+    check.getUTCFullYear() === year &&
+    check.getUTCMonth() === month - 1 &&
+    check.getUTCDate() === day
+  );
+};
+
+export function isValidInventoryLot(lot: InventoryLot): boolean {
+  return Boolean(
+    lot &&
+    safeEmbeddedIdentity(lot.id) &&
+    safeEmbeddedIdentity(lot.sourceId) &&
+    (lot.source === "shopping_list" ||
+      lot.source === "confirmed_reconciliation") &&
+    validCalendarDate(lot.acquiredAt) &&
+    finitePositive(lot.initialQuantity) &&
+    finitePositive(lot.remainingQuantity) &&
+    lot.remainingQuantity <= lot.initialQuantity + EPSILON &&
+    (lot.expiryDaysAtAcquisition === undefined ||
+      (finiteNonnegative(lot.expiryDaysAtAcquisition) &&
+        Number.isInteger(lot.expiryDaysAtAcquisition))) &&
+    (lot.initialEstimatedCostEUR === undefined ||
+      finiteNonnegative(lot.initialEstimatedCostEUR))
+  );
+}
+
+export function initializeLegacyInventoryLotState(
+  pantryQuantity: unknown,
+): InventoryLotState | null {
+  if (!finitePositive(pantryQuantity)) return null;
+  return {
+    version: 1,
+    unallocatedQuantity: pantryQuantity,
+    activeLots: [],
+  };
+}
+
+/**
+ * A generic absolute quantity correction does not identify which acquisition
+ * lot changed. Preserve truth by discarding the remaining lot allocation and
+ * treating the newly declared amount as unallocated stock.
+ */
+export function collapseLotAllocationAfterManualQuantityEdit(
+  newQuantity: unknown,
+): InventoryLotState | null {
+  return initializeLegacyInventoryLotState(newQuantity);
+}
+
+export type AggregateDeductionLotResult =
+  | { outcome: "remaining-unallocated"; state: InventoryLotState }
+  | { outcome: "depleted"; state: null }
+  | { outcome: "invalid"; state: null };
+
+/**
+ * Aggregate cook/remove evidence proves the new total, not which physical lot
+ * changed. Validate the old allocation, then deliberately discard lot-level
+ * precision rather than applying an inferred FEFO deduction as fact.
+ */
+export function collapseLotAllocationAfterAggregateDeduction(
+  pantryQuantityBefore: unknown,
+  pantryQuantityAfter: unknown,
+  pantryUnit: unknown,
+  stateBefore: InventoryLotState,
+): AggregateDeductionLotResult {
+  if (
+    !inventoryLotStateMatchesQuantity(
+      pantryQuantityBefore,
+      pantryUnit,
+      stateBefore,
+    ) ||
+    !finiteNonnegative(pantryQuantityAfter) ||
+    typeof pantryQuantityBefore !== "number" ||
+    pantryQuantityAfter > pantryQuantityBefore + EPSILON
+  ) {
+    return { outcome: "invalid", state: null };
+  }
+
+  if (pantryQuantityAfter <= EPSILON) {
+    return { outcome: "depleted", state: null };
+  }
+
+  return {
+    outcome: "remaining-unallocated",
+    state: {
+      version: 1,
+      unallocatedQuantity: pantryQuantityAfter,
+      activeLots: [],
+    },
+  };
+}
+
+export function inventoryLotStateMatchesQuantity(
+  pantryQuantity: unknown,
+  pantryUnit: unknown,
+  state: InventoryLotState,
+): boolean {
+  if (
+    !finitePositive(pantryQuantity) ||
+    typeof pantryUnit !== "string" ||
+    !pantryUnit.trim() ||
+    !normalizeQuantity(pantryQuantity, pantryUnit) ||
+    !state ||
+    state.version !== 1 ||
+    !finiteNonnegative(state.unallocatedQuantity) ||
+    !Array.isArray(state.activeLots)
+  ) {
+    return false;
+  }
+
+  const ids = new Set<string>();
+  const sourceIds = new Set<string>();
+  let total = state.unallocatedQuantity;
+  for (const lot of state.activeLots) {
+    if (
+      !isValidInventoryLot(lot) ||
+      ids.has(lot.id) ||
+      sourceIds.has(lot.sourceId)
+    ) {
+      return false;
+    }
+    ids.add(lot.id);
+    sourceIds.add(lot.sourceId);
+    total += lot.remainingQuantity;
+  }
+
+  return Math.abs(total - pantryQuantity) <= EPSILON;
+}
+
+export function deriveInventoryLotExpiry(
+  lot: InventoryLot,
+  now: Date = new Date(),
+): EffectiveExpiry {
+  if (!isValidInventoryLot(lot)) return { status: "unknown" };
+  return deriveEffectiveExpiry(
+    lot.expiryDaysAtAcquisition,
+    lot.acquiredAt,
+    now,
+  );
+}
+
+/**
+ * Converts explicit acquisition quantity into the parent PantryItem unit.
+ * Returns null rather than inventing a conversion for incompatible dimensions.
+ */
+export interface InventoryLotUseRecommendation {
+  usableLots: InventoryLot[];
+  expiredLotIds: string[];
+}
+
+/**
+ * FEFO is advisory unless the user explicitly confirms the physical lot used.
+ * This function only ranks evidence; it never mutates remaining quantities.
+ */
+export function recommendInventoryLotsForUse(
+  state: InventoryLotState,
+  now: Date = new Date(),
+): InventoryLotUseRecommendation | null {
+  if (
+    !state ||
+    !finiteNonnegative(state.unallocatedQuantity) ||
+    !Array.isArray(state.activeLots) ||
+    state.activeLots.some((lot) => !isValidInventoryLot(lot))
+  ) {
+    return null;
+  }
+
+  const expiredLotIds: string[] = [];
+  const usable = state.activeLots
+    .map((lot) => ({ lot, expiry: deriveInventoryLotExpiry(lot, now) }))
+    .filter(({ lot, expiry }) => {
+      if (expiry.status === "known" && expiry.expired) {
+        expiredLotIds.push(lot.id);
+        return false;
+      }
+      return true;
+    })
+    .sort((left, right) => {
+      if (left.expiry.status === "known" && right.expiry.status === "known") {
+        const byExpiry = left.expiry.expiresOn.localeCompare(right.expiry.expiresOn);
+        if (byExpiry !== 0) return byExpiry;
+      } else if (left.expiry.status === "known") {
+        return -1;
+      } else if (right.expiry.status === "known") {
+        return 1;
+      }
+      const byAcquisition = left.lot.acquiredAt.localeCompare(right.lot.acquiredAt);
+      return byAcquisition || left.lot.id.localeCompare(right.lot.id);
+    })
+    .map(({ lot }) => lot);
+
+  return { usableLots: usable, expiredLotIds };
+}
+
+export function quantityInParentUnit(
+  quantity: unknown,
+  sourceUnit: unknown,
+  parentUnit: unknown,
+): number | null {
+  if (
+    !finitePositive(quantity) ||
+    typeof sourceUnit !== "string" ||
+    typeof parentUnit !== "string"
+  ) {
+    return null;
+  }
+  const source = normalizeQuantity(quantity, sourceUnit);
+  const parent = normalizeQuantity(1, parentUnit);
+  if (!source || !parent || source.unit.dimension !== parent.unit.dimension) {
+    return null;
+  }
+  const converted = source.baseQuantity / parent.unit.factorToBase;
+  return Number.isFinite(converted) && converted > 0
+    ? Number(converted.toPrecision(15))
+    : null;
+}
+
+
+export interface ConfirmedAcquisitionLotInput {
+  sourceId: string;
+  source: InventoryLotSource;
+  acquiredAt: string;
+  quantity: number;
+  unit: string;
+  parentUnit: string;
+  expiryDaysAtAcquisition?: number;
+  initialEstimatedCostEUR?: number;
+}
+
+/**
+ * Builds active-lot state only from explicit confirmed acquisition evidence.
+ * It does not infer purchase provenance for generic/manual pantry stock.
+ */
+export function buildInventoryLotFromConfirmedAcquisition(
+  input: ConfirmedAcquisitionLotInput,
+): InventoryLot | null {
+  const converted = quantityInParentUnit(
+    input.quantity,
+    input.unit,
+    input.parentUnit,
+  );
+  if (
+    !safeEmbeddedIdentity(input.sourceId) ||
+    (input.source !== "shopping_list" &&
+      input.source !== "confirmed_reconciliation") ||
+    !validCalendarDate(input.acquiredAt) ||
+    converted === null ||
+    (input.expiryDaysAtAcquisition !== undefined &&
+      (!finiteNonnegative(input.expiryDaysAtAcquisition) ||
+        !Number.isInteger(input.expiryDaysAtAcquisition))) ||
+    (input.initialEstimatedCostEUR !== undefined &&
+      !finiteNonnegative(input.initialEstimatedCostEUR))
+  ) {
+    return null;
+  }
+
+  const lot: InventoryLot = {
+    id: `acquisition:${input.sourceId}`,
+    sourceId: input.sourceId,
+    source: input.source,
+    acquiredAt: input.acquiredAt,
+    initialQuantity: converted,
+    remainingQuantity: converted,
+    ...(input.expiryDaysAtAcquisition !== undefined
+      ? { expiryDaysAtAcquisition: input.expiryDaysAtAcquisition }
+      : {}),
+    ...(input.initialEstimatedCostEUR !== undefined
+      ? { initialEstimatedCostEUR: input.initialEstimatedCostEUR }
+      : {}),
+  };
+  return isValidInventoryLot(lot) ? lot : null;
+}
+
+export function appendConfirmedInventoryLot(
+  pantryQuantityBefore: number,
+  pantryQuantityAfter: number,
+  pantryUnit: string,
+  stateBefore: InventoryLotState,
+  lot: InventoryLot,
+): InventoryLotState | null {
+  if (
+    !inventoryLotStateMatchesQuantity(
+      pantryQuantityBefore,
+      pantryUnit,
+      stateBefore,
+    ) ||
+    !isValidInventoryLot(lot) ||
+    stateBefore.activeLots.some(
+      (existing) =>
+        existing.id === lot.id || existing.sourceId === lot.sourceId,
+    )
+  ) {
+    return null;
+  }
+
+  const stateAfter: InventoryLotState = {
+    version: 1,
+    unallocatedQuantity: stateBefore.unallocatedQuantity,
+    activeLots: [...stateBefore.activeLots, lot],
+  };
+  return inventoryLotStateMatchesQuantity(
+    pantryQuantityAfter,
+    pantryUnit,
+    stateAfter,
+  )
+    ? stateAfter
+    : null;
+}
+
+
+/**
+ * Returns a persisted lot allocation only when it is internally valid and
+ * exactly reconciles to the parent aggregate quantity/unit.
+ */
+export function getVerifiedInventoryLotState(
+  item: PantryItem,
+): InventoryLotState | null {
+  const state = item.lotState;
+  if (!state) return null;
+  return inventoryLotStateMatchesQuantity(item.quantity, item.unit, state)
+    ? state
+    : null;
+}
+
+
+export interface ConfirmedInventoryLotDeduction {
+  lotId: string;
+  quantity: number;
+}
+
+export type ConfirmedInventoryLotDeductionPurpose = "food-use" | "removal";
+
+export type ConfirmedInventoryLotDeductionResult =
+  | { outcome: "applied"; state: InventoryLotState | null }
+  | { outcome: "invalid"; state: null }
+  | { outcome: "expiry-review-required"; state: null; lotIds: string[] };
+
+/**
+ * Applies only an explicitly confirmed physical lot allocation.
+ *
+ * Unlike FEFO recommendation, this function never chooses lots. The caller
+ * must provide the exact lot IDs and quantities that were actually confirmed.
+ * Unallocated stock cannot be silently attributed to a known acquisition lot.
+ *
+ * food-use requires the stable calendar date on which the lot choice was
+ * reviewed and rejects explicitly expired lots on that date. Binding that date
+ * into a future request signature keeps retries deterministic across midnight.
+ * removal may target expired lots because it can represent disposal, not eating.
+ */
+export function applyConfirmedInventoryLotDeduction(
+  pantryQuantityBefore: unknown,
+  pantryUnit: unknown,
+  stateBefore: InventoryLotState,
+  deductions: readonly ConfirmedInventoryLotDeduction[],
+  purpose: ConfirmedInventoryLotDeductionPurpose,
+  reviewedOn?: string,
+): ConfirmedInventoryLotDeductionResult {
+  if (
+    !inventoryLotStateMatchesQuantity(pantryQuantityBefore, pantryUnit, stateBefore) ||
+    (purpose !== "food-use" && purpose !== "removal") ||
+    !Array.isArray(deductions) ||
+    deductions.length === 0
+  ) {
+    return { outcome: "invalid", state: null };
+  }
+
+  const byId = new Map(stateBefore.activeLots.map((lot) => [lot.id, lot]));
+  const seen = new Set<string>();
+  const normalized: ConfirmedInventoryLotDeduction[] = [];
+  for (const deduction of deductions) {
+    if (
+      !deduction ||
+      !safeEmbeddedIdentity(deduction.lotId) ||
+      seen.has(deduction.lotId) ||
+      !finitePositive(deduction.quantity)
+    ) {
+      return { outcome: "invalid", state: null };
+    }
+    const lot = byId.get(deduction.lotId);
+    if (!lot || deduction.quantity > lot.remainingQuantity + EPSILON) {
+      return { outcome: "invalid", state: null };
+    }
+    seen.add(deduction.lotId);
+    normalized.push({ lotId: deduction.lotId, quantity: deduction.quantity });
+  }
+
+  if (purpose === "food-use") {
+    if (!validCalendarDate(reviewedOn)) {
+      return { outcome: "invalid", state: null };
+    }
+    const [year, month, day] = reviewedOn.split("-").map(Number);
+    const reviewedAt = new Date(year, month - 1, day, 12, 0, 0);
+    const expiredLotIds = normalized
+      .map(({ lotId }) => byId.get(lotId)!)
+      .filter((lot) => {
+        const expiry = deriveInventoryLotExpiry(lot, reviewedAt);
+        return expiry.status === "known" && expiry.expired;
+      })
+      .map((lot) => lot.id);
+    if (expiredLotIds.length > 0) {
+      return {
+        outcome: "expiry-review-required",
+        state: null,
+        lotIds: expiredLotIds.sort(),
+      };
+    }
+  }
+
+  const deductionById = new Map(normalized.map((item) => [item.lotId, item.quantity]));
+  const activeLots = stateBefore.activeLots.flatMap((lot) => {
+    const deducted = deductionById.get(lot.id) ?? 0;
+    const remaining = Number((lot.remainingQuantity - deducted).toPrecision(15));
+    return remaining <= EPSILON ? [] : [{ ...lot, remainingQuantity: remaining }];
+  });
+  const totalDeducted = normalized.reduce((sum, item) => sum + item.quantity, 0);
+  const quantityAfter =
+    typeof pantryQuantityBefore === "number"
+      ? Number((pantryQuantityBefore - totalDeducted).toPrecision(15))
+      : Number.NaN;
+
+  if (quantityAfter <= EPSILON) {
+    if (stateBefore.unallocatedQuantity > EPSILON || activeLots.length > 0) {
+      return { outcome: "invalid", state: null };
+    }
+    return { outcome: "applied", state: null };
+  }
+
+  const stateAfter: InventoryLotState = {
+    version: 1,
+    unallocatedQuantity: stateBefore.unallocatedQuantity,
+    activeLots,
+  };
+  return inventoryLotStateMatchesQuantity(quantityAfter, pantryUnit, stateAfter)
+    ? { outcome: "applied", state: stateAfter }
+    : { outcome: "invalid", state: null };
+}

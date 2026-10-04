@@ -36,7 +36,7 @@ export interface ConfirmedCookState {
 
 export interface PendingCookIngredient {
   ingredientId: string;
-  reason: ConsumptionDeductionRejection | 'invalid-ingredient';
+  reason: ConsumptionDeductionRejection | 'invalid-ingredient' | 'stale-stock';
 }
 
 export type ConfirmedCookResult =

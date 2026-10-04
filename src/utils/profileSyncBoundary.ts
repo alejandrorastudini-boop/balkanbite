@@ -243,25 +243,6 @@ export function sanitizeRemoteUserProfile(value: unknown): UserProfile {
   );
 }
 
-export function getUserProfileCacheKey(userId: string): string {
-  return `balkanbite_profile_user_${userId}`;
-}
-
-export function parseUserProfileCache(
-  raw: string | null,
-  displayName?: string | null,
-): UserProfile | null {
-  if (raw === null) return null;
-  try {
-    return sanitizeProfile(
-      JSON.parse(raw),
-      createSignedInProfileDefaults(displayName),
-    );
-  } catch {
-    return null;
-  }
-}
-
 export function parseGuestProfileCache(raw: string | null): UserProfile | null {
   if (raw === null) return null;
   try {

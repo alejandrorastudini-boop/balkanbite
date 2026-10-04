@@ -42,7 +42,11 @@ export function validateManualPantryRequiredFields({
     : undefined;
   if (
     parsedExpiryDays !== undefined &&
-    (!Number.isFinite(parsedExpiryDays) || parsedExpiryDays < 0)
+    (
+      !Number.isFinite(parsedExpiryDays) ||
+      parsedExpiryDays < 0 ||
+      !Number.isInteger(parsedExpiryDays)
+    )
   ) {
     return { valid: false };
   }

@@ -15,19 +15,19 @@ const modalSource = readFileSync(
   "utf8",
 );
 
-test("voice mutation callbacks return explicit boolean results through both UI surfaces", () => {
+test("voice mutation callbacks return explicit sync or awaited boolean results through both UI surfaces", () => {
   for (const source of [voiceSource, modalSource]) {
     assert.match(
       source,
-      /onAddItemsToPantry:\s*\(items: any\[\]\) => boolean;/,
+      /onAddItemsToPantry:\s*\(items: any\[\]\) => boolean \| Promise<boolean>;/,
     );
     assert.match(
       source,
-      /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean;/,
+      /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean \| Promise<boolean>;/,
     );
     assert.match(
       source,
-      /onDeductItemsFromPantry:\s*\(items: any\[\]\) => boolean;/,
+      /onDeductItemsFromPantry:\s*\(items: any\[\], mutationId\?: string\) => boolean \| Promise<boolean>;/,
     );
   }
 });
@@ -37,7 +37,7 @@ test("App returns false when confirmed pantry add cannot be authoritatively appl
   const end = appSource.indexOf("const handleVoiceAddShoppingItems", start);
   const block = appSource.slice(start, end);
 
-  assert.match(block, /\(items: any\[\]\): boolean/);
+  assert.match(block, /const handleVoiceAddItems = async \(items: any\[\]\): Promise<boolean>/);
   assert.match(block, /if \(rejectedCount > 0\)[\s\S]*return false;/);
   assert.match(block, /if \(parsed\.length === 0\) return false;/);
   assert.match(block, /return updatePantryAndReconcileMenu\(parsed, true\);/);
@@ -48,40 +48,45 @@ test("App returns true only after a valid confirmed shopping batch is scheduled"
   const end = appSource.indexOf("const handleVoiceDeductItems", start);
   const block = appSource.slice(start, end);
 
-  assert.match(block, /\(items: any\[\]\): boolean/);
+  assert.match(block, /async \(items: any\[\]\): Promise<boolean>/);
   assert.match(block, /if \(result\.rejectedCount > 0\)[\s\S]*return false;/);
   assert.match(block, /if \(result\.items\.length === 0\) return false;/);
 
   const persistIndex = block.indexOf(
-    "setShoppingList((prev) => [...prev, ...result.items])",
+    "await submitShoppingItemsCreate(result.items)",
   );
   const successIndex = block.indexOf("return true;", persistIndex);
   assert.ok(persistIndex >= 0);
   assert.ok(successIndex > persistIndex);
 });
 
-test("App computes pantry deduction before mutation and rejects any unresolved result", () => {
+test("App keeps guest voice deduction local but signed-in removal transactional", () => {
   const start = appSource.indexOf("const handleVoiceDeductItems");
   const end = appSource.indexOf("const handleVoiceNavigateToRecipes", start);
   const block = appSource.slice(start, end);
 
-  assert.match(block, /\(items: any\[\]\): boolean/);
-  assert.match(block, /if \(!requireAuthoritativeInventory\(\)\) return false;/);
-  assert.match(
-    block,
-    /const result = deductVoiceItemsFromPantry\(pantry, items \|\| \[\]\);/,
-  );
-  assert.match(
-    block,
-    /if \(result\.issues\.length > 0 \|\| result\.deductions\.length === 0\)[\s\S]*return false;/,
-  );
+  assert.ok(block.includes("): Promise<boolean> =>"));
+  assert.ok(block.includes("if (!requireAuthoritativeInventory()) return false"));
+  assert.ok(block.includes(
+    "const guestResult = deductVoiceItemsFromPantry(pantry, items || [])",
+  ));
+  assert.ok(block.includes("setPantry(guestResult.pantry)"));
+  assert.ok(block.includes("if (!mutationId)"));
+  assert.ok(block.includes(
+    "preparedSignedInVoiceDeductions.current.get(mutationId)",
+  ));
+  assert.ok(block.includes(
+    "pendingSignedInVoiceConsumptions.current.set(mutationId",
+  ));
+  assert.ok(block.includes("submitVoiceInventoryConsumption("));
 
-  const resultIndex = block.indexOf("const result = deductVoiceItemsFromPantry");
-  const setIndex = block.indexOf("setPantry(result.pantry)");
-  const successIndex = block.indexOf("return true;", setIndex);
-  assert.ok(resultIndex >= 0);
-  assert.ok(setIndex > resultIndex);
-  assert.ok(successIndex > setIndex);
+  const mutationCheck = block.indexOf("if (!mutationId)");
+  assert.ok(mutationCheck >= 0);
+  assert.equal(
+    block.slice(mutationCheck).includes("setPantry("),
+    false,
+    "signed-in path must not set pantry before Firestore confirmation",
+  );
 });
 
 test("VoiceChefView keeps the pending batch when App rejects the mutation", () => {
@@ -89,16 +94,17 @@ test("VoiceChefView keeps the pending batch when App rejects the mutation", () =
   const end = voiceSource.indexOf("const cancelPendingItems", start);
   const block = voiceSource.slice(start, end);
 
-  assert.match(block, /const mutationSucceeded =/);
+  assert.match(block, /let mutationSucceeded = false;/);
+  assert.match(block, /mutationSucceeded = await Promise\.resolve\(/);
   assert.match(block, /onAddItemsToPantry\(confirmedItems\)/);
-  assert.match(block, /onDeductItemsFromPantry\(confirmedItems\)/);
+  assert.match(block, /onDeductItemsFromPantry\(confirmedItems, mutationId\)/);
   assert.match(block, /onAddItemsToShoppingList\(confirmedItems\)/);
   assert.match(
     block,
-    /if \(mutationSucceeded\) \{\s*setPendingItems\(null\);\s*setPendingAction\(null\);\s*\}/,
+    /if \(mutationSucceeded\) \{\s*setPendingItems\(null\);\s*setPendingAction\(null\);\s*pendingMutationIdRef\.current = null;\s*\}/,
   );
 
-  const resultIndex = block.indexOf("const mutationSucceeded");
+  const resultIndex = block.indexOf("let mutationSucceeded = false");
   const clearIndex = block.indexOf("setPendingItems(null)");
   assert.ok(resultIndex >= 0);
   assert.ok(clearIndex > resultIndex);

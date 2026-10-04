@@ -23,6 +23,8 @@ import { calculateRecipePantryScore } from "../utils/menuAutoPlanner";
 import { evaluateShoppingNeeds } from "../utils/shoppingAdvisor";
 import { findPlannedMealForDate } from "../utils/mealPlanLookup";
 import { summarizeVerifiedMealNutrition, verifiedMealCalories } from "../utils/mealNutritionSummary";
+import { localCalendarDate, localDateFromCalendarKey } from "../utils/effectiveExpiry";
+import { useLocalCalendarDay } from "../hooks/useLocalCalendarDay";
 
 interface MealPlanViewProps {
   mealPlan: MealPlanDay[];
@@ -32,12 +34,12 @@ interface MealPlanViewProps {
   currency?: Currency;
   shoppingList?: ShoppingItem[];
   userName?: string;
-  onClearMealPlan?: () => void;
+  onClearMealPlan?: () => void | boolean | Promise<void | boolean>;
   onNavigateToVoice?: () => void;
   onGenerateAiWeekPlan?: () => void;
   onAdaptToPantry?: () => void;
   isGeneratingPlan?: boolean;
-  onAddItemsToShoppingList?: (items: Array<Omit<ShoppingItem, "id" | "checked">>) => void;
+  onAddItemsToShoppingList?: (items: Array<Omit<ShoppingItem, "id" | "checked">>) => boolean | Promise<boolean>;
 }
 
 export const MealPlanView: React.FC<MealPlanViewProps> = ({
@@ -56,13 +58,33 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   onAddItemsToShoppingList,
 }) => {
   const currentText = t[language];
+  const localCalendarDay = useLocalCalendarDay();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
   const [logTipVisible, setLogTipVisible] = useState(false);
+  const [isAddingMissingToShopping, setIsAddingMissingToShopping] = useState(false);
+  const [missingShoppingAddError, setMissingShoppingAddError] = useState(false);
   const { sync: syncToCalendar, isSyncing: isCalendarSyncing } = useGoogleCalendarSync();
 
-  const selectedDateStr = selectedDate.toISOString().split("T")[0];
+  const handleAddMissingToShopping = async () => {
+    if (!onAddItemsToShoppingList || isAddingMissingToShopping) return;
+    setMissingShoppingAddError(false);
+    setIsAddingMissingToShopping(true);
+    try {
+      const saved = await Promise.resolve(
+        onAddItemsToShoppingList(shoppingDiagnostic.itemsToAddToShoppingList)
+      );
+      if (!saved) setMissingShoppingAddError(true);
+    } catch (error) {
+      console.error("Meal-plan shopping add failed:", error);
+      setMissingShoppingAddError(true);
+    } finally {
+      setIsAddingMissingToShopping(false);
+    }
+  };
+
+  const selectedDateStr = localCalendarDate(selectedDate) || "";
   const dailyLogs = mealLogs.filter((log) => log.date === selectedDateStr);
 
   const nutritionSummary = summarizeVerifiedMealNutrition(dailyLogs);
@@ -94,16 +116,17 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
     return days;
   };
 
-  const calendarDays = getDaysInMonth(new Date());
+  const calendarToday = localDateFromCalendarKey(localCalendarDay) || new Date();
+  const calendarDays = getDaysInMonth(calendarToday);
 
   const getMealForDay = (date: Date): MealPlanDay | null =>
-    findPlannedMealForDate(mealPlan, date.toISOString().split("T")[0]);
+    findPlannedMealForDate(mealPlan, localCalendarDate(date) || "");
 
   const selectedMeal = getMealForDay(selectedDate);
 
   // Generate Next 7 days list
   const next7Days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
+    const d = new Date(calendarToday);
     d.setDate(d.getDate() + i);
     return getMealForDay(d);
   }).filter((d): d is MealPlanDay => d !== null);
@@ -281,7 +304,8 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
           </div>
           <button
             type="button"
-            onClick={() => onAddItemsToShoppingList(shoppingDiagnostic.itemsToAddToShoppingList)}
+            onClick={handleAddMissingToShopping}
+            disabled={isAddingMissingToShopping}
             className="w-full sm:w-auto px-5 py-2.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-stone-950 font-bold text-xs flex items-center justify-center gap-2 transition-all shadow-[0_0_15px_rgba(245,158,11,0.2)] shrink-0 cursor-pointer"
           >
             <ShoppingBag className="w-4 h-4" />
@@ -291,6 +315,15 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
                 : "Add missing to shopping list"}
             </span>
           </button>
+          {missingShoppingAddError && (
+            <p role="alert" className="text-xs text-red-300">
+              {language === "bg"
+                ? "Не беше запазено. Опитайте отново."
+                : language === "es"
+                ? "No se ha guardado. Inténtalo de nuevo."
+                : "Not saved. Try again."}
+            </p>
+          )}
         </div>
       )}
 
@@ -370,7 +403,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             const isToday = day.toDateString() === new Date().toDateString();
             const isSelected = day.toDateString() === selectedDate.toDateString();
             const meal = getMealForDay(day);
-            const hasLog = mealLogs.some((l) => l.date === day.toISOString().split("T")[0]);
+            const hasLog = mealLogs.some((l) => l.date === localCalendarDate(day));
 
             return (
               <button
@@ -617,10 +650,19 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             >
               <div className="flex items-center justify-between border-b border-white/[0.04] pb-3">
                 <span className="text-xs font-bold text-emerald-400 capitalize bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
-                  {new Date(day.date).toLocaleDateString(
-                    language === "es" ? "es-ES" : language === "bg" ? "bg-BG" : "en-US",
-                    { weekday: "short", day: "numeric", month: "short" }
-                  )}
+                  {(() => {
+                    const localDate = localDateFromCalendarKey(day.date);
+                    return localDate
+                      ? localDate.toLocaleDateString(
+                          language === "es"
+                            ? "es-ES"
+                            : language === "bg"
+                            ? "bg-BG"
+                            : "en-US",
+                          { weekday: "short", day: "numeric", month: "short" },
+                        )
+                      : "—";
+                  })()}
                 </span>
                 <span className="text-[11px] text-stone-500 font-bold bg-white/[0.04] px-2.5 py-1 rounded-lg border border-white/[0.04]">
                   {day.breakfast ? getRecipeTitle(day.breakfast).slice(0, 18) + "..." : "..."}
@@ -670,11 +712,9 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
       <ConfirmModal
         isOpen={showClearConfirm}
         onClose={() => setShowClearConfirm(false)}
-        onConfirm={() => {
-          if (onClearMealPlan) {
-            onClearMealPlan();
-          }
-          setShowClearConfirm(false);
+        onConfirm={async () => {
+          if (!onClearMealPlan) return true;
+          return (await onClearMealPlan()) !== false;
         }}
         title={currentText.mealPlanClearAll}
         description={currentText.mealPlanClearConfirm}

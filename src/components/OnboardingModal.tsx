@@ -17,7 +17,7 @@ import { t } from "../utils/translations";
 
 interface OnboardingModalProps {
   isOpen: boolean;
-  onComplete: (profile: Partial<UserProfile>) => void;
+  onComplete: (profile: Partial<UserProfile>) => void | boolean | Promise<void | boolean>;
   language: Language;
 }
 
@@ -40,6 +40,8 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
   >(null);
   const [selectedAppliances, setSelectedAppliances] = useState<string[]>([]);
   const [monthlyBudgetEURInput, setMonthlyBudgetEURInput] = useState("");
+  const [isSaving, setIsSaving] = useState(false);
+  const [saveError, setSaveError] = useState(false);
 
   const toggleAppliance = (appliance: string) => {
     setSelectedAppliances((prev) =>
@@ -47,7 +49,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
     );
   };
 
-  const finish = () => {
+  const finish = async () => {
     if (
       householdSize === null ||
       cookingSpeed === null ||
@@ -66,17 +68,29 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
 
     if (!hasValidBudget) return;
 
-    onComplete({
-      ...(trimmedName ? { name: trimmedName } : {}),
-      householdSize,
-      cookingSpeed,
-      dietStyle,
-      appliances: selectedAppliances,
-      ...(parsedBudget !== undefined
-        ? { monthlyBudgetEUR: parsedBudget }
-        : {}),
-      onboardingCompleted: true,
-    });
+    setIsSaving(true);
+    setSaveError(false);
+    try {
+      const saved = await onComplete({
+        ...(trimmedName ? { name: trimmedName } : {}),
+        householdSize,
+        cookingSpeed,
+        dietStyle,
+        appliances: selectedAppliances,
+        ...(parsedBudget !== undefined
+          ? { monthlyBudgetEUR: parsedBudget }
+          : {}),
+        onboardingCompleted: true,
+      });
+      if (saved === false) {
+        setSaveError(true);
+      }
+    } catch (error) {
+      console.error("Onboarding profile persistence failed", error);
+      setSaveError(true);
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   const totalSteps = 4;
@@ -392,12 +406,24 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
               <button
                 id="onboarding-finish"
                 type="button"
-                onClick={finish}
+                onClick={() => { void finish(); }}
+                disabled={isSaving}
                 className="flex-1 py-3.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 font-extrabold uppercase tracking-widest text-xs flex items-center justify-center gap-2 cursor-pointer shadow-[0_0_20px_rgba(16,185,129,0.4)] transition-all"
               >
                 <Sparkles className="w-4 h-4" />
-                <span>{language === "bg" ? "Започни" : language === "es" ? "Comenzar Experiencia" : "Start Experience"}</span>
+                <span>{isSaving
+                  ? language === "bg" ? "Запазване..." : language === "es" ? "Guardando..." : "Saving..."
+                  : language === "bg" ? "Започни" : language === "es" ? "Comenzar Experiencia" : "Start Experience"}</span>
               </button>
+              {saveError && (
+                <p className="text-[11px] text-amber-300">
+                  {language === "bg"
+                    ? "Не успях да потвърдя запазването. Данните остават тук, за да опитате отново."
+                    : language === "es"
+                    ? "No pude confirmar el guardado. Tus datos siguen aquí para que puedas intentarlo de nuevo."
+                    : "I could not confirm the save. Your entries are still here so you can try again."}
+                </p>
+              )}
             </div>
           </div>
         )}

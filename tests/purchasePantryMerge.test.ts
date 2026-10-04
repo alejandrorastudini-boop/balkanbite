@@ -103,3 +103,88 @@ test('unchecked rows do not need purchase confirmation because they are not tran
  assert.equal(result.shoppingList.length, 1);
  assert.deepEqual(result.rejected, []);
 });
+
+
+test('new confirmed shopping purchase creates one active lot with estimated provenance', () => {
+ const result = transferCheckedShoppingItems([], [
+  shop(.5,'kg',{id:'lot-new',estimatedPriceEUR:3}),
+ ], date);
+ assert.deepEqual(result.newlyAppliedSourceIds,['shopping:lot-new']);
+ assert.deepEqual(result.pantry[0].lotState,{
+  version:1,
+  unallocatedQuantity:0,
+  activeLots:[{
+   id:'acquisition:shopping:lot-new',
+   sourceId:'shopping:lot-new',
+   source:'shopping_list',
+   acquiredAt:date,
+   initialQuantity:.5,
+   remainingQuantity:.5,
+   initialEstimatedCostEUR:3,
+  }],
+ });
+});
+
+test('confirmed purchase merged into legacy stock keeps old quantity unallocated and lots only the new acquisition', () => {
+ const result = transferCheckedShoppingItems([stock(1,'kg')], [
+  shop(500,'g',{id:'lot-merge',estimatedPriceEUR:2}),
+ ], date);
+ assert.equal(result.pantry[0].quantity,1.5);
+ assert.deepEqual(result.pantry[0].lotState,{
+  version:1,
+  unallocatedQuantity:1,
+  activeLots:[{
+   id:'acquisition:shopping:lot-merge',
+   sourceId:'shopping:lot-merge',
+   source:'shopping_list',
+   acquiredAt:date,
+   initialQuantity:.5,
+   remainingQuantity:.5,
+   initialEstimatedCostEUR:2,
+  }],
+ });
+});
+
+test('purchase replay does not append a second active lot', () => {
+ const list=[shop(.5,'kg',{id:'lot-replay'})];
+ const first=transferCheckedShoppingItems([],list,date);
+ const second=transferCheckedShoppingItems(first.pantry,list,date);
+ assert.deepEqual(second.newlyAppliedSourceIds,[]);
+ assert.deepEqual(second.pantry,first.pantry);
+ assert.equal(second.pantry[0].lotState?.activeLots.length,1);
+});
+
+test('invalid lot overlay evidence degrades to unallocated without losing a valid aggregate purchase', () => {
+ const result=mergePurchasesIntoPantry([], [{
+  sourceId:'r-invalid-date',
+  source:'confirmed_reconciliation',
+  name:'Tomate',
+  quantity:1,
+  unit:'kg',
+ }], 'not-a-date');
+ assert.equal(result.pantry[0].quantity,1);
+ assert.equal(result.pantry[0].lotState,undefined);
+ assert.deepEqual(result.newlyAppliedSourceIds,['r-invalid-date']);
+});
+
+test('new purchase repairs an inconsistent prior lot overlay conservatively', () => {
+ const prior=stock(1,'kg',{
+  lotState:{
+   version:1,
+   unallocatedQuantity:0,
+   activeLots:[{
+    id:'shopping:old',
+    sourceId:'shopping:old',
+    source:'shopping_list',
+    acquiredAt:date,
+    initialQuantity:.25,
+    remainingQuantity:.25,
+   }],
+  },
+ });
+ const result=transferCheckedShoppingItems([prior],[shop(.5,'kg',{id:'lot-repair'})],date);
+ assert.equal(result.pantry[0].quantity,1.5);
+ assert.equal(result.pantry[0].lotState?.unallocatedQuantity,1);
+ assert.equal(result.pantry[0].lotState?.activeLots.length,1);
+ assert.equal(result.pantry[0].lotState?.activeLots[0].sourceId,'shopping:lot-repair');
+});
