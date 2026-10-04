@@ -220,3 +220,32 @@ export function addConfirmedAcquisitionLot(
     activeLots: [...state.activeLots, lot],
   };
 }
+
+
+export interface LegacyPantryQuantity {
+  quantity: number;
+  unit: string;
+}
+
+/**
+ * Read-only compatibility adapter for pantry rows created before explicit lot
+ * state exists. Current quantity remains authoritative stock, but all of it is
+ * acquisition-unallocated. This function never mutates or invents provenance.
+ */
+export function legacyPantryQuantityToLotState(
+  item: LegacyPantryQuantity,
+): InventoryLotState | null {
+  if (
+    !item ||
+    !finitePositive(item.quantity) ||
+    typeof item.unit !== "string" ||
+    !item.unit.trim() ||
+    !normalizeQuantity(item.quantity, item.unit)
+  ) {
+    return null;
+  }
+  return {
+    unallocatedQuantity: item.quantity,
+    activeLots: [],
+  };
+}
