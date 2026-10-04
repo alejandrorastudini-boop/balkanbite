@@ -1692,7 +1692,8 @@ export default function App() {
     if (checkedItems.length === 0) return;
 
     const occurredAt = new Date().toISOString();
-    const acquiredAt = occurredAt.split("T")[0];
+    const acquiredAt = localCalendarDate(new Date(occurredAt));
+    if (!acquiredAt) return;
     const preview = transferCheckedShoppingItems(
       pantry,
       shoppingList,
@@ -1807,7 +1808,8 @@ export default function App() {
 
     if (!prepared) {
       const occurredAt = new Date().toISOString();
-      const acquiredAt = occurredAt.split("T")[0];
+      const acquiredAt = localCalendarDate(new Date(occurredAt));
+      if (!acquiredAt) return false;
       const input = buildConfirmedShoppingReconciliationInput(
         shoppingList,
         purchasedItemIds || [],
