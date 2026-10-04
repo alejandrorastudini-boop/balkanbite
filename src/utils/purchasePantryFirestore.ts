@@ -12,7 +12,10 @@ import {
   type PurchaseMergeResult,
 } from "./purchasePantryMerge";
 import { getScopedDocumentId } from "./cloudCollectionSync";
-import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
+import {
+  getVerifiedInventoryLotState,
+  inventoryLotStateMatchesQuantity,
+} from "./inventoryLots";
 
 export interface PurchaseBaselineItem extends PantryItem {
   cookRevision?: number;
@@ -241,7 +244,11 @@ const comparableShoppingItem = (item: ShoppingItem): Record<string, unknown> => 
 });
 
 function comparableItem(item: PantryItem): Record<string, unknown> | null {
-  const serialized = serializePurchasePantryItemForWrite(item, "_comparison_", 0);
+  const comparable =
+    item.lotState !== undefined && !getVerifiedInventoryLotState(item)
+      ? { ...item, lotState: undefined }
+      : item;
+  const serialized = serializePurchasePantryItemForWrite(comparable, "_comparison_", 0);
   if (!serialized) return null;
   delete serialized.userId;
   delete serialized.cookRevision;
