@@ -26,11 +26,13 @@ const recipe: Recipe = {
 };
 
 const mealPlan: MealPlanDay[] = [
-  { date: "fixture", lunch: recipe },
+  { date: "2026-10-04", lunch: recipe },
 ];
 
 test("missing-meal diagnostics keep unavailable price unknown instead of zero", () => {
-  const result = evaluateShoppingNeeds([], mealPlan, [], "en");
+  const result = evaluateShoppingNeeds(
+    [], mealPlan, [], "en", new Date(2026, 9, 4, 12, 0, 0, 0),
+  );
 
   assert.equal(result.missingMealIngredients.length, 1);
   assert.equal(
