@@ -107,7 +107,7 @@ function normalizeExpectedStock(
   );
 }
 
-function normalizeLotEvidence(
+export function normalizeCookLotEvidence(
   lotEvidence: readonly ConfirmedCookLotEvidence[] | undefined,
   expectedIds: ReadonlySet<string>,
 ): Array<{ pantryItemId: string; reviewedOn: string; deductions: ConfirmedInventoryLotDeduction[] }> | null {
@@ -207,7 +207,7 @@ export function cookAllocationSignature(
     return null;
   }
 
-  const normalizedLotEvidence = normalizeLotEvidence(lotEvidence, expectedIds);
+  const normalizedLotEvidence = normalizeCookLotEvidence(lotEvidence, expectedIds);
   if (!normalizedLotEvidence) return null;
 
   allocations.sort((a, b) =>
