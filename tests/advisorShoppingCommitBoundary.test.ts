@@ -23,7 +23,7 @@ test("a committed advisor batch cannot be resubmitted before listener reconcilia
 });
 
 test("advisor batch guard clears only after the derived shortage batch changes", () => {
-  const start = app.indexOf("useEffect(() => {\n    const currentFingerprint = advisorBatchFingerprint");
+  const start = app.indexOf("useEffect(() => {\n    const currentFingerprint = buildAdvisorBatchFingerprint");
   const end = app.indexOf("const handleRequestBrowserNotifications", start);
   assert.ok(start >= 0 && end > start);
   const effect = app.slice(start, end);
