@@ -242,3 +242,94 @@ export function addConfirmedAcquisitionLot(
     },
   };
 }
+
+
+export interface ConfirmedAcquisitionLotInput {
+  sourceId: string;
+  source: InventoryLotSource;
+  acquiredAt: string;
+  quantity: number;
+  unit: string;
+  parentUnit: string;
+  expiryDaysAtAcquisition?: number;
+  initialCostEUR?: number;
+}
+
+/**
+ * Builds active-lot state only from explicit confirmed acquisition evidence.
+ * It does not infer purchase provenance for generic/manual pantry stock.
+ */
+export function buildInventoryLotFromConfirmedAcquisition(
+  input: ConfirmedAcquisitionLotInput,
+): InventoryLot | null {
+  const converted = quantityInParentUnit(
+    input.quantity,
+    input.unit,
+    input.parentUnit,
+  );
+  if (
+    !safeEmbeddedIdentity(input.sourceId) ||
+    (input.source !== "shopping_list" &&
+      input.source !== "confirmed_reconciliation") ||
+    !validCalendarDate(input.acquiredAt) ||
+    converted === null ||
+    (input.expiryDaysAtAcquisition !== undefined &&
+      (!finiteNonnegative(input.expiryDaysAtAcquisition) ||
+        !Number.isInteger(input.expiryDaysAtAcquisition))) ||
+    (input.initialCostEUR !== undefined &&
+      !finiteNonnegative(input.initialCostEUR))
+  ) {
+    return null;
+  }
+
+  const lot: InventoryLot = {
+    id: `acquisition:${input.sourceId}`,
+    sourceId: input.sourceId,
+    source: input.source,
+    acquiredAt: input.acquiredAt,
+    initialQuantity: converted,
+    remainingQuantity: converted,
+    ...(input.expiryDaysAtAcquisition !== undefined
+      ? { expiryDaysAtAcquisition: input.expiryDaysAtAcquisition }
+      : {}),
+    ...(input.initialCostEUR !== undefined
+      ? { initialCostEUR: input.initialCostEUR }
+      : {}),
+  };
+  return isValidInventoryLot(lot) ? lot : null;
+}
+
+export function appendConfirmedInventoryLot(
+  pantryQuantityBefore: number,
+  pantryQuantityAfter: number,
+  pantryUnit: string,
+  stateBefore: InventoryLotState,
+  lot: InventoryLot,
+): InventoryLotState | null {
+  if (
+    !inventoryLotStateMatchesQuantity(
+      pantryQuantityBefore,
+      pantryUnit,
+      stateBefore,
+    ) ||
+    !isValidInventoryLot(lot) ||
+    stateBefore.activeLots.some(
+      (existing) =>
+        existing.id === lot.id || existing.sourceId === lot.sourceId,
+    )
+  ) {
+    return null;
+  }
+
+  const stateAfter: InventoryLotState = {
+    unallocatedQuantity: stateBefore.unallocatedQuantity,
+    activeLots: [...stateBefore.activeLots, lot],
+  };
+  return inventoryLotStateMatchesQuantity(
+    pantryQuantityAfter,
+    pantryUnit,
+    stateAfter,
+  )
+    ? stateAfter
+    : null;
+}
