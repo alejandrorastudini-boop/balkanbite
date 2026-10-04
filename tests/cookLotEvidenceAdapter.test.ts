@@ -77,3 +77,34 @@ test("not-needed accepts only an empty selection map", () => {
 function neverPrompt(): never {
   throw new Error("unreachable");
 }
+
+test("builds exact evidence from explicit quantities split across offered lots", () => {
+  const plan: CookLotEvidencePlan = {
+    outcome: "review",
+    prompts: [{ ...reviewPlan.prompts[0], requiredQuantity: 0.7 }],
+  };
+  assert.deepEqual(
+    buildCookLotEvidence(plan, { rice: { "lot-a": 0.4, "lot-b": 0.3 } }, "2026-10-04"),
+    {
+      outcome: "exact",
+      lotEvidence: [{
+        pantryItemId: "rice",
+        reviewedOn: "2026-10-04",
+        deductions: [
+          { lotId: "lot-a", quantity: 0.4 },
+          { lotId: "lot-b", quantity: 0.3 },
+        ],
+      }],
+    },
+  );
+});
+
+test("fails closed when a split underdraws, overdraws or exceeds a physical lot", () => {
+  const plan: CookLotEvidencePlan = {
+    outcome: "review",
+    prompts: [{ ...reviewPlan.prompts[0], requiredQuantity: 0.7 }],
+  };
+  assert.equal(buildCookLotEvidence(plan, { rice: { "lot-a": 0.4, "lot-b": 0.2 } }, "2026-10-04").outcome, "invalid");
+  assert.equal(buildCookLotEvidence(plan, { rice: { "lot-a": 0.4, "lot-b": 0.4 } }, "2026-10-04").outcome, "invalid");
+  assert.equal(buildCookLotEvidence(plan, { rice: { "lot-a": 0.7 } }, "2026-10-04").outcome, "invalid");
+});
