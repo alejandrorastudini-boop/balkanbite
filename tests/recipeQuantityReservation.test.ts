@@ -36,3 +36,12 @@ test("recipe score cannot reuse the same stock across repeated ingredients", () 
   const score = calculateRecipePantryScore(recipe, pantry);
   assert.equal(score.matchPercentage, 50);
 });
+
+
+test("RecipeView derives availability through recipe-level reservation", async () => {
+  const fs = await import("node:fs");
+  const view = fs.readFileSync("src/components/RecipeView.tsx", "utf8");
+  assert.match(view, /syncRecipeWithPantry\(recipe, pantry\)/);
+  assert.doesNotMatch(view, /isIngredientQuantityAvailable/);
+  assert.match(view, /recipeWithAvailability\(selectedRecipe\)/);
+});
