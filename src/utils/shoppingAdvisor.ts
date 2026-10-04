@@ -162,6 +162,25 @@ function assessRequirementAgainstRemainingPantry(
   };
 }
 
+function subtractPendingShoppingAmount(
+  ingredientName: string,
+  shortfallAmount: number,
+  unit: string,
+  shoppingList: ShoppingItem[],
+): number {
+  const required = normalizeQuantity(shortfallAmount, unit);
+  if (!required) return shortfallAmount;
+  const identity = normalizedFoodIdentity(ingredientName);
+  let pendingBase = 0;
+  for (const item of shoppingList) {
+    if (item.checked || normalizedFoodIdentity(item.name) !== identity) continue;
+    const pending = normalizeQuantity(item.quantity, item.unit);
+    if (!pending || pending.unit.dimension !== required.unit.dimension) continue;
+    pendingBase += pending.baseQuantity;
+  }
+  return Math.max(0, required.baseQuantity - pendingBase) / required.unit.factorToBase;
+}
+
 function addVerifiedShortfallToCandidateMap(
   candidates: Map<string, Omit<ShoppingItem, "id" | "checked">>,
   ingredientName: string,
@@ -301,18 +320,18 @@ export function evaluateShoppingNeeds(
           assessment.status === "expiry-review"
         ) return;
 
-        const normalizedName = normalizedFoodIdentity(ingredient.name);
-        const alreadyInShoppingList = shoppingList.some(
-          (item) =>
-            normalizedName.length > 0 &&
-            normalizedFoodIdentity(item.name) === normalizedName,
+        const remainingShoppingAmount = subtractPendingShoppingAmount(
+          ingredient.name,
+          assessment.shortfallAmount,
+          assessment.unit,
+          shoppingList,
         );
 
-        if (!alreadyInShoppingList) {
+        if (remainingShoppingAmount > 1e-9) {
           addVerifiedShortfallToCandidateMap(
             candidateItemsToAdd,
             ingredient.name,
-            assessment.shortfallAmount,
+            remainingShoppingAmount,
             assessment.unit,
             `Para ${recipeTitle} (${dayName})`
           );
