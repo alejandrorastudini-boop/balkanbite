@@ -55,3 +55,10 @@ test("physical lot evidence is replay-bound and only explicit evidence activates
     "absence of physical evidence must retain conservative aggregate-collapse behavior",
   );
 });
+
+
+test("signed-in cook derives server-confirmation target from the same unit-safe transaction engine", () => {
+  assert.ok(syncSource.includes("const preview = confirmCookTransaction("));
+  assert.ok(syncSource.includes("expectedRemaining.set(item.id, item.quantity)"));
+  assert.equal(syncSource.includes("observed.quantity - consumed"), false);
+});
