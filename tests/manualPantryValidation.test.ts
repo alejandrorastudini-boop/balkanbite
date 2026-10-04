@@ -52,6 +52,14 @@ test("explicit valid optional values are retained and invalid values are rejecte
     validateManualPantryRequiredFields({
       quantity: "2",
       unit: "kg",
+      expiryDays: "0.5",
+    }),
+    { valid: false }
+  );
+  assert.deepEqual(
+    validateManualPantryRequiredFields({
+      quantity: "2",
+      unit: "kg",
       cost: "not-a-price",
     }),
     { valid: false }
