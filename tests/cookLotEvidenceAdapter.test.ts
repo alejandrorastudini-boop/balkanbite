@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import type { CookLotEvidencePlan } from "../src/utils/cookLotEvidencePlanner";
+import type { CookLotEvidencePlan, CookLotEvidencePrompt } from "../src/utils/cookLotEvidencePlanner";
 import { buildCookLotEvidence } from "../src/utils/cookLotEvidenceAdapter";
 
 const reviewPlan: CookLotEvidencePlan = {
