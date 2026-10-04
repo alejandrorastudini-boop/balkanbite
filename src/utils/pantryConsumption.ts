@@ -1,5 +1,5 @@
 import { PantryItem, RecipeIngredient } from "../types";
-import { findMatchingPantryItems } from "./menuAutoPlanner";
+import { findAuthoritativePantryItems } from "./menuAutoPlanner";
 import { normalizeQuantity } from "./quantityUnits";
 import {
   derivePantryItemExpiry,
@@ -88,7 +88,7 @@ export function deductRecipeIngredientsFromPantry(
       continue;
     }
 
-    const matchingItems = findMatchingPantryItems(ingredient.name, workingPantry);
+    const matchingItems = findAuthoritativePantryItems(ingredient.name, workingPantry);
     if (matchingItems.length === 0) {
       issues.push({
         ingredientName: ingredient.name,
