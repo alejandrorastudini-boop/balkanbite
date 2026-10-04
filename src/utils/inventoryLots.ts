@@ -147,3 +147,83 @@ export function quantityInParentUnit(
     ? Number(converted.toPrecision(15))
     : null;
 }
+
+
+export interface InventoryLotAcquisition {
+  sourceId: string;
+  source: InventoryLotSource;
+  acquiredAt: string;
+  quantity: number;
+  unit: string;
+  expiryDaysAtAcquisition?: number;
+  initialCostEUR?: number;
+}
+
+export type AddInventoryLotResult =
+  | { outcome: "added"; state: InventoryLotState; lot: InventoryLot }
+  | { outcome: "already-recorded"; state: InventoryLotState }
+  | { outcome: "invalid"; state: InventoryLotState };
+
+const lotIdFromSource = (sourceId: string): string =>
+  `lot:${sourceId}`;
+
+export function addConfirmedAcquisitionLot(
+  state: InventoryLotState,
+  parentUnit: string,
+  acquisition: InventoryLotAcquisition,
+): AddInventoryLotResult {
+  if (
+    !state ||
+    !finiteNonnegative(state.unallocatedQuantity) ||
+    !Array.isArray(state.activeLots) ||
+    typeof parentUnit !== "string" ||
+    !parentUnit.trim() ||
+    !safeId(acquisition?.sourceId) ||
+    (acquisition.source !== "shopping_list" &&
+      acquisition.source !== "confirmed_reconciliation") ||
+    !validCalendarDate(acquisition.acquiredAt) ||
+    (acquisition.expiryDaysAtAcquisition !== undefined &&
+      (!finiteNonnegative(acquisition.expiryDaysAtAcquisition) ||
+        !Number.isInteger(acquisition.expiryDaysAtAcquisition))) ||
+    (acquisition.initialCostEUR !== undefined &&
+      !finiteNonnegative(acquisition.initialCostEUR))
+  ) {
+    return { outcome: "invalid", state };
+  }
+
+  if (state.activeLots.some((lot) => lot.sourceId === acquisition.sourceId)) {
+    return { outcome: "already-recorded", state };
+  }
+
+  const converted = quantityInParentUnit(
+    acquisition.quantity,
+    acquisition.unit,
+    parentUnit,
+  );
+  if (converted === null) return { outcome: "invalid", state };
+
+  const lot: InventoryLot = {
+    id: lotIdFromSource(acquisition.sourceId),
+    sourceId: acquisition.sourceId,
+    source: acquisition.source,
+    acquiredAt: acquisition.acquiredAt,
+    initialQuantity: converted,
+    remainingQuantity: converted,
+    ...(acquisition.expiryDaysAtAcquisition !== undefined
+      ? { expiryDaysAtAcquisition: acquisition.expiryDaysAtAcquisition }
+      : {}),
+    ...(acquisition.initialCostEUR !== undefined
+      ? { initialCostEUR: acquisition.initialCostEUR }
+      : {}),
+  };
+  if (!isValidInventoryLot(lot)) return { outcome: "invalid", state };
+
+  return {
+    outcome: "added",
+    lot,
+    state: {
+      unallocatedQuantity: state.unallocatedQuantity,
+      activeLots: [...state.activeLots, lot],
+    },
+  };
+}
