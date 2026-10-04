@@ -101,8 +101,10 @@ test("confirmed acquisition replay is idempotent by source provenance", () => {
     sourceId: lot.sourceId,
     source: lot.source,
     acquiredAt: lot.acquiredAt,
-    quantity: 1,
+    quantity: lot.initialQuantity,
     unit: "kg",
+    expiryDaysAtAcquisition: lot.expiryDaysAtAcquisition,
+    initialCostEUR: lot.initialCostEUR,
   });
   assert.equal(result.outcome, "already-recorded");
   assert.equal(result.state, state);
