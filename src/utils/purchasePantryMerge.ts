@@ -1,5 +1,12 @@
 import type { PantryItem, PantryPurchaseRecord, ShoppingItem } from '../types';
 import { normalizeQuantity } from './quantityUnits';
+import {
+  appendConfirmedInventoryLot,
+  buildInventoryLotFromConfirmedAcquisition,
+  getVerifiedInventoryLotState,
+  initializeLegacyInventoryLotState,
+  inventoryLotStateMatchesQuantity,
+} from './inventoryLots';
 
 export interface PantryPurchase {
   sourceId: string;
@@ -102,6 +109,21 @@ export function mergePurchasesIntoPantry(
       ...(finiteNonnegative(purchase.estimatedCostEUR) ? { estimatedCostEUR: purchase.estimatedCostEUR } : {}),
       ...(finiteNonnegative(purchase.expiryDaysLeft) ? { expiryDaysLeft: purchase.expiryDaysLeft } : {}),
     };
+    const buildLotForParentUnit = (parentUnit: string) =>
+      buildInventoryLotFromConfirmedAcquisition({
+        sourceId: record.sourceId,
+        source: record.source,
+        acquiredAt: record.acquiredAt,
+        quantity: record.quantity,
+        unit: record.unit,
+        parentUnit,
+        ...(record.expiryDaysLeft === undefined
+          ? {}
+          : { expiryDaysAtAcquisition: record.expiryDaysLeft }),
+        ...(record.estimatedCostEUR === undefined
+          ? {}
+          : { initialEstimatedCostEUR: record.estimatedCostEUR }),
+      });
     if (candidate) {
       const existing = normalizeQuantity(candidate.quantity, candidate.unit)!;
       const combined = (existing.baseQuantity + quantity.baseQuantity) / existing.unit.factorToBase;
@@ -127,11 +149,30 @@ export function mergePurchasesIntoPantry(
         delete merged.expiryDaysLeft;
         delete merged.expiryIsPartial;
       }
+      const priorLotState =
+        getVerifiedInventoryLotState(candidate) ??
+        initializeLegacyInventoryLotState(candidate.quantity);
+      const acquiredLot = buildLotForParentUnit(candidate.unit);
+      const nextLotState =
+        priorLotState && acquiredLot
+          ? appendConfirmedInventoryLot(
+              candidate.quantity,
+              merged.quantity,
+              candidate.unit,
+              priorLotState,
+              acquiredLot,
+            )
+          : null;
+      merged.lotState =
+        nextLotState ?? {
+          unallocatedQuantity: merged.quantity,
+          activeLots: [],
+        };
       working[working.indexOf(candidate)] = merged;
     } else {
       const id = `purchase-${purchase.sourceId}`;
       if (working.some(item => item.id === id)) { reject('duplicate_source'); continue; }
-      working.push({
+      const created: PantryItem = {
         id, name: purchase.name.trim(), quantity: purchase.quantity, unit: purchase.unit.trim(),
         category: safeCategory(purchase.category), addedAt: acquiredAt,
         ...(nameKey(purchase.nameBg) ? { nameBg: purchase.nameBg.trim() } : {}),
@@ -139,7 +180,15 @@ export function mergePurchasesIntoPantry(
         ...(record.estimatedCostEUR !== undefined ? { estimatedCostEUR: record.estimatedCostEUR } : {}),
         ...(record.expiryDaysLeft !== undefined ? { expiryDaysLeft: record.expiryDaysLeft } : {}),
         purchaseHistory: [record],
-      });
+      };
+      const acquiredLot = buildLotForParentUnit(created.unit);
+      if (acquiredLot) {
+        const state = { unallocatedQuantity: 0, activeLots: [acquiredLot] };
+        if (inventoryLotStateMatchesQuantity(created.quantity, created.unit, state)) {
+          created.lotState = state;
+        }
+      }
+      working.push(created);
     }
     acceptedSourceIds.push(purchase.sourceId);
     newlyAppliedSourceIds.push(purchase.sourceId);
