@@ -807,7 +807,7 @@ export function useFirebaseSync(
       prepared = undefined;
     }
     if (prepared) {
-      const expectedIds = new Set(prepared.expectedStock.map(item => item.pantryItemId));
+      const expectedIds = new Set<string>(prepared.expectedStock.map(item => item.pantryItemId));
       const frozenEvidence = normalizeCookLotEvidence(prepared.lotEvidence, expectedIds);
       const replayEvidence = normalizeCookLotEvidence(lotEvidence, expectedIds);
       if (
