@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import {
   Plus,
   Search,
@@ -16,7 +16,11 @@ import { PantryItem, Language, Currency } from "../types";
 import { t } from "../utils/translations";
 import { validateManualPantryRequiredFields } from "../utils/manualPantryValidation";
 import { knownPantryCostEUR, summarizePantryCosts } from "../utils/pantryCostSummary";
-import { derivePantryItemExpiry } from "../utils/effectiveExpiry";
+import {
+  derivePantryItemExpiry,
+  localCalendarDate,
+  millisecondsUntilNextLocalDay,
+} from "../utils/effectiveExpiry";
 import { ConfirmModal } from "./ConfirmModal";
 import { ScanModal } from "./ScanModal";
 
@@ -53,6 +57,35 @@ export const PantryView: React.FC<PantryViewProps> = ({
   const [showScanModal, setShowScanModal] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [clearMutationId, setClearMutationId] = useState<string | null>(null);
+  const [calendarDay, setCalendarDay] = useState(
+    () => localCalendarDate() || "",
+  );
+
+  useEffect(() => {
+    const refreshCalendarDay = () => {
+      const nextDay = localCalendarDate();
+      if (nextDay) setCalendarDay(nextDay);
+    };
+
+    const delay = millisecondsUntilNextLocalDay();
+    const timer =
+      delay === null
+        ? undefined
+        : globalThis.setTimeout(refreshCalendarDay, delay + 50);
+
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") refreshCalendarDay();
+    };
+    globalThis.addEventListener("focus", refreshCalendarDay);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+
+    return () => {
+      if (timer !== undefined) globalThis.clearTimeout(timer);
+      globalThis.removeEventListener("focus", refreshCalendarDay);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [calendarDay]);
+
 
   // New item form state
   const [name, setName] = useState("");
