@@ -249,3 +249,40 @@ export function legacyPantryQuantityToLotState(
     activeLots: [],
   };
 }
+
+
+/**
+ * Pure transition used before any persistence integration: existing aggregate
+ * stock is treated as unallocated unless explicit lot state already exists,
+ * then the confirmed acquisition is appended as its own active lot.
+ */
+export function applyConfirmedAcquisitionToLotState(
+  currentQuantity: number,
+  parentUnit: string,
+  currentState: InventoryLotState | undefined,
+  acquisition: ConfirmedAcquisitionLotInput,
+): InventoryLotState | null {
+  const baseState = currentState ??
+    legacyPantryQuantityToLotState({
+      quantity: currentQuantity,
+      unit: parentUnit,
+    });
+  if (!baseState ||
+      !inventoryLotStateMatchesQuantity(currentQuantity, parentUnit, baseState)) {
+    return null;
+  }
+
+  const lot = buildInventoryLotFromConfirmedAcquisition(
+    acquisition,
+    parentUnit,
+  );
+  if (!lot) return null;
+
+  const next = addConfirmedAcquisitionLot(baseState, lot);
+  if (!next) return null;
+
+  const nextQuantity = currentQuantity + lot.remainingQuantity;
+  return inventoryLotStateMatchesQuantity(nextQuantity, parentUnit, next)
+    ? next
+    : null;
+}
