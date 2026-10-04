@@ -101,13 +101,16 @@ const advisorBatchFingerprint = (
   items: Array<Omit<ShoppingItem, "id" | "checked">>,
 ): string =>
   JSON.stringify(
-    items.map((item) => ({
-      name: item.name.normalize("NFKC").trim().toLocaleLowerCase().replace(/\s+/g, " "),
-      quantity: item.quantity,
-      unit: item.unit.normalize("NFKC").trim().toLocaleLowerCase().replace(/\s+/g, " "),
-      category: item.category,
-      reason: item.reason ?? null,
-    })),
+    items
+      .map((item) => ({
+        name: item.name.normalize("NFKC").trim().toLocaleLowerCase().replace(/\s+/g, " "),
+        quantity: item.quantity,
+        unit: item.unit.normalize("NFKC").trim().toLocaleLowerCase().replace(/\s+/g, " "),
+        category: item.category,
+      }))
+      .sort((left, right) =>
+        JSON.stringify(left).localeCompare(JSON.stringify(right)),
+      ),
   );
 
 export default function App() {
