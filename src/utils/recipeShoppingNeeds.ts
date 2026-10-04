@@ -22,7 +22,7 @@ const normalizeName = (value: string): string =>
     .normalize("NFKC")
     .trim()
     .toLocaleLowerCase()
-    .replace(/\\s+/g, " ");
+    .replace(/\s+/g, " ");
 
 const namesLikelyMatch = (a: string, b: string): boolean => {
   const left = normalizeName(a);
