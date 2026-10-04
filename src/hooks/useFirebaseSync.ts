@@ -865,7 +865,13 @@ export function useFirebaseSync(
         confirmation,
       );
       if (preview.outcome !== "recorded") {
-        return { accepted: false, issueCount: Math.max(1, preview.pendingIngredients?.length ?? 1) };
+        return {
+          accepted: false,
+          issueCount:
+            preview.outcome === "needs-review"
+              ? Math.max(1, preview.pendingIngredients.length)
+              : 1,
+        };
       }
       for (const item of preview.state.pantry) {
         expectedRemaining.set(item.id, item.quantity);
