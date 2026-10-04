@@ -1258,6 +1258,7 @@ export default function App() {
           ? {
               ...item,
               quantity: newQty,
+              lotState: { unallocatedQuantity: newQty, activeLots: [] },
               estimatedCostEUR: null,
               ...(shouldMarkExpiryPartialAfterQuantityIncrease(
                 item.quantity,
