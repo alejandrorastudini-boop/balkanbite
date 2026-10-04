@@ -395,3 +395,20 @@ export function parseInventoryLotStateForParent(
     ? state
     : null;
 }
+
+
+/**
+ * Conservative compatibility projection for PantryItem integration.
+ * Missing lot state means legacy/manual aggregate stock: preserve the quantity
+ * as unallocated rather than reconstructing acquisition lots from history.
+ */
+export function resolveInventoryLotStateForParent(
+  value: unknown,
+  pantryQuantity: unknown,
+  pantryUnit: unknown,
+): InventoryLotState | null {
+  if (value === undefined) {
+    return initializeLegacyInventoryLotState(pantryQuantity);
+  }
+  return parseInventoryLotStateForParent(value, pantryQuantity, pantryUnit);
+}
