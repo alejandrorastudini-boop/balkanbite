@@ -1,7 +1,11 @@
 import type { ConfirmedCookLotEvidence } from "./confirmedCookFirestore";
 import type { CookLotEvidencePlan } from "./cookLotEvidencePlanner";
 
-export type CookLotReviewSelection = Readonly<Record<string, string | "unknown">>;
+export type CookLotReviewAllocation = Readonly<Record<string, number>>;
+export type CookLotReviewSelection = Readonly<Record<
+  string,
+  string | "unknown" | CookLotReviewAllocation
+>>;
 
 export type CookLotEvidenceBuildResult =
   | { outcome: "aggregate"; lotEvidence?: undefined }
@@ -56,29 +60,50 @@ export function buildCookLotEvidence(
 
   const lotEvidence: ConfirmedCookLotEvidence[] = [];
   for (const prompt of plan.prompts) {
-    const selectedLotId = selections[prompt.pantryItemId];
-    if (typeof selectedLotId !== "string" || !selectedLotId) {
+    const selection = selections[prompt.pantryItemId];
+    if (!Number.isFinite(prompt.requiredQuantity) || prompt.requiredQuantity <= 0) {
       return { outcome: "invalid" };
     }
-    const choice = prompt.choices.find(candidate => candidate.lotId === selectedLotId);
-    if (!choice) return { outcome: "invalid" };
-    if (
-      !Number.isFinite(prompt.requiredQuantity) ||
-      prompt.requiredQuantity <= 0 ||
-      choice.unit !== prompt.unit ||
-      choice.remainingQuantity + 1e-9 < prompt.requiredQuantity
-    ) {
+
+    if (typeof selection === "string") {
+      const choice = prompt.choices.find(candidate => candidate.lotId === selection);
+      if (!choice || choice.unit !== prompt.unit ||
+          choice.remainingQuantity + 1e-9 < prompt.requiredQuantity) {
+        return { outcome: "invalid" };
+      }
+      lotEvidence.push({
+        pantryItemId: prompt.pantryItemId,
+        reviewedOn,
+        deductions: [{ lotId: choice.lotId, quantity: prompt.requiredQuantity }],
+      });
+      continue;
+    }
+
+    if (!selection || Array.isArray(selection)) return { outcome: "invalid" };
+    const offeredIds = new Set(prompt.choices.map(choice => choice.lotId));
+    const entries = Object.entries(selection);
+    if (entries.length === 0 || entries.some(([lotId]) => !offeredIds.has(lotId))) {
+      return { outcome: "invalid" };
+    }
+    let total = 0;
+    const deductions = [];
+    for (const [lotId, quantity] of entries) {
+      const choice = prompt.choices.find(candidate => candidate.lotId === lotId);
+      if (!choice || choice.unit !== prompt.unit || !Number.isFinite(quantity) ||
+          quantity <= 0 || quantity > choice.remainingQuantity + 1e-9) {
+        return { outcome: "invalid" };
+      }
+      total += quantity;
+      deductions.push({ lotId, quantity });
+    }
+    if (Math.abs(total - prompt.requiredQuantity) > 1e-9) {
       return { outcome: "invalid" };
     }
     lotEvidence.push({
       pantryItemId: prompt.pantryItemId,
       reviewedOn,
-      deductions: [{
-        lotId: choice.lotId,
-        quantity: prompt.requiredQuantity,
-      }],
+      deductions: deductions.sort((a, b) => a.lotId.localeCompare(b.lotId)),
     });
   }
-
   return { outcome: "exact", lotEvidence };
 }
