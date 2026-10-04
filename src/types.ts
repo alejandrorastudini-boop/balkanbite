@@ -32,6 +32,8 @@ export interface InventoryLot {
 }
 
 export interface InventoryLotState {
+  /** Persisted schema discriminator. Missing/other versions are not authoritative. */
+  version: 1;
   /** Stock whose acquisition-lot allocation is unknown. */
   unallocatedQuantity: number;
   activeLots: InventoryLot[];
