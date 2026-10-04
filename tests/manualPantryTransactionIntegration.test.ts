@@ -47,7 +47,9 @@ test("signed-in manual delete waits for committed remote snapshot while guest de
     handler,
     /if \(currentUser\) \{\s*dispatchVerifiedPantryChange\(viewed, "remove"\);\s*return;\s*\}/,
   );
-  assert.match(handler, /setPantry\(\(prev\) => prev\.filter/);
+  assert.match(handler, /setPantry\\(\\(prev\\) => \\{/);
+  assert.match(handler, /const updatedPantry = prev\\.filter/);
+  assert.match(handler, /reconcileGuestPantryDerivedState\\(updatedPantry\\)/);
 });
 
 test("hook performs verified transaction and does not directly set pantry after commit", () => {
