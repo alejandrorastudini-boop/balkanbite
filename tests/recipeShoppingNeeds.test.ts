@@ -179,3 +179,47 @@ test("known pending shopping can cover usable shortfall even when other stock ne
   assert.equal(assessment.status, "covered");
   assert.equal(assessment.quantity, 0);
 });
+
+
+test("repeated recipe ingredients cannot reuse the same pantry quantity", () => {
+  const repeated = {
+    ...INITIAL_RECIPES[0],
+    ingredients: [
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+    ],
+  };
+  const result = buildRecipeShoppingNeeds(repeated, [stock(500, "g")]);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.quantity, 300);
+});
+
+test("repeated recipe ingredients cannot reuse the same pending shopping quantity", () => {
+  const repeated = {
+    ...INITIAL_RECIPES[0],
+    ingredients: [
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+    ],
+  };
+  const result = buildRecipeShoppingNeeds(repeated, [], [pending(500, "g")]);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.quantity, 300);
+});
+
+test("pantry and pending quantities reserve across repeated requirements with compatible units", () => {
+  const repeated = {
+    ...INITIAL_RECIPES[0],
+    ingredients: [
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+    ],
+  };
+  const result = buildRecipeShoppingNeeds(
+    repeated,
+    [stock(0.5, "kg")],
+    [pending(300, "g")],
+  );
+  assert.equal(result.items.length, 0);
+  assert.equal(result.unverified.length, 0);
+});
