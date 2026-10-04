@@ -52,6 +52,13 @@ const safeTokenId = (value: unknown): value is string =>
 const validQuantity = (value: unknown): value is number =>
   typeof value === "number" && Number.isFinite(value) && value > 0;
 
+const validCalendarDate = (value: unknown): value is string => {
+  if (typeof value !== "string" || !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year && date.getUTCMonth() === month - 1 && date.getUTCDate() === day;
+};
+
 const validRevision = (value: unknown): value is number =>
   typeof value === "number" &&
   Number.isSafeInteger(value) &&
@@ -121,7 +128,7 @@ export function normalizeCookLotEvidence(
       !isSafeInventoryLogicalId(evidence.pantryItemId) ||
       !expectedIds.has(evidence.pantryItemId) ||
       pantryIds.has(evidence.pantryItemId) ||
-      !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(evidence.reviewedOn) ||
+      !validCalendarDate(evidence.reviewedOn) ||
       !Array.isArray(evidence.deductions) ||
       evidence.deductions.length === 0 ||
       evidence.deductions.length > 60
