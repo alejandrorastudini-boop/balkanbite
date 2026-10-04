@@ -97,3 +97,12 @@ test("RecipeView only requests exact lot evidence through explicit review with a
   assert.equal(modalSource.includes("choices[0]"), false);
 });
 
+
+test("lot-review preview failure falls back to the normal aggregate confirmation instead of blocking cook review", () => {
+  const recipeSource = readFileSync(
+    new URL("../src/components/RecipeView.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(recipeSource.includes('? { outcome: "not-needed", prompts: [] } as const'));
+  assert.equal(recipeSource.includes('? { outcome: "invalid", prompts: [] } as const'), false);
+});
