@@ -138,3 +138,94 @@ test("same acquisition source with conflicting evidence is rejected", () => {
   assert.equal(result.outcome, "invalid");
   assert.equal(result.state, state);
 });
+
+
+test("confirmed shopping acquisition creates a parent-unit active lot without inventing missing evidence", async () => {
+  const { buildInventoryLotFromConfirmedAcquisition } = await import("../src/utils/inventoryLots");
+  assert.deepEqual(
+    buildInventoryLotFromConfirmedAcquisition({
+      sourceId: "shopping:item-42",
+      source: "shopping_list",
+      acquiredAt: "2026-10-04",
+      quantity: 500,
+      unit: "g",
+      parentUnit: "kg",
+    }),
+    {
+      id: "acquisition:shopping:item-42",
+      sourceId: "shopping:item-42",
+      source: "shopping_list",
+      acquiredAt: "2026-10-04",
+      initialQuantity: 0.5,
+      remainingQuantity: 0.5,
+    },
+  );
+});
+
+test("confirmed acquisition rejects incompatible units and invalid expiry evidence", async () => {
+  const { buildInventoryLotFromConfirmedAcquisition } = await import("../src/utils/inventoryLots");
+  assert.equal(
+    buildInventoryLotFromConfirmedAcquisition({
+      sourceId: "shopping:item-42",
+      source: "shopping_list",
+      acquiredAt: "2026-10-04",
+      quantity: 2,
+      unit: "pcs",
+      parentUnit: "kg",
+    }),
+    null,
+  );
+  assert.equal(
+    buildInventoryLotFromConfirmedAcquisition({
+      sourceId: "shopping:item-42",
+      source: "shopping_list",
+      acquiredAt: "2026-10-04",
+      quantity: 1,
+      unit: "kg",
+      parentUnit: "kg",
+      expiryDaysAtAcquisition: 1.5,
+    }),
+    null,
+  );
+});
+
+test("appending a confirmed lot preserves aggregate quantity invariant and rejects replay", async () => {
+  const {
+    appendConfirmedInventoryLot,
+    buildInventoryLotFromConfirmedAcquisition,
+  } = await import("../src/utils/inventoryLots");
+  const acquisition = buildInventoryLotFromConfirmedAcquisition({
+    sourceId: "shopping:item-42",
+    source: "shopping_list",
+    acquiredAt: "2026-10-04",
+    quantity: 500,
+    unit: "g",
+    parentUnit: "kg",
+  });
+  assert.ok(acquisition);
+  const before = { unallocatedQuantity: 1, activeLots: [] };
+  const after = appendConfirmedInventoryLot(1, 1.5, "kg", before, acquisition);
+  assert.deepEqual(after, {
+    unallocatedQuantity: 1,
+    activeLots: [acquisition],
+  });
+  assert.equal(
+    appendConfirmedInventoryLot(1.5, 2, "kg", after!, acquisition),
+    null,
+  );
+});
+
+test("embedded lot provenance accepts valid long purchase source identity without document-id rewriting", async () => {
+  const { buildInventoryLotFromConfirmedAcquisition } = await import("../src/utils/inventoryLots");
+  const sourceId = `reconcile:${"a".repeat(250)}:extra:0`;
+  const acquisition = buildInventoryLotFromConfirmedAcquisition({
+    sourceId,
+    source: "confirmed_reconciliation",
+    acquiredAt: "2026-10-04",
+    quantity: 1,
+    unit: "kg",
+    parentUnit: "kg",
+  });
+  assert.equal(acquisition?.sourceId, sourceId);
+  assert.equal(acquisition?.id, `acquisition:${sourceId}`);
+});
