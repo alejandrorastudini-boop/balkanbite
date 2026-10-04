@@ -352,3 +352,46 @@ export function appendConfirmedInventoryLot(
     ? stateAfter
     : null;
 }
+
+
+/**
+ * Validates an explicit lot-state payload at the persistence boundary.
+ * This is deliberately pure and unwired: callers may use it before a future
+ * PantryItem serializer starts persisting lot state.
+ */
+export function parseInventoryLotStateForParent(
+  value: unknown,
+  pantryQuantity: unknown,
+  pantryUnit: unknown,
+): InventoryLotState | null {
+  if (
+    !value ||
+    typeof value !== "object" ||
+    Array.isArray(value) ||
+    typeof pantryUnit !== "string"
+  ) {
+    return null;
+  }
+  const candidate = value as Partial<InventoryLotState>;
+  if (
+    !finiteNonnegative(candidate.unallocatedQuantity) ||
+    !Array.isArray(candidate.activeLots)
+  ) {
+    return null;
+  }
+  const state: InventoryLotState = {
+    unallocatedQuantity: candidate.unallocatedQuantity,
+    activeLots: candidate.activeLots.map((lot) =>
+      lot && typeof lot === "object" && !Array.isArray(lot)
+        ? { ...(lot as InventoryLot) }
+        : lot as InventoryLot,
+    ),
+  };
+  return inventoryLotStateMatchesQuantity(
+    pantryQuantity,
+    pantryUnit,
+    state,
+  )
+    ? state
+    : null;
+}
