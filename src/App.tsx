@@ -1943,12 +1943,15 @@ export default function App() {
   };
 
   const handleLogMeal = async (logData: any) => {
-    const now = new Date().toISOString();
+    const instant = new Date();
+    const timestamp = instant.toISOString();
+    const date = localCalendarDate(instant);
+    if (!date) return false;
     const newLog = buildVerifiedMealLog({
       ...logData,
       id: `log-${Date.now()}`,
-      date: now.split("T")[0],
-      timestamp: now,
+      date,
+      timestamp,
     });
 
     if (!newLog) {
