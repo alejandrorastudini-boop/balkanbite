@@ -293,6 +293,7 @@ export async function persistVerifiedVoiceConsumption(
                 }
               : {
                   quantity: remaining,
+                  estimatedCostEUR: null,
                   cookRevision: stock.cookRevision + 1,
                   _deleted: false,
                   deletedAt: null,
