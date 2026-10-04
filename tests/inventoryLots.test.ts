@@ -393,3 +393,25 @@ test("lot-state persistence boundary returns a detached state instead of aliasin
   assert.notEqual(parsed.activeLots, payload.activeLots);
   assert.notEqual(parsed.activeLots[0], payload.activeLots[0]);
 });
+
+
+test("PantryItem compatibility projection keeps missing lot state entirely unallocated", async () => {
+  const { resolveInventoryLotStateForParent } = await import("../src/utils/inventoryLots");
+  assert.deepEqual(
+    resolveInventoryLotStateForParent(undefined, 2.5, "kg"),
+    { unallocatedQuantity: 2.5, activeLots: [] },
+  );
+  assert.equal(resolveInventoryLotStateForParent(undefined, -1, "kg"), null);
+});
+
+test("PantryItem compatibility projection never repairs an explicit invalid lot state from history", async () => {
+  const { resolveInventoryLotStateForParent } = await import("../src/utils/inventoryLots");
+  assert.equal(
+    resolveInventoryLotStateForParent(
+      { unallocatedQuantity: 0, activeLots: [lot] },
+      2,
+      "kg",
+    ),
+    null,
+  );
+});
