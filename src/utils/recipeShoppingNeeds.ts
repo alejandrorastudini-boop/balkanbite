@@ -166,6 +166,64 @@ export function assessRecipeShoppingNeed(
   };
 }
 
+function reserveVirtualQuantity(
+  ingredient: Recipe["ingredients"][number],
+  pantry: PantryItem[],
+  shoppingList: ShoppingItem[],
+  now: Date,
+): void {
+  const required = normalizeQuantity(Number(ingredient.amount), ingredient.unit || "");
+  if (!required || required.baseQuantity <= 0) return;
+
+  const matchingItems = findAuthoritativePantryItems(ingredient.name, pantry);
+  const usableItems = matchingItems.filter(
+    (item) => !pantryItemNeedsExpiryReview(item, now),
+  );
+  const hasReviewStock = usableItems.length < matchingItems.length;
+  if (hasReviewStock) {
+    const usableBase = usableItems.reduce((sum, item) => {
+      const normalized = normalizeQuantity(item.quantity, item.unit);
+      return normalized?.unit.dimension === required.unit.dimension
+        ? sum + normalized.baseQuantity
+        : sum;
+    }, 0);
+    const pendingBase = shoppingList.reduce((sum, item) => {
+      if (item.checked || !namesLikelyMatch(ingredient.name, item.name)) return sum;
+      const normalized = normalizeQuantity(item.quantity, item.unit);
+      return normalized?.unit.dimension === required.unit.dimension
+        ? sum + normalized.baseQuantity
+        : sum;
+    }, 0);
+    if (usableBase + pendingBase + 1e-9 < required.baseQuantity) return;
+  }
+
+  let remaining = required.baseQuantity;
+  for (const item of usableItems) {
+    if (remaining <= 1e-9) break;
+    const normalized = normalizeQuantity(item.quantity, item.unit);
+    if (!normalized || normalized.unit.dimension !== required.unit.dimension) continue;
+    const used = Math.min(normalized.baseQuantity, remaining);
+    item.quantity = Math.max(
+      0,
+      (normalized.baseQuantity - used) / normalized.unit.factorToBase,
+    );
+    remaining -= used;
+  }
+
+  for (const item of shoppingList) {
+    if (remaining <= 1e-9) break;
+    if (item.checked || !namesLikelyMatch(ingredient.name, item.name)) continue;
+    const normalized = normalizeQuantity(item.quantity, item.unit);
+    if (!normalized || normalized.unit.dimension !== required.unit.dimension) continue;
+    const used = Math.min(normalized.baseQuantity, remaining);
+    item.quantity = Math.max(
+      0,
+      (normalized.baseQuantity - used) / normalized.unit.factorToBase,
+    );
+    remaining -= used;
+  }
+}
+
 export function buildRecipeShoppingNeeds(
   recipe: Recipe,
   pantry: PantryItem[],
@@ -175,9 +233,23 @@ export function buildRecipeShoppingNeeds(
   items: Array<Omit<ShoppingItem, "id" | "checked">>;
   unverified: RecipeShoppingNeedAssessment[];
 } {
-  const assessments = (recipe.ingredients || []).map((ingredient) =>
-    assessRecipeShoppingNeed(ingredient, pantry, shoppingList, now)
-  );
+  const virtualPantry = pantry.map((item) => ({ ...item }));
+  const virtualShopping = shoppingList.map((item) => ({ ...item }));
+  const assessments = (recipe.ingredients || []).map((ingredient) => {
+    const assessment = assessRecipeShoppingNeed(
+      ingredient,
+      virtualPantry,
+      virtualShopping,
+      now,
+    );
+    reserveVirtualQuantity(
+      ingredient,
+      virtualPantry,
+      virtualShopping,
+      now,
+    );
+    return assessment;
+  });
 
   return {
     items: assessments
