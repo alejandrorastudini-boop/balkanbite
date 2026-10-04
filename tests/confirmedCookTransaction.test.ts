@@ -166,3 +166,18 @@ test("cook lot evidence normalization is order-stable and rejects duplicate phys
     null,
   );
 });
+
+
+test("cook lot evidence rejects impossible reviewed calendar dates", () => {
+  assert.equal(
+    normalizeCookLotEvidence(
+      [{
+        pantryItemId: "potatoes",
+        reviewedOn: "2026-02-30",
+        deductions: [{ lotId: "lot-a", quantity: 0.5 }],
+      }],
+      new Set(["potatoes"]),
+    ),
+    null,
+  );
+});
