@@ -363,10 +363,18 @@ test("lot-state persistence boundary accepts only invariant-preserving explicit 
     ),
     null,
   );
-  assert.equal(
+  assert.deepEqual(
     parseInventoryLotStateForParent(
       { unallocatedQuantity: 1, activeLots: [] },
       1,
+      "mystery-unit",
+    ),
+    { unallocatedQuantity: 1, activeLots: [] },
+  );
+  assert.equal(
+    parseInventoryLotStateForParent(
+      { unallocatedQuantity: 0, activeLots: [lot] },
+      0.75,
       "mystery-unit",
     ),
     null,
