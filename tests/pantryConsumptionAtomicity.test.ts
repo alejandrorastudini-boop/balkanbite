@@ -95,8 +95,8 @@ test("automatic recipe deduction stops for stock that needs expiry review", () =
   assert.deepEqual(result.deductions, []);
 });
 
-test("partial merged stock also stops automatic deduction pending review", () => {
-  const reviewPantry: PantryItem[] = [
+test("partial merged expiry stays non-exact without fabricating a hard consumption block", () => {
+  const partialPantry: PantryItem[] = [
     {
       id: "rice-partial",
       name: "Rice",
@@ -110,13 +110,13 @@ test("partial merged stock also stops automatic deduction pending review", () =>
   ];
 
   const result = deductRecipeIngredientsFromPantry(
-    reviewPantry,
+    partialPantry,
     [{ name: "Rice", amount: 100, unit: "g", inPantry: true }],
     new Date("2026-10-02T12:00:00.000Z"),
   );
 
-  assert.equal(result.issues[0]?.reason, "expiry_review_required");
-  assert.deepEqual(result.deductions, []);
+  assert.deepEqual(result.issues, []);
+  assert.equal(result.deductions.length, 1);
 });
 
 
