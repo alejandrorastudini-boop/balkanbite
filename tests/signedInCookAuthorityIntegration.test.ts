@@ -106,3 +106,14 @@ test("lot-review preview failure falls back to the normal aggregate confirmation
   assert.ok(recipeSource.includes('? { outcome: "not-needed", prompts: [] } as const'));
   assert.equal(recipeSource.includes('? { outcome: "invalid", prompts: [] } as const'), false);
 });
+
+test("multi-lot review requires explicit per-purchase quantities and never auto-splits", () => {
+  const modalSource = readFileSync(
+    new URL("../src/components/CookLotReviewModal.tsx", import.meta.url),
+    "utf8",
+  );
+  assert.ok(modalSource.includes('type="number"'));
+  assert.ok(modalSource.includes("next[choice.lotId] = Number(raw)"));
+  assert.ok(modalSource.includes('selections[prompt.pantryItemId] === "unknown"'));
+  assert.equal(modalSource.includes("remainingQuantity - prompt.requiredQuantity"), false);
+});
