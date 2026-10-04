@@ -440,7 +440,7 @@ test("confirmed physical lot deduction changes only the explicitly selected acqu
     state,
     [{ lotId: lot.id, quantity: 0.25 }],
     "food-use",
-    new Date(2026, 9, 5, 12),
+    "2026-10-05",
   );
   assert.deepEqual(result, {
     outcome: "applied",
@@ -498,7 +498,7 @@ test("food-use blocks explicitly expired confirmed lots while disposal removal m
     unallocatedQuantity: 0,
     activeLots: [expired],
   };
-  const now = new Date(2026, 9, 5, 12);
+  const reviewedOn = "2026-10-05";
   assert.deepEqual(
     applyConfirmedInventoryLotDeduction(
       0.5,
@@ -506,7 +506,7 @@ test("food-use blocks explicitly expired confirmed lots while disposal removal m
       state,
       [{ lotId: expired.id, quantity: 0.5 }],
       "food-use",
-      now,
+      reviewedOn,
     ),
     {
       outcome: "expiry-review-required",
@@ -521,7 +521,6 @@ test("food-use blocks explicitly expired confirmed lots while disposal removal m
       state,
       [{ lotId: expired.id, quantity: 0.5 }],
       "removal",
-      now,
     ),
     { outcome: "applied", state: null },
   );
@@ -548,4 +547,70 @@ test("confirmed lot deduction preserves unallocated uncertainty instead of fabri
       activeLots: [],
     },
   });
+});
+
+
+test("food-use lot attribution requires a stable reviewed calendar date", () => {
+  const state: InventoryLotState = {
+    version: 1,
+    unallocatedQuantity: 0.25,
+    activeLots: [lot],
+  };
+  assert.deepEqual(
+    applyConfirmedInventoryLotDeduction(
+      1,
+      "kg",
+      state,
+      [{ lotId: lot.id, quantity: 0.25 }],
+      "food-use",
+    ),
+    { outcome: "invalid", state: null },
+  );
+  assert.deepEqual(
+    applyConfirmedInventoryLotDeduction(
+      1,
+      "kg",
+      state,
+      [{ lotId: lot.id, quantity: 0.25 }],
+      "food-use",
+      "2026-02-30",
+    ),
+    { outcome: "invalid", state: null },
+  );
+});
+
+test("stable reviewed date makes expiry decision independent from retry wall clock", () => {
+  const expiring: InventoryLot = {
+    ...lot,
+    id: "lot-stable-review",
+    sourceId: "shopping:stable-review",
+    acquiredAt: "2026-10-04",
+    initialQuantity: 0.5,
+    remainingQuantity: 0.5,
+    expiryDaysAtAcquisition: 2,
+  };
+  const state: InventoryLotState = {
+    version: 1,
+    unallocatedQuantity: 0,
+    activeLots: [expiring],
+  };
+  const reviewedOn = "2026-10-05";
+  assert.deepEqual(
+    applyConfirmedInventoryLotDeduction(
+      0.5,
+      "kg",
+      state,
+      [{ lotId: expiring.id, quantity: 0.25 }],
+      "food-use",
+      reviewedOn,
+    ),
+    {
+      outcome: "applied",
+      state: {
+        version: 1,
+        unallocatedQuantity: 0,
+        activeLots: [{ ...expiring, remainingQuantity: 0.25 }],
+      },
+    },
+  );
 });
