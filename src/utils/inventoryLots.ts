@@ -375,7 +375,7 @@ export function buildConfirmedAcquisitionLot(
   if (parentQuantity === null) return null;
 
   const lot: InventoryLot = {
-    id: `lot:${input.source}:${input.sourceId}`,
+    id: input.sourceId,
     sourceId: input.sourceId,
     source: input.source,
     acquiredAt: input.acquiredAt,
