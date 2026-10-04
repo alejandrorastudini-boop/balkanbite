@@ -12,6 +12,7 @@ import {
   type PurchaseMergeResult,
 } from "./purchasePantryMerge";
 import { getScopedDocumentId } from "./cloudCollectionSync";
+import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
 
 export interface PurchaseBaselineItem extends PantryItem {
   cookRevision?: number;
@@ -159,7 +160,9 @@ function serializePantryItem(
       !nonNegative(item.estimatedCostEUR)) ||
     (item.purchaseHistory !== undefined &&
       (!Array.isArray(item.purchaseHistory) ||
-        item.purchaseHistory.some(row => !validPurchaseRecord(row))))
+        item.purchaseHistory.some(row => !validPurchaseRecord(row)))) ||
+    (item.lotState !== undefined &&
+      !inventoryLotStateMatchesQuantity(item.quantity, item.unit, item.lotState))
   ) {
     return null;
   }
@@ -201,6 +204,25 @@ function serializePantryItem(
       }
       return record;
     });
+  }
+  if (item.lotState !== undefined) {
+    out.lotState = {
+      unallocatedQuantity: item.lotState.unallocatedQuantity,
+      activeLots: item.lotState.activeLots.map(lot => ({
+        id: lot.id,
+        sourceId: lot.sourceId,
+        source: lot.source,
+        acquiredAt: lot.acquiredAt,
+        initialQuantity: lot.initialQuantity,
+        remainingQuantity: lot.remainingQuantity,
+        ...(lot.expiryDaysAtAcquisition === undefined
+          ? {}
+          : { expiryDaysAtAcquisition: lot.expiryDaysAtAcquisition }),
+        ...(lot.initialEstimatedCostEUR === undefined
+          ? {}
+          : { initialEstimatedCostEUR: lot.initialEstimatedCostEUR }),
+      })),
+    };
   }
   return out;
 }
@@ -244,6 +266,7 @@ function comparableRemote(
     addedAt: data.addedAt,
     purchaseHistory: data.purchaseHistory,
     expiryIsPartial: data.expiryIsPartial,
+    lotState: data.lotState,
   } as PantryItem;
   return comparableItem(item);
 }
