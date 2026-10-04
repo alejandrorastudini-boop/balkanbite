@@ -137,7 +137,7 @@ function validPurchaseRecord(row: PantryPurchaseRecord): boolean {
   );
 }
 
-function serializePantryItem(
+export function serializePurchasePantryItemForWrite(
   item: PantryItem,
   userId: string,
   cookRevision: number,
@@ -241,7 +241,7 @@ const comparableShoppingItem = (item: ShoppingItem): Record<string, unknown> => 
 });
 
 function comparableItem(item: PantryItem): Record<string, unknown> | null {
-  const serialized = serializePantryItem(item, "_comparison_", 0);
+  const serialized = serializePurchasePantryItemForWrite(item, "_comparison_", 0);
   if (!serialized) return null;
   delete serialized.userId;
   delete serialized.cookRevision;
@@ -399,7 +399,7 @@ export function buildPurchasePantryTransactionPlan(
   for (const [id, after] of resultById) {
     const before = baselineById.get(id);
     if (!before) {
-      const serialized = serializePantryItem(after, userId, 0);
+      const serialized = serializePurchasePantryItemForWrite(after, userId, 0);
       if (!serialized) return null;
       creations.push({ after });
       expectedChanges.push({
@@ -432,7 +432,7 @@ export function buildPurchasePantryTransactionPlan(
     }
 
     const revision = before.cookRevision ?? 0;
-    const serialized = serializePantryItem(after, userId, revision + 1);
+    const serialized = serializePurchasePantryItemForWrite(after, userId, revision + 1);
     if (!serialized) return null;
     updates.push({ before, after, expectedRevision: revision });
     expectedChanges.push({
@@ -612,7 +612,7 @@ export async function persistPurchasesIntoPantryAtomically(
         }
 
         for (const entry of updates) {
-          const next = serializePantryItem(
+          const next = serializePurchasePantryItemForWrite(
             entry.after,
             userId,
             entry.expectedRevision + 1,
@@ -622,7 +622,7 @@ export async function persistPurchasesIntoPantryAtomically(
         }
 
         for (const entry of creations) {
-          const next = serializePantryItem(entry.after, userId, 0);
+          const next = serializePurchasePantryItemForWrite(entry.after, userId, 0);
           if (!next) return review("invalid-baseline", entry.after.id);
           tx.set(entry.ref, next);
         }
