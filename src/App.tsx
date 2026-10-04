@@ -1232,7 +1232,11 @@ export default function App() {
       return;
     }
     setPantry((prev) =>
-      prev.map((item) => (item.id === id ? { ...item, quantity: newQty } : item))
+      prev.map((item) =>
+        item.id === id
+          ? { ...item, quantity: newQty, estimatedCostEUR: null }
+          : item,
+      )
     );
   };
 
