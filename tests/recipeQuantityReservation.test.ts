@@ -45,3 +45,19 @@ test("RecipeView derives availability through recipe-level reservation", async (
   assert.doesNotMatch(view, /isIngredientQuantityAvailable/);
   assert.match(view, /recipeWithAvailability\(selectedRecipe\)/);
 });
+
+
+test("perishable bonus cannot reuse the same reserved stock across repeated ingredients", () => {
+  const expiringPantry = [{
+    ...pantry[0],
+    addedAt: "2026-10-04",
+    expiryDaysLeft: 2,
+  }];
+  const score = calculateRecipePantryScore(
+    recipe,
+    expiringPantry,
+    new Date(2026, 9, 4, 12, 0, 0, 0),
+  );
+  assert.equal(score.matchPercentage, 50);
+  assert.equal(score.perishableUsedCount, 1);
+});
