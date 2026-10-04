@@ -223,13 +223,13 @@ export function recommendInventoryLotsForUse(
       return true;
     })
     .sort((left, right) => {
-      const leftKnown = left.expiry.status === "known";
-      const rightKnown = right.expiry.status === "known";
-      if (leftKnown && rightKnown) {
+      if (left.expiry.status === "known" && right.expiry.status === "known") {
         const byExpiry = left.expiry.expiresOn.localeCompare(right.expiry.expiresOn);
         if (byExpiry !== 0) return byExpiry;
-      } else if (leftKnown !== rightKnown) {
-        return leftKnown ? -1 : 1;
+      } else if (left.expiry.status === "known") {
+        return -1;
+      } else if (right.expiry.status === "known") {
+        return 1;
       }
       const byAcquisition = left.lot.acquiredAt.localeCompare(right.lot.acquiredAt);
       return byAcquisition || left.lot.id.localeCompare(right.lot.id);
