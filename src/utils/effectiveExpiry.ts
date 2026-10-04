@@ -112,10 +112,11 @@ export function derivePantryItemExpiry(
 
 
 /**
- * Automatic planning/use may proceed when expiry is genuinely absent, but not
- * when explicit expiry evidence is known to be past or cannot be interpreted
- * reliably. Partial merged expiry also requires review because aggregate stock
- * is not an authoritative remaining-lot ledger.
+ * Automatic planning/use is blocked only by trustworthy explicit expiry
+ * evidence that is already past. Missing, partial, or uninterpretable evidence
+ * cannot support a freshness claim, but also cannot support a hard block.
+ * Partial merged expiry therefore remains visibly uncertain and is excluded
+ * from exact expiry prioritization without pretending the aggregate is expired.
  */
 export function pantryItemNeedsExpiryReview(
   item: PantryExpiryEvidence,
