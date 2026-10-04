@@ -12,6 +12,31 @@ export interface PantryPurchaseRecord {
   expiryDaysLeft?: number;
 }
 
+export type InventoryLotSource =
+  | "shopping_list"
+  | "confirmed_reconciliation";
+
+export interface InventoryLot {
+  /** Stable acquisition provenance identity; not a display name. */
+  id: string;
+  sourceId: string;
+  source: InventoryLotSource;
+  acquiredAt: string;
+  /** Stored in the parent PantryItem unit. */
+  initialQuantity: number;
+  remainingQuantity: number;
+  /** Whole calendar days from acquiredAt when explicitly evidenced. */
+  expiryDaysAtAcquisition?: number;
+  /** Optional initial estimated line value; never a mutable remaining value. */
+  initialEstimatedCostEUR?: number;
+}
+
+export interface InventoryLotState {
+  /** Stock whose acquisition-lot allocation is unknown. */
+  unallocatedQuantity: number;
+  activeLots: InventoryLot[];
+}
+
 export interface PantryItem {
   id: string;
   name: string;
@@ -25,6 +50,11 @@ export interface PantryItem {
   addedAt: string;
   purchaseHistory?: PantryPurchaseRecord[];
   expiryIsPartial?: boolean;
+  /**
+   * Optional precision overlay. Absence means no authoritative remaining-lot
+   * allocation is persisted for this item.
+   */
+  lotState?: InventoryLotState;
 }
 
 export interface RecipeIngredient {
