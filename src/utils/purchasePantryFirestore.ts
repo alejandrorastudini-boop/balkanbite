@@ -210,6 +210,7 @@ export function serializePurchasePantryItemForWrite(
   }
   if (item.lotState !== undefined) {
     out.lotState = {
+      version: 1,
       unallocatedQuantity: item.lotState.unallocatedQuantity,
       activeLots: item.lotState.activeLots.map(lot => ({
         id: lot.id,
