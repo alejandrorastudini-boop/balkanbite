@@ -1231,13 +1231,15 @@ export default function App() {
       dispatchVerifiedPantryChange(viewed, newQty);
       return;
     }
-    setPantry((prev) =>
-      prev.map((item) =>
+    setPantry((prev) => {
+      const updatedPantry = prev.map((item) =>
         item.id === id
           ? { ...item, quantity: newQty, estimatedCostEUR: null }
           : item,
-      )
-    );
+      );
+      reconcileGuestPantryDerivedState(updatedPantry);
+      return updatedPantry;
+    });
   };
 
   const handleDeletePantryItem = (id: string, viewed: PantryItem) => {
@@ -1247,7 +1249,11 @@ export default function App() {
       dispatchVerifiedPantryChange(viewed, "remove");
       return;
     }
-    setPantry((prev) => prev.filter((item) => item.id !== id));
+    setPantry((prev) => {
+      const updatedPantry = prev.filter((item) => item.id !== id);
+      reconcileGuestPantryDerivedState(updatedPantry);
+      return updatedPantry;
+    });
   };
 
   const handleClearPantry = async (mutationId: string): Promise<boolean> => {
@@ -1367,6 +1373,7 @@ export default function App() {
         return { success: false, issueCount: result.issues.length };
       }
       setPantry(result.pantry);
+      reconcileGuestPantryDerivedState(result.pantry);
       const actionId = createProgressionActionId(
         typeof globalThis.crypto?.randomUUID === "function"
           ? () => globalThis.crypto.randomUUID()
@@ -2098,6 +2105,7 @@ export default function App() {
         return false;
       }
       setPantry(guestResult.pantry);
+      reconcileGuestPantryDerivedState(guestResult.pantry);
       return true;
     }
 
