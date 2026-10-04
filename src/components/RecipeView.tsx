@@ -22,11 +22,16 @@ import { syncRecipeWithPantry } from "../utils/menuAutoPlanner";
 import { ConfirmModal } from "./ConfirmModal";
 import { getRecipeCookFeedback, type RecipeCookOutcome } from "../utils/recipeCookFeedback";
 import { formatRecipeCostEUR, recipeCheapFilterLabel, recipeCostCurrencyNotice } from "../utils/recipeCostDisplay";
+import type { ConfirmedCookLotEvidence } from "../utils/confirmedCookFirestore";
 
 interface RecipeViewProps {
   recipes: Recipe[];
   pantry: PantryItem[];
-  onCookRecipe: (recipe: Recipe, cookConfirmationId: string) => RecipeCookOutcome | Promise<RecipeCookOutcome>;
+  onCookRecipe: (
+    recipe: Recipe,
+    cookConfirmationId: string,
+    lotEvidence?: readonly ConfirmedCookLotEvidence[],
+  ) => RecipeCookOutcome | Promise<RecipeCookOutcome>;
   onAddMissingToShopping: (recipe: Recipe) => boolean | Promise<boolean>;
   onGenerateAiRecipes: () => Promise<void>;
   onClearRecipes?: () => void | boolean | Promise<void | boolean>;
@@ -164,11 +169,12 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const handleCook = async (
     recipe: Recipe,
     cookConfirmationId: string,
+    lotEvidence?: readonly ConfirmedCookLotEvidence[],
   ): Promise<RecipeCookOutcome> => {
     let outcome: RecipeCookOutcome;
     try {
       outcome = await Promise.resolve(
-        onCookRecipe(recipe, cookConfirmationId),
+        onCookRecipe(recipe, cookConfirmationId, lotEvidence),
       );
     } catch (error) {
       console.error("Recipe cook confirmation failed:", error);
