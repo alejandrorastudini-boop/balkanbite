@@ -26,7 +26,7 @@ import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, t
 import { buildPurchaseMutationId, persistPurchasesIntoPantryAtomically, type PurchasePantryTransactionResult } from "../utils/purchasePantryFirestore";
 import type { PantryPurchase } from "../utils/purchasePantryMerge";
 import { persistConfirmedCookAtomically, type AtomicCookExpectedStock } from "../utils/confirmedCookFirestore";
-import type { CookConfirmation } from "../utils/confirmedCookTransaction";
+import { confirmCookTransaction, type CookConfirmation } from "../utils/confirmedCookTransaction";
 import { persistInventoryClearAtomically } from "../utils/inventoryClearFirestore";
 import { clearShoppingItems, createShoppingItem, createShoppingItems, replaceShoppingItem, removeShoppingItem } from "../utils/shoppingMutationFirestore";
 import { replaceDerivedCollectionAtomically } from "../utils/derivedCollectionFirestore";
@@ -34,7 +34,6 @@ import { ensureUserProfileExistsAtomically, replaceUserProfileAtomically } from 
 import { appendMealLogAtomically, subscribeMealLogs } from "../utils/mealLogFirestore";
 import { appendProgressionEventsAtomically, subscribeProgressionEvents } from "../utils/progressionFirestore";
 import type { ProgressionEventV1 } from "../utils/progressionLedger";
-import { computeCookExpectedRemaining } from "../utils/cookExpectedRemaining";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -846,22 +845,30 @@ export function useFirebaseSync(
         ) {
           return { accepted: false, issueCount: 1 };
         }
-        const remaining = computeCookExpectedRemaining(
-          pantryItemId,
-          observed.quantity,
-          observed.unit,
-          confirmation.ingredients,
-        );
-        if (remaining === null) {
-          return { accepted: false, issueCount: 1 };
-        }
         expectedStock.push({
           pantryItemId,
           quantity: observed.quantity,
           unit: observed.unit,
           cookRevision: observed.cookRevision,
         });
-        expectedRemaining.set(pantryItemId, remaining);
+      }
+
+      const preview = confirmCookTransaction(
+        {
+          pantry: expectedStock.map(item => ({
+            id: item.pantryItemId,
+            quantity: item.quantity,
+            unit: item.unit,
+          })),
+          consumptionRecords: [],
+        },
+        confirmation,
+      );
+      if (preview.outcome !== "recorded") {
+        return { accepted: false, issueCount: Math.max(1, preview.pendingIngredients?.length ?? 1) };
+      }
+      for (const item of preview.state.pantry) {
+        expectedRemaining.set(item.id, item.quantity);
       }
 
       prepared = { userId: uid, confirmation, expectedStock, expectedRemaining };
