@@ -34,7 +34,7 @@ import { ensureUserProfileExistsAtomically, replaceUserProfileAtomically } from 
 import { appendMealLogAtomically, subscribeMealLogs } from "../utils/mealLogFirestore";
 import { appendProgressionEventsAtomically, subscribeProgressionEvents } from "../utils/progressionFirestore";
 import type { ProgressionEventV1 } from "../utils/progressionLedger";
-import { normalizeQuantity } from "../utils/quantityUnits";
+import { computeCookExpectedRemaining } from "../utils/cookExpectedRemaining";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -846,36 +846,15 @@ export function useFirebaseSync(
         ) {
           return { accepted: false, issueCount: 1 };
         }
-        const observedNormalized = normalizeQuantity(observed.quantity, observed.unit);
-        if (!observedNormalized) {
+        const remaining = computeCookExpectedRemaining(
+          pantryItemId,
+          observed.quantity,
+          observed.unit,
+          confirmation.ingredients,
+        );
+        if (remaining === null) {
           return { accepted: false, issueCount: 1 };
         }
-        let consumedBase = 0;
-        for (const ingredient of confirmation.ingredients) {
-          if (ingredient.pantryItemId !== pantryItemId) continue;
-          if (
-            typeof ingredient.quantity !== "number" ||
-            typeof ingredient.unit !== "string"
-          ) {
-            return { accepted: false, issueCount: 1 };
-          }
-          const normalized = normalizeQuantity(ingredient.quantity, ingredient.unit);
-          if (
-            !normalized ||
-            normalized.unit.dimension !== observedNormalized.unit.dimension
-          ) {
-            return { accepted: false, issueCount: 1 };
-          }
-          consumedBase += normalized.baseQuantity;
-        }
-        const remainingBase = observedNormalized.baseQuantity - consumedBase;
-        if (remainingBase < -1e-9) {
-          return { accepted: false, issueCount: 1 };
-        }
-        const remaining = Math.round(
-          (Math.max(0, remainingBase) / observedNormalized.unit.factorToBase + Number.EPSILON) *
-            1_000_000,
-        ) / 1_000_000;
         expectedStock.push({
           pantryItemId,
           quantity: observed.quantity,
