@@ -82,7 +82,6 @@ import {
 } from "./utils/verifiedMealLog";
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
 import { hasValidManualShoppingRequiredFields } from "./utils/manualShoppingValidation";
-import { localCalendarDate } from "./utils/effectiveExpiry";
 import { isExpectedInventoryResultVisible } from "./utils/expectedInventoryResult";
 import {
   getFoodSafetyQuarantine,
