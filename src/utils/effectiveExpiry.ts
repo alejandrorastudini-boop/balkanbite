@@ -121,8 +121,10 @@ export function pantryItemNeedsExpiryReview(
   item: PantryExpiryEvidence,
   now: Date = new Date(),
 ): boolean {
-  if (item.expiryIsPartial) return true;
-  if (item.expiryDaysLeft === undefined) return false;
+  if (item.expiryDaysLeft === undefined || item.expiryIsPartial) return false;
   const expiry = derivePantryItemExpiry(item, now);
-  return expiry.status === "unknown" || expiry.expired;
+  // Unknown legacy evidence cannot support a freshness claim, but it also
+  // cannot support a hard automatic-use block. Only a trustworthy entered
+  // date that is actually past creates that block.
+  return expiry.status === "known" && expiry.expired;
 }
