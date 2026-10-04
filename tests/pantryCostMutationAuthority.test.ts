@@ -9,9 +9,9 @@ test("signed-in quantity mutations invalidate stale pantry value", () => {
   const voice = read("src/utils/verifiedVoiceConsumptionFirestore.ts");
   const edit = read("src/utils/inventoryAdjustmentFirestore.ts");
 
-  assert.match(cook, /quantity,\s*estimatedCostEUR: null,/);
-  assert.match(voice, /quantity: remaining,\s*estimatedCostEUR: null,/);
-  assert.match(edit, /quantity: adjustment\.quantity,\s*estimatedCostEUR: null,/);
+  assert.match(cook, /quantity,[\s\S]*estimatedCostEUR: null,/);
+  assert.match(voice, /quantity: remaining,[\s\S]*estimatedCostEUR: null,/);
+  assert.match(edit, /quantity: adjustment\.quantity,[\s\S]*estimatedCostEUR: null,/);
 });
 
 test("guest manual quantity edit invalidates stale value and preserves expiry uncertainty", () => {
