@@ -47,6 +47,7 @@ import {
 } from "./utils/pantryConsumption";
 import { buildRecipeShoppingNeeds } from "./utils/recipeShoppingNeeds";
 import type { RecipeCookOutcome } from "./utils/recipeCookFeedback";
+import type { ConfirmedCookLotEvidence } from "./utils/confirmedCookFirestore";
 import {
   transferCheckedShoppingItems,
   reconcileConfirmedShoppingPurchases,
@@ -1388,6 +1389,7 @@ export default function App() {
   const handleCookRecipe = async (
     recipe: Recipe,
     cookConfirmationId: string,
+    lotEvidence?: readonly ConfirmedCookLotEvidence[],
   ): Promise<RecipeCookOutcome> => {
     if (!requireAuthoritativeInventory()) {
       return { success: false, issueCount: 1 };
@@ -1470,7 +1472,11 @@ export default function App() {
       ),
     });
 
-    const committed = await submitConfirmedCook(pantry, prepared.confirmation);
+    const committed = await submitConfirmedCook(
+      pantry,
+      prepared.confirmation,
+      lotEvidence,
+    );
     if (!committed.accepted) {
       return { success: false, issueCount: committed.issueCount };
     }
