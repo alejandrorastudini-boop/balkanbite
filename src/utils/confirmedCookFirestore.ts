@@ -12,6 +12,7 @@ import {
 } from "./confirmedCookTransaction";
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
+import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
 
 export interface AtomicCookExpectedStock {
   pantryItemId: string;
@@ -255,7 +256,9 @@ export async function persistConfirmedCookAtomically(
             !validQuantity(data.quantity) ||
             typeof data.unit !== "string" ||
             !data.unit.trim() ||
-            !validRevision(revision)
+            !validRevision(revision) ||
+            (data.lotState !== undefined &&
+              !inventoryLotStateMatchesQuantity(data.quantity, data.unit, data.lotState))
           ) {
             return reject("invalid-stock", expected.pantryItemId);
           }
