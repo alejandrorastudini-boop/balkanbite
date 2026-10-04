@@ -1,7 +1,7 @@
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, Language } from "../types";
 import { findMatchingPantryItems } from "./menuAutoPlanner";
 import { normalizeQuantity } from "./quantityUnits";
-import { derivePantryItemExpiry, pantryItemNeedsExpiryReview } from "./effectiveExpiry";
+import { derivePantryItemExpiry, localCalendarDate, localDateFromCalendarKey, pantryItemNeedsExpiryReview } from "./effectiveExpiry";
 
 export type IngredientAvailabilityStatus =
   | "missing"
@@ -239,7 +239,22 @@ export function evaluateShoppingNeeds(
     );
   });
   const pendingShoppingItems = shoppingList.filter((item) => !item.checked);
-  const upcomingDays = (mealPlan || []).slice(0, 3);
+  const todayKey = localCalendarDate(now);
+  const todayLocal = todayKey ? localDateFromCalendarKey(todayKey) : null;
+  const upcomingDays = todayLocal
+    ? (mealPlan || [])
+        .flatMap((day) => {
+          const localDate = localDateFromCalendarKey(day.date);
+          if (!localDate) return [];
+          const dayOffset = Math.round(
+            (localDate.getTime() - todayLocal.getTime()) / 86_400_000,
+          );
+          return dayOffset >= 0 && dayOffset <= 2
+            ? [{ day, dayOffset }]
+            : [];
+        })
+        .sort((a, b) => a.dayOffset - b.dayOffset)
+    : [];
 
   const missingMealIngredients: MissingMealIngredient[] = [];
   const candidateItemsToAdd: Map<
@@ -248,25 +263,25 @@ export function evaluateShoppingNeeds(
   > = new Map();
   const remainingBaseByPantryId = new Map<string, number>();
 
-  (upcomingDays || []).forEach((day, index) => {
+  (upcomingDays || []).forEach(({ day, dayOffset }) => {
     const dayName =
-      index === 0
+      dayOffset === 0
         ? language === "es"
           ? "Hoy"
           : language === "bg"
           ? "Днес"
           : "Today"
-        : index === 1
+        : dayOffset === 1
         ? language === "es"
           ? "Mañana"
           : language === "bg"
           ? "Утре"
           : "Tomorrow"
         : language === "es"
-        ? `En ${index} días`
+        ? `En ${dayOffset} días`
         : language === "bg"
-        ? `След ${index} дни`
-        : `In ${index} days`;
+        ? `След ${dayOffset} дни`
+        : `In ${dayOffset} days`;
 
     const meals: Array<{
       type: "breakfast" | "lunch" | "dinner";
