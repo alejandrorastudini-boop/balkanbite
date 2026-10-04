@@ -2,7 +2,7 @@ import React, { useRef, useState } from "react";
 import { AlertTriangle, X } from "lucide-react";
 import type { Language, PantryItem } from "../types";
 import type { CookLotEvidencePlan } from "../utils/cookLotEvidencePlanner";
-import type { CookLotReviewSelection } from "../utils/cookLotEvidenceAdapter";
+import type { CookLotReviewAllocation, CookLotReviewSelection } from "../utils/cookLotEvidenceAdapter";
 
 interface Props {
   plan: CookLotEvidencePlan;
@@ -13,15 +13,15 @@ interface Props {
 }
 
 export const CookLotReviewModal: React.FC<Props> = ({ plan, pantry, language, onClose, onConfirm }) => {
-  const [selections, setSelections] = useState<Record<string, string | "unknown">>({});
+  const [selections, setSelections] = useState<Record<string, string | "unknown" | CookLotReviewAllocation>>({});
   const [busy, setBusy] = useState(false);
   const busyRef = useRef(false);
   if (plan.outcome !== "review") return null;
 
   const text = language === "es"
-    ? { title: "¿De qué compra usaste cada alimento?", help: "Elige una compra solo si la reconoces. Si no lo sabes, mantendremos el consumo sin inventar el lote.", unknown: "No lo sé", bought: "Comprado", remaining: "Quedaban", expires: "Caduca", cancel: "Cancelar", confirm: "Confirmar consumo" }
+    ? { title: "¿De qué compra usaste cada alimento?", help: "Indica la cantidad usada de cada compra. No repartimos nada automáticamente. Si no lo sabes, mantendremos el consumo sin inventar el lote.", unknown: "No lo sé", bought: "Comprado", remaining: "Quedaban", expires: "Caduca", used: "Usado", cancel: "Cancelar", confirm: "Confirmar consumo" }
     : language === "bg"
-    ? { title: "От коя покупка използвахте всеки продукт?", help: "Изберете покупка само ако я разпознавате. Ако не знаете, ще запазим консумацията без да измисляме партида.", unknown: "Не знам", bought: "Купено", remaining: "Оставаха", expires: "Годно до", cancel: "Отказ", confirm: "Потвърди консумацията" }
+    ? { title: "От коя покупка използвахте всеки продукт?", help: "Посочете използваното количество от всяка покупка. Не разпределяме автоматично. Ако не знаете, ще запазим консумацията без измислена партида.", unknown: "Не знам", bought: "Купено", remaining: "Оставаха", expires: "Годно до", used: "Използвано", cancel: "Отказ", confirm: "Потвърди консумацията" }
     : { title: "Which purchase did you use for each food?", help: "Choose a purchase only if you recognize it. If you do not know, we will keep the consumption without inventing a lot.", unknown: "I don't know", bought: "Bought", remaining: "Remaining", expires: "Expires", cancel: "Cancel", confirm: "Confirm consumption" };
 
   const complete = plan.prompts.every(prompt => selections[prompt.pantryItemId] !== undefined);
@@ -57,12 +57,39 @@ export const CookLotReviewModal: React.FC<Props> = ({ plan, pantry, language, on
           {plan.prompts.map(prompt => (
             <fieldset key={prompt.pantryItemId} className="space-y-2 border border-white/[0.08] rounded-2xl p-3">
               <legend className="px-1 text-sm font-bold text-white">{labelFor(prompt.pantryItemId)} · {prompt.requiredQuantity} {prompt.unit}</legend>
-              {prompt.choices.map(choice => (
-                <label key={choice.lotId} className="flex gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06] cursor-pointer">
-                  <input type="radio" name={`cook-lot-${prompt.pantryItemId}`} checked={selections[prompt.pantryItemId] === choice.lotId} onChange={() => setSelections(current => ({ ...current, [prompt.pantryItemId]: choice.lotId }))} className="mt-0.5" />
-                  <span className="text-xs text-stone-300"><strong className="text-stone-100">{text.bought}:</strong> {choice.acquiredAt.slice(0, 10)} · <strong className="text-stone-100">{text.remaining}:</strong> {choice.remainingQuantity} {choice.unit}{choice.expiresOn ? <> · <strong className="text-stone-100">{text.expires}:</strong> {choice.expiresOn}</> : null}</span>
-                </label>
-              ))}
+              {prompt.choices.map(choice => {
+                const selected = selections[prompt.pantryItemId];
+                const allocation = typeof selected === "object" && selected ? selected : {};
+                return (
+                  <label key={choice.lotId} className="flex items-center gap-3 p-3 rounded-xl bg-white/[0.03] border border-white/[0.06]">
+                    <span className="flex-1 text-xs text-stone-300"><strong className="text-stone-100">{text.bought}:</strong> {choice.acquiredAt.slice(0, 10)} · <strong className="text-stone-100">{text.remaining}:</strong> {choice.remainingQuantity} {choice.unit}{choice.expiresOn ? <> · <strong className="text-stone-100">{text.expires}:</strong> {choice.expiresOn}</> : null}</span>
+                    <span className="flex items-center gap-1.5 text-xs text-stone-300">
+                      <span>{text.used}</span>
+                      <input
+                        type="number"
+                        min="0"
+                        max={choice.remainingQuantity}
+                        step="any"
+                        inputMode="decimal"
+                        value={allocation[choice.lotId] ?? ""}
+                        onChange={event => {
+                          const raw = event.target.value;
+                          setSelections(current => {
+                            const previous = current[prompt.pantryItemId];
+                            const next = typeof previous === "object" && previous ? { ...previous } : {};
+                            if (raw === "") delete next[choice.lotId];
+                            else next[choice.lotId] = Number(raw);
+                            return { ...current, [prompt.pantryItemId]: next };
+                          });
+                        }}
+                        className="w-20 rounded-lg bg-stone-950 border border-stone-700 px-2 py-1.5 text-right text-white"
+                        aria-label={`${text.used} ${choice.acquiredAt.slice(0, 10)}`}
+                      />
+                      <span>{choice.unit}</span>
+                    </span>
+                  </label>
+                );
+              })}
               <label className="flex gap-3 p-3 rounded-xl bg-amber-500/[0.06] border border-amber-500/20 cursor-pointer">
                 <input type="radio" name={`cook-lot-${prompt.pantryItemId}`} checked={selections[prompt.pantryItemId] === "unknown"} onChange={() => setSelections(current => ({ ...current, [prompt.pantryItemId]: "unknown" }))} className="mt-0.5" />
                 <span className="text-xs font-semibold text-amber-200">{text.unknown}</span>
