@@ -21,7 +21,7 @@ const lot: InventoryLot = {
   initialQuantity: 1,
   remainingQuantity: 0.75,
   expiryDaysAtAcquisition: 2,
-  initialCostEUR: 3.5,
+  initialEstimatedCostEUR: 3.5,
 };
 
 test("active inventory lot validates explicit acquisition evidence", () => {
@@ -181,7 +181,7 @@ test("confirmed acquisition constructor does not invent monetary lot evidence", 
     acquiredAt: "2026-10-04",
   });
   assert.ok(created);
-  assert.equal(created.initialCostEUR, undefined);
+  assert.equal(created.initialEstimatedCostEUR, undefined);
 });
 
 
@@ -318,10 +318,10 @@ test("confirmed acquisition preserves explicit initial cost evidence without der
     unit: "kg",
     parentUnit: "kg",
     acquiredAt: "2026-10-04",
-    initialCostEUR: 4,
+    initialEstimatedCostEUR: 4,
   });
   assert.ok(created);
-  assert.equal(created.initialCostEUR, 4);
+  assert.equal(created.initialEstimatedCostEUR, 4);
   assert.equal("remainingCostEUR" in created, false);
 });
 
@@ -334,7 +334,7 @@ test("confirmed acquisition rejects invalid monetary evidence", () => {
       unit: "kg",
       parentUnit: "kg",
       acquiredAt: "2026-10-04",
-      initialCostEUR: -1,
+      initialEstimatedCostEUR: -1,
     }),
     null,
   );
