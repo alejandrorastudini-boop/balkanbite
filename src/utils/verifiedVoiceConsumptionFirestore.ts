@@ -6,6 +6,7 @@ import {
 } from "firebase/firestore";
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
+import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
 
 export interface VerifiedVoiceStockExpectation {
   pantryItemId: string;
@@ -235,7 +236,9 @@ export async function persistVerifiedVoiceConsumption(
             !positive(data.quantity) ||
             typeof data.unit !== "string" ||
             !data.unit.trim() ||
-            !validRevision(revision)
+            !validRevision(revision) ||
+            (data.lotState !== undefined &&
+              !inventoryLotStateMatchesQuantity(data.quantity, data.unit, data.lotState))
           ) {
             return review("invalid-stock", expected.pantryItemId);
           }
