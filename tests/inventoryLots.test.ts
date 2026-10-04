@@ -527,7 +527,7 @@ test("food-use blocks explicitly expired confirmed lots while disposal removal m
   );
 });
 
-test("confirmed lot deduction preserves unallocated uncertainty and cannot claim full depletion around it", () => {
+test("confirmed lot deduction preserves unallocated uncertainty instead of fabricating full depletion", () => {
   const state: InventoryLotState = {
     version: 1,
     unallocatedQuantity: 0.25,
