@@ -34,7 +34,7 @@ test("active inventory lot validates explicit acquisition evidence", () => {
 test("lot state quantity equals unallocated stock plus active remaining lots", () => {
   assert.equal(
     inventoryLotStateMatchesQuantity(1, "kg", {
-      version: 1,
+      version: 1 as const,
       unallocatedQuantity: 0.25,
       activeLots: [lot],
     }),
@@ -42,7 +42,7 @@ test("lot state quantity equals unallocated stock plus active remaining lots", (
   );
   assert.equal(
     inventoryLotStateMatchesQuantity(1.1, "kg", {
-      version: 1,
+      version: 1 as const,
       unallocatedQuantity: 0.25,
       activeLots: [lot],
     }),
@@ -53,7 +53,7 @@ test("lot state quantity equals unallocated stock plus active remaining lots", (
 test("lot state rejects duplicate provenance identities", () => {
   assert.equal(
     inventoryLotStateMatchesQuantity(1.5, "kg", {
-      version: 1,
+      version: 1 as const,
       unallocatedQuantity: 0,
       activeLots: [lot, { ...lot, id: "lot-2" }],
     }),
@@ -148,7 +148,7 @@ test("appending a confirmed lot preserves aggregate quantity invariant and rejec
   const before = { version: 1, unallocatedQuantity: 1, activeLots: [] };
   const after = appendConfirmedInventoryLot(1, 1.5, "kg", before, acquisition);
   assert.deepEqual(after, {
-    version: 1,
+    version: 1 as const,
     unallocatedQuantity: 1,
     activeLots: [acquisition],
   });
@@ -191,7 +191,7 @@ test("confirmed acquisition constructor does not invent monetary lot evidence", 
 
 test("legacy stock migrates entirely to unallocated quantity without fabricated lots", () => {
   assert.deepEqual(initializeLegacyInventoryLotState(2.5), {
-    version: 1,
+    version: 1 as const,
     unallocatedQuantity: 2.5,
     activeLots: [],
   });
@@ -201,7 +201,7 @@ test("legacy stock migrates entirely to unallocated quantity without fabricated 
 
 test("generic manual absolute edit collapses prior lot allocation to declared unallocated stock", () => {
   assert.deepEqual(collapseLotAllocationAfterManualQuantityEdit(0.8), {
-    version: 1,
+    version: 1 as const,
     unallocatedQuantity: 0.8,
     activeLots: [],
   });
@@ -210,7 +210,7 @@ test("generic manual absolute edit collapses prior lot allocation to declared un
 
 test("generic aggregate deduction discards unsupported lot precision", () => {
   const before = {
-    version: 1,
+    version: 1 as const,
     unallocatedQuantity: 0.25,
     activeLots: [lot],
   };
@@ -228,7 +228,7 @@ test("generic aggregate deduction discards unsupported lot precision", () => {
 
 test("aggregate deduction reports depletion without fabricating zero-quantity lots", () => {
   const before = {
-    version: 1,
+    version: 1 as const,
     unallocatedQuantity: 0.25,
     activeLots: [lot],
   };
@@ -240,7 +240,7 @@ test("aggregate deduction reports depletion without fabricating zero-quantity lo
 
 test("aggregate deduction rejects increases and inconsistent pre-deduction lot state", () => {
   const before = {
-    version: 1,
+    version: 1 as const,
     unallocatedQuantity: 0.25,
     activeLots: [lot],
   };
@@ -284,7 +284,7 @@ test("FEFO recommendation ranks usable known expiry first without mutating lot s
     expiryDaysAtAcquisition: undefined,
   };
   const state = {
-    version: 1,
+    version: 1 as const,
     unallocatedQuantity: 0,
     activeLots: [later, unknown, sooner],
   };
@@ -361,7 +361,7 @@ test("optional persisted lot state is usable only when it reconciles to the pare
     category: "Dairy" as const,
     addedAt: "2026-10-04",
     lotState: {
-      version: 1,
+      version: 1 as const,
       unallocatedQuantity: 0.25,
       activeLots: [
         {
