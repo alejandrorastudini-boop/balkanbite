@@ -396,3 +396,22 @@ test("legacy pantry without persisted lot state remains valid but has no invente
     null,
   );
 });
+
+
+test("lot-state validation fails closed on missing or unsupported schema version", () => {
+  assert.equal(
+    inventoryLotStateMatchesQuantity(1, "kg", {
+      unallocatedQuantity: 1,
+      activeLots: [],
+    } as any),
+    false,
+  );
+  assert.equal(
+    inventoryLotStateMatchesQuantity(1, "kg", {
+      version: 2,
+      unallocatedQuantity: 1,
+      activeLots: [],
+    } as any),
+    false,
+  );
+});
