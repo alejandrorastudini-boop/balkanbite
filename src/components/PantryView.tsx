@@ -98,8 +98,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
     const expiry = derivePantryItemExpiry(item, expiryNow);
     return (
       expiry.status === "known" &&
-      !expiry.expired &&
-      expiry.daysRemaining <= 3
+      (expiry.expired || expiry.daysRemaining <= 3)
     );
   }).length;
 
