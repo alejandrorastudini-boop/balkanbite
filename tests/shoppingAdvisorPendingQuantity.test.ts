@@ -39,3 +39,20 @@ test("checked or incompatible pending rows do not hide a shortfall", () => {
   );
   assert.equal(result.itemsToAddToShoppingList[0]?.quantity, 1);
 });
+
+
+test("equivalent normalized ingredient names aggregate into one candidate", () => {
+  const secondRecipe = {
+    ...recipe,
+    id: "quantity-meal-2",
+    ingredients: [{ name: "  MILK  ", amount: 1, unit: "l", inPantry: false }],
+  };
+  const result = evaluateShoppingNeeds(
+    [],
+    [{ date: "2026-10-04", breakfast: recipe, lunch: secondRecipe }],
+    [],
+    "en",
+  );
+  assert.equal(result.itemsToAddToShoppingList.length, 1);
+  assert.equal(result.itemsToAddToShoppingList[0]?.quantity, 2);
+});
