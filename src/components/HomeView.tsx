@@ -32,6 +32,8 @@ import { findPlannedMealForDate } from "../utils/mealPlanLookup";
 import type { ProgressionActivitySummaryV1 } from "../utils/progressionLedger";
 import type { RecipeCookOutcome } from "../utils/recipeCookFeedback";
 import { getRecipeCookFeedback } from "../utils/recipeCookFeedback";
+import { derivePantryItemExpiry } from "../utils/effectiveExpiry";
+import { useLocalCalendarDay } from "../hooks/useLocalCalendarDay";
 
 interface HomeViewProps {
   pantry: PantryItem[];
@@ -67,6 +69,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const currentText = t[language];
   const isDark = theme === "dark";
   const [cookFeedback, setCookFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const calendarDay = useLocalCalendarDay();
 
   // Time-based greeting
   const greeting = useMemo(() => {
@@ -78,11 +81,19 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   const userName = profile.name?.trim() || (language === "es" ? "Chef" : "Chef");
 
-  // Expiring soon items count (expiry <= 3 days)
-  const expiringItems = useMemo(
-    () => pantry.filter((item) => item.expiryDaysLeft !== undefined && item.expiryDaysLeft <= 3),
-    [pantry]
-  );
+  // Date-sensitive attention count uses effective, non-partial expiry.
+  const expiringItems = useMemo(() => {
+    const now = calendarDay
+      ? new Date(`${calendarDay}T12:00:00`)
+      : new Date();
+    return pantry.filter((item) => {
+      const expiry = derivePantryItemExpiry(item, now);
+      return (
+        expiry.status === "known" &&
+        (expiry.expired || expiry.daysRemaining <= 3)
+      );
+    });
+  }, [pantry, calendarDay]);
 
   // Pending shopping count
   const pendingShoppingItems = useMemo(
@@ -91,7 +102,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   );
 
   // Today's meal plan
-  const todayIsoDate = useMemo(() => new Date().toISOString().split("T")[0], []);
+  const todayIsoDate = calendarDay;
   const todayPlan = useMemo(() => {
     const matched = findPlannedMealForDate(mealPlan, todayIsoDate);
     if (matched) return matched;
