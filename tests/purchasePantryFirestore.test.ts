@@ -203,7 +203,7 @@ test("purchase writer serializes verified lot state and rejects inconsistent ove
 });
 
 
-test("purchase plan can repair an inconsistent legacy lot overlay instead of trusting or blocking on it", () => {
+test("purchase plan fails closed on an inconsistent explicit lot overlay", () => {
   const baseline = [{
     id: "tomato",
     name: "Tomate",
@@ -225,18 +225,11 @@ test("purchase plan can repair an inconsistent legacy lot overlay instead of tru
     },
   }];
   const purchases = [purchase("shopping:s1", 0.5)];
-  const plan = buildPurchasePantryTransactionPlan({
+  assert.equal(buildPurchasePantryTransactionPlan({
     userId: "alice",
     mutationId: buildPurchaseMutationId(purchases)!,
     baselinePantry: baseline,
     purchases,
     acquiredAt: "2026-09-29",
-  });
-  assert.ok(plan);
-  assert.equal(plan.updates[0].after.quantity, 1.5);
-  assert.equal(plan.updates[0].after.lotState?.unallocatedQuantity, 1);
-  assert.deepEqual(
-    plan.updates[0].after.lotState?.activeLots.map(lot => lot.sourceId),
-    ["shopping:s1"],
-  );
+  }), null);
 });
