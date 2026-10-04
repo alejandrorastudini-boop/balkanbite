@@ -104,9 +104,16 @@ export async function persistVerifiedInventoryAdjustment(
           return { outcome: "removed" as const, cookRevision: nextRevision };
         }
 
+        const hasKnownExpiry =
+          typeof remote.expiryDaysLeft === "number" &&
+          Number.isFinite(remote.expiryDaysLeft) &&
+          remote.expiryDaysLeft >= 0;
         tx.update(reference, {
           quantity: adjustment.quantity,
           estimatedCostEUR: null,
+          ...(adjustment.quantity > expected.quantity && hasKnownExpiry
+            ? { expiryIsPartial: true }
+            : {}),
           cookRevision: nextRevision,
           _deleted: false,
           deletedAt: null,
