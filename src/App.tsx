@@ -81,6 +81,7 @@ import {
 } from "./utils/verifiedMealLog";
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
 import { hasValidManualShoppingRequiredFields } from "./utils/manualShoppingValidation";
+import { localCalendarDate } from "./utils/effectiveExpiry";
 import { isExpectedInventoryResultVisible } from "./utils/expectedInventoryResult";
 import {
   getFoodSafetyQuarantine,
@@ -1140,10 +1141,12 @@ export default function App() {
     // Optional category, cost, and expiry remain unknown when blank.
     if (!hasValidPantryAcquisitionRequiredFields(item)) return false;
 
+    const addedAt = localCalendarDate();
+    if (!addedAt) return false;
     const newItem: PantryItem = {
       ...item,
       id: `p-${Date.now()}`,
-      addedAt: new Date().toISOString().split("T")[0],
+      addedAt,
     };
     if (currentUser) {
       return dispatchSignedInPantryCreations([newItem]);
@@ -1156,7 +1159,8 @@ export default function App() {
     if (!requireAuthoritativeInventory()) return false;
     if (!isValidPantryAcquisitionBatch(items)) return false;
 
-    const acquiredAt = new Date().toISOString().split("T")[0];
+    const acquiredAt = localCalendarDate();
+    if (!acquiredAt) return false;
     const newItems: PantryItem[] = items.map((item, idx) => ({
       ...item,
       id: `p-${Date.now()}-${idx}`,
@@ -2015,7 +2019,8 @@ export default function App() {
     if (!requireAuthoritativeInventory()) return false;
     const { accepted, rejectedCount } = normalizeVoicePantryItems(items || []);
     const now = Date.now();
-    const addedAt = new Date().toISOString().split("T")[0];
+    const addedAt = localCalendarDate();
+    if (!addedAt) return false;
     const parsed: PantryItem[] = accepted.map((item, idx) => ({
       ...item,
       id: `p-${now}-${idx}`,
