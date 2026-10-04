@@ -1,3 +1,4 @@
+import { shouldMarkExpiryPartialAfterQuantityIncrease } from "./effectiveExpiry";
 import { doc, runTransaction, serverTimestamp, type Firestore } from "firebase/firestore";
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
@@ -107,6 +108,13 @@ export async function persistVerifiedInventoryAdjustment(
         tx.update(reference, {
           quantity: adjustment.quantity,
           estimatedCostEUR: null,
+          ...(shouldMarkExpiryPartialAfterQuantityIncrease(
+            expected.quantity,
+            adjustment.quantity,
+            remote.expiryDaysLeft,
+          )
+            ? { expiryIsPartial: true }
+            : {}),
           cookRevision: nextRevision,
           _deleted: false,
           deletedAt: null,
