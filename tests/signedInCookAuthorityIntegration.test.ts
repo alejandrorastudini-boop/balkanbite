@@ -38,7 +38,7 @@ test("acceptance requires server-confirmed quantity and revision evidence", () =
 });
 
 
-test("future physical lot evidence is part of immutable cook replay identity without changing aggregate writer behavior", () => {
+test("future physical lot evidence is part of immutable cook replay identity while aggregate writer remains conservative", () => {
   const firestoreSource = readFileSync(
     new URL("../src/utils/confirmedCookFirestore.ts", import.meta.url),
     "utf8",
