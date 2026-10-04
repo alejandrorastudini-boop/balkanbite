@@ -106,3 +106,35 @@ test("missing expiry evidence remains eligible for deterministic shopping covera
   );
   assert.equal(assessment.status, "covered");
 });
+
+
+test("qualified pending product names do not hide a different recipe shortfall", () => {
+  const result = buildRecipeShoppingNeeds(
+    recipe(500, "g"),
+    [stock(320, "g")],
+    [pending(180, "g"), { ...pending(180, "g"), id: "s2", name: "Lentejas rojas" }],
+  );
+  assert.equal(result.items.length, 0);
+
+  const onlyQualified = buildRecipeShoppingNeeds(
+    recipe(500, "g"),
+    [stock(320, "g")],
+    [{ ...pending(180, "g"), name: "Lentejas rojas" }],
+  );
+  assert.equal(onlyQualified.items[0]?.quantity, 180);
+});
+
+test("pending shopping identity normalizes Unicode form, case and whitespace only", () => {
+  const normalizedPending = {
+    ...pending(180, "g"),
+    name: "  LENTEJAS   ",
+  };
+  assert.equal(
+    buildRecipeShoppingNeeds(
+      recipe(500, "g"),
+      [stock(320, "g")],
+      [normalizedPending],
+    ).items.length,
+    0,
+  );
+});
