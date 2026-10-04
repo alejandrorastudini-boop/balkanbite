@@ -184,3 +184,29 @@ test("review stock that would complete an otherwise short requirement reports re
   assert.deepEqual(result.deductions, []);
   assert.deepEqual(result.pantry, mixedPantry);
 });
+
+
+test("partial automatic consumption invalidates stale whole-stock cost instead of inventing a remainder value", () => {
+  const valuedPantry: PantryItem[] = [
+    {
+      id: "rice-valued",
+      name: "Rice",
+      quantity: 200,
+      unit: "g",
+      category: "Pantry/Grains",
+      addedAt: "2026-10-04",
+      estimatedCostEUR: 4,
+    },
+  ];
+
+  const result = deductRecipeIngredientsFromPantry(
+    valuedPantry,
+    [{ name: "Rice", amount: 100, unit: "g", inPantry: true }],
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+
+  assert.deepEqual(result.issues, []);
+  assert.equal(result.pantry[0]?.quantity, 100);
+  assert.equal(result.pantry[0]?.estimatedCostEUR, null);
+  assert.equal(valuedPantry[0]?.estimatedCostEUR, 4);
+});
