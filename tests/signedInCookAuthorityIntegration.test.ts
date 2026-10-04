@@ -62,3 +62,14 @@ test("signed-in cook derives server-confirmation target from the same unit-safe 
   assert.ok(syncSource.includes("expectedRemaining.set(item.id, item.quantity)"));
   assert.equal(syncSource.includes("observed.quantity - consumed"), false);
 });
+
+
+test("reviewed physical lot evidence is carried unchanged through the signed-in cook boundary", () => {
+  assert.ok(syncSource.includes("normalizeCookLotEvidence("));
+  assert.ok(syncSource.includes("lotEvidence: normalizedLotEvidence"));
+  assert.ok(syncSource.includes("{ lotEvidence: prepared.lotEvidence }"));
+  assert.ok(
+    syncSource.includes("JSON.stringify(prepared.lotEvidence) !== JSON.stringify(normalizedLotEvidence)"),
+    "a retry may not silently replace the physical lot evidence bound to a cook id",
+  );
+});
