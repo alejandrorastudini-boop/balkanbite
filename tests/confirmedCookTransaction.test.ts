@@ -194,7 +194,7 @@ test("cook lot evidence exactly reconciles with the complete aggregate confirmed
     ],
   };
   assert.equal(
-    cookLotEvidenceMatchesConfirmedAllocations(confirmation, [{
+    cookLotEvidenceMatchesConfirmedAllocations(confirmation, [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 1 }], [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 1 }], [{
       pantryItemId: "potatoes",
       reviewedOn: "2026-10-04",
       deductions: [
@@ -234,5 +234,56 @@ test("cook replay signature rejects partial physical lot attribution", () => {
       }],
     ),
     null,
+  );
+});
+
+
+test("cook lot reconciliation converts compatible recipe units into the pantry lot unit", () => {
+  const confirmation = {
+    cookConfirmationId: "cook-unit-normalization",
+    mealId: "musaka",
+    confirmed: true,
+    ingredients: [
+      { ingredientId: "potato", pantryItemId: "potatoes", quantity: 500, unit: "g" },
+    ],
+  };
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations(
+      confirmation,
+      [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 3 }],
+      [{
+        pantryItemId: "potatoes",
+        reviewedOn: "2026-10-04",
+        deductions: [{ lotId: "lot-a", quantity: 0.5 }],
+      }],
+    ),
+    true,
+  );
+});
+
+test("cook lot reconciliation refuses incompatible or unknown recipe units", () => {
+  const expected = [{ pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 3 }];
+  const evidence = [{
+    pantryItemId: "potatoes",
+    reviewedOn: "2026-10-04",
+    deductions: [{ lotId: "lot-a", quantity: 0.5 }],
+  }];
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations({
+      cookConfirmationId: "cook-bad-unit",
+      mealId: "musaka",
+      confirmed: true,
+      ingredients: [{ ingredientId: "potato", pantryItemId: "potatoes", quantity: 0.5, unit: "l" }],
+    }, expected, evidence),
+    false,
+  );
+  assert.equal(
+    cookLotEvidenceMatchesConfirmedAllocations({
+      cookConfirmationId: "cook-unknown-unit",
+      mealId: "musaka",
+      confirmed: true,
+      ingredients: [{ ingredientId: "potato", pantryItemId: "potatoes", quantity: 0.5, unit: "mystery-scoop" }],
+    }, expected, evidence),
+    false,
   );
 });
