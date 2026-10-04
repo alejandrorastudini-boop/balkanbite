@@ -14,10 +14,12 @@ test("signed-in quantity mutations invalidate stale pantry value", () => {
   assert.match(edit, /quantity: adjustment\.quantity,\s*estimatedCostEUR: null,/);
 });
 
-test("guest manual quantity edit also invalidates stale pantry value", () => {
+test("guest manual quantity edit invalidates stale value and preserves expiry uncertainty", () => {
   const app = read("src/App.tsx");
-  assert.match(
-    app,
-    /\{ \.\.\.item, quantity: newQty, estimatedCostEUR: null \}/,
-  );
+  const start = app.indexOf("const handleUpdatePantryQuantity");
+  const end = app.indexOf("const handleDeletePantryItem", start);
+  assert.ok(start >= 0 && end > start);
+  const handler = app.slice(start, end);
+  assert.match(handler, /estimatedCostEUR: null/);
+  assert.match(handler, /shouldMarkExpiryPartialAfterQuantityIncrease/);
 });
