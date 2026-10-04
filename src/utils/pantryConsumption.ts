@@ -70,6 +70,7 @@ export function deductRecipeIngredientsFromPantry(
   pantry: PantryItem[],
   ingredients: RecipeIngredient[],
   now: Date = new Date(),
+  requireExpiryReview = true,
 ): PantryConsumptionResult {
   let workingPantry = pantry.map((item) => ({ ...item }));
   const deductions: PantryConsumptionDeduction[] = [];
@@ -107,15 +108,18 @@ export function deductRecipeIngredientsFromPantry(
 
     const compatibleItems = sortConsumptionCandidates(
       compatibleMatchingItems.filter(
-        (item) => !pantryItemNeedsExpiryReview(item, now),
+        (item) =>
+          !requireExpiryReview || !pantryItemNeedsExpiryReview(item, now),
       ),
       now,
     );
 
     if (compatibleItems.length === 0) {
-      const hasCompatibleReviewStock = compatibleMatchingItems.some(
-        (item) => pantryItemNeedsExpiryReview(item, now),
-      );
+      const hasCompatibleReviewStock =
+        requireExpiryReview &&
+        compatibleMatchingItems.some(
+          (item) => pantryItemNeedsExpiryReview(item, now),
+        );
       issues.push({
         ingredientName: ingredient.name,
         requiredAmount: ingredient.amount,
@@ -133,12 +137,14 @@ export function deductRecipeIngredientsFromPantry(
     }, 0);
 
     if (totalCompatibleBase + 1e-9 < required.baseQuantity) {
-      const reviewCompatibleBase = compatibleMatchingItems
+      const reviewCompatibleBase = requireExpiryReview
+        ? compatibleMatchingItems
         .filter((item) => pantryItemNeedsExpiryReview(item, now))
         .reduce((sum, item) => {
           const normalized = normalizeQuantity(item.quantity, item.unit);
           return sum + (normalized?.baseQuantity || 0);
-        }, 0);
+        }, 0)
+        : 0;
       issues.push({
         ingredientName: ingredient.name,
         requiredAmount: ingredient.amount,
@@ -233,5 +239,8 @@ export function deductVoiceItemsFromPantry(
     inPantry: true,
   }));
 
-  return deductRecipeIngredientsFromPantry(pantry, ingredients, now);
+  // A confirmed voice REMOVE_ITEMS action may represent disposal, not eating.
+  // It must be able to remove review-required stock without claiming it was
+  // suitable for consumption.
+  return deductRecipeIngredientsFromPantry(pantry, ingredients, now, false);
 }
