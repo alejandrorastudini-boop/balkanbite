@@ -190,6 +190,55 @@ export function deriveInventoryLotExpiry(
  * Converts explicit acquisition quantity into the parent PantryItem unit.
  * Returns null rather than inventing a conversion for incompatible dimensions.
  */
+export interface InventoryLotUseRecommendation {
+  usableLots: InventoryLot[];
+  expiredLotIds: string[];
+}
+
+/**
+ * FEFO is advisory unless the user explicitly confirms the physical lot used.
+ * This function only ranks evidence; it never mutates remaining quantities.
+ */
+export function recommendInventoryLotsForUse(
+  state: InventoryLotState,
+  now: Date = new Date(),
+): InventoryLotUseRecommendation | null {
+  if (
+    !state ||
+    !finiteNonnegative(state.unallocatedQuantity) ||
+    !Array.isArray(state.activeLots) ||
+    state.activeLots.some((lot) => !isValidInventoryLot(lot))
+  ) {
+    return null;
+  }
+
+  const expiredLotIds: string[] = [];
+  const usable = state.activeLots
+    .map((lot) => ({ lot, expiry: deriveInventoryLotExpiry(lot, now) }))
+    .filter(({ lot, expiry }) => {
+      if (expiry.status === "known" && expiry.expired) {
+        expiredLotIds.push(lot.id);
+        return false;
+      }
+      return true;
+    })
+    .sort((left, right) => {
+      const leftKnown = left.expiry.status === "known";
+      const rightKnown = right.expiry.status === "known";
+      if (leftKnown && rightKnown) {
+        const byExpiry = left.expiry.expiresOn.localeCompare(right.expiry.expiresOn);
+        if (byExpiry !== 0) return byExpiry;
+      } else if (leftKnown !== rightKnown) {
+        return leftKnown ? -1 : 1;
+      }
+      const byAcquisition = left.lot.acquiredAt.localeCompare(right.lot.acquiredAt);
+      return byAcquisition || left.lot.id.localeCompare(right.lot.id);
+    })
+    .map(({ lot }) => lot);
+
+  return { usableLots: usable, expiredLotIds };
+}
+
 export function quantityInParentUnit(
   quantity: unknown,
   sourceUnit: unknown,
