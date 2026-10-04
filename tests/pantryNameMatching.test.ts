@@ -22,9 +22,11 @@ test("does not treat character substrings as food identity", () => {
   assert.equal(isPantryNameMatch("sal", item("ensalada preparada")), false);
 });
 
-test("matches complete requirement words inside a more descriptive pantry name", () => {
-  assert.equal(isPantryNameMatch("egg", item("fresh eggs")), true);
-  assert.equal(isPantryNameMatch("olive oil", item("extra virgin olive oil")), true);
+test("does not infer food identity from extra descriptive tokens", () => {
+  assert.equal(isPantryNameMatch("egg", item("fresh eggs")), false);
+  assert.equal(isPantryNameMatch("olive oil", item("extra virgin olive oil")), false);
+  assert.equal(isPantryNameMatch("milk", item("almond milk")), false);
+  assert.equal(isPantryNameMatch("milk", item("coconut milk")), false);
   assert.equal(isPantryNameMatch("tomates", item("tomate")), true);
 });
 
