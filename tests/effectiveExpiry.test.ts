@@ -91,3 +91,35 @@ test("future capture clock skew never inflates confirmed shelf life", () => {
     assert.equal(result.expired, false);
   }
 });
+
+test("non-partial pantry expiry ages from item addedAt", async () => {
+  const { derivePantryItemExpiry } = await import("../src/utils/effectiveExpiry");
+  const result = derivePantryItemExpiry(
+    {
+      expiryDaysLeft: 3,
+      addedAt: "2026-10-01T12:00:00.000Z",
+    },
+    new Date("2026-10-03T12:00:00.000Z"),
+  );
+
+  assert.equal(result.status, "known");
+  if (result.status === "known") {
+    assert.equal(result.daysRemaining, 1);
+    assert.equal(result.expired, false);
+  }
+});
+
+test("partial merged pantry expiry stays unknown instead of claiming one lot remains", async () => {
+  const { derivePantryItemExpiry } = await import("../src/utils/effectiveExpiry");
+  assert.deepEqual(
+    derivePantryItemExpiry(
+      {
+        expiryDaysLeft: 1,
+        addedAt: "2026-10-01T12:00:00.000Z",
+        expiryIsPartial: true,
+      },
+      new Date("2026-10-03T12:00:00.000Z"),
+    ),
+    { status: "unknown" },
+  );
+});
