@@ -1,7 +1,10 @@
 import { PantryItem, Recipe, MealPlanDay, UserProfile } from "../types";
 import { assessTotalAvailability, areUnitsCompatible } from "./quantityUnits";
 import { areReviewedBulgarianFoodAliases } from "./bulgarianFoodAliases";
-import { derivePantryItemExpiry } from "./effectiveExpiry";
+import {
+  derivePantryItemExpiry,
+  pantryItemNeedsExpiryReview,
+} from "./effectiveExpiry";
 
 const normalizeIngredientName = (value: string): string =>
   (value || "")
@@ -83,9 +86,12 @@ export function isIngredientQuantityAvailable(
   ingredientName: string,
   requiredAmount: number,
   requiredUnit: string,
-  pantry: PantryItem[]
+  pantry: PantryItem[],
+  now: Date = new Date(),
 ): boolean {
-  const matchingItems = findMatchingPantryItems(ingredientName, pantry);
+  const matchingItems = findMatchingPantryItems(ingredientName, pantry).filter(
+    (item) => !pantryItemNeedsExpiryReview(item, now),
+  );
   if (matchingItems.length === 0) return false;
 
   const availability = assessTotalAvailability(
@@ -101,7 +107,11 @@ export function isIngredientQuantityAvailable(
  * Returns an updated list of recipes where each ingredient's `inPantry` flag
  * means the pantry has enough compatible quantity, not just a name match.
  */
-export function syncRecipesWithPantry(recipes: Recipe[], pantry: PantryItem[]): Recipe[] {
+export function syncRecipesWithPantry(
+  recipes: Recipe[],
+  pantry: PantryItem[],
+  now: Date = new Date(),
+): Recipe[] {
   return recipes.map((recipe) => {
     const updatedIngredients = recipe.ingredients.map((ing) => ({
       ...ing,
@@ -109,7 +119,8 @@ export function syncRecipesWithPantry(recipes: Recipe[], pantry: PantryItem[]): 
         ing.name,
         ing.amount,
         ing.unit,
-        pantry
+        pantry,
+        now,
       ),
     }));
 
@@ -149,7 +160,8 @@ export function calculateRecipePantryScore(
       ing.name,
       ing.amount,
       ing.unit,
-      pantry
+      pantry,
+      now,
     );
 
     if (inPantry) {
@@ -196,7 +208,7 @@ export function syncMealPlanWithPantry(
   const syncPlannedRecipe = (recipe?: Recipe): Recipe | undefined => {
     if (!recipe) return undefined;
 
-    const [syncedRecipe] = syncRecipesWithPantry([recipe], pantry);
+    const [syncedRecipe] = syncRecipesWithPantry([recipe], pantry, now);
     const score = calculateRecipePantryScore(syncedRecipe, pantry, now);
 
     if (score.matchPercentage === 100) readyToCookMealsCount++;
@@ -239,7 +251,7 @@ export function adaptMealPlanToPantry(
   readyToCookMealsCount: number;
   perishableSavedCount: number;
 } {
-  const syncedRecipes = syncRecipesWithPantry(recipes, pantry);
+  const syncedRecipes = syncRecipesWithPantry(recipes, pantry, now);
 
   if (syncedRecipes.length === 0) {
     return syncMealPlanWithPantry(existingPlan, pantry, now);
