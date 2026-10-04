@@ -123,3 +123,15 @@ test("partial merged pantry expiry stays unknown instead of claiming one lot rem
     { status: "unknown" },
   );
 });
+
+
+test("next local day delay targets local midnight instead of assuming 24 hours", async () => {
+  const { millisecondsUntilNextLocalDay } = await import("../src/utils/effectiveExpiry");
+  const now = new Date(2026, 9, 4, 23, 59, 30, 0);
+  assert.equal(millisecondsUntilNextLocalDay(now), 30_000);
+});
+
+test("invalid current time cannot schedule a calendar rollover", async () => {
+  const { millisecondsUntilNextLocalDay } = await import("../src/utils/effectiveExpiry");
+  assert.equal(millisecondsUntilNextLocalDay(new Date(Number.NaN)), null);
+});
