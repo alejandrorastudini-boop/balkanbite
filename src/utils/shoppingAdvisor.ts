@@ -376,6 +376,18 @@ export function evaluateShoppingNeeds(
     );
   }
 
+  if (expiryReviewRequirements.length > 0) {
+    reasonsEs.push(
+      `${expiryReviewRequirements.length} ingrediente(s) requieren revisar la fecha indicada antes de decidir la compra.`
+    );
+    reasonsEn.push(
+      `${expiryReviewRequirements.length} ingredient(s) require expiry review before deciding whether to buy.`
+    );
+    reasonsBg.push(
+      `${expiryReviewRequirements.length} съставка(и) изискват преглед на срока преди решение за покупка.`
+    );
+  }
+
   if (pendingShoppingItems.length >= 6) {
     score += 35;
     reasonsEs.push(
