@@ -250,7 +250,7 @@ export function inventoryLotFromConfirmedPurchase(
 ): InventoryLot | null {
   if (
     !purchase ||
-    !safeId(purchase.sourceId) ||
+    !safeEmbeddedIdentity(purchase.sourceId) ||
     (purchase.source !== "shopping_list" &&
       purchase.source !== "confirmed_reconciliation") ||
     !validCalendarDate(acquiredAt)
