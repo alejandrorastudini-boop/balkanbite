@@ -23,6 +23,7 @@ import { calculateRecipePantryScore } from "../utils/menuAutoPlanner";
 import { evaluateShoppingNeeds } from "../utils/shoppingAdvisor";
 import { findPlannedMealForDate } from "../utils/mealPlanLookup";
 import { summarizeVerifiedMealNutrition, verifiedMealCalories } from "../utils/mealNutritionSummary";
+import { localCalendarDate, localDateFromCalendarKey } from "../utils/effectiveExpiry";
 
 interface MealPlanViewProps {
   mealPlan: MealPlanDay[];
@@ -81,7 +82,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
     }
   };
 
-  const selectedDateStr = selectedDate.toISOString().split("T")[0];
+  const selectedDateStr = localCalendarDate(selectedDate) || "";
   const dailyLogs = mealLogs.filter((log) => log.date === selectedDateStr);
 
   const nutritionSummary = summarizeVerifiedMealNutrition(dailyLogs);
@@ -116,7 +117,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   const calendarDays = getDaysInMonth(new Date());
 
   const getMealForDay = (date: Date): MealPlanDay | null =>
-    findPlannedMealForDate(mealPlan, date.toISOString().split("T")[0]);
+    findPlannedMealForDate(mealPlan, localCalendarDate(date) || "");
 
   const selectedMeal = getMealForDay(selectedDate);
 
@@ -399,7 +400,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             const isToday = day.toDateString() === new Date().toDateString();
             const isSelected = day.toDateString() === selectedDate.toDateString();
             const meal = getMealForDay(day);
-            const hasLog = mealLogs.some((l) => l.date === day.toISOString().split("T")[0]);
+            const hasLog = mealLogs.some((l) => l.date === localCalendarDate(day));
 
             return (
               <button
@@ -646,7 +647,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             >
               <div className="flex items-center justify-between border-b border-white/[0.04] pb-3">
                 <span className="text-xs font-bold text-emerald-400 capitalize bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
-                  {new Date(day.date).toLocaleDateString(
+                  {(localDateFromCalendarKey(day.date) || new Date()).toLocaleDateString(
                     language === "es" ? "es-ES" : language === "bg" ? "bg-BG" : "en-US",
                     { weekday: "short", day: "numeric", month: "short" }
                   )}
