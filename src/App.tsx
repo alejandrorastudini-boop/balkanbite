@@ -97,6 +97,19 @@ import {
   type ProgressionLedgerV1,
 } from "./utils/progressionLedger";
 
+const advisorBatchFingerprint = (
+  items: Array<Omit<ShoppingItem, "id" | "checked">>,
+): string =>
+  JSON.stringify(
+    items.map((item) => ({
+      name: item.name.normalize("NFKC").trim().toLocaleLowerCase().replace(/\s+/g, " "),
+      quantity: item.quantity,
+      unit: item.unit.normalize("NFKC").trim().toLocaleLowerCase().replace(/\s+/g, " "),
+      category: item.category,
+      reason: item.reason ?? null,
+    })),
+  );
+
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
     loadGuestPantry(localStorage.getItem("balkanbite_pantry"))
@@ -116,6 +129,7 @@ export default function App() {
   const [shoppingList, setShoppingList] = useState<ShoppingItem[]>(() =>
     parseStoredShoppingCache(localStorage.getItem("balkanbite_shopping")) ?? []
   );
+  const committedAdvisorBatchFingerprint = useRef<string | null>(null);
 
   const [mealPlan, setMealPlan] = useState<MealPlanDay[]>(() =>
     parseStoredMealPlanCache(localStorage.getItem("balkanbite_mealplan")) ??
@@ -1013,6 +1027,18 @@ export default function App() {
     return evaluateShoppingNeeds(pantry, mealPlan, shoppingList, profile.language);
   }, [pantry, mealPlan, shoppingList, profile.language]);
 
+  useEffect(() => {
+    const currentFingerprint = advisorBatchFingerprint(
+      shoppingDiagnostic.itemsToAddToShoppingList,
+    );
+    if (
+      committedAdvisorBatchFingerprint.current &&
+      currentFingerprint !== committedAdvisorBatchFingerprint.current
+    ) {
+      committedAdvisorBatchFingerprint.current = null;
+    }
+  }, [shoppingDiagnostic.itemsToAddToShoppingList]);
+
   const handleRequestBrowserNotifications = async () => {
     if (typeof window !== "undefined" && "Notification" in window) {
       try {
@@ -1084,15 +1110,21 @@ export default function App() {
   const handleAddMultipleShoppingItems = async (
     items: Array<Omit<ShoppingItem, "id" | "checked">>
   ): Promise<boolean> => {
+    if (items.length === 0) return false;
+    const fingerprint = advisorBatchFingerprint(items);
+    if (committedAdvisorBatchFingerprint.current === fingerprint) {
+      return true;
+    }
     const newItems: ShoppingItem[] = items.map((item, idx) => ({
       ...item,
       id: `s-advisor-${Date.now()}-${idx}`,
       checked: false,
+      amountOrigin: "deterministic_shortfall",
       purchaseAmountConfirmed: false,
     }));
-    if (newItems.length === 0) return false;
     if (!currentUser) {
       setShoppingList(prev => [...newItems, ...prev]);
+      committedAdvisorBatchFingerprint.current = fingerprint;
       return true;
     }
     try {
@@ -1101,6 +1133,7 @@ export default function App() {
         console.warn("Advisor shopping batch needs review:", result.reason);
         return false;
       }
+      committedAdvisorBatchFingerprint.current = fingerprint;
       return true;
     } catch (error) {
       console.error("Advisor shopping batch failed:", error);
