@@ -5,6 +5,16 @@ export type InventoryLotSource =
   | "shopping_list"
   | "confirmed_reconciliation";
 
+export interface ConfirmedLotAcquisition {
+  sourceId: string;
+  source: InventoryLotSource;
+  quantity: number;
+  unit: string;
+  acquiredAt: string;
+  /** Only explicit human/verified expiry evidence belongs here. */
+  expiryDaysAtAcquisition?: number;
+}
+
 export interface InventoryLot {
   /** Stable acquisition provenance identity; not a display name. */
   id: string;
@@ -109,6 +119,43 @@ export function inventoryLotStateMatchesQuantity(
   }
 
   return Math.abs(total - pantryQuantity) <= EPSILON;
+}
+
+export function buildInventoryLotFromConfirmedAcquisition(
+  acquisition: ConfirmedLotAcquisition,
+  parentUnit: string,
+): InventoryLot | null {
+  if (
+    !safeId(acquisition?.sourceId) ||
+    (acquisition.source !== "shopping_list" &&
+      acquisition.source !== "confirmed_reconciliation") ||
+    !validCalendarDate(acquisition.acquiredAt) ||
+    (acquisition.expiryDaysAtAcquisition !== undefined &&
+      (!finiteNonnegative(acquisition.expiryDaysAtAcquisition) ||
+        !Number.isInteger(acquisition.expiryDaysAtAcquisition)))
+  ) {
+    return null;
+  }
+
+  const quantity = quantityInParentUnit(
+    acquisition.quantity,
+    acquisition.unit,
+    parentUnit,
+  );
+  if (!quantity) return null;
+
+  const lot: InventoryLot = {
+    id: `lot:${acquisition.sourceId}`,
+    sourceId: acquisition.sourceId,
+    source: acquisition.source,
+    acquiredAt: acquisition.acquiredAt,
+    initialQuantity: quantity,
+    remainingQuantity: quantity,
+    ...(acquisition.expiryDaysAtAcquisition !== undefined
+      ? { expiryDaysAtAcquisition: acquisition.expiryDaysAtAcquisition }
+      : {}),
+  };
+  return isValidInventoryLot(lot) ? lot : null;
 }
 
 export function deriveInventoryLotExpiry(
