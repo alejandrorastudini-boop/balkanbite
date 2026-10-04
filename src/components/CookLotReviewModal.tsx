@@ -24,7 +24,20 @@ export const CookLotReviewModal: React.FC<Props> = ({ plan, pantry, language, on
     ? { title: "От коя покупка използвахте всеки продукт?", help: "Посочете използваното количество от всяка покупка. Не разпределяме автоматично. Ако не знаете, ще запазим консумацията без измислена партида.", unknown: "Не знам", bought: "Купено", remaining: "Оставаха", expires: "Годно до", used: "Използвано", cancel: "Отказ", confirm: "Потвърди консумацията" }
     : { title: "Which purchase did you use for each food?", help: "Enter how much you used from each purchase. We never split it automatically. If you do not know, we will keep the consumption without inventing a lot.", unknown: "I don't know", bought: "Bought", remaining: "Remaining", expires: "Expires", used: "Used", cancel: "Cancel", confirm: "Confirm consumption" };
 
-  const complete = plan.prompts.every(prompt => selections[prompt.pantryItemId] !== undefined);
+  const allocationTotal = (pantryItemId: string) => {
+    const selection = selections[pantryItemId];
+    if (!selection || typeof selection !== "object") return 0;
+    return Object.values(selection).reduce(
+      (sum, quantity) => sum + (Number.isFinite(quantity) ? quantity : 0),
+      0,
+    );
+  };
+  const complete = plan.prompts.every(prompt => {
+    const selection = selections[prompt.pantryItemId];
+    if (selection === "unknown") return true;
+    if (!selection || typeof selection !== "object") return false;
+    return Math.abs(allocationTotal(prompt.pantryItemId) - prompt.requiredQuantity) <= 1e-9;
+  });
   const closeIfIdle = () => { if (!busyRef.current) onClose(); };
   const confirm = async () => {
     if (!complete || busyRef.current) return;
@@ -57,6 +70,11 @@ export const CookLotReviewModal: React.FC<Props> = ({ plan, pantry, language, on
           {plan.prompts.map(prompt => (
             <fieldset key={prompt.pantryItemId} className="space-y-2 border border-white/[0.08] rounded-2xl p-3">
               <legend className="px-1 text-sm font-bold text-white">{labelFor(prompt.pantryItemId)} · {prompt.requiredQuantity} {prompt.unit}</legend>
+              <p className="text-[11px] text-stone-400">
+                {typeof selections[prompt.pantryItemId] === "object"
+                  ? `${allocationTotal(prompt.pantryItemId)} / ${prompt.requiredQuantity} ${prompt.unit}`
+                  : `0 / ${prompt.requiredQuantity} ${prompt.unit}`}
+              </p>
               {prompt.choices.map(choice => {
                 const selected = selections[prompt.pantryItemId];
                 const allocation = typeof selected === "object" && selected ? selected : {};
