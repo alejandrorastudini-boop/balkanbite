@@ -45,13 +45,13 @@ test("passed entered expiry cannot satisfy automatic recipe availability", () =>
   );
 });
 
-test("partial merged expiry requires review before automatic recipe use", () => {
+test("partial merged expiry stays uncertain without becoming a hard availability block", () => {
   assert.equal(
     inPantry(
       stock({ expiryDaysLeft: 5, expiryIsPartial: true }),
       new Date("2026-10-02T12:00:00Z"),
     ),
-    false,
+    true,
   );
 });
 
