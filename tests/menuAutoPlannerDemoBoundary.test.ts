@@ -85,7 +85,7 @@ test("planner source cannot import implicit initial or sample recipe fallbacks",
   assert.doesNotMatch(source, /INITIAL_RECIPES/);
 });
 
-test("planner does not award perishable bonus from stale relative expiry", () => {
+test("planner does not treat passed effective expiry as ready or perishable-saved", () => {
   const existingPlan: MealPlanDay[] = [
     { date: "2026-09-25", breakfast: plannedRecipe },
   ];
@@ -98,7 +98,7 @@ test("planner does not award perishable bonus from stale relative expiry", () =>
     new Date("2026-09-25T12:00:00.000Z"),
   );
 
-  assert.equal(result.readyToCookMealsCount, 1);
+  assert.equal(result.readyToCookMealsCount, 0);
   assert.equal(result.perishableSavedCount, 0);
 });
 
