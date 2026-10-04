@@ -125,7 +125,7 @@ test("partial merged pantry expiry stays unknown instead of claiming one lot rem
 });
 
 
-test("automatic use requires review for passed, partial or uninterpretable explicit expiry", async () => {
+test("automatic use blocks only trustworthy passed expiry", async () => {
   const { pantryItemNeedsExpiryReview } = await import("../src/utils/effectiveExpiry");
   const now = new Date("2026-10-04T12:00:00.000Z");
 
@@ -141,14 +141,14 @@ test("automatic use requires review for passed, partial or uninterpretable expli
       { expiryDaysLeft: 5, addedAt: "2026-10-01", expiryIsPartial: true },
       now,
     ),
-    true,
+    false,
   );
   assert.equal(
     pantryItemNeedsExpiryReview(
       { expiryDaysLeft: 0.5, addedAt: "2026-10-04" },
       now,
     ),
-    true,
+    false,
   );
 });
 
