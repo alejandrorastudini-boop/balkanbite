@@ -121,7 +121,7 @@ function normalizeLotEvidence(
       !isSafeInventoryLogicalId(evidence.pantryItemId) ||
       !expectedIds.has(evidence.pantryItemId) ||
       pantryIds.has(evidence.pantryItemId) ||
-      !/^\\d{4}-\\d{2}-\\d{2}$/.test(evidence.reviewedOn) ||
+      !/^[0-9]{4}-[0-9]{2}-[0-9]{2}$/.test(evidence.reviewedOn) ||
       !Array.isArray(evidence.deductions) ||
       evidence.deductions.length === 0 ||
       evidence.deductions.length > 60
