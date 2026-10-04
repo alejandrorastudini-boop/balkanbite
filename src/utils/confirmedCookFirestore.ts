@@ -42,9 +42,10 @@ export interface AtomicCookRequest {
   confirmation: CookConfirmation;
   expectedStock: readonly AtomicCookExpectedStock[];
   /**
-   * Optional future physical-lot evidence. Supplying it changes request
-   * identity, but writers deliberately remain aggregate-only until an explicit
-   * reviewed-lot UX is wired end to end.
+   * Optional explicit physical-lot evidence. Supplying it changes request
+   * identity and permits exact lot mutation only when the reviewed evidence
+   * validates against the authoritative persisted lot ledger. Absence keeps
+   * the conservative aggregate-collapse path.
    */
   lotEvidence?: readonly ConfirmedCookLotEvidence[];
 }
