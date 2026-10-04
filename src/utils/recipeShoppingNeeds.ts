@@ -18,13 +18,16 @@ export interface RecipeShoppingNeedAssessment {
 }
 
 const normalizeName = (value: string): string =>
-  (value || "").trim().toLowerCase();
+  (value || "")
+    .normalize("NFKC")
+    .trim()
+    .toLocaleLowerCase()
+    .replace(/\\s+/g, " ");
 
 const namesLikelyMatch = (a: string, b: string): boolean => {
   const left = normalizeName(a);
   const right = normalizeName(b);
-  if (!left || !right) return false;
-  return left === right || left.includes(right) || right.includes(left);
+  return Boolean(left && right && left === right);
 };
 
 function subtractPendingShoppingQuantity(
