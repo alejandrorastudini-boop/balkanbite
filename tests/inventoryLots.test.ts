@@ -579,7 +579,7 @@ test("food-use lot attribution requires a stable reviewed calendar date", () => 
   );
 });
 
-test("stable reviewed date makes expiry decision independent from retry wall clock", () => {
+test("stable reviewed date keeps food-use expiry decision deterministic across retries", () => {
   const expiring: InventoryLot = {
     ...lot,
     id: "lot-stable-review",
