@@ -220,6 +220,7 @@ test("generic aggregate deduction discards unsupported lot precision", () => {
     {
       outcome: "remaining-unallocated",
       state: {
+        version: 1,
         unallocatedQuantity: 0.6,
         activeLots: [],
       },
