@@ -1,6 +1,7 @@
 import { PantryItem, Recipe, ShoppingItem } from "../types";
 import { findMatchingPantryItems } from "./menuAutoPlanner";
 import { assessTotalAvailability, normalizeQuantity } from "./quantityUnits";
+import { pantryItemNeedsExpiryReview } from "./effectiveExpiry";
 
 export type RecipeShoppingNeedStatus =
   | "covered"
@@ -53,7 +54,8 @@ function subtractPendingShoppingQuantity(
 export function assessRecipeShoppingNeed(
   ingredient: Recipe["ingredients"][number],
   pantry: PantryItem[],
-  shoppingList: ShoppingItem[] = []
+  shoppingList: ShoppingItem[] = [],
+  now: Date = new Date(),
 ): RecipeShoppingNeedAssessment {
   const requiredAmount = Number(ingredient.amount);
   const requiredUnit = ingredient.unit || "";
@@ -70,6 +72,11 @@ export function assessRecipeShoppingNeed(
   }
 
   const matchingItems = findMatchingPantryItems(ingredient.name, pantry);
+  const usableMatchingItems = matchingItems.filter(
+    (item) => !pantryItemNeedsExpiryReview(item, now),
+  );
+  const hasExpiryReviewStock = usableMatchingItems.length < matchingItems.length;
+
   if (matchingItems.length === 0) {
     const quantity = subtractPendingShoppingQuantity(
       ingredient.name,
@@ -88,7 +95,7 @@ export function assessRecipeShoppingNeed(
   }
 
   const availability = assessTotalAvailability(
-    matchingItems.map((item) => ({ quantity: item.quantity, unit: item.unit })),
+    usableMatchingItems.map((item) => ({ quantity: item.quantity, unit: item.unit })),
     requiredAmount,
     requiredUnit
   );
@@ -98,6 +105,16 @@ export function assessRecipeShoppingNeed(
       ingredientName: ingredient.name,
       status: "covered",
       quantity: 0,
+      unit: requiredUnit,
+      category: matchingItems[0]?.category || "Other",
+    };
+  }
+
+  if (hasExpiryReviewStock) {
+    return {
+      ingredientName: ingredient.name,
+      status: "unverified",
+      quantity: requiredAmount,
       unit: requiredUnit,
       category: matchingItems[0]?.category || "Other",
     };
@@ -139,13 +156,14 @@ export function assessRecipeShoppingNeed(
 export function buildRecipeShoppingNeeds(
   recipe: Recipe,
   pantry: PantryItem[],
-  shoppingList: ShoppingItem[] = []
+  shoppingList: ShoppingItem[] = [],
+  now: Date = new Date(),
 ): {
   items: Array<Omit<ShoppingItem, "id" | "checked">>;
   unverified: RecipeShoppingNeedAssessment[];
 } {
   const assessments = (recipe.ingredients || []).map((ingredient) =>
-    assessRecipeShoppingNeed(ingredient, pantry, shoppingList)
+    assessRecipeShoppingNeed(ingredient, pantry, shoppingList, now)
   );
 
   return {
