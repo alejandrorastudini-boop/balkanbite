@@ -43,9 +43,9 @@ const validReviewedOn = (value: string) => {
  * Produces review choices only from already-authoritative acquisition evidence.
  * It never chooses a lot and never turns unallocated stock into a physical lot.
  *
- * A single usable lot needs no physical-choice prompt: aggregate deduction is
- * already truthful and preserving exact provenance would add user friction
- * without resolving ambiguity. Multiple usable lots are reviewable only when
+ * A single usable lot is not auto-attributed: aggregate deduction remains the
+ * conservative truth unless the user explicitly reviews physical evidence.
+ * Multiple usable lots are reviewable only when
  * the entire confirmed amount could be attributed to at least one real lot.
  * "Unknown" is always allowed so the caller can preserve conservative
  * aggregate behavior instead of fabricating precision.
