@@ -123,3 +123,42 @@ test("partial merged pantry expiry stays unknown instead of claiming one lot rem
     { status: "unknown" },
   );
 });
+
+
+test("automatic use requires review for passed, partial or uninterpretable explicit expiry", async () => {
+  const { pantryItemNeedsExpiryReview } = await import("../src/utils/effectiveExpiry");
+  const now = new Date("2026-10-04T12:00:00.000Z");
+
+  assert.equal(
+    pantryItemNeedsExpiryReview(
+      { expiryDaysLeft: 1, addedAt: "2026-10-01" },
+      now,
+    ),
+    true,
+  );
+  assert.equal(
+    pantryItemNeedsExpiryReview(
+      { expiryDaysLeft: 5, addedAt: "2026-10-01", expiryIsPartial: true },
+      now,
+    ),
+    true,
+  );
+  assert.equal(
+    pantryItemNeedsExpiryReview(
+      { expiryDaysLeft: 0.5, addedAt: "2026-10-04" },
+      now,
+    ),
+    true,
+  );
+});
+
+test("missing expiry evidence remains usable without fabricating a freshness claim", async () => {
+  const { pantryItemNeedsExpiryReview } = await import("../src/utils/effectiveExpiry");
+  assert.equal(
+    pantryItemNeedsExpiryReview(
+      { addedAt: "2026-10-01" },
+      new Date("2026-10-04T12:00:00.000Z"),
+    ),
+    false,
+  );
+});
