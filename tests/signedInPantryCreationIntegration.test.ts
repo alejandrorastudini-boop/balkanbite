@@ -100,3 +100,13 @@ test("inventory server confirmation requires non-cache snapshot with zero pendin
     /setInventoryServerConfirmedUser\(null\);[\s\S]*inventoryEditAuthority\.current = \{/,
   );
 });
+
+
+test("inventory creation serializer preserves only invariant-valid explicit lot state", () => {
+  const source = readFileSync(
+    new URL("../src/utils/inventoryCreationFirestore.ts", import.meta.url),
+    "utf8",
+  );
+  assert.match(source, /inventoryLotStateMatchesQuantity\(item\.quantity, item\.unit, item\.lotState\)/);
+  assert.match(source, /if \(item\.lotState !== undefined\) \{\s*out\.lotState = item\.lotState;/);
+});
