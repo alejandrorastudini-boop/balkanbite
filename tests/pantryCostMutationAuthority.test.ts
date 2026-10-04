@@ -23,3 +23,21 @@ test("guest manual quantity edit invalidates stale value and preserves expiry un
   assert.match(handler, /estimatedCostEUR: null/);
   assert.match(handler, /shouldMarkExpiryPartialAfterQuantityIncrease/);
 });
+
+
+test("aggregate quantity mutations collapse lot precision instead of inferring FEFO usage", () => {
+  const cook = read("src/utils/confirmedCookFirestore.ts");
+  const voice = read("src/utils/verifiedVoiceConsumptionFirestore.ts");
+  const edit = read("src/utils/inventoryAdjustmentFirestore.ts");
+  const guest = read("src/utils/pantryConsumption.ts");
+  const app = read("src/App.tsx");
+
+  assert.match(cook, /lotState: \{ unallocatedQuantity: quantity, activeLots: \[\] \}/);
+  assert.match(cook, /lotState: \{ unallocatedQuantity: 0, activeLots: \[\] \}/);
+  assert.match(voice, /lotState: \{ unallocatedQuantity: remaining, activeLots: \[\] \}/);
+  assert.match(voice, /lotState: \{ unallocatedQuantity: 0, activeLots: \[\] \}/);
+  assert.match(edit, /lotState: \{ unallocatedQuantity: adjustment\.quantity, activeLots: \[\] \}/);
+  assert.match(edit, /lotState: \{ unallocatedQuantity: 0, activeLots: \[\] \}/);
+  assert.match(guest, /lotState: \{[\s\S]*unallocatedQuantity: roundQuantity\(remainingInItemUnit\),[\s\S]*activeLots: \[\]/);
+  assert.match(app, /quantity: newQty,[\s\S]*lotState: \{ unallocatedQuantity: newQty, activeLots: \[\] \}/);
+});
