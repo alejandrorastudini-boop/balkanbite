@@ -1,11 +1,13 @@
 import { PantryItem, Recipe, MealPlanDay, ShoppingItem, Language } from "../types";
 import { findMatchingPantryItems } from "./menuAutoPlanner";
 import { normalizeQuantity } from "./quantityUnits";
+import { derivePantryItemExpiry, pantryItemNeedsExpiryReview } from "./effectiveExpiry";
 
 export type IngredientAvailabilityStatus =
   | "missing"
   | "insufficient"
-  | "unverified";
+  | "unverified"
+  | "expiry-review";
 
 export interface MissingMealIngredient {
   recipeTitle: string;
@@ -59,7 +61,8 @@ function assessRequirementAgainstRemainingPantry(
   requiredAmount: number,
   requiredUnit: string,
   pantry: PantryItem[],
-  remainingBaseByPantryId: Map<string, number>
+  remainingBaseByPantryId: Map<string, number>,
+  now: Date,
 ): RequirementAssessment {
   const required = normalizeQuantity(requiredAmount, requiredUnit);
   if (!required) {
@@ -70,8 +73,8 @@ function assessRequirementAgainstRemainingPantry(
     };
   }
 
-  const matchingItems = findMatchingPantryItems(ingredientName, pantry);
-  if (matchingItems.length === 0) {
+  const allMatchingItems = findMatchingPantryItems(ingredientName, pantry);
+  if (allMatchingItems.length === 0) {
     return {
       status: "missing",
       shortfallAmount: requiredAmount,
@@ -79,7 +82,7 @@ function assessRequirementAgainstRemainingPantry(
     };
   }
 
-  const compatibleItems = matchingItems
+  const compatibleAllItems = allMatchingItems
     .map((item) => ({
       item,
       normalized: normalizeQuantity(item.quantity, item.unit),
@@ -92,9 +95,20 @@ function assessRequirementAgainstRemainingPantry(
         )
     );
 
-  if (compatibleItems.length === 0) {
+  if (compatibleAllItems.length === 0) {
     return {
       status: "unverified",
+      shortfallAmount: requiredAmount,
+      unit: requiredUnit,
+    };
+  }
+
+  const compatibleItems = compatibleAllItems.filter(
+    ({ item }) => !pantryItemNeedsExpiryReview(item, now),
+  );
+  if (compatibleItems.length === 0) {
+    return {
+      status: "expiry-review",
       shortfallAmount: requiredAmount,
       unit: requiredUnit,
     };
@@ -128,8 +142,14 @@ function assessRequirementAgainstRemainingPantry(
     };
   }
 
+  const reviewBase = compatibleAllItems
+    .filter(({ item }) => pantryItemNeedsExpiryReview(item, now))
+    .reduce((sum, { normalized }) => sum + normalized.baseQuantity, 0);
   return {
-    status: "insufficient",
+    status:
+      reviewBase + 1e-9 >= remainingRequiredBase
+        ? "expiry-review"
+        : "insufficient",
     shortfallAmount: remainingRequiredBase / required.unit.factorToBase,
     unit: requiredUnit,
   };
@@ -179,15 +199,19 @@ export function evaluateShoppingNeeds(
   pantry: PantryItem[],
   mealPlan: MealPlanDay[],
   shoppingList: ShoppingItem[],
-  language: Language = "es"
+  language: Language = "es",
+  now: Date = new Date(),
 ): ShoppingAlertDiagnostic {
   const depletedPantryItems = pantry.filter((item) => item.quantity <= 0);
-  const expiringPantryItems = pantry.filter(
-    (item) =>
-      item.expiryDaysLeft !== undefined &&
-      item.expiryDaysLeft <= 2 &&
-      item.quantity > 0
-  );
+  const expiringPantryItems = pantry.filter((item) => {
+    if (item.quantity <= 0) return false;
+    const expiry = derivePantryItemExpiry(item, now);
+    return (
+      expiry.status === "known" &&
+      !expiry.expired &&
+      expiry.daysRemaining <= 2
+    );
+  });
   const pendingShoppingItems = shoppingList.filter((item) => !item.checked);
   const upcomingDays = (mealPlan || []).slice(0, 3);
 
@@ -247,7 +271,8 @@ export function evaluateShoppingNeeds(
           requiredAmount,
           requiredUnit,
           pantry,
-          remainingBaseByPantryId
+          remainingBaseByPantryId,
+          now,
         );
 
         if (assessment.status === "covered") return;
@@ -264,7 +289,10 @@ export function evaluateShoppingNeeds(
           availabilityStatus: assessment.status,
         });
 
-        if (assessment.status === "unverified") return;
+        if (
+          assessment.status === "unverified" ||
+          assessment.status === "expiry-review"
+        ) return;
 
         const normalizedName = ingredient.name.toLowerCase().trim();
         const alreadyInShoppingList = shoppingList.some((item) => {
@@ -289,10 +317,15 @@ export function evaluateShoppingNeeds(
   });
 
   const verifiedShortfalls = missingMealIngredients.filter(
-    (item) => item.availabilityStatus !== "unverified"
+    (item) =>
+      item.availabilityStatus !== "unverified" &&
+      item.availabilityStatus !== "expiry-review"
   );
   const unverifiedRequirements = missingMealIngredients.filter(
     (item) => item.availabilityStatus === "unverified"
+  );
+  const expiryReviewRequirements = missingMealIngredients.filter(
+    (item) => item.availabilityStatus === "expiry-review"
   );
 
   let score = 0;
