@@ -2,6 +2,7 @@ import { doc, runTransaction, type Firestore } from "firebase/firestore";
 import type { PantryItem, PantryPurchaseRecord } from "../types";
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId, isSafeInventoryProvenanceId } from "./inventoryIdentity";
+import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
 
 export type InventoryCreationOutcome =
   | { outcome: "created"; itemIds: string[] }
@@ -33,7 +34,9 @@ function serializeItem(item: PantryItem, userId: string): Record<string, unknown
       (item.estimatedCostEUR !== undefined && item.estimatedCostEUR !== null &&
         !nonNegative(item.estimatedCostEUR)) ||
       (item.purchaseHistory !== undefined &&
-        (!Array.isArray(item.purchaseHistory) || item.purchaseHistory.some(row => !validPurchase(row))))) {
+        (!Array.isArray(item.purchaseHistory) || item.purchaseHistory.some(row => !validPurchase(row)))) ||
+      (item.lotState !== undefined &&
+        !inventoryLotStateMatchesQuantity(item.quantity, item.unit, item.lotState))) {
     return null;
   }
 
@@ -54,6 +57,9 @@ function serializeItem(item: PantryItem, userId: string): Record<string, unknown
   if (item.expiryDaysLeft !== undefined) out.expiryDaysLeft = item.expiryDaysLeft;
   if (item.estimatedCostEUR !== undefined) out.estimatedCostEUR = item.estimatedCostEUR;
   if (item.expiryIsPartial !== undefined) out.expiryIsPartial = item.expiryIsPartial;
+  if (item.lotState !== undefined) {
+    out.lotState = item.lotState;
+  }
   if (item.purchaseHistory !== undefined) {
     out.purchaseHistory = item.purchaseHistory.map(row => {
       const purchase: Record<string, unknown> = {
