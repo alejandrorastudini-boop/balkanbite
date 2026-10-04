@@ -70,3 +70,18 @@ test("one pending quantity cannot be reused to cover multiple planned meals", ()
   assert.equal(result.itemsToAddToShoppingList.length, 1);
   assert.equal(result.itemsToAddToShoppingList[0]?.quantity, 1);
 });
+
+
+test("verified advisor shortfalls carry deterministic provenance but are not purchase-confirmed", () => {
+  const result = evaluateShoppingNeeds(
+    [],
+    plan,
+    [],
+    "en",
+    new Date(2026, 9, 4, 12, 0, 0, 0),
+  );
+  const item = result.itemsToAddToShoppingList[0];
+  assert.equal(item?.amountOrigin, "deterministic_shortfall");
+  assert.equal(item?.purchaseAmountConfirmed, false);
+  assert.equal(item?.estimatedPriceEUR, undefined);
+});
