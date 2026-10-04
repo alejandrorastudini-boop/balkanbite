@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { confirmCookTransaction, type ConfirmedCookState } from '../src/utils/confirmedCookTransaction';
+import { cookAllocationSignature, normalizeCookLotEvidence } from '../src/utils/confirmedCookFirestore';
 
 const initialState: ConfirmedCookState = {
   pantry: [
@@ -86,4 +87,82 @@ test('does not deduct again when the same cook confirmation is retried', () => {
   assert.equal(retry.outcome, 'already-recorded');
   assert.deepEqual(retry.state, first.state);
   if (retry.outcome === 'already-recorded') assert.deepEqual(retry.record, first.record);
+});
+
+
+test("cook replay signature changes when explicit physical lot evidence changes", () => {
+  const confirmation = {
+    cookConfirmationId: "cook-lot-signature",
+    mealId: "musaka",
+    confirmed: true,
+    ingredients: [
+      { ingredientId: "potato", pantryItemId: "potatoes", quantity: 0.5, unit: "kg" },
+    ],
+  };
+  const expected = [
+    { pantryItemId: "potatoes", quantity: 1, unit: "kg", cookRevision: 4 },
+  ];
+  const first = cookAllocationSignature(confirmation, expected, [
+    {
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [{ lotId: "lot-a", quantity: 0.5 }],
+    },
+  ]);
+  const retry = cookAllocationSignature(confirmation, expected, [
+    {
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [{ lotId: "lot-a", quantity: 0.5 }],
+    },
+  ]);
+  const changedLot = cookAllocationSignature(confirmation, expected, [
+    {
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [{ lotId: "lot-b", quantity: 0.5 }],
+    },
+  ]);
+  assert.ok(first);
+  assert.equal(retry, first);
+  assert.notEqual(changedLot, first);
+});
+
+test("cook lot evidence normalization is order-stable and rejects duplicate physical lot IDs", () => {
+  const expectedIds = new Set(["potatoes"]);
+  assert.deepEqual(
+    normalizeCookLotEvidence(
+      [{
+        pantryItemId: "potatoes",
+        reviewedOn: "2026-10-04",
+        deductions: [
+          { lotId: "lot-b", quantity: 0.2 },
+          { lotId: "lot-a", quantity: 0.3 },
+        ],
+      }],
+      expectedIds,
+    ),
+    [{
+      pantryItemId: "potatoes",
+      reviewedOn: "2026-10-04",
+      deductions: [
+        { lotId: "lot-a", quantity: 0.3 },
+        { lotId: "lot-b", quantity: 0.2 },
+      ],
+    }],
+  );
+  assert.equal(
+    normalizeCookLotEvidence(
+      [{
+        pantryItemId: "potatoes",
+        reviewedOn: "2026-10-04",
+        deductions: [
+          { lotId: "lot-a", quantity: 0.2 },
+          { lotId: "lot-a", quantity: 0.3 },
+        ],
+      }],
+      expectedIds,
+    ),
+    null,
+  );
 });
