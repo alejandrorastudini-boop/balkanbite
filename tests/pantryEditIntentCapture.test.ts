@@ -190,3 +190,33 @@ test("noncanonical encoded document identity still invalidates the snapshot", ()
     reason: "ambiguous-stock",
   });
 });
+
+
+test("corrupt explicit lot state quarantines the whole server inventory authority", () => {
+  const original = inventory().documents[0];
+  const authority = verifyServerInventoryForEdits(inventory([{
+    ...original,
+    data: {
+      ...original.data,
+      lotState: {
+        unallocatedQuantity: 0,
+        activeLots: [{
+          id: "shopping:s1",
+          sourceId: "shopping:s1",
+          source: "shopping_list",
+          acquiredAt: "2026-10-04",
+          initialQuantity: 50,
+          remainingQuantity: 50,
+        }],
+      },
+    },
+  }]));
+  assert.deepEqual(authority, {
+    status: "unavailable",
+    reason: "ambiguous-stock",
+  });
+});
+
+test("absence of lot state remains valid legacy authority", () => {
+  assert.equal(verifyServerInventoryForEdits(inventory()).status, "verified");
+});
