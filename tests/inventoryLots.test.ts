@@ -132,3 +132,21 @@ test("adding the same confirmed acquisition source is idempotent", async () => {
   const state = { unallocatedQuantity: 0.25, activeLots: [lot] };
   assert.equal(addConfirmedAcquisitionLot(state, lot), state);
 });
+
+
+test("legacy pantry stock becomes fully unallocated without invented acquisition lots", async () => {
+  const { legacyPantryQuantityToLotState } = await import("../src/utils/inventoryLots");
+  const item = { quantity: 1.25, unit: "kg" };
+  const state = legacyPantryQuantityToLotState(item);
+  assert.deepEqual(state, {
+    unallocatedQuantity: 1.25,
+    activeLots: [],
+  });
+  assert.deepEqual(item, { quantity: 1.25, unit: "kg" });
+});
+
+test("legacy adapter fails closed for invalid stock instead of fabricating state", async () => {
+  const { legacyPantryQuantityToLotState } = await import("../src/utils/inventoryLots");
+  assert.equal(legacyPantryQuantityToLotState({ quantity: 0, unit: "kg" }), null);
+  assert.equal(legacyPantryQuantityToLotState({ quantity: 1, unit: "" }), null);
+});
