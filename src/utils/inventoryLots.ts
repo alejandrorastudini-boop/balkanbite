@@ -158,6 +158,43 @@ export function buildInventoryLotFromConfirmedAcquisition(
   return isValidInventoryLot(lot) ? lot : null;
 }
 
+export type AppendInventoryLotResult =
+  | { outcome: "applied"; state: InventoryLotState }
+  | { outcome: "already-applied"; state: InventoryLotState }
+  | { outcome: "invalid"; state: InventoryLotState };
+
+export function appendConfirmedAcquisitionLot(
+  state: InventoryLotState,
+  acquisition: ConfirmedLotAcquisition,
+  parentUnit: string,
+): AppendInventoryLotResult {
+  if (
+    !state ||
+    !finiteNonnegative(state.unallocatedQuantity) ||
+    !Array.isArray(state.activeLots) ||
+    state.activeLots.some((lot) => !isValidInventoryLot(lot))
+  ) {
+    return { outcome: "invalid", state };
+  }
+
+  if (state.activeLots.some((lot) => lot.sourceId === acquisition.sourceId)) {
+    return { outcome: "already-applied", state };
+  }
+
+  const lot = buildInventoryLotFromConfirmedAcquisition(acquisition, parentUnit);
+  if (!lot || state.activeLots.some((item) => item.id === lot.id)) {
+    return { outcome: "invalid", state };
+  }
+
+  return {
+    outcome: "applied",
+    state: {
+      unallocatedQuantity: state.unallocatedQuantity,
+      activeLots: [...state.activeLots, lot],
+    },
+  };
+}
+
 export function deriveInventoryLotExpiry(
   lot: InventoryLot,
   now: Date = new Date(),
