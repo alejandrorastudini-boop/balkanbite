@@ -25,7 +25,12 @@ import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAu
 import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, type VerifiedVoiceDeduction } from "../utils/verifiedVoiceConsumptionFirestore";
 import { buildPurchaseMutationId, persistPurchasesIntoPantryAtomically, type PurchasePantryTransactionResult } from "../utils/purchasePantryFirestore";
 import type { PantryPurchase } from "../utils/purchasePantryMerge";
-import { persistConfirmedCookAtomically, type AtomicCookExpectedStock } from "../utils/confirmedCookFirestore";
+import {
+  normalizeCookLotEvidence,
+  persistConfirmedCookAtomically,
+  type AtomicCookExpectedStock,
+  type ConfirmedCookLotEvidence,
+} from "../utils/confirmedCookFirestore";
 import { confirmCookTransaction, type CookConfirmation } from "../utils/confirmedCookTransaction";
 import { persistInventoryClearAtomically } from "../utils/inventoryClearFirestore";
 import { clearShoppingItems, createShoppingItem, createShoppingItems, replaceShoppingItem, removeShoppingItem } from "../utils/shoppingMutationFirestore";
@@ -91,6 +96,7 @@ export function useFirebaseSync(
     confirmation: CookConfirmation;
     expectedStock: AtomicCookExpectedStock[];
     expectedRemaining: Map<string, number>;
+    lotEvidence: ConfirmedCookLotEvidence[];
   }>>(new Map());
 
   useEffect(() => {
@@ -791,6 +797,7 @@ export function useFirebaseSync(
   const submitConfirmedCook = async (
     visiblePantry: PantryItem[],
     confirmation: CookConfirmation,
+    lotEvidence?: readonly ConfirmedCookLotEvidence[],
   ): Promise<{ accepted: boolean; issueCount: number }> => {
     const uid = currentUser?.uid;
     const cookId =
@@ -803,6 +810,22 @@ export function useFirebaseSync(
     if (prepared && prepared.userId !== uid) {
       preparedCookConfirmations.current.delete(cookId);
       prepared = undefined;
+    }
+
+    const normalizedLotEvidence = normalizeCookLotEvidence(
+      lotEvidence,
+      confirmation.ingredients
+        .map(item => item.pantryItemId)
+        .filter((value): value is string => typeof value === "string"),
+    );
+    if (normalizedLotEvidence === null) {
+      return { accepted: false, issueCount: 1 };
+    }
+    if (
+      prepared &&
+      JSON.stringify(prepared.lotEvidence) !== JSON.stringify(normalizedLotEvidence)
+    ) {
+      return { accepted: false, issueCount: 1 };
     }
 
     if (!prepared) {
@@ -877,7 +900,13 @@ export function useFirebaseSync(
         expectedRemaining.set(item.id, item.quantity);
       }
 
-      prepared = { userId: uid, confirmation, expectedStock, expectedRemaining };
+      prepared = {
+        userId: uid,
+        confirmation,
+        expectedStock,
+        expectedRemaining,
+        lotEvidence: normalizedLotEvidence,
+      };
       preparedCookConfirmations.current.set(cookId, prepared);
     }
 
@@ -891,6 +920,9 @@ export function useFirebaseSync(
         userId: uid,
         confirmation: prepared.confirmation,
         expectedStock: prepared.expectedStock,
+        ...(prepared.lotEvidence.length > 0
+          ? { lotEvidence: prepared.lotEvidence }
+          : {}),
       });
       if (result.outcome === "needs-review") {
         preparedCookConfirmations.current.delete(cookId);
