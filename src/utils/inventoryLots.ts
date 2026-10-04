@@ -191,16 +191,29 @@ export function addConfirmedAcquisitionLot(
     return { outcome: "invalid", state };
   }
 
-  if (state.activeLots.some((lot) => lot.sourceId === acquisition.sourceId)) {
-    return { outcome: "already-recorded", state };
-  }
-
   const converted = quantityInParentUnit(
     acquisition.quantity,
     acquisition.unit,
     parentUnit,
   );
   if (converted === null) return { outcome: "invalid", state };
+
+  const existing = state.activeLots.find(
+    (lot) => lot.sourceId === acquisition.sourceId,
+  );
+  if (existing) {
+    const exactReplay =
+      existing.source === acquisition.source &&
+      existing.acquiredAt === acquisition.acquiredAt &&
+      Math.abs(existing.initialQuantity - converted) <= EPSILON &&
+      existing.expiryDaysAtAcquisition ===
+        acquisition.expiryDaysAtAcquisition &&
+      existing.initialCostEUR === acquisition.initialCostEUR;
+    return {
+      outcome: exactReplay ? "already-recorded" : "invalid",
+      state,
+    };
+  }
 
   const lot: InventoryLot = {
     id: lotIdFromSource(acquisition.sourceId),
