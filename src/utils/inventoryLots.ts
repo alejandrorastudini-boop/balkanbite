@@ -375,8 +375,10 @@ export type ConfirmedInventoryLotDeductionResult =
  * must provide the exact lot IDs and quantities that were actually confirmed.
  * Unallocated stock cannot be silently attributed to a known acquisition lot.
  *
- * food-use rejects explicitly expired lots. removal may target them because a
- * confirmed removal can represent disposal rather than eating.
+ * food-use requires the stable calendar date on which the lot choice was
+ * reviewed and rejects explicitly expired lots on that date. Binding that date
+ * into a future request signature keeps retries deterministic across midnight.
+ * removal may target expired lots because it can represent disposal, not eating.
  */
 export function applyConfirmedInventoryLotDeduction(
   pantryQuantityBefore: unknown,
@@ -384,7 +386,7 @@ export function applyConfirmedInventoryLotDeduction(
   stateBefore: InventoryLotState,
   deductions: readonly ConfirmedInventoryLotDeduction[],
   purpose: ConfirmedInventoryLotDeductionPurpose,
-  now: Date = new Date(),
+  reviewedOn?: string,
 ): ConfirmedInventoryLotDeductionResult {
   if (
     !inventoryLotStateMatchesQuantity(pantryQuantityBefore, pantryUnit, stateBefore) ||
@@ -416,10 +418,15 @@ export function applyConfirmedInventoryLotDeduction(
   }
 
   if (purpose === "food-use") {
+    if (!validCalendarDate(reviewedOn)) {
+      return { outcome: "invalid", state: null };
+    }
+    const [year, month, day] = reviewedOn.split("-").map(Number);
+    const reviewedAt = new Date(year, month - 1, day, 12, 0, 0);
     const expiredLotIds = normalized
       .map(({ lotId }) => byId.get(lotId)!)
       .filter((lot) => {
-        const expiry = deriveInventoryLotExpiry(lot, now);
+        const expiry = deriveInventoryLotExpiry(lot, reviewedAt);
         return expiry.status === "known" && expiry.expired;
       })
       .map((lot) => lot.id);
