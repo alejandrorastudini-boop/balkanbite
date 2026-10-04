@@ -23,6 +23,8 @@ import { calculateRecipePantryScore } from "../utils/menuAutoPlanner";
 import { evaluateShoppingNeeds } from "../utils/shoppingAdvisor";
 import { findPlannedMealForDate } from "../utils/mealPlanLookup";
 import { summarizeVerifiedMealNutrition, verifiedMealCalories } from "../utils/mealNutritionSummary";
+import { localCalendarDate, localDateFromCalendarKey } from "../utils/effectiveExpiry";
+import { useLocalCalendarDay } from "../hooks/useLocalCalendarDay";
 
 interface MealPlanViewProps {
   mealPlan: MealPlanDay[];
@@ -56,6 +58,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   onAddItemsToShoppingList,
 }) => {
   const currentText = t[language];
+  const localCalendarDay = useLocalCalendarDay();
   const [selectedDate, setSelectedDate] = useState(new Date());
   const [showClearConfirm, setShowClearConfirm] = useState(false);
   const [showPrintModal, setShowPrintModal] = useState(false);
@@ -81,7 +84,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
     }
   };
 
-  const selectedDateStr = selectedDate.toISOString().split("T")[0];
+  const selectedDateStr = localCalendarDate(selectedDate) || "";
   const dailyLogs = mealLogs.filter((log) => log.date === selectedDateStr);
 
   const nutritionSummary = summarizeVerifiedMealNutrition(dailyLogs);
@@ -113,16 +116,17 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
     return days;
   };
 
-  const calendarDays = getDaysInMonth(new Date());
+  const calendarToday = localDateFromCalendarKey(localCalendarDay) || new Date();
+  const calendarDays = getDaysInMonth(calendarToday);
 
   const getMealForDay = (date: Date): MealPlanDay | null =>
-    findPlannedMealForDate(mealPlan, date.toISOString().split("T")[0]);
+    findPlannedMealForDate(mealPlan, localCalendarDate(date) || "");
 
   const selectedMeal = getMealForDay(selectedDate);
 
   // Generate Next 7 days list
   const next7Days = Array.from({ length: 7 }, (_, i) => {
-    const d = new Date();
+    const d = new Date(calendarToday);
     d.setDate(d.getDate() + i);
     return getMealForDay(d);
   }).filter((d): d is MealPlanDay => d !== null);
@@ -399,7 +403,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             const isToday = day.toDateString() === new Date().toDateString();
             const isSelected = day.toDateString() === selectedDate.toDateString();
             const meal = getMealForDay(day);
-            const hasLog = mealLogs.some((l) => l.date === day.toISOString().split("T")[0]);
+            const hasLog = mealLogs.some((l) => l.date === localCalendarDate(day));
 
             return (
               <button
@@ -646,7 +650,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             >
               <div className="flex items-center justify-between border-b border-white/[0.04] pb-3">
                 <span className="text-xs font-bold text-emerald-400 capitalize bg-emerald-500/10 px-3 py-1 rounded-lg border border-emerald-500/20">
-                  {new Date(day.date).toLocaleDateString(
+                  {(localDateFromCalendarKey(day.date) || new Date()).toLocaleDateString(
                     language === "es" ? "es-ES" : language === "bg" ? "bg-BG" : "en-US",
                     { weekday: "short", day: "numeric", month: "short" }
                   )}
