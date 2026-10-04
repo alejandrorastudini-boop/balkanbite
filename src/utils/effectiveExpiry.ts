@@ -55,3 +55,24 @@ export function deriveEffectiveExpiry(
     expired,
   };
 }
+
+
+export interface PantryExpiryEvidence {
+  expiryDaysLeft?: number;
+  addedAt: string;
+  expiryIsPartial?: boolean;
+}
+
+/**
+ * Top-level expiry is trustworthy only while it describes one non-partial
+ * stock quantity. Merged stock keeps historical provenance but not
+ * authoritative remaining quantity per lot, so its top-level warning cannot
+ * be presented or scored as an exact current expiry.
+ */
+export function derivePantryItemExpiry(
+  item: PantryExpiryEvidence,
+  now: Date = new Date(),
+): EffectiveExpiry {
+  if (item.expiryIsPartial) return { status: "unknown" };
+  return deriveEffectiveExpiry(item.expiryDaysLeft, item.addedAt, now);
+}
