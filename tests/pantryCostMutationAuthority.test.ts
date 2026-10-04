@@ -18,6 +18,6 @@ test("guest manual quantity edit also invalidates stale pantry value", () => {
   const app = read("src/App.tsx");
   assert.match(
     app,
-    /\{ \.\.\.item, quantity: newQty, estimatedCostEUR: null \}/,
+    /\.\.\.item,[\s\S]*?quantity: newQty,[\s\S]*?estimatedCostEUR: null,/,
   );
 });
