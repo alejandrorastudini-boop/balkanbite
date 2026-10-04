@@ -1,5 +1,6 @@
 import type { PantryItem } from "../types";
 import type { CookConfirmation } from "./confirmedCookTransaction";
+import type { ConfirmedCookLotEvidence } from "./confirmedCookFirestore";
 import {
   deriveInventoryLotExpiry,
   getVerifiedInventoryLotState,
@@ -131,4 +132,76 @@ export function planCookLotEvidenceReview(
   return prompts.length > 0
     ? { outcome: "review", prompts }
     : { outcome: "not-needed", prompts: [] };
+}
+
+
+export interface CookLotEvidenceSelection {
+  pantryItemId: string;
+  lotId: string | null;
+}
+
+export type CookLotEvidenceSelectionResult =
+  | { outcome: "exact"; lotEvidence: ConfirmedCookLotEvidence[] }
+  | { outcome: "unknown"; lotEvidence: [] }
+  | { outcome: "invalid"; lotEvidence: [] };
+
+/**
+ * Converts an explicit user review into immutable exact-lot evidence.
+ *
+ * null means the user explicitly does not know which physical lot was used.
+ * That choice is never upgraded to a guessed lot. Exact evidence is emitted
+ * only when every prompt has exactly one valid selected lot.
+ */
+export function resolveCookLotEvidenceSelection(
+  plan: CookLotEvidencePlan,
+  selections: readonly CookLotEvidenceSelection[],
+  reviewedOn: string,
+): CookLotEvidenceSelectionResult {
+  if (
+    plan.outcome !== "review" ||
+    !validReviewedOn(reviewedOn) ||
+    !Array.isArray(selections) ||
+    selections.length !== plan.prompts.length
+  ) {
+    return { outcome: "invalid", lotEvidence: [] };
+  }
+
+  const byItem = new Map<string, CookLotEvidenceSelection>();
+  for (const selection of selections) {
+    if (
+      !selection ||
+      typeof selection.pantryItemId !== "string" ||
+      byItem.has(selection.pantryItemId) ||
+      (selection.lotId !== null && typeof selection.lotId !== "string")
+    ) {
+      return { outcome: "invalid", lotEvidence: [] };
+    }
+    byItem.set(selection.pantryItemId, selection);
+  }
+
+  const lotEvidence: ConfirmedCookLotEvidence[] = [];
+  for (const prompt of plan.prompts) {
+    const selection = byItem.get(prompt.pantryItemId);
+    if (!selection) return { outcome: "invalid", lotEvidence: [] };
+    if (selection.lotId === null) {
+      return { outcome: "unknown", lotEvidence: [] };
+    }
+    const selected = prompt.choices.find(choice => choice.lotId === selection.lotId);
+    if (!selected) return { outcome: "invalid", lotEvidence: [] };
+    lotEvidence.push({
+      pantryItemId: prompt.pantryItemId,
+      reviewedOn,
+      deductions: [{
+        lotId: selected.lotId,
+        quantity: prompt.requiredQuantity,
+      }],
+    });
+  }
+
+  return {
+    outcome: "exact",
+    lotEvidence: lotEvidence.sort((a, b) =>
+      a.pantryItemId.localeCompare(b.pantryItemId)
+    ),
+  };
 }
