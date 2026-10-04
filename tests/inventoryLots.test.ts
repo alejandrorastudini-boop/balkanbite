@@ -145,7 +145,7 @@ test("appending a confirmed lot preserves aggregate quantity invariant and rejec
     parentUnit: "kg",
   });
   assert.ok(acquisition);
-  const before = { version: 1, unallocatedQuantity: 1, activeLots: [] };
+  const before: InventoryLotState = { version: 1, unallocatedQuantity: 1, activeLots: [] };
   const after = appendConfirmedInventoryLot(1, 1.5, "kg", before, acquisition);
   assert.deepEqual(after, {
     version: 1 as const,
