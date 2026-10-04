@@ -146,10 +146,10 @@ export const PantryView: React.FC<PantryViewProps> = ({
     if (!requiredFields.valid) {
       setFormError(
         language === "bg"
-          ? "Задължителни: име, категория, положително количество и мерна единица. По избор: дни до изтичане и цена; ако са попълнени, трябва да са неотрицателни числа."
+          ? "Задължителни: име, категория, положително количество и мерна единица. По избор: цели дни до изтичане и цена; ако са попълнени, трябва да са неотрицателни стойности."
           : language === "es"
-            ? "Obligatorios: nombre, categoría, cantidad positiva y unidad. Opcionales: días hasta caducidad y coste; si se indican, deben ser números no negativos."
-            : "Required: name, category, a positive quantity, and a unit. Optional: expiry days and cost; if provided, they must be non-negative numbers.",
+            ? "Obligatorios: nombre, categoría, cantidad positiva y unidad. Opcionales: días enteros hasta caducidad y coste; si se indican, deben ser valores no negativos."
+            : "Required: name, category, a positive quantity, and a unit. Optional: whole days until expiry and cost; if provided, they must be non-negative values.",
       );
       return;
     }
@@ -698,7 +698,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     id="pantry-expiry-days"
                     type="number"
                     min="0"
-                    step="any"
+                    step="1"
                     value={expiryDays}
                     onChange={(e) =>
                     setExpiryDays(
