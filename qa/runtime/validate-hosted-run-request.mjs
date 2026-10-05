@@ -18,7 +18,7 @@ assert.match(process.env.GITHUB_REF || "", /^refs\/heads\/qa\/hosted-firestore-r
   "Hosted QA can run only from a dedicated fresh run branch");
 const gate=validateHostedRunRequestShape(request);
 if (gate.disabled) {
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled=false\\n");
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled=false\n");
   console.log("Hosted QA manifest disabled; no hosted verification or writes requested.");
   process.exit(0);
 }
@@ -99,7 +99,7 @@ assert.equal(foundDatabase,true,
   "Production JavaScript graph does not target approved named Firestore database");
 const writeEnabled=gate.writeEnabled;
 if (process.env.GITHUB_OUTPUT) {
-  appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled="+String(writeEnabled)+"\\n");
+  appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled="+String(writeEnabled)+"\n");
 }
 console.log(writeEnabled
   ? "Hosted QA write manifest, exact Production commit/Rules and target verified."
