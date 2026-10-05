@@ -30,3 +30,17 @@ export function validateHostedRunRequestShape(request) {
     writeEnabled: request.mode === "one-time-synthetic-hosted-e2e",
   };
 }
+
+export function validateHostedRunBranchComparison(comparison) {
+  assert.equal(comparison?.status,"ahead",
+    "Hosted run branch must be exactly ahead of Production main");
+  assert.equal(comparison?.ahead_by,1,
+    "Hosted run branch must contain exactly one reviewed commit");
+  assert.equal(comparison?.behind_by,0,
+    "Hosted run branch must not be behind Production main");
+  assert.deepEqual(
+    (comparison?.files || []).map(file=>file.filename),
+    ["qa/runtime/hosted-run-request.json"],
+    "Hosted run branch may change only the reviewed run manifest",
+  );
+}
