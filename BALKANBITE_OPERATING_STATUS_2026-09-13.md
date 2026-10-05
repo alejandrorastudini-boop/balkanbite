@@ -7,9 +7,9 @@
 
 ## 1. Producción y main
 
-- `main`: `dae3b606a7c81a8d9b90d2430137f827b7897364`.
-- Vercel Production: `dpl_HPJHwRexVNd8L5vT6i52MSuFqpsY`, READY sobre ese SHA.
-- Consulta post-deploy de logs `error|fatal`: sin entradas en la ventana comprobada.
+- Baseline operativo que introdujo el gate de release: `dae3b606a7c81a8d9b90d2430137f827b7897364` (#375).
+- Los commits posteriores exclusivamente documentales no cambian la semántica runtime/Rules; no fijar aquí un supuesto `main` actual que quedaría obsoleto por el propio merge del documento.
+- Los deployments Production comprobados tras ese baseline llegaron a READY y las consultas post-deploy `error|fatal` no mostraron entradas en las ventanas revisadas.
 - El deployment READY no demuestra por sí solo que los writes autenticados funcionen contra Firestore alojado.
 
 ## 2. QA vigente del árbol integrado
@@ -100,7 +100,7 @@ PR #375 corrigió el workflow para upgrades sucesivos:
 
 El manifest activo en `main` está en `mode: inspect`, no publish.
 
-DRAFT PR #376 prepara los pines frescos para una futura publicación. **NO MERGEAR #376 sin decisión explícita de release de Rules**, porque su merge dispararía el workflow alojado.
+DRAFT PR #376 prepara los pines frescos para una futura publicación. Su CI y Firestore emulator están verdes. **NO MERGEAR #376 sin decisión explícita de release de Rules**, porque su merge dispararía el workflow alojado.
 
 ## 7. QA alojada
 
@@ -122,7 +122,7 @@ No ejecutar ese harness sin rediseñarlo. Una futura QA alojada debe evitar toca
 
 ## 9. Siguiente gate
 
-1. Dejar #376 DRAFT hasta revisar CI + emulator.
+1. Mantener #376 DRAFT aunque CI + emulator ya estén verdes; sigue siendo el boundary de publicación.
 2. No publicar hosted Rules sin decisión explícita.
-3. Antes de esa decisión, definir QA alojada compatible con journals append-only y limpieza segura.
-4. Si se aprueba release: merge #376 → verificar workflow/Rules exactas → esperar propagación → QA alojada segura → revisar logs → solo entonces reclasificar Production E2E.
+3. Terminar y validar el harness alojado actual compatible con journals append-only; el legacy #206 no se ejecuta.
+4. Si se aprueba release: revalidar baseline/pines → merge #376 → verificar workflow/Rules exactas → esperar propagación → QA alojada actual → revisar logs → solo entonces reclasificar Production E2E.
