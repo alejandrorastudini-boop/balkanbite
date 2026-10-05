@@ -80,6 +80,7 @@ export function useFirebaseSync(
     purpose: VerifiedVoiceRemovalPurpose;
     expectedStock: Array<{ pantryItemId: string; quantity: number; unit: string; cookRevision: number }>;
     deductions: VerifiedVoiceDeduction[];
+    lotEvidence?: ConfirmedVoiceLotEvidence[];
   }>>(new Map());
   const inFlightPurchaseApplications = useRef<Set<string>>(new Set());
   const inFlightCookConfirmations = useRef<Set<string>>(new Set());
