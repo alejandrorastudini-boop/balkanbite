@@ -216,6 +216,7 @@ async function generateWithOpenAI(
 
 // Health check
 app.get("/api/health", (_req, res) => {
+  res.setHeader("Cache-Control", "no-store, max-age=0");
   res.json({
     status: "ok",
     aiConfigured: hasOpenAIKey(),
