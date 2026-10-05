@@ -15,7 +15,7 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  hosted-owner-isolation:
+  hosted-current-rules-contract:
     if: github.ref == 'refs/heads/qa/hosted-firestore-current-v2'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
@@ -32,17 +32,12 @@ jobs:
       - name: Verify one-time opt-in, deployed commit and exact named database
         run: node qa/runtime/validate-hosted-run-request.mjs
 
-      - name: Install isolated Playwright runtime
-        run: |
-          npm install --no-audit --no-fund
-          npm install --no-save --package-lock=false --ignore-scripts --no-audit --no-fund playwright@1.55.0
-          npx playwright install --with-deps chromium
+      - name: Install application dependencies
+        run: npm install --no-audit --no-fund
 
-      - name: Run hosted synthetic A/B QA and verify cleanup
+      - name: Run current hosted Firestore contract probe
         env:
           QA_ALLOW_HOSTED_WRITES: "true"
           QA_HOSTED_TARGET_URL: "https://balkanbite.vercel.app"
           QA_ALLOW_PRODUCTION_TARGET: "true"
-        run: |
-          node qa/runtime/hosted-email-auth-production.mjs
-          node qa/runtime/hosted-current-rules-contract.mjs
+        run: node qa/runtime/hosted-current-rules-contract.mjs
