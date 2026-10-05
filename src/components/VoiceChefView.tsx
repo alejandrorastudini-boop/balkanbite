@@ -323,16 +323,28 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
         : language === "es"
         ? "No he descontado nada de la despensa. Revisa el producto, la cantidad y la unidad e inténtalo de nuevo."
         : "I did not deduct anything from the pantry. Review the item, quantity, and unit and try again."
+      : action === "shopping"
+      ? language === "bg"
+        ? "Не добавих тези продукти към списъка за пазаруване. Проверете името, количеството и мерната единица и опитайте отново."
+        : language === "es"
+        ? "No he añadido estos productos a la lista de compra. Revisa el nombre, la cantidad y la unidad e inténtalo de nuevo."
+        : "I did not add these items to the shopping list. Review the name, quantity, and unit and try again."
       : language === "bg"
-      ? "Не записах промените. Проверете данните и опитайте отново."
+      ? "Не записах тези продукти в килера. Проверете името, количеството и мерната единица и опитайте отново."
       : language === "es"
-      ? "No he guardado los cambios. Revisa los datos e inténtalo de nuevo."
-      : "I did not save the changes. Review the data and try again.";
+      ? "No he guardado estos productos en la despensa. Revisa el nombre, la cantidad y la unidad e inténtalo de nuevo."
+      : "I did not save these items to the pantry. Review the name, quantity, and unit and try again.";
 
-    onUpdateChatMessages(prev => [
+    onUpdateChatMessages((prev) => [
       ...prev,
-      { id: `msg-confirm-${Date.now()}`, sender: "assistant", text: confirmationText },
+      {
+        id: `ai-confirm-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+        sender: "assistant",
+        text: confirmationText,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      },
     ]);
+    speakText(confirmationText);
 
     if (mutationSucceeded) {
       setPendingItems(null);
