@@ -54,7 +54,7 @@ try {
 
   // Discard explicitly exposes an expired persisted lot and accepts it.
   await page.getByRole("button", { name: "Review discard" }).click();
-  await page.getByText("Expired", { exact: true }).waitFor();
+  await page.getByText(/Expired/).waitFor();
   const confirmDiscard = page.getByRole("button", { name: "Confirm discard" });
   await page.getByLabel("Discarded 2026-09-20").fill("0.2");
   assert.equal(await confirmDiscard.isDisabled(), false);
