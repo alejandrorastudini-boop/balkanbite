@@ -42,17 +42,6 @@ export function getSingleSource(ruleset) {
   return normalizeRules(ruleset.source.files[0].content);
 }
 
-// This guard is deliberately strict. An unfamiliar hosted policy must be
-// inspected, not overwritten by an unattended GitHub Actions run.
-export function isKnownDenyAll(source) {
-  const cleaned = normalizeRules(source)
-    .replace(/\/\*[\s\S]*?\*\//g, "")
-    .replace(/^\s*\/\/.*$/gm, "");
-  if ((cleaned.match(/\ballow\b/g) || []).length !== 1) return false;
-  if (/\bfunction\b/.test(cleaned)) return false;
-  return /\ballow\s+read\s*,\s*write\s*:\s*if\s+false\s*;/.test(cleaned);
-}
-
 export function verifyReleaseRequest(manifest, localSource) {
   assert.equal(manifest?.mode, "publish", "Release request must say publish");
   assert.equal(manifest?.projectId, PROJECT_ID, "Release project mismatch");

@@ -14,6 +14,10 @@ on:
       - "src/utils/shoppingMutationFirestore.ts"
       - "src/utils/derivedShortageShoppingFirestore.ts"
       - ".github/workflows/firestore-rules.yml"
+      - ".github/workflows/firestore-release.yml"
+      - "qa/security/firestore-release-core.mjs"
+      - "qa/security/firestore-release-core.test.mjs"
+      - "qa/security/firestore-release-github.mjs"
   workflow_dispatch:
 
 permissions:
