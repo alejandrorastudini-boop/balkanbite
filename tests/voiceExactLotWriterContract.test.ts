@@ -53,3 +53,19 @@ test("voice exact lot request requires evidence for every expected pantry item",
 test("aggregate voice request remains valid without physical lot evidence", () => {
   assert.ok(voiceConsumptionSignature(base));
 });
+
+test("exact voice lot request rejects impossible reviewedOn calendar dates", () => {
+  const request = {
+    userId: "user_1",
+    mutationId: "voice-date-invalid",
+    purpose: "food-use" as const,
+    expectedStock: [{ pantryItemId: "rice", quantity: 1, unit: "kg", cookRevision: 0 }],
+    deductions: [{ ingredientName: "Rice", pantryItemId: "rice", consumedQuantity: 0.2, unit: "kg" }],
+    lotEvidence: [{
+      pantryItemId: "rice",
+      reviewedOn: "2026-02-31",
+      deductions: [{ lotId: "lot-a", quantity: 0.2 }],
+    }],
+  };
+  assert.equal(voiceConsumptionSignature(request), null);
+});
