@@ -12,6 +12,8 @@ assert.ok(targetUrl.hostname !== "balkanbite.vercel.app" ||
   "Production target requires QA_ALLOW_PRODUCTION_TARGET=true");
 
 const cfg = JSON.parse(readFileSync(new URL("../../firebase-applet-config.json", import.meta.url), "utf8"));
+assert.equal(cfg.projectId, "gen-lang-client-0319723351",
+  "Hosted QA Firebase config project changed unexpectedly");
 const databaseId = "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6";
 const base = `https://firestore.googleapis.com/v1/projects/${cfg.projectId}/databases/${databaseId}`;
 const identityBase = "https://identitytoolkit.googleapis.com/v1";
