@@ -53,6 +53,7 @@ async function read(token, collection, id) { return fetch(docUrl(collection,id),
 async function del(token, collection, id) { return fetch(docUrl(collection,id), { method:"DELETE", headers:headers(token) }); }
 
 const accounts=[];
+let primaryError=null;
 try {
   for (const label of ["owner","other"]) {
     const email=`balkanbite-rules-${run}-${label}@example.com`;
@@ -134,6 +135,9 @@ try {
     "Authority revision jump must fail closed");
 
   console.log("Hosted current Rules contract passed: current journals + derived authority owner isolation and immutability.");
+} catch (error) {
+  primaryError=error;
+  throw error;
 } finally {
   // Current immutable journals intentionally cannot be deleted by their owner.
   // They use synthetic-only IDs and no customer data; deleting the temporary
@@ -153,6 +157,7 @@ try {
     }
   }
   if (cleanupErrors.length) {
-    throw new AggregateError(cleanupErrors,"Synthetic hosted QA Auth cleanup incomplete");
+    throw new AggregateError(primaryError ? [primaryError,...cleanupErrors] : cleanupErrors,
+      "Synthetic hosted QA failed and/or Auth cleanup was incomplete");
   }
 }
