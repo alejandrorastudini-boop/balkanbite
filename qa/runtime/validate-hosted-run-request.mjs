@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { readFileSync } from "node:fs";
+import { appendFileSync, readFileSync } from "node:fs";
 
 const request = JSON.parse(
   readFileSync(new URL("./hosted-run-request.json", import.meta.url), "utf8"),
@@ -11,7 +11,8 @@ const expectedProject = "gen-lang-client-0319723351";
 const target = "https://balkanbite.vercel.app";
 
 assert.equal(process.env.GITHUB_REF, "refs/heads/qa/hosted-firestore-current-v2");
-assert.equal(request.mode, "one-time-synthetic-hosted-e2e");
+assert.ok(["hosted-readonly-preflight","one-time-synthetic-hosted-e2e"].includes(request.mode),
+  "Hosted run mode must be read-only preflight or explicit synthetic E2E");
 assert.equal(request.projectId, expectedProject);
 assert.equal(request.databaseId, expectedDb);
 assert.equal(request.targetUrl, target);
@@ -72,4 +73,10 @@ assert.equal(foundDatabase,true,
   "Production JavaScript graph does not target approved named Firestore database");
 assert.equal(foundCommit,true,
   "Production JavaScript graph is not built from the exact approved main commit");
-console.log("One-time synthetic hosted QA manifest, main commit, health and JS database target verified.");
+const writeEnabled=request.mode === "one-time-synthetic-hosted-e2e";
+if (process.env.GITHUB_OUTPUT) {
+  appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled="+String(writeEnabled)+"\\n");
+}
+console.log(writeEnabled
+  ? "Hosted QA write manifest, exact Production commit/Rules and target verified."
+  : "READ-ONLY PREFLIGHT COMPLETE: exact Production commit/Rules and target verified; hosted writes disabled.");
