@@ -3,6 +3,7 @@ import { X, Sparkles, ChefHat, Maximize2 } from "lucide-react";
 import { Language, PantryItem, MealLog, ChatMessage } from "../types";
 import { VoiceChefView } from "./VoiceChefView";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
+import type { DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 
 interface ChefIaModalProps {
   isOpen: boolean;
@@ -15,7 +16,7 @@ interface ChefIaModalProps {
   onClearChat: () => void;
   onAddItemsToPantry: (items: any[]) => boolean | Promise<boolean>;
   onAddItemsToShoppingList: (items: any[]) => boolean | Promise<boolean>;
-  onDeductItemsFromPantry: (items: any[], mutationId?: string) => boolean | Promise<boolean>;
+  onDeductItemsFromPantry: (items: any[], mutationId?: string, purpose?: DeterministicRemovalPurpose) => boolean | Promise<boolean>;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
