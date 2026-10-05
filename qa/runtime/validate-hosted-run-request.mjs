@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import { createHash } from "node:crypto";
 import { readFileSync } from "node:fs";
 
 const request = JSON.parse(
@@ -15,6 +16,7 @@ assert.equal(request.projectId, expectedProject);
 assert.equal(request.databaseId, expectedDb);
 assert.equal(request.targetUrl, target);
 assert.match(String(request.productionCommit || ""), /^[a-f0-9]{40}$/);
+assert.match(String(request.rulesSha256 || ""), /^[a-f0-9]{64}$/, "Exact production Rules SHA required");
 const response = await fetch(
   "https://api.github.com/repos/alejandrorastudini-boop/balkanbite/branches/main",
   { headers: { Accept: "application/vnd.github+json", "User-Agent": "BalkanBite-QA" } },
@@ -23,6 +25,17 @@ assert.equal(response.status, 200, "Unable to verify current production main SHA
 const currentMain = await response.json();
 assert.equal(currentMain.commit?.sha, request.productionCommit,
   "Main advanced after approved QA request; review before running hosted writes");
+
+const rulesResponse = await fetch(
+  "https://raw.githubusercontent.com/alejandrorastudini-boop/balkanbite/" +
+    request.productionCommit + "/firestore.rules",
+  { cache: "no-store" },
+);
+assert.equal(rulesResponse.status, 200, "Unable to recover firestore.rules for approved Production commit");
+const rulesBytes = await rulesResponse.text();
+const rulesHash = createHash("sha256").update(rulesBytes).digest("hex");
+assert.equal(rulesHash, request.rulesSha256,
+  "Approved hosted QA Rules SHA does not match exact Production commit");
 
 const health = await fetch(target + "/api/health", { cache: "no-store" });
 assert.equal(health.status, 200, "Production health route unavailable");
