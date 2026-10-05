@@ -37,7 +37,7 @@ test("aggregate quantity mutations collapse lot precision instead of inferring F
   assert.match(cook, /const evidence = lotEvidenceById\.get\(expected\.pantryItemId\)/);
   assert.match(cook, /applyConfirmedInventoryLotDeduction\(/);
   assert.match(cook, /lotState: \{ version: 1, unallocatedQuantity: 0, activeLots: \[\] \}/);
-  assert.match(voice, /lotState: hasExactLotEvidence[\\s\\S]*\\? exactLotState[\\s\\S]*: \\{ version: 1, unallocatedQuantity: remaining, activeLots: \\[\\] \\}/);
+  assert.match(voice, /lotState: hasExactLotEvidence[\s\S]*\? exactLotState[\s\S]*: \{ version: 1, unallocatedQuantity: remaining, activeLots: \[\] \}/);
   assert.match(voice, /lotState: \{ version: 1, unallocatedQuantity: 0, activeLots: \[\] \}/);
   assert.match(edit, /lotState: \{ version: 1, unallocatedQuantity: adjustment\.quantity, activeLots: \[\] \}/);
   assert.match(edit, /lotState: \{ version: 1, unallocatedQuantity: 0, activeLots: \[\] \}/);
