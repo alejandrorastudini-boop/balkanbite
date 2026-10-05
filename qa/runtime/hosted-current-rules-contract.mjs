@@ -101,6 +101,25 @@ try {
     assert.equal(remove.status,403,"Immutable journal delete not denied for "+collection);
   }
 
+  const shoppingId=scoped(owner.uid,"shortage-v1:qa:"+run);
+  assert.equal((await read(owner.token,"shoppingList",shoppingId)).status,404,
+    "Owner-scoped absent shopping row must be readable for transactional create");
+  assert.equal((await read(other.token,"shoppingList",shoppingId)).status,403,
+    "Cross-user absent shopping row must remain hidden");
+  const shoppingRow={
+    userId:owner.uid,id:"shortage-v1:qa:"+run,name:"QA synthetic shortage",
+    quantity:1,unit:"pcs",category:"QA",checked:false,
+    amountOrigin:"deterministic_shortfall",purchaseAmountConfirmed:false,
+  };
+  assert.equal((await patch(owner.token,"shoppingList",shoppingId,shoppingRow)).status,200,
+    "Owner shopping create failed");
+  assert.equal((await patch(other.token,"shoppingList",shoppingId,{...shoppingRow,userId:other.uid})).status,403,
+    "Cross-user shopping mutation not denied");
+  assert.equal((await del(owner.token,"shoppingList",shoppingId)).status,200,
+    "Synthetic shopping row cleanup failed");
+  assert.equal((await read(owner.token,"shoppingList",shoppingId)).status,404,
+    "Synthetic shopping row remained after cleanup");
+
   const authorityId=scoped(owner.uid,"recipes");
   const authority={userId:owner.uid,collectionName:"recipes",revision:0,updatedAt:now};
   const authCreate=await patch(owner.token,"derivedCollectionAuthorities",authorityId,authority);
