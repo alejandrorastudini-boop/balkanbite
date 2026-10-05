@@ -62,6 +62,7 @@ import { buildPurchaseMutationId } from "./utils/purchasePantryFirestore";
 import { arePurchaseSourcesVisible, buildPendingPurchaseCommitEvidence, isPurchaseCommitVisible, type PendingPurchaseCommitEvidence } from "./utils/purchaseCommitEvidence";
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
 import type { DeterministicRemovalPurpose } from "./utils/deterministicRemovalIntent";
+import type { ConfirmedVoiceLotEvidence } from "./utils/voiceLotEvidenceAdapter";
 import { buildConfirmedVoiceShoppingItems } from "./utils/safeVoiceShoppingCapture";
 import {
   getUserPantryCacheKey,
@@ -200,6 +201,7 @@ export default function App() {
     userId: string;
     deductions: PantryConsumptionDeduction[];
     purpose: DeterministicRemovalPurpose;
+    lotEvidence?: readonly ConfirmedVoiceLotEvidence[];
     expectedRemaining: Record<string, number | null>;
   }>>(new Map());
   const pendingSignedInPurchaseApplication = useRef<PendingPurchaseCommitEvidence | null>(null);
@@ -2155,6 +2157,7 @@ export default function App() {
     items: any[],
     mutationId: string,
     purpose: DeterministicRemovalPurpose,
+    lotEvidence?: readonly ConfirmedVoiceLotEvidence[],
   ): Promise<boolean> => {
     if (!requireAuthoritativeInventory()) return false;
 
@@ -2178,7 +2181,12 @@ export default function App() {
     }
 
     let plan = preparedSignedInVoiceDeductions.current.get(mutationId);
-    if (plan && (plan.userId !== currentUser.uid || plan.purpose !== purpose)) {
+    const lotEvidenceSignature = JSON.stringify(lotEvidence ?? []);
+    if (plan && (
+      plan.userId !== currentUser.uid ||
+      plan.purpose !== purpose ||
+      JSON.stringify(plan.lotEvidence ?? []) !== lotEvidenceSignature
+    )) {
       preparedSignedInVoiceDeductions.current.delete(mutationId);
       pendingSignedInVoiceConsumptions.current.delete(mutationId);
       return false;
@@ -2211,6 +2219,7 @@ export default function App() {
         userId: currentUser.uid,
         deductions: resolved.deductions.map(item => ({ ...item })),
         purpose,
+        ...(lotEvidence ? { lotEvidence: lotEvidence.map(item => ({ ...item, deductions: item.deductions.map(deduction => ({ ...deduction })) })) } : {}),
         expectedRemaining,
       };
       preparedSignedInVoiceDeductions.current.set(mutationId, plan);
@@ -2226,6 +2235,7 @@ export default function App() {
         mutationId,
         plan.deductions,
         plan.purpose,
+        plan.lotEvidence,
       );
       if (persisted.outcome === "needs-review") {
         const preserveOriginalPlan =
@@ -2465,6 +2475,7 @@ export default function App() {
               onAddItemsToPantry={handleVoiceAddItems}
               onAddItemsToShoppingList={handleVoiceAddShoppingItems}
               onDeductItemsFromPantry={handleVoiceDeductItems}
+              exactLotReviewEnabled={Boolean(currentUser)}
               onNavigateToRecipes={handleVoiceNavigateToRecipes}
               onLogMeal={handleLogMeal}
               foodSafety={foodSafetyQuarantine}
@@ -2519,6 +2530,7 @@ export default function App() {
           onAddItemsToPantry={handleVoiceAddItems}
           onAddItemsToShoppingList={handleVoiceAddShoppingItems}
           onDeductItemsFromPantry={handleVoiceDeductItems}
+              exactLotReviewEnabled={Boolean(currentUser)}
           onNavigateToRecipes={handleVoiceNavigateToRecipes}
           onLogMeal={handleLogMeal}
           foodSafety={foodSafetyQuarantine}
