@@ -6,7 +6,12 @@ import {
 } from "firebase/firestore";
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
-import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
+import {
+  applyConfirmedInventoryLotDeduction,
+  inventoryLotStateMatchesQuantity,
+  type InventoryLotState,
+} from "./inventoryLots";
+import type { ConfirmedVoiceLotEvidence } from "./voiceLotEvidenceAdapter";
 
 export interface VerifiedVoiceStockExpectation {
   pantryItemId: string;
@@ -30,6 +35,7 @@ export interface VerifiedVoiceConsumptionRequest {
   purpose: VerifiedVoiceRemovalPurpose;
   expectedStock: readonly VerifiedVoiceStockExpectation[];
   deductions: readonly VerifiedVoiceDeduction[];
+  lotEvidence?: readonly ConfirmedVoiceLotEvidence[];
 }
 
 export type VerifiedVoiceConsumptionResult =
@@ -85,6 +91,7 @@ function normalizeRequest(
 ): {
   expectations: VerifiedVoiceStockExpectation[];
   deductions: VerifiedVoiceDeduction[];
+  lotEvidence: ConfirmedVoiceLotEvidence[];
   signature: string;
 } | null {
   if (
@@ -132,6 +139,35 @@ function normalizeRequest(
     }
   }
 
+  const lotEvidence = request.lotEvidence === undefined
+    ? []
+    : request.lotEvidence.map(evidence => ({
+        pantryItemId: evidence.pantryItemId,
+        reviewedOn: evidence.reviewedOn,
+        deductions: evidence.deductions.map(deduction => ({ ...deduction })),
+      }));
+  if (request.lotEvidence !== undefined) {
+    const expectedIds = new Set(expectations.map(item => item.pantryItemId));
+    const evidenceIds = new Set<string>();
+    if (lotEvidence.length !== expectedIds.size) return null;
+    for (const evidence of lotEvidence) {
+      if (!isSafeInventoryLogicalId(evidence.pantryItemId) ||
+          !expectedIds.has(evidence.pantryItemId) ||
+          evidenceIds.has(evidence.pantryItemId) ||
+          !/^\d{4}-\d{2}-\d{2}$/.test(evidence.reviewedOn) ||
+          evidence.deductions.length === 0) return null;
+      evidenceIds.add(evidence.pantryItemId);
+      const seenLots = new Set<string>();
+      for (const deduction of evidence.deductions) {
+        if (typeof deduction.lotId !== "string" || !deduction.lotId.trim() ||
+            seenLots.has(deduction.lotId) || !positive(deduction.quantity)) return null;
+        seenLots.add(deduction.lotId);
+      }
+      evidence.deductions.sort((a, b) => a.lotId.localeCompare(b.lotId));
+    }
+    lotEvidence.sort((a, b) => a.pantryItemId.localeCompare(b.pantryItemId));
+  }
+
   expectations.sort((a, b) => a.pantryItemId.localeCompare(b.pantryItemId));
   deductions.sort((a, b) =>
     a.pantryItemId.localeCompare(b.pantryItemId) ||
@@ -146,9 +182,10 @@ function normalizeRequest(
     purpose: request.purpose,
     expectedStock: expectations,
     deductions,
+    lotEvidence,
   });
 
-  return { expectations, deductions, signature };
+  return { expectations, deductions, lotEvidence, signature };
 }
 
 /**
@@ -182,7 +219,8 @@ export async function persistVerifiedVoiceConsumption(
   if (!normalized) return review("invalid-request");
 
   const { userId, mutationId } = request;
-  const { expectations, deductions, signature } = normalized;
+  const { expectations, deductions, lotEvidence, signature } = normalized;
+  const lotEvidenceById = new Map(lotEvidence.map(item => [item.pantryItemId, item]));
   const journalRef = doc(
     db,
     "inventoryConsumptions",
@@ -254,11 +292,28 @@ export async function persistVerifiedVoiceConsumption(
           ) {
             return review("stale-stock", expected.pantryItemId);
           }
+          const evidence = lotEvidenceById.get(expected.pantryItemId);
+          let exactLotState: InventoryLotState | null | undefined;
+          if (evidence) {
+            if (data.lotState === undefined) return review("invalid-stock", expected.pantryItemId);
+            const exact = applyConfirmedInventoryLotDeduction(
+              data.quantity,
+              data.unit,
+              data.lotState as InventoryLotState,
+              evidence.deductions,
+              request.purpose === "food-use" ? "food-use" : "removal",
+              evidence.reviewedOn,
+            );
+            if (exact.outcome !== "applied") return review("invalid-stock", expected.pantryItemId);
+            exactLotState = exact.state;
+          }
           remote.set(expected.pantryItemId, {
             ref,
             quantity: data.quantity,
             unit: data.unit,
             cookRevision: revision,
+            exactLotState,
+            hasExactLotEvidence: Boolean(evidence),
           });
         }
 
@@ -302,7 +357,9 @@ export async function persistVerifiedVoiceConsumption(
                 }
               : {
                   quantity: remaining,
-                  lotState: { version: 1, unallocatedQuantity: remaining, activeLots: [] },
+                  lotState: stock.hasExactLotEvidence
+                    ? stock.exactLotState
+                    : { version: 1, unallocatedQuantity: remaining, activeLots: [] },
                   estimatedCostEUR: null,
                   cookRevision: stock.cookRevision + 1,
                   _deleted: false,
@@ -317,6 +374,8 @@ export async function persistVerifiedVoiceConsumption(
           source: "voice",
           requestSignature: signature,
           deductions,
+          lotEvidence,
+          purpose: request.purpose,
           createdAt: serverTimestamp(),
         });
 
