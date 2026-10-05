@@ -65,7 +65,7 @@ jobs:
           --only firestore
           --project demo-balkanbite-rules
           --config firebase.json
-          "node qa/security/firestore-rules-emulator.mjs"
+          "node qa/security/firestore-rules-emulator.mjs && node --import tsx qa/security/cook-journal-transaction-emulator.mjs && node --import tsx qa/security/inventory-adjustment-emulator.mjs && node --import tsx qa/security/inventory-creation-emulator.mjs && node --import tsx qa/security/voice-consumption-emulator.mjs && node --import tsx qa/security/purchase-pantry-emulator.mjs && node --import tsx qa/security/inventory-clear-emulator.mjs && node --import tsx qa/security/shopping-mutation-emulator.mjs"
 
       - name: Verify one-time Google credential is configured
         env:
