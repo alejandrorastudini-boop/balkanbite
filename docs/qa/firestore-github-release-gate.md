@@ -36,8 +36,9 @@ https://github.com/alejandrorastudini-boop/balkanbite/settings/secrets/actions
 Workflow: `.github/workflows/firestore-release.yml`.
 It is restricted to `main` and has no pull-request or routine push
 deployment trigger. It starts via manual `workflow_dispatch` (default
-`inspect`) or a change to `ops/firebase-rules-release-request.json` on
-`main`. The release-request file is deliberately NOT committed initially.
+`inspect`) or a reviewed change to `ops/firebase-rules-release-request.json` on
+`main`. The tracked request records the last reviewed release intent; it must
+not be reused for a later publication without a fresh inspection and updated pins.
 
 It runs the offline two-user Firebase emulator test on the exact checkout
 BEFORE accessing Google. It then uses the Google-provided auth action and
