@@ -170,11 +170,11 @@ service cloud.firestore {
         ownsDocumentNamespace(documentId) &&
         request.resource.data.keys().hasOnly([
           'userId', 'mutationId', 'source', 'requestSignature',
-          'deductions', 'createdAt'
+          'deductions', 'purpose', 'lotEvidence', 'createdAt'
         ]) &&
         request.resource.data.keys().hasAll([
           'userId', 'mutationId', 'source', 'requestSignature',
-          'deductions', 'createdAt'
+          'deductions', 'purpose', 'lotEvidence', 'createdAt'
         ]) &&
         request.resource.data.mutationId is string &&
         request.resource.data.mutationId.size() > 0 &&
