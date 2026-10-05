@@ -21,6 +21,11 @@ import { t } from "../utils/translations";
 import { parseDeterministicRemovalIntent, type DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
+import { deductVoiceItemsFromPantry } from "../utils/pantryConsumption";
+import { planVoiceLotReview, type VoiceLotReviewPlan } from "../utils/voiceLotReviewPlanner";
+import { buildVoiceLotEvidence, type ConfirmedVoiceLotEvidence, type VoiceLotReviewSelection } from "../utils/voiceLotEvidenceAdapter";
+import { VoiceLotReviewModal } from "./VoiceLotReviewModal";
+import { localCalendarDate } from "../utils/effectiveExpiry";
 
 interface VoiceChefViewProps {
   pantry: PantryItem[];
@@ -30,7 +35,8 @@ interface VoiceChefViewProps {
   onClearChat: () => void;
   onAddItemsToPantry: (items: any[]) => boolean | Promise<boolean>;
   onAddItemsToShoppingList: (items: any[]) => boolean | Promise<boolean>;
-  onDeductItemsFromPantry: (items: any[], mutationId: string, purpose: DeterministicRemovalPurpose) => boolean | Promise<boolean>;
+  onDeductItemsFromPantry: (items: any[], mutationId: string, purpose: DeterministicRemovalPurpose, lotEvidence?: readonly ConfirmedVoiceLotEvidence[]) => boolean | Promise<boolean>;
+  exactLotReviewEnabled?: boolean;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
@@ -47,6 +53,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   onAddItemsToPantry,
   onAddItemsToShoppingList,
   onDeductItemsFromPantry,
+  exactLotReviewEnabled = false,
   onNavigateToRecipes,
   onLogMeal,
   foodSafety,
@@ -90,6 +97,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   const [pendingAction, setPendingAction] = useState<"add" | "remove" | "shopping" | null>(null);
   const [pendingRemovalPurpose, setPendingRemovalPurpose] = useState<DeterministicRemovalPurpose | null>(null);
   const [isConfirmingPendingItems, setIsConfirmingPendingItems] = useState(false);
+  const [pendingLotReview, setPendingLotReview] = useState<{ plan: VoiceLotReviewPlan; reviewedOn: string } | null>(null);
   const pendingMutationIdRef = useRef<string | null>(null);
   const voiceMutationSequenceRef = useRef(0);
 
@@ -258,14 +266,16 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       })
   );
 
-  const confirmPendingItems = async () => {
-    if (!pendingItems || !pendingItemsAreComplete || !pendingAction || isConfirmingPendingItems) return;
+  const executePendingMutation = async (
+    lotEvidence?: readonly ConfirmedVoiceLotEvidence[],
+  ) => {
+    if (!pendingItems || !pendingItemsAreComplete || !pendingAction || isConfirmingPendingItems) return false;
 
     const confirmedItems = pendingItems;
     const action = pendingAction;
     const mutationId = action === "remove" ? pendingMutationIdRef.current : null;
     const removalPurpose = action === "remove" ? pendingRemovalPurpose : null;
-    if (action === "remove" && (!mutationId || !removalPurpose)) return;
+    if (action === "remove" && (!mutationId || !removalPurpose)) return false;
     const summary = confirmedItems
       .map((item) => `${item.quantity} ${item.unit} ${item.nameEn || item.name}`)
       .join(", ");
@@ -278,7 +288,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
           ? onAddItemsToPantry(confirmedItems)
           : action === "remove"
           ? mutationId && removalPurpose
-            ? onDeductItemsFromPantry(confirmedItems, mutationId, removalPurpose)
+            ? onDeductItemsFromPantry(confirmedItems, mutationId, removalPurpose, lotEvidence)
             : false
           : onAddItemsToShoppingList(confirmedItems)
       );
@@ -325,13 +335,6 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       ? "No he guardado estos productos en la despensa. Revisa el nombre, la cantidad y la unidad e inténtalo de nuevo."
       : "I did not save these items to the pantry. Review the name, quantity, and unit and try again.";
 
-    if (mutationSucceeded) {
-      setPendingItems(null);
-      setPendingAction(null);
-      setPendingRemovalPurpose(null);
-      pendingMutationIdRef.current = null;
-    }
-
     onUpdateChatMessages((prev) => [
       ...prev,
       {
@@ -342,6 +345,49 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       },
     ]);
     speakText(confirmationText);
+
+    if (mutationSucceeded) {
+      setPendingItems(null);
+      setPendingAction(null);
+      setPendingRemovalPurpose(null);
+      setPendingLotReview(null);
+      pendingMutationIdRef.current = null;
+    }
+    return mutationSucceeded;
+  };
+
+  const confirmPendingItems = async () => {
+    if (!pendingItems || !pendingItemsAreComplete || !pendingAction || isConfirmingPendingItems) return;
+    if (pendingAction !== "remove" || !exactLotReviewEnabled) {
+      await executePendingMutation();
+      return;
+    }
+    const purpose = pendingRemovalPurpose;
+    if (!purpose) return;
+    const resolved = deductVoiceItemsFromPantry(pantry, pendingItems);
+    if (resolved.issues.length > 0 || resolved.deductions.length === 0) return;
+    const reviewedOn = localCalendarDate(new Date());
+    const plan = planVoiceLotReview(pantry, resolved.deductions, purpose, reviewedOn);
+    if (plan.outcome === "invalid") return;
+    if (plan.outcome === "not-needed") {
+      await executePendingMutation();
+      return;
+    }
+    setPendingLotReview({ plan, reviewedOn });
+  };
+
+  const confirmLotReview = async (selections: VoiceLotReviewSelection) => {
+    if (!pendingLotReview || !pendingRemovalPurpose) return false;
+    const built = buildVoiceLotEvidence(
+      pendingLotReview.plan,
+      selections,
+      pendingRemovalPurpose,
+      pendingLotReview.reviewedOn,
+    );
+    if (built.outcome === "invalid") return false;
+    return executePendingMutation(
+      built.outcome === "exact" ? built.lotEvidence : undefined,
+    );
   };
 
   const cancelPendingItems = () => {
@@ -803,6 +849,16 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
               </button>
             </div>
           </div>
+        )}
+
+        {pendingLotReview && (
+          <VoiceLotReviewModal
+            plan={pendingLotReview.plan}
+            pantry={pantry}
+            language={language}
+            onClose={() => setPendingLotReview(null)}
+            onConfirm={confirmLotReview}
+          />
         )}
 
         {isProcessing && (

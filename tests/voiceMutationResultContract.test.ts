@@ -27,7 +27,7 @@ test("voice mutation callbacks return explicit sync or awaited boolean results t
     );
     assert.match(
       source,
-      /onDeductItemsFromPantry:\s*\(items: any\[\], mutationId: string, purpose: DeterministicRemovalPurpose\) => boolean \| Promise<boolean>;/,
+      /onDeductItemsFromPantry:\s*\(items: any\[\], mutationId: string, purpose: DeterministicRemovalPurpose, lotEvidence\?: readonly ConfirmedVoiceLotEvidence\[\]\) => boolean \| Promise<boolean>;/,
     );
   }
 });
@@ -90,18 +90,18 @@ test("App keeps guest voice deduction local but signed-in removal transactional"
 });
 
 test("VoiceChefView keeps the pending batch when App rejects the mutation", () => {
-  const start = voiceSource.indexOf("const confirmPendingItems");
+  const start = voiceSource.indexOf("const executePendingMutation");
   const end = voiceSource.indexOf("const cancelPendingItems", start);
   const block = voiceSource.slice(start, end);
 
   assert.match(block, /let mutationSucceeded = false;/);
   assert.match(block, /mutationSucceeded = await Promise\.resolve\(/);
   assert.match(block, /onAddItemsToPantry\(confirmedItems\)/);
-  assert.match(block, /onDeductItemsFromPantry\(confirmedItems, mutationId, removalPurpose\)/);
+  assert.match(block, /onDeductItemsFromPantry\(confirmedItems, mutationId, removalPurpose, lotEvidence\)/);
   assert.match(block, /onAddItemsToShoppingList\(confirmedItems\)/);
   assert.match(
     block,
-    /if \(mutationSucceeded\) \{\s*setPendingItems\(null\);\s*setPendingAction\(null\);\s*setPendingRemovalPurpose\(null\);\s*pendingMutationIdRef\.current = null;\s*\}/,
+    /if \(mutationSucceeded\) \{\s*setPendingItems\(null\);\s*setPendingAction\(null\);\s*setPendingRemovalPurpose\(null\);\s*setPendingLotReview\(null\);\s*pendingMutationIdRef\.current = null;\s*\}/,
   );
 
   const resultIndex = block.indexOf("let mutationSucceeded = false");
@@ -111,7 +111,7 @@ test("VoiceChefView keeps the pending batch when App rejects the mutation", () =
 });
 
 test("VoiceChefView only emits mutation success copy when App returns true", () => {
-  const start = voiceSource.indexOf("const confirmPendingItems");
+  const start = voiceSource.indexOf("const executePendingMutation");
   const end = voiceSource.indexOf("const cancelPendingItems", start);
   const block = voiceSource.slice(start, end);
 

@@ -3,6 +3,7 @@ import { X, Sparkles, ChefHat, Maximize2 } from "lucide-react";
 import { Language, PantryItem, MealLog, ChatMessage } from "../types";
 import { VoiceChefView } from "./VoiceChefView";
 import type { DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
+import type { ConfirmedVoiceLotEvidence } from "../utils/voiceLotEvidenceAdapter";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 
 interface ChefIaModalProps {
@@ -16,7 +17,8 @@ interface ChefIaModalProps {
   onClearChat: () => void;
   onAddItemsToPantry: (items: any[]) => boolean | Promise<boolean>;
   onAddItemsToShoppingList: (items: any[]) => boolean | Promise<boolean>;
-  onDeductItemsFromPantry: (items: any[], mutationId: string, purpose: DeterministicRemovalPurpose) => boolean | Promise<boolean>;
+  onDeductItemsFromPantry: (items: any[], mutationId: string, purpose: DeterministicRemovalPurpose, lotEvidence?: readonly ConfirmedVoiceLotEvidence[]) => boolean | Promise<boolean>;
+  exactLotReviewEnabled?: boolean;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
@@ -35,6 +37,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
   onAddItemsToPantry,
   onAddItemsToShoppingList,
   onDeductItemsFromPantry,
+  exactLotReviewEnabled = false,
   onNavigateToRecipes,
   onLogMeal,
   foodSafety,
@@ -114,6 +117,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
             onAddItemsToPantry={onAddItemsToPantry}
             onAddItemsToShoppingList={onAddItemsToShoppingList}
             onDeductItemsFromPantry={onDeductItemsFromPantry}
+            exactLotReviewEnabled={exactLotReviewEnabled}
             onNavigateToRecipes={(q) => {
               onNavigateToRecipes(q);
               onClose();

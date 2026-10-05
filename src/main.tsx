@@ -8,6 +8,7 @@ import {
   isManualShoppingQaRoute,
   isProfileHealthDataQaRoute,
   isRuntimeQaRoute,
+  isVoiceLotReviewQaRoute,
   isStartupCloudSyncQaRoute,
 } from './qa/runtimeQaGate';
 import './index.css';
@@ -42,6 +43,12 @@ async function bootstrap() {
   if (isCookConfirmationQaRoute()) {
     const {CookConfirmationQaHarness} = await import('./qa/CookConfirmationQaHarness.tsx');
     root.render(<CookConfirmationQaHarness />);
+    return;
+  }
+
+  if (isVoiceLotReviewQaRoute()) {
+    const {VoiceLotReviewQaHarness} = await import('./qa/VoiceLotReviewQaHarness.tsx');
+    root.render(<VoiceLotReviewQaHarness />);
     return;
   }
 
