@@ -73,7 +73,7 @@ deletion and its coverage predates the current immutable journals, revision
 guards and derived-authority model. Use the current hosted contract gate only
 after it has passed CI. Its manifest is disabled on `main`.
 
-For each hosted preflight or write run, create a **fresh**
+For each hosted target preflight, create a **fresh**
 `qa/hosted-firestore-run-*` branch from the exact current `main`, then make
 exactly one commit changing only `qa/runtime/hosted-run-request.json`. Pin
 that manifest to the exact Production commit and exact raw Rules SHA. The
@@ -83,17 +83,16 @@ only the manifest changed. Never reuse an old run branch after `main`
 advances.
 
 Use `hosted-readonly-preflight` to verify target identity without creating
-Auth users or Firestore documents. Only an explicitly reviewed
-`one-time-synthetic-hosted-e2e` manifest may enable the hosted write probe.
-The contract gate verifies the hosted Rules boundary, not the application
-writers themselves. It is therefore **necessary but not sufficient** to
-classify cook/voice/purchase/clear/shortage flows as Production REAL E2E.
-After a green hosted contract run, execute a separately bounded hosted test
-through the actual current writer utilities (or equivalent real application
-path) before upgrading those flow classifications. If an actual isolation or
-writer failure is observed, restore the original release ruleset via the
-secure process and retest. A GitHub Actions green build or Rules API match is
-not proof of hosted application functionality.
+Auth users or Firestore documents. This preflight has **no write mode**.
+After Rules publication and exact Rules API verification, execute a separately
+bounded hosted test through the actual current writer utilities (or equivalent
+real application path) before upgrading cook/voice/purchase/clear/shortage
+classifications to Production REAL E2E. That writer test is the only stage
+that should create synthetic application evidence, avoiding duplicate
+immutable QA journals. If an actual isolation or writer failure is observed,
+restore the original release ruleset via the secure process and retest. A
+GitHub Actions green build or Rules API match is not proof of hosted
+application functionality.
 
 ## Required publish request (example, do not copy with a placeholder hash)
 
@@ -151,9 +150,9 @@ valid authority for later upgrades. For every later release, first run
 `workflow_dispatch: inspect` on trusted `main`. Use the resulting backup
 artifact/log output to pin both `expectedHostedRulesetName` and
 `expectedHostedRulesSha256` in the reviewed publish request. Publication
-must fail if either value changes before PATCH. The pre-publication backup remains the rollback target. Hosted current-contract QA remains mandatory after propagation, followed by
-a bounded real-writer hosted E2E before claiming Production E2E for those
-flows. The current contract QA intentionally does not weaken immutable-journal
-rules merely to clean synthetic evidence; any residual synthetic records must
-be explicitly accepted or removed through a separately reviewed privileged
-cleanup path.
+must fail if either value changes before PATCH. The pre-publication backup remains the rollback target. Hosted target preflight remains mandatory before release execution. After
+propagation, exact hosted Rules verification plus a bounded real-writer hosted
+E2E are required before claiming Production E2E for those flows. Synthetic
+immutable evidence should be created only by that real-writer E2E; any
+residual records must be explicitly accepted or removed through a separately
+reviewed privileged cleanup path.
