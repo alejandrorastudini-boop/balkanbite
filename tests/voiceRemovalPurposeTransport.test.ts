@@ -21,3 +21,14 @@ test("voice request rejects missing or unknown removal purpose", () => {
   assert.equal(voiceConsumptionSignature({ ...base, purpose: undefined as never }), null);
   assert.equal(voiceConsumptionSignature({ ...base, purpose: "other" as never }), null);
 });
+
+test("voice lot evidence is frozen through App and hook retry state", () => {
+  const appSource = readFileSync(new URL("../src/App.tsx", import.meta.url), "utf8");
+  const hookSource = readFileSync(new URL("../src/hooks/useFirebaseSync.ts", import.meta.url), "utf8");
+  assert.ok(appSource.includes("lotEvidence?: readonly ConfirmedVoiceLotEvidence[]"));
+  assert.ok(appSource.includes("JSON.stringify(plan.lotEvidence ?? []) !== JSON.stringify(lotEvidence ?? [])"));
+  assert.ok(appSource.includes("plan.lotEvidence"));
+  assert.ok(hookSource.includes("lotEvidence?: readonly ConfirmedVoiceLotEvidence[]"));
+  assert.ok(hookSource.includes("prepared.lotEvidence"));
+  assert.ok(hookSource.includes("lotEvidence: prepared.lotEvidence"));
+});
