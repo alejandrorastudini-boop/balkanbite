@@ -121,6 +121,64 @@ try {
   assert.equal((await stock(alice, "alice", "rice-new")).quantity, 150);
   console.log("PASS: replay cannot change voice removal purpose");
 
+  await setDoc(doc(alice, "inventory", getScopedDocumentId("alice", "lot-rice")), {
+    userId: "alice",
+    id: "lot-rice",
+    name: "Rice",
+    quantity: 1,
+    unit: "kg",
+    cookRevision: 0,
+    _deleted: false,
+    lotState: {
+      version: 1,
+      unallocatedQuantity: 0,
+      activeLots: [
+        {
+          id: "lot-a",
+          source: "shopping_list",
+          sourceId: "shop-a",
+          acquiredAt: "2026-10-01",
+          initialQuantity: 0.4,
+          remainingQuantity: 0.4,
+          expiryDaysAtAcquisition: 20,
+        },
+        {
+          id: "lot-b",
+          source: "shopping_list",
+          sourceId: "shop-b",
+          acquiredAt: "2026-10-02",
+          initialQuantity: 0.6,
+          remainingQuantity: 0.6,
+          expiryDaysAtAcquisition: 20,
+        },
+      ],
+    },
+  });
+
+  const exactVoice = request(
+    "voice-exact-lots",
+    [{ pantryItemId: "lot-rice", quantity: 1, unit: "kg", cookRevision: 0 }],
+    [deduction("rice", "lot-rice", 0.7, "kg")],
+  );
+  exactVoice.lotEvidence = [{
+    pantryItemId: "lot-rice",
+    reviewedOn: "2026-10-05",
+    purpose: "food-use",
+    deductions: [
+      { lotId: "lot-a", quantity: 0.4 },
+      { lotId: "lot-b", quantity: 0.3 },
+    ],
+  }];
+  assert.equal((await persistVerifiedVoiceConsumption(alice, exactVoice)).outcome, "recorded");
+  const exactStock = await stock(alice, "alice", "lot-rice");
+  assert.equal(exactStock.quantity, 0.3);
+  assert.equal(exactStock.lotState.unallocatedQuantity, 0);
+  assert.deepEqual(
+    exactStock.lotState.activeLots.map(lot => [lot.id, lot.remainingQuantity]),
+    [["lot-b", 0.3]],
+  );
+  console.log("PASS: explicit voice lot evidence preserves exact remaining provenance");
+
   await seed("alice", "stale", 100, "g", 3);
   const stale = await persistVerifiedVoiceConsumption(
     alice,
