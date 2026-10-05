@@ -68,10 +68,14 @@ that verification fails after a successful release update, it tries to
 restore the original ruleset. A successful REST verification does not
 prove that the change has finished propagating to clients.
 
-After publication, separately run PR #206's approved hosted synthetic A/B
-E2E and verify document cleanup and cross-user isolation before classifying
-cloud sync as REAL E2E. If an actual isolation failure is observed,
-restore the original release ruleset via the secure process and
+After publication, do **not** run legacy PR #206: its cleanup assumes profile
+deletion and its coverage predates the current immutable journals, revision
+guards and derived-authority model. Use the current one-time hosted contract
+harness only after it has passed CI and its disabled manifest has been
+deliberately pinned to the exact Production commit and exact raw Rules SHA.
+Verify owner/cross-user isolation and current writer contracts before
+classifying cloud sync as REAL E2E. If an actual isolation or writer failure
+is observed, restore the original release ruleset via the secure process and
 retest. A GitHub Actions green build is not proof of hosted functionality.
 
 ## Required publish request (example, do not copy with a placeholder hash)
@@ -118,8 +122,9 @@ refuses publication if the live source or ruleset changes before the run.
 The push event on merge to `main` intentionally triggers one controlled
 publication; a green test on the PR itself does not make any live changes.
 
-After publication, inspect the live release and run the synthetic hosted A/B
-QA. Do not classify hosted sync as functional based on the Rules API alone.
+After publication, inspect the live release and run the current Rules-compatible
+hosted QA. Legacy PR #206 is historical only and must not be executed unchanged.
+Do not classify hosted sync as functional based on the Rules API alone.
 
 
 ## Successive upgrades
@@ -129,6 +134,8 @@ valid authority for later upgrades. For every later release, first run
 `workflow_dispatch: inspect` on trusted `main`. Use the resulting backup
 artifact/log output to pin both `expectedHostedRulesetName` and
 `expectedHostedRulesSha256` in the reviewed publish request. Publication
-must fail if either value changes before PATCH. The pre-publication backup
-remains the rollback target, and hosted authenticated QA remains mandatory
-after propagation before claiming Production E2E.
+must fail if either value changes before PATCH. The pre-publication backup remains the rollback target. Hosted current-contract
+QA remains mandatory after propagation before claiming Production E2E. The
+current QA design intentionally does not weaken immutable-journal rules merely
+to clean synthetic evidence; any residual synthetic records must be explicitly
+accepted or removed through a separately reviewed privileged cleanup path.
