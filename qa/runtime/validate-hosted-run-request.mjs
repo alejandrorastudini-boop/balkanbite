@@ -4,6 +4,7 @@ import { appendFileSync, readFileSync } from "node:fs";
 import {
   EXPECTED_HOSTED_DATABASE,
   EXPECTED_HOSTED_TARGET,
+  validateHostedRunBranchComparison,
   validateHostedRunRequestShape,
 } from "./hosted-run-request-core.mjs";
 
@@ -47,14 +48,7 @@ const compareResponse=await fetch(
 );
 assert.equal(compareResponse.status,200,"Unable to verify hosted run branch delta");
 const comparison=await compareResponse.json();
-assert.equal(comparison.status,"ahead","Hosted run branch must be exactly ahead of Production main");
-assert.equal(comparison.ahead_by,1,"Hosted run branch must contain exactly one reviewed commit");
-assert.equal(comparison.behind_by,0,"Hosted run branch must not be behind Production main");
-assert.deepEqual(
-  (comparison.files || []).map(file=>file.filename),
-  ["qa/runtime/hosted-run-request.json"],
-  "Hosted run branch may change only the reviewed run manifest",
-);
+validateHostedRunBranchComparison(comparison);
 
 const rulesResponse = await fetch(
   "https://raw.githubusercontent.com/alejandrorastudini-boop/balkanbite/" +
