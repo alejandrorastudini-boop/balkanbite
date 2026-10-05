@@ -7,6 +7,7 @@ import {
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
 import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
+import type { DeterministicRemovalPurpose } from "./deterministicRemovalIntent";
 
 export interface VerifiedVoiceStockExpectation {
   pantryItemId: string;
@@ -27,6 +28,7 @@ export interface VerifiedVoiceConsumptionRequest {
   mutationId: string;
   expectedStock: readonly VerifiedVoiceStockExpectation[];
   deductions: readonly VerifiedVoiceDeduction[];
+  purpose: DeterministicRemovalPurpose;
 }
 
 export type VerifiedVoiceConsumptionResult =
@@ -92,6 +94,7 @@ function normalizeRequest(
     request.expectedStock.length > 30 ||
     !Array.isArray(request.deductions) ||
     request.deductions.length === 0 ||
+    (request.purpose !== "food-use" && request.purpose !== "discard") ||
     request.deductions.length > 60
   ) {
     return null;
@@ -139,6 +142,7 @@ function normalizeRequest(
   const signature = JSON.stringify({
     version: 1,
     source: "voice",
+    purpose: request.purpose,
     expectedStock: expectations,
     deductions,
   });
@@ -202,6 +206,7 @@ export async function persistVerifiedVoiceConsumption(
             data.userId !== userId ||
             data.mutationId !== mutationId ||
             data.source !== "voice" ||
+            data.purpose !== request.purpose ||
             data.requestSignature !== signature ||
             !Array.isArray(data.deductions) ||
             data.deductions.length === 0
@@ -310,6 +315,7 @@ export async function persistVerifiedVoiceConsumption(
           userId,
           mutationId,
           source: "voice",
+          purpose: request.purpose,
           requestSignature: signature,
           deductions,
           createdAt: serverTimestamp(),
