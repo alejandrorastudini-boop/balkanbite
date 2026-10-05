@@ -61,6 +61,25 @@ test("publication requires a request tied to the exact checked-in source", () =>
   verifyHostedBaseline(
     manifest, manifest.expectedHostedRulesetName, manifest.expectedHostedRulesSha256,
   );
+  // Successive upgrades may start from an already owner-scoped policy. The
+  // authority is the exact inspected immutable ruleset + normalized source
+  // hash, not a special-case deny-all shape.
+  const ownerScopedBaseline = "rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /inventory/{itemId} { allow read: if request.auth != null; }\n  }\n}";
+  const upgradeManifest = {
+    ...manifest,
+    expectedHostedRulesSha256: sha256(ownerScopedBaseline),
+    expectedHostedRulesetName: "projects/" + PROJECT_ID + "/rulesets/inspected-owner-v1",
+  };
+  verifyHostedBaseline(
+    upgradeManifest,
+    upgradeManifest.expectedHostedRulesetName,
+    upgradeManifest.expectedHostedRulesSha256,
+  );
+  assert.throws(() => verifyHostedBaseline(
+    upgradeManifest,
+    upgradeManifest.expectedHostedRulesetName,
+    sha256(ownerScopedBaseline + "\n// changed"),
+  ));
   assert.throws(() => verifyHostedBaseline(
     manifest, "projects/" + PROJECT_ID + "/rulesets/unexpected",
     manifest.expectedHostedRulesSha256,
