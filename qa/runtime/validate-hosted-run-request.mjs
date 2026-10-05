@@ -24,7 +24,11 @@ if (gate.disabled) {
 
 const response = await fetch(
   "https://api.github.com/repos/alejandrorastudini-boop/balkanbite/branches/main",
-  { headers: { Accept: "application/vnd.github+json", "User-Agent": "BalkanBite-QA" } },
+  { headers: {
+    Accept: "application/vnd.github+json",
+    "User-Agent": "BalkanBite-QA",
+    ...(process.env.GITHUB_TOKEN ? { Authorization: "Bearer " + process.env.GITHUB_TOKEN } : {}),
+  } },
 );
 assert.equal(response.status, 200, "Unable to verify current production main SHA");
 const currentMain = await response.json();
