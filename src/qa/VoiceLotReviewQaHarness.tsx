@@ -43,6 +43,7 @@ function planFor(purpose: DeterministicRemovalPurpose): VoiceLotReviewPlan {
   const quantity = purpose === "discard" ? 0.2 : 0.7;
   return planVoiceLotReview(pantry, [{
     pantryItemId: item.id,
+    ingredientName: item.name,
     consumedQuantity: quantity,
     unit: "kg",
   }], purpose, reviewedOn);
