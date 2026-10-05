@@ -67,7 +67,7 @@ test("review is all-or-nothing across a multi-item voice mutation", () => {
   const plan = planVoiceLotEvidenceReview(
     [
       ...pantry(),
-      { id: "rice", name: "Rice", quantity: 1, unit: "kg", category: "Grains", addedAt: "2026-10-01" },
+      { id: "rice", name: "Rice", quantity: 1, unit: "kg", category: "Pantry/Grains", addedAt: "2026-10-01" },
     ],
     [...deduction, { pantryItemId: "rice", consumedQuantity: 0.2, unit: "kg" }],
     "food-use",
