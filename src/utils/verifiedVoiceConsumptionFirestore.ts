@@ -22,9 +22,12 @@ export interface VerifiedVoiceDeduction {
   unit: string;
 }
 
+export type VerifiedVoiceRemovalPurpose = "food-use" | "discard";
+
 export interface VerifiedVoiceConsumptionRequest {
   userId: string;
   mutationId: string;
+  purpose: VerifiedVoiceRemovalPurpose;
   expectedStock: readonly VerifiedVoiceStockExpectation[];
   deductions: readonly VerifiedVoiceDeduction[];
 }
@@ -87,6 +90,7 @@ function normalizeRequest(
   if (
     !safeUid(request?.userId) ||
     !safeMutationId(request?.mutationId) ||
+    (request?.purpose !== "food-use" && request?.purpose !== "discard") ||
     !Array.isArray(request.expectedStock) ||
     request.expectedStock.length === 0 ||
     request.expectedStock.length > 30 ||
@@ -139,6 +143,7 @@ function normalizeRequest(
   const signature = JSON.stringify({
     version: 1,
     source: "voice",
+    purpose: request.purpose,
     expectedStock: expectations,
     deductions,
   });
