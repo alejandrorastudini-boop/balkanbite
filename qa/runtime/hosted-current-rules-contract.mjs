@@ -85,7 +85,11 @@ try {
 
   console.log("Hosted current Rules contract passed: current journals + derived authority owner isolation and immutability.");
 } finally {
-  // Current immutable journals intentionally cannot be deleted by their owner.\n  // They use synthetic-only IDs and no customer data; deleting the temporary\n  // Auth identities below prevents future authenticated access. A privileged\n  // cleanup mechanism is intentionally not introduced just for QA.\n  for (const account of accounts) {
+  // Current immutable journals intentionally cannot be deleted by their owner.
+  // They use synthetic-only IDs and no customer data; deleting the temporary
+  // Auth identities below prevents future authenticated access. A privileged
+  // cleanup mechanism is intentionally not introduced just for QA.
+  for (const account of accounts) {
     const login=await identity("accounts:signInWithPassword",{email:account.email,password:account.password,returnSecureToken:true},true);
     if (login.res.ok) await identity("accounts:delete",{idToken:login.payload.idToken},true);
   }
