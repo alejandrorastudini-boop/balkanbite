@@ -263,6 +263,8 @@ export async function persistVerifiedVoiceConsumption(
           quantity: number;
           unit: string;
           cookRevision: number;
+          exactLotState?: InventoryLotState | null;
+          hasExactLotEvidence: boolean;
         }>();
 
         for (const { expected, ref } of stockRefs) {
