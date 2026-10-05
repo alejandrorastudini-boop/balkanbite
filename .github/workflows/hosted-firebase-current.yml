@@ -6,8 +6,6 @@ on:
       - qa/hosted-firestore-current-v2
     paths:
       - "qa/runtime/hosted-run-request.json"
-      - "qa/runtime/hosted-current-rules-contract.mjs"
-      - ".github/workflows/hosted-firebase-current.yml"
 
 permissions:
   contents: read
