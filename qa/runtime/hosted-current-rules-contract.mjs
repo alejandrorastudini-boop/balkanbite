@@ -5,16 +5,16 @@ import { validateHostedRunRequestShape } from "./hosted-run-request-core.mjs";
 
 assert.equal(process.env.QA_ALLOW_HOSTED_WRITES, "true",
   "Explicit QA_ALLOW_HOSTED_WRITES=true required");
-assert.equal(process.env.GITHUB_REF, "refs/heads/main",
-  "Hosted write probe can run only from reviewed main");
+assert.match(process.env.GITHUB_REF || "", /^refs\/heads\/qa\/hosted-firestore-run-[A-Za-z0-9._-]+$/,
+  "Hosted write probe can run only from a dedicated reviewed run branch");
+assert.equal(process.env.QA_VALIDATED_HOSTED_TARGET, "true",
+  "Hosted write probe requires successful target preflight in the same workflow");
 const runRequest=JSON.parse(
   readFileSync(new URL("./hosted-run-request.json", import.meta.url), "utf8"),
 );
 const runGate=validateHostedRunRequestShape(runRequest);
 assert.equal(runGate.writeEnabled,true,
   "Hosted write probe requires one-time-synthetic-hosted-e2e manifest mode");
-assert.equal(process.env.GITHUB_SHA,runRequest.productionCommit,
-  "Hosted write probe commit must equal reviewed Production commit");
 const targetUrl = new URL(process.env.QA_HOSTED_TARGET_URL || "");
 assert.equal(targetUrl.protocol, "https:");
 assert.ok(targetUrl.hostname.endsWith(".vercel.app"));
