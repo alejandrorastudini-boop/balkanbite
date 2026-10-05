@@ -28,12 +28,24 @@ async function identity(path, body, allowFailure = false) {
   if (!res.ok && !allowFailure) throw new Error(path + ": " + (payload?.error?.message || res.status));
   return { res, payload };
 }
-const fields = object => ({ fields: Object.fromEntries(Object.entries(object).map(([k,v]) => {
-  if (typeof v === "boolean") return [k,{booleanValue:v}];
-  if (typeof v === "number") return [k,{integerValue:String(v)}];
-  if (Array.isArray(v)) return [k,{arrayValue:{values:v.map(x=>({mapValue:{fields:fields(x).fields}}))}}];
-  return [k,{stringValue:String(v)}];
-}))});
+const timestamp = value => ({ __timestamp: value });
+const firestoreValue = value => {
+  if (value && typeof value === "object" && "__timestamp" in value) {
+    return { timestampValue: value.__timestamp };
+  }
+  if (typeof value === "boolean") return { booleanValue: value };
+  if (typeof value === "number") {
+    return Number.isInteger(value) ? { integerValue: String(value) } : { doubleValue: value };
+  }
+  if (Array.isArray(value)) return { arrayValue: { values: value.map(firestoreValue) } };
+  if (value && typeof value === "object") {
+    return { mapValue: { fields: fields(value).fields } };
+  }
+  return { stringValue: String(value) };
+};
+const fields = object => ({
+  fields: Object.fromEntries(Object.entries(object).map(([key, value]) => [key, firestoreValue(value)])),
+});
 async function patch(token, collection, id, body) {
   return fetch(docUrl(collection,id), { method:"PATCH", headers:headers(token), body:JSON.stringify(fields(body)) });
 }
@@ -51,11 +63,27 @@ try {
   const [owner,other]=accounts;
   assert.notEqual(owner.uid,other.uid);
 
+  const now = timestamp(new Date().toISOString());
   const cases=[
-    ["cookConfirmations","cook-"+run,{userId:owner.uid,cookConfirmationId:"cook-"+run,mealId:"meal-"+run,requestSignature:"sig-"+run,deductions:[{pantryItemId:"qa",quantity:1,unit:"pcs"}]}],
-    ["inventoryConsumptions","voice-"+run,{userId:owner.uid,mutationId:"voice-"+run,source:"voice",purpose:"food-use",requestSignature:"sig-"+run,deductions:[{pantryItemId:"qa",consumedQuantity:1,unit:"pcs"}]}],
-    ["purchaseApplications","purchase-"+run,{userId:owner.uid,mutationId:"purchase-"+run,requestSignature:"sig-"+run,acceptedSourceIds:["shopping:qa"]}],
-    ["inventoryClearApplications","clear-"+run,{userId:owner.uid,mutationId:"clear-"+run,requestSignature:"sig-"+run,clearedIds:["qa"]}],
+    ["cookConfirmations","cook-"+run,{
+      userId:owner.uid,cookConfirmationId:"cook-"+run,mealId:"meal-"+run,
+      requestSignature:"sig-"+run,deductions:[{pantryItemId:"qa",quantity:1,unit:"pcs"}],
+      createdAt:now,
+    }],
+    ["inventoryConsumptions","voice-"+run,{
+      userId:owner.uid,mutationId:"voice-"+run,source:"voice",purpose:"food-use",
+      requestSignature:"sig-"+run,deductions:[{pantryItemId:"qa",consumedQuantity:1,unit:"pcs"}],
+      createdAt:now,
+    }],
+    ["purchaseApplications","purchase-"+run,{
+      userId:owner.uid,mutationId:"purchase-"+run,source:"purchase",requestSignature:"sig-"+run,
+      acceptedSourceIds:["shopping:qa"],newlyAppliedSourceIds:["shopping:qa"],
+      expectedChanges:[{pantryItemId:"qa",quantity:1,unit:"pcs"}],createdAt:now,
+    }],
+    ["inventoryClearApplications","clear-"+run,{
+      userId:owner.uid,mutationId:"clear-"+run,requestSignature:"sig-"+run,
+      clearedIds:["qa"],createdAt:now,
+    }],
   ];
   for (const [collection,id,payload] of cases) {
     const sid=scoped(owner.uid,id);
@@ -74,7 +102,7 @@ try {
   }
 
   const authorityId=scoped(owner.uid,"recipes");
-  const authority={userId:owner.uid,collectionName:"recipes",revision:0};
+  const authority={userId:owner.uid,collectionName:"recipes",revision:0,updatedAt:now};
   const authCreate=await patch(owner.token,"derivedCollectionAuthorities",authorityId,authority);
   assert.equal(authCreate.status,200,"Authority create failed: "+await authCreate.text());
   assert.equal((await read(other.token,"derivedCollectionAuthorities",authorityId)).status,403);
