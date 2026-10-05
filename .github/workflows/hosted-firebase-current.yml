@@ -1,4 +1,4 @@
-name: One-time current hosted Firebase E2E
+name: Current hosted Firebase contract gate
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
   contents: read
 
 concurrency:
-  group: balkanbite-one-time-hosted-qa
+  group: balkanbite-hosted-contract-gate
   cancel-in-progress: false
 
 jobs:
