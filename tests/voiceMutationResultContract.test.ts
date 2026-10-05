@@ -101,7 +101,7 @@ test("VoiceChefView keeps the pending batch when App rejects the mutation", () =
   assert.match(block, /onAddItemsToShoppingList\(confirmedItems\)/);
   assert.match(
     block,
-    /if \(mutationSucceeded\) \{\s*setPendingItems\(null\);\s*setPendingAction\(null\);\s*setPendingRemovalPurpose\\(null\\);\\s*setPendingLotReview\\(null\\);\\s*pendingMutationIdRef\\.current = null;\s*\}/,
+    /if \(mutationSucceeded\) \{\s*setPendingItems\(null\);\s*setPendingAction\(null\);\s*setPendingRemovalPurpose\(null\);\s*setPendingLotReview\(null\);\s*pendingMutationIdRef\.current = null;\s*\}/,
   );
 
   const resultIndex = block.indexOf("let mutationSucceeded = false");
