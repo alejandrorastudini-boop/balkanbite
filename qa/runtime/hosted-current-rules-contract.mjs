@@ -1,15 +1,24 @@
 import assert from "node:assert/strict";
 import { randomBytes } from "node:crypto";
 import { readFileSync } from "node:fs";
+import { validateHostedRunRequestShape } from "./hosted-run-request-core.mjs";
 
 assert.equal(process.env.QA_ALLOW_HOSTED_WRITES, "true",
   "Explicit QA_ALLOW_HOSTED_WRITES=true required");
+const runRequest=JSON.parse(
+  readFileSync(new URL("./hosted-run-request.json", import.meta.url), "utf8"),
+);
+const runGate=validateHostedRunRequestShape(runRequest);
+assert.equal(runGate.writeEnabled,true,
+  "Hosted write probe requires one-time-synthetic-hosted-e2e manifest mode");
 const targetUrl = new URL(process.env.QA_HOSTED_TARGET_URL || "");
 assert.equal(targetUrl.protocol, "https:");
 assert.ok(targetUrl.hostname.endsWith(".vercel.app"));
 assert.ok(targetUrl.hostname !== "balkanbite.vercel.app" ||
   process.env.QA_ALLOW_PRODUCTION_TARGET === "true",
   "Production target requires QA_ALLOW_PRODUCTION_TARGET=true");
+assert.equal(targetUrl.origin,runRequest.targetUrl,
+  "Hosted write target must equal reviewed manifest target");
 
 const cfg = JSON.parse(readFileSync(new URL("../../firebase-applet-config.json", import.meta.url), "utf8"));
 assert.equal(cfg.projectId, "gen-lang-client-0319723351",
