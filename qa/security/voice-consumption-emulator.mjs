@@ -170,6 +170,7 @@ try {
     ],
   }];
   const exactResult = await persistVerifiedVoiceConsumption(alice, exactVoice);
+  console.log("DEBUG exact voice result", exactResult);
   assert.equal(exactResult.outcome, "recorded");
   const exactStock = await stock(alice, "alice", "lot-rice");
   assert.equal(exactStock.quantity, 0.3);
