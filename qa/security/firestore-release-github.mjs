@@ -5,7 +5,7 @@ import { GoogleAuth } from "google-auth-library";
 import {
   PROJECT_ID, DATABASE_ID, RELEASE_NAME, sha256,
   verifyFirebaseTarget, requireReleaseName, getSingleSource,
-  isKnownDenyAll, normalizeRules, verifyReleaseRequest, verifyHostedBaseline,
+  normalizeRules, verifyReleaseRequest, verifyHostedBaseline,
 } from "./firestore-release-core.mjs";
 
 const apiRoot = "https://firebaserules.googleapis.com/v1/";
@@ -91,14 +91,14 @@ if (normalizeRules(hostedSource) === normalizeRules(source)) {
 }
 
 // Require the exact pre-release snapshot recovered by the read-only inspection.
+// This is the authority for upgrades too: a non-deny-all policy may be replaced
+// only when both its immutable ruleset name and normalized source hash still
+// match the reviewed inspection. Any intervening hosted change fails closed.
 verifyHostedBaseline(
   manifest || JSON.parse(readFileSync(requestFile, "utf8")),
   originalRulesetName,
   currentHash,
 );
-assert.ok(isKnownDenyAll(hostedSource),
-  "Hosted rules are not the expected deny-all baseline. Refusing to overwrite.");
-
 const created = await api("POST", "projects/" + PROJECT_ID + "/rulesets", {
   source: { files: [{ name: "firestore.rules", content: source }] },
   attachment_point: attachmentPoint,
