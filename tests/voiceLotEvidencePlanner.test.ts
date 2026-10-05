@@ -17,7 +17,7 @@ const pantryItem = (expiryDaysAtAcquisition?: number): PantryItem => ({
       {
         id: "old",
         sourceId: "purchase:old",
-        source: "purchase",
+        source: "confirmed_reconciliation",
         acquiredAt: "2026-09-01",
         initialQuantity: 0.4,
         remainingQuantity: 0.4,
@@ -26,7 +26,7 @@ const pantryItem = (expiryDaysAtAcquisition?: number): PantryItem => ({
       {
         id: "new",
         sourceId: "purchase:new",
-        source: "purchase",
+        source: "confirmed_reconciliation",
         acquiredAt: "2026-10-03",
         initialQuantity: 0.6,
         remainingQuantity: 0.6,
