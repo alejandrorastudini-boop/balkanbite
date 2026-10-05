@@ -31,6 +31,8 @@ jobs:
 
       - name: Verify one-time opt-in, deployed commit and exact named database
         id: validate-hosted-target
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
         run: node qa/runtime/validate-hosted-run-request.mjs
 
       - name: Install application dependencies
