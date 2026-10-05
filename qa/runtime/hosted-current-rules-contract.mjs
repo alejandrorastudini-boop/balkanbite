@@ -107,6 +107,12 @@ try {
   assert.equal(authCreate.status,200,"Authority create failed: "+await authCreate.text());
   assert.equal((await read(other.token,"derivedCollectionAuthorities",authorityId)).status,403);
   assert.equal((await patch(other.token,"derivedCollectionAuthorities",authorityId,{...authority,userId:other.uid})).status,403);
+  const authorityRevision1={...authority,revision:1,updatedAt:timestamp(new Date().toISOString())};
+  assert.equal((await patch(owner.token,"derivedCollectionAuthorities",authorityId,authorityRevision1)).status,200,
+    "Owner authority revision +1 must succeed");
+  const skippedRevision={...authority,revision:3,updatedAt:timestamp(new Date().toISOString())};
+  assert.equal((await patch(owner.token,"derivedCollectionAuthorities",authorityId,skippedRevision)).status,403,
+    "Authority revision jump must fail closed");
 
   console.log("Hosted current Rules contract passed: current journals + derived authority owner isolation and immutability.");
 } finally {
