@@ -169,6 +169,7 @@ export default function App() {
     submitProfileReplace,
     submitRecipesReplace,
     submitMealPlanReplace,
+    submitDerivedShortageReconciliation,
     submitShoppingItemCreate,
     submitShoppingItemsCreate,
     submitShoppingItemsClear,
@@ -1020,6 +1021,36 @@ export default function App() {
   const shoppingDiagnostic = useMemo(() => {
     return evaluateShoppingNeeds(pantry, mealPlan, shoppingList, profile.language);
   }, [pantry, mealPlan, shoppingList, profile.language]);
+
+  const derivedShortageReconcileFingerprint = useMemo(
+    () => buildAdvisorBatchFingerprint(shoppingDiagnostic.itemsToAddToShoppingList),
+    [shoppingDiagnostic.itemsToAddToShoppingList],
+  );
+
+  useEffect(() => {
+    if (!currentUser || inventoryIsProvisional || !inventoryServerConfirmed) return;
+    // The hook rejects this command until the shopping listener has hydrated,
+    // so startup cannot reconcile against an assumed-empty remote list.
+    void submitDerivedShortageReconciliation(
+      shoppingDiagnostic.itemsToAddToShoppingList,
+    ).then(result => {
+      if (result.outcome === "needs-review" &&
+          result.reason !== "unverified-authority" &&
+          result.reason !== "stale-derived-baseline") {
+        console.warn("Derived shortage reconciliation needs review:", result.reason);
+      }
+    }).catch(error => {
+      // Derived shopping is advisory state. Never claim success or mutate local
+      // rows after an ambiguous transport failure; the owner listener remains
+      // the only signed-in source of visible shopping state.
+      console.error("Derived shortage reconciliation failed:", error);
+    });
+  }, [
+    currentUser?.uid,
+    inventoryIsProvisional,
+    inventoryServerConfirmed,
+    derivedShortageReconcileFingerprint,
+  ]);
 
   useEffect(() => {
     const currentFingerprint = buildAdvisorBatchFingerprint(
