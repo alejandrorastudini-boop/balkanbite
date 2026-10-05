@@ -35,8 +35,8 @@ const expectation = (pantryItemId, quantity, unit, cookRevision) => ({
 const deduction = (ingredientName, pantryItemId, consumedQuantity, unit) => ({
   ingredientName, pantryItemId, consumedQuantity, unit,
 });
-const request = (mutationId, expectedStock, deductions) => ({
-  userId: "alice", mutationId, expectedStock, deductions,
+const request = (mutationId, expectedStock, deductions, purpose = "food-use") => ({
+  userId: "alice", mutationId, purpose, expectedStock, deductions,
 });
 
 async function seed(uid, id, quantity, unit, cookRevision = 0) {
@@ -104,6 +104,16 @@ try {
     ],
   });
   assert.deepEqual(changedReplay, {
+    outcome: "needs-review",
+    reason: "conflicting-replay",
+  });
+  assert.equal((await stock(alice, "alice", "rice-new")).quantity, 150);
+
+  const changedPurposeReplay = await persistVerifiedVoiceConsumption(alice, {
+    ...voice,
+    purpose: "discard",
+  });
+  assert.deepEqual(changedPurposeReplay, {
     outcome: "needs-review",
     reason: "conflicting-replay",
   });
@@ -216,6 +226,7 @@ try {
     persistVerifiedVoiceConsumption(bob, {
       userId: "alice",
       mutationId: "voice-cross",
+      purpose: "food-use",
       expectedStock: [expectation("private", 5, "pcs", 0)],
       deductions: [deduction("eggs", "private", 1, "pcs")],
     }),
@@ -225,6 +236,7 @@ try {
     persistVerifiedVoiceConsumption(guest, {
       userId: "alice",
       mutationId: "voice-guest",
+      purpose: "food-use",
       expectedStock: [expectation("private", 5, "pcs", 0)],
       deductions: [deduction("eggs", "private", 1, "pcs")],
     }),
