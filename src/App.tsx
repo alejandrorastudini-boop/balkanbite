@@ -654,15 +654,15 @@ export default function App() {
     );
     setMealPlan(newPlan);
 
-    const nextShoppingDiagnostic = evaluateShoppingNeeds(
-      updatedPantry, newPlan, shoppingList, profile.language,
-    );
-    setShoppingList(current =>
-      reconcileDerivedShortageShoppingItems(
+    setShoppingList(current => {
+      const nextShoppingDiagnostic = evaluateShoppingNeeds(
+        updatedPantry, newPlan, current, profile.language,
+      );
+      return reconcileDerivedShortageShoppingItems(
         current,
         nextShoppingDiagnostic.itemsToAddToShoppingList,
-      ).next
-    );
+      ).next;
+    });
 
     if (showToast) {
       setAutoMenuToast({
