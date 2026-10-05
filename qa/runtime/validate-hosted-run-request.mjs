@@ -11,11 +11,16 @@ const expectedProject = "gen-lang-client-0319723351";
 const target = "https://balkanbite.vercel.app";
 
 assert.equal(process.env.GITHUB_REF, "refs/heads/qa/hosted-firestore-current-v2");
-assert.ok(["hosted-readonly-preflight","one-time-synthetic-hosted-e2e"].includes(request.mode),
-  "Hosted run mode must be read-only preflight or explicit synthetic E2E");
+assert.ok(["disabled","hosted-readonly-preflight","one-time-synthetic-hosted-e2e"].includes(request.mode),
+  "Hosted run mode must be disabled, read-only preflight or explicit synthetic E2E");
 assert.equal(request.projectId, expectedProject);
 assert.equal(request.databaseId, expectedDb);
 assert.equal(request.targetUrl, target);
+if (request.mode === "disabled") {
+  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled=false\\n");
+  console.log("Hosted QA manifest disabled; no hosted verification or writes requested.");
+  process.exit(0);
+}
 assert.match(String(request.productionCommit || ""), /^[a-f0-9]{40}$/);
 assert.match(String(request.rulesSha256 || ""), /^[a-f0-9]{64}$/, "Exact production Rules SHA required");
 const response = await fetch(
