@@ -70,9 +70,21 @@ prove that the change has finished propagating to clients.
 
 After publication, do **not** run legacy PR #206: its cleanup assumes profile
 deletion and its coverage predates the current immutable journals, revision
-guards and derived-authority model. Use the current one-time hosted contract
-harness only after it has passed CI and its disabled manifest has been
-deliberately pinned to the exact Production commit and exact raw Rules SHA.
+guards and derived-authority model. Use the current hosted contract gate only
+after it has passed CI. Its manifest is disabled on `main`.
+
+For each hosted preflight or write run, create a **fresh**
+`qa/hosted-firestore-run-*` branch from the exact current `main`, then make
+exactly one commit changing only `qa/runtime/hosted-run-request.json`. Pin
+that manifest to the exact Production commit and exact raw Rules SHA. The
+validator fails closed unless current `main` still equals that commit and
+GitHub compare proves the run branch is one commit ahead, zero behind, with
+only the manifest changed. Never reuse an old run branch after `main`
+advances.
+
+Use `hosted-readonly-preflight` to verify target identity without creating
+Auth users or Firestore documents. Only an explicitly reviewed
+`one-time-synthetic-hosted-e2e` manifest may enable the hosted write probe.
 Verify owner/cross-user isolation and current writer contracts before
 classifying cloud sync as REAL E2E. If an actual isolation or writer failure
 is observed, restore the original release ruleset via the secure process and
