@@ -23,6 +23,7 @@ import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "..
 import { persistNewInventoryItems, type InventoryCreationOutcome } from "../utils/inventoryCreationFirestore";
 import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAuthority";
 import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, type VerifiedVoiceDeduction } from "../utils/verifiedVoiceConsumptionFirestore";
+import type { ConfirmedVoiceLotEvidence } from "../utils/voiceLotEvidenceAdapter";
 import type { DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import { buildPurchaseMutationId, persistPurchasesIntoPantryAtomically, type PurchasePantryTransactionResult } from "../utils/purchasePantryFirestore";
 import type { PantryPurchase } from "../utils/purchasePantryMerge";
@@ -80,6 +81,7 @@ export function useFirebaseSync(
     expectedStock: Array<{ pantryItemId: string; quantity: number; unit: string; cookRevision: number }>;
     deductions: VerifiedVoiceDeduction[];
     purpose: DeterministicRemovalPurpose;
+    lotEvidence?: readonly ConfirmedVoiceLotEvidence[];
   }>>(new Map());
   const inFlightPurchaseApplications = useRef<Set<string>>(new Set());
   const inFlightCookConfirmations = useRef<Set<string>>(new Set());
@@ -583,6 +585,7 @@ export function useFirebaseSync(
     mutationId: string,
     deductions: readonly VerifiedVoiceDeduction[],
     purpose: DeterministicRemovalPurpose,
+    lotEvidence?: readonly ConfirmedVoiceLotEvidence[],
   ): Promise<VerifiedVoiceConsumptionResult | {
     outcome: "needs-review";
     reason: "unverified-authority" | "in-flight" | "stale-local-view";
@@ -602,7 +605,11 @@ export function useFirebaseSync(
     }
 
     let prepared = preparedVoiceConsumptions.current.get(mutationId);
-    if (prepared && prepared.purpose !== purpose) {
+    const evidenceSignature = JSON.stringify(lotEvidence ?? []);
+    if (prepared && (
+      prepared.purpose !== purpose ||
+      JSON.stringify(prepared.lotEvidence ?? []) !== evidenceSignature
+    )) {
       return { outcome: "needs-review", reason: "conflicting-replay" };
     }
     if (!prepared) {
@@ -629,6 +636,10 @@ export function useFirebaseSync(
         expectedStock,
         deductions: (deductions || []).map(item => ({ ...item })),
         purpose,
+        ...(lotEvidence ? { lotEvidence: lotEvidence.map(item => ({
+          ...item,
+          deductions: item.deductions.map(deduction => ({ ...deduction })),
+        })) } : {}),
       };
       preparedVoiceConsumptions.current.set(mutationId, prepared);
     }
@@ -641,6 +652,7 @@ export function useFirebaseSync(
         expectedStock: prepared.expectedStock,
         deductions: prepared.deductions,
         purpose: prepared.purpose,
+        ...(prepared.lotEvidence ? { lotEvidence: prepared.lotEvidence } : {}),
       });
       // A definitive result has reached the caller. Success will clear the UI
       // mutation ID; a needs-review retry may safely re-resolve current stock.
