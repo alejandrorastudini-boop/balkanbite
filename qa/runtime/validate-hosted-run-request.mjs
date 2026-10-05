@@ -46,6 +46,8 @@ assert.equal(rulesHash, request.rulesSha256,
 
 const health = await fetch(target + "/api/health", { cache: "no-store" });
 assert.equal(health.status, 200, "Production health route unavailable");
+assert.match(health.headers.get("cache-control") || "", /no-store/i,
+  "Production health identity must not be cacheable");
 const healthPayload=await health.json();
 assert.equal(healthPayload.status, "ok");
 assert.equal(healthPayload.buildCommit, request.productionCommit,
