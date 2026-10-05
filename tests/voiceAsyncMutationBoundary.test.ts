@@ -13,7 +13,7 @@ test("voice pantry mutation callbacks may be asynchronous", () => {
   );
   assert.match(
     source,
-    /onDeductItemsFromPantry: \(items: any\[\], mutationId\?: string\) => boolean \| Promise<boolean>;/,
+    /onDeductItemsFromPantry: \(items: any\[\], mutationId: string, purpose: DeterministicRemovalPurpose\) => boolean \| Promise<boolean>;/,
   );
   assert.match(
     source,
@@ -41,7 +41,7 @@ test("a pending voice commit cannot be double-confirmed or cancelled mid-write",
   assert.match(source, /disabled=\{isConfirmingPendingItems\}/);
   assert.match(
     source,
-    /disabled=\{!pendingItemsAreComplete \|\| isConfirmingPendingItems\}/,
+    /disabled=\{!pendingItemsAreComplete \|\| \(pendingAction === "remove" && !pendingRemovalPurpose\) \|\| isConfirmingPendingItems\}/,
   );
   assert.match(
     source,
