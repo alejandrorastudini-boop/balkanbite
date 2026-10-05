@@ -1,10 +1,8 @@
-# GitHub-managed Firebase Rules — one-time setup and release gate
+# GitHub-managed Firebase Rules — setup and repeatable release gate
 
 ## Status
 
-This runbook describes a staged workflow, **not** a completed hosted publication.
-Tracked rules were emulator-tested in PR #209. Production serves the named
-BalkanBite client, but hosted Firestore rules were last observed deny-all.
+This runbook describes the guarded workflow for initial publication and successive upgrades. A successful historical publication does not imply that hosted Rules match current `main`; always run a fresh read-only inspection before preparing another release request.
 
 Target Firebase project: `gen-lang-client-0319723351`.
 Only target database:
@@ -51,11 +49,13 @@ It makes **no hosted changes**.
 
 `publish` additionally requires the committed request file to contain
 `mode: publish`, the fixed project ID, the fixed named database ID, and
-the SHA-256 of exactly the current `firestore.rules` file. It will only
-replace an existing unmistakable **deny-all** release, or return successfully
-if the current rules already match the checked-in source. Any unfamiliar
-rules, changed source, missing named release or project mismatch stops
-publication rather than overwriting user state.
+the SHA-256 of exactly the current `firestore.rules` file. It will replace a hosted policy only when the release request pins the exact
+immutable ruleset name **and** normalized hosted-source SHA recovered by a
+fresh read-only inspection, or return successfully if hosted Rules already
+match the checked-in source. This supports successive reviewed upgrades without
+weakening the fail-closed baseline check. Any changed source, changed hosted
+ruleset/hash, missing named release or project mismatch stops publication
+rather than overwriting an unreviewed policy.
 
 Before patching, it stores the prior release metadata and source in a
 GitHub Actions artifact retained for 30 days. The release API target is
@@ -100,7 +100,7 @@ release afterwards. Do not delete existing rulesets during rollback;
 a rollback changes policy, not user documents. Any irreversible operations,
 extra spending, or broader IAM grants require a separate decision.
 
-## Verified initial inspection (2026-09-23)
+## Historical initial inspection (2026-09-23)
 
 Read-only GitHub Actions inspection run #1 (`35827155241`) succeeded using the
 restricted Google service account. The GitHub backup artifact
@@ -119,3 +119,15 @@ publication; a green test on the PR itself does not make any live changes.
 
 After publication, inspect the live release and run the synthetic hosted A/B
 QA. Do not classify hosted sync as functional based on the Rules API alone.
+
+
+## Successive upgrades
+
+The deny-all shape check applied only to the initial activation and is not a
+valid authority for later upgrades. For every later release, first run
+`workflow_dispatch: inspect` on trusted `main`. Use the resulting backup
+artifact/log output to pin both `expectedHostedRulesetName` and
+`expectedHostedRulesSha256` in the reviewed publish request. Publication
+must fail if either value changes before PATCH. The pre-publication backup
+remains the rollback target, and hosted authenticated QA remains mandatory
+after propagation before claiming Production E2E.
