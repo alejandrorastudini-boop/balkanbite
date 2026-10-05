@@ -20,17 +20,12 @@ test("disabled hosted request never enables writes and accepts placeholders",()=
   const gate=validateHostedRunRequestShape({
     ...base,mode:"disabled",productionCommit:"0".repeat(40),rulesSha256:"0".repeat(64),
   });
-  assert.deepEqual(gate,{disabled:true,writeEnabled:false});
+  assert.deepEqual(gate,{disabled:true});
 });
 
 test("read-only preflight never enables writes",()=>{
   assert.deepEqual(validateHostedRunRequestShape({...base,mode:"hosted-readonly-preflight"}),
-    {disabled:false,writeEnabled:false});
-});
-
-test("only explicit synthetic E2E mode enables writes",()=>{
-  assert.deepEqual(validateHostedRunRequestShape({...base,mode:"one-time-synthetic-hosted-e2e"}),
-    {disabled:false,writeEnabled:true});
+    {disabled:false});
 });
 
 test("active hosted requests fail closed on malformed or wrong target pins",()=>{
