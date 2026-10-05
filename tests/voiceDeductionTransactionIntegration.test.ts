@@ -19,7 +19,7 @@ test("REMOVE_ITEMS gets one stable mutation ID and failure does not clear it", (
   ));
   assert.ok(voiceSource.includes("createVoiceRemovalMutationId()"));
 
-  const confirmStart = voiceSource.indexOf("const confirmPendingItems");
+  const confirmStart = voiceSource.indexOf("const executePendingMutation");
   const cancelStart = voiceSource.indexOf("const cancelPendingItems", confirmStart);
   assert.ok(confirmStart >= 0 && cancelStart > confirmStart);
   const confirm = voiceSource.slice(confirmStart, cancelStart);
@@ -27,7 +27,7 @@ test("REMOVE_ITEMS gets one stable mutation ID and failure does not clear it", (
     'const mutationId = action === "remove" ? pendingMutationIdRef.current : null;',
   ));
   assert.ok(confirm.includes(
-    "onDeductItemsFromPantry(confirmedItems, mutationId, removalPurpose)",
+    "onDeductItemsFromPantry(confirmedItems, mutationId, removalPurpose, lotEvidence)",
   ));
 
   const success = confirm.indexOf("if (mutationSucceeded)");
