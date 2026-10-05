@@ -5,6 +5,8 @@ import { validateHostedRunRequestShape } from "./hosted-run-request-core.mjs";
 
 assert.equal(process.env.QA_ALLOW_HOSTED_WRITES, "true",
   "Explicit QA_ALLOW_HOSTED_WRITES=true required");
+assert.equal(process.env.GITHUB_REF, "refs/heads/main",
+  "Hosted write probe can run only from reviewed main");
 const runRequest=JSON.parse(
   readFileSync(new URL("./hosted-run-request.json", import.meta.url), "utf8"),
 );
