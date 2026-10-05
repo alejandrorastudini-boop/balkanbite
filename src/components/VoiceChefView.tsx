@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { ChatMessage, Language, PantryItem, MealLog } from "../types";
 import { t } from "../utils/translations";
-import { parseDeterministicRemovalIntent } from "../utils/deterministicRemovalIntent";
+import { parseDeterministicRemovalIntent, type DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
 
@@ -30,7 +30,7 @@ interface VoiceChefViewProps {
   onClearChat: () => void;
   onAddItemsToPantry: (items: any[]) => boolean | Promise<boolean>;
   onAddItemsToShoppingList: (items: any[]) => boolean | Promise<boolean>;
-  onDeductItemsFromPantry: (items: any[], mutationId?: string) => boolean | Promise<boolean>;
+  onDeductItemsFromPantry: (items: any[], mutationId: string, purpose: DeterministicRemovalPurpose) => boolean | Promise<boolean>;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
@@ -88,6 +88,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   const [speechSynthesisEnabled, setSpeechSynthesisEnabled] = useState(true);
   const [pendingItems, setPendingItems] = useState<any[] | null>(null);
   const [pendingAction, setPendingAction] = useState<"add" | "remove" | "shopping" | null>(null);
+  const [pendingRemovalPurpose, setPendingRemovalPurpose] = useState<DeterministicRemovalPurpose | null>(null);
   const [isConfirmingPendingItems, setIsConfirmingPendingItems] = useState(false);
   const pendingMutationIdRef = useRef<string | null>(null);
   const voiceMutationSequenceRef = useRef(0);
@@ -263,6 +264,8 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     const confirmedItems = pendingItems;
     const action = pendingAction;
     const mutationId = action === "remove" ? pendingMutationIdRef.current : null;
+    const removalPurpose = action === "remove" ? pendingRemovalPurpose : null;
+    if (action === "remove" && (!mutationId || !removalPurpose)) return;
     const summary = confirmedItems
       .map((item) => `${item.quantity} ${item.unit} ${item.nameEn || item.name}`)
       .join(", ");
@@ -274,8 +277,8 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
         action === "add"
           ? onAddItemsToPantry(confirmedItems)
           : action === "remove"
-          ? mutationId
-            ? onDeductItemsFromPantry(confirmedItems, mutationId)
+          ? mutationId && removalPurpose
+            ? onDeductItemsFromPantry(confirmedItems, mutationId, removalPurpose)
             : false
           : onAddItemsToShoppingList(confirmedItems)
       );
@@ -325,6 +328,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     if (mutationSucceeded) {
       setPendingItems(null);
       setPendingAction(null);
+      setPendingRemovalPurpose(null);
       pendingMutationIdRef.current = null;
     }
 
@@ -344,6 +348,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     const action = pendingAction;
     setPendingItems(null);
     setPendingAction(null);
+    setPendingRemovalPurpose(null);
     pendingMutationIdRef.current = null;
 
     const cancellationText =
@@ -400,6 +405,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     // A new message supersedes any unconfirmed extraction. Nothing pending is persisted.
     setPendingItems(null);
     setPendingAction(null);
+    setPendingRemovalPurpose(null);
     pendingMutationIdRef.current = null;
 
     // Add user message
@@ -429,9 +435,10 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       });
 
       const data = await res.json();
+      const parsedRemoval = parseDeterministicRemovalIntent(text, pantry);
       const deterministicRemoval =
         !data.actionType || data.actionType === "ANSWER"
-          ? parseDeterministicRemovalIntent(text, pantry)
+          ? parsedRemoval
           : null;
       const effectiveActionType = deterministicRemoval?.actionType || data.actionType;
       const effectiveItems = deterministicRemoval?.items || data.items;
@@ -481,6 +488,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             : "add";
         setPendingItems(effectiveItems);
         setPendingAction(action);
+        setPendingRemovalPurpose(action === "remove" ? parsedRemoval?.purpose ?? null : null);
         pendingMutationIdRef.current = action === "remove"
           ? createVoiceRemovalMutationId()
           : null;
@@ -751,6 +759,16 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
               })}
             </div>
 
+            {pendingAction === "remove" && !pendingRemovalPurpose && (
+              <p className="text-[11px] text-rose-300">
+                {language === "bg"
+                  ? "Не е ясно дали продуктът е използван за храна или изхвърлен. Отменете и го кажете изрично."
+                  : language === "es"
+                  ? "No está claro si el alimento se usó para comer/cocinar o se tiró. Cancela e indícalo explícitamente."
+                  : "It is unclear whether the food was used for eating/cooking or discarded. Cancel and state it explicitly."}
+              </p>
+            )}
+
             {!pendingItemsAreComplete && (
               <p className="text-[11px] text-rose-300">
                 {language === "bg"
@@ -772,10 +790,10 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
               </button>
               <button
                 type="button"
-                disabled={!pendingItemsAreComplete || isConfirmingPendingItems}
+                disabled={!pendingItemsAreComplete || (pendingAction === "remove" && !pendingRemovalPurpose) || isConfirmingPendingItems}
                 onClick={confirmPendingItems}
                 className={`flex-1 rounded-xl px-3 py-2 text-xs font-bold flex items-center justify-center gap-1.5 ${
-                  pendingItemsAreComplete && !isConfirmingPendingItems
+                  pendingItemsAreComplete && (pendingAction !== "remove" || pendingRemovalPurpose) && !isConfirmingPendingItems
                     ? "bg-emerald-500 text-stone-950 hover:bg-emerald-400"
                     : "bg-white/[0.04] text-stone-600 cursor-not-allowed"
                 }`}
