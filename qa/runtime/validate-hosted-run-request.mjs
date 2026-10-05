@@ -1,29 +1,29 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
 import { appendFileSync, readFileSync } from "node:fs";
+import {
+  EXPECTED_HOSTED_DATABASE,
+  EXPECTED_HOSTED_PROJECT,
+  EXPECTED_HOSTED_TARGET,
+  validateHostedRunRequestShape,
+} from "./hosted-run-request-core.mjs";
 
 const request = JSON.parse(
   readFileSync(new URL("./hosted-run-request.json", import.meta.url), "utf8"),
 );
-const expectedDb =
-  "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6";
-const expectedProject = "gen-lang-client-0319723351";
-const target = "https://balkanbite.vercel.app";
+const expectedDb = EXPECTED_HOSTED_DATABASE;
+const expectedProject = EXPECTED_HOSTED_PROJECT;
+const target = EXPECTED_HOSTED_TARGET;
 
 assert.equal(process.env.GITHUB_REF, "refs/heads/main",
   "Hosted QA can run only from a reviewed manifest merged to main");
-assert.ok(["disabled","hosted-readonly-preflight","one-time-synthetic-hosted-e2e"].includes(request.mode),
-  "Hosted run mode must be disabled, read-only preflight or explicit synthetic E2E");
-assert.equal(request.projectId, expectedProject);
-assert.equal(request.databaseId, expectedDb);
-assert.equal(request.targetUrl, target);
-if (request.mode === "disabled") {
+const gate=validateHostedRunRequestShape(request);
+if (gate.disabled) {
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled=false\\n");
   console.log("Hosted QA manifest disabled; no hosted verification or writes requested.");
   process.exit(0);
 }
-assert.match(String(request.productionCommit || ""), /^[a-f0-9]{40}$/);
-assert.match(String(request.rulesSha256 || ""), /^[a-f0-9]{64}$/, "Exact production Rules SHA required");
+
 const response = await fetch(
   "https://api.github.com/repos/alejandrorastudini-boop/balkanbite/branches/main",
   { headers: { Accept: "application/vnd.github+json", "User-Agent": "BalkanBite-QA" } },
@@ -80,7 +80,7 @@ while (pendingAssets.length && seenAssets.size < 80 && !foundDatabase) {
 }
 assert.equal(foundDatabase,true,
   "Production JavaScript graph does not target approved named Firestore database");
-const writeEnabled=request.mode === "one-time-synthetic-hosted-e2e";
+const writeEnabled=gate.writeEnabled;
 if (process.env.GITHUB_OUTPUT) {
   appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled="+String(writeEnabled)+"\\n");
 }
