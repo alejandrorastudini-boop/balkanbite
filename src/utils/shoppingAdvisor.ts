@@ -2,6 +2,7 @@ import { PantryItem, Recipe, MealPlanDay, ShoppingItem, Language } from "../type
 import { findAuthoritativePantryItems } from "./menuAutoPlanner";
 import { normalizeQuantity } from "./quantityUnits";
 import { derivePantryItemExpiry, localCalendarDate, pantryItemNeedsExpiryReview } from "./effectiveExpiry";
+import { isManagedDerivedShortageRow } from "./derivedShortageShopping";
 
 export type IngredientAvailabilityStatus =
   | "missing"
@@ -193,7 +194,7 @@ function subtractPendingShoppingAmount(
   const identity = normalizedFoodIdentity(ingredientName);
   let pendingBase = 0;
   for (const item of shoppingList) {
-    if (item.checked || normalizedFoodIdentity(item.name) !== identity) continue;
+    if (item.checked || isManagedDerivedShortageRow(item) || normalizedFoodIdentity(item.name) !== identity) continue;
     const pending = normalizeQuantity(item.quantity, item.unit);
     if (!pending || pending.unit.dimension !== required.unit.dimension) continue;
     const remaining = remainingPendingBaseById.has(item.id)

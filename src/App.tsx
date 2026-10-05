@@ -63,6 +63,7 @@ import { arePurchaseSourcesVisible, buildPendingPurchaseCommitEvidence, isPurcha
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
 import type { DeterministicRemovalPurpose } from "./utils/deterministicRemovalIntent";
 import type { ConfirmedVoiceLotEvidence } from "./utils/voiceLotEvidenceAdapter";
+import { reconcileDerivedShortageShoppingItems, isManagedDerivedShortageRow } from "./utils/derivedShortageShopping";
 import { buildConfirmedVoiceShoppingItems } from "./utils/safeVoiceShoppingCapture";
 import {
   getUserPantryCacheKey,
@@ -169,6 +170,7 @@ export default function App() {
     submitProfileReplace,
     submitRecipesReplace,
     submitMealPlanReplace,
+    submitDerivedShortageReconciliation,
     submitShoppingItemCreate,
     submitShoppingItemsCreate,
     submitShoppingItemsClear,
@@ -652,6 +654,16 @@ export default function App() {
     );
     setMealPlan(newPlan);
 
+    setShoppingList(current => {
+      const nextShoppingDiagnostic = evaluateShoppingNeeds(
+        updatedPantry, newPlan, current, profile.language,
+      );
+      return reconcileDerivedShortageShoppingItems(
+        current,
+        nextShoppingDiagnostic.itemsToAddToShoppingList,
+      ).next;
+    });
+
     if (showToast) {
       setAutoMenuToast({
         isVisible: true,
@@ -1020,6 +1032,46 @@ export default function App() {
   const shoppingDiagnostic = useMemo(() => {
     return evaluateShoppingNeeds(pantry, mealPlan, shoppingList, profile.language);
   }, [pantry, mealPlan, shoppingList, profile.language]);
+
+  const derivedShortageReconcileFingerprint = useMemo(
+    () => buildAdvisorBatchFingerprint(shoppingDiagnostic.itemsToAddToShoppingList),
+    [shoppingDiagnostic.itemsToAddToShoppingList],
+  );
+
+  const managedShortageRowsFingerprint = useMemo(
+    () => JSON.stringify(
+      shoppingList.filter(isManagedDerivedShortageRow)
+        .map(item => [item.id, item.quantity, item.unit, item.checked])
+        .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+    ),
+    [shoppingList],
+  );
+
+  useEffect(() => {
+    if (!currentUser || inventoryIsProvisional || !inventoryServerConfirmed) return;
+    // The hook rejects this command until the shopping listener has hydrated,
+    // so startup cannot reconcile against an assumed-empty remote list.
+    void submitDerivedShortageReconciliation(
+      shoppingDiagnostic.itemsToAddToShoppingList,
+    ).then(result => {
+      if (result.outcome === "needs-review" &&
+          result.reason !== "unverified-authority" &&
+          result.reason !== "stale-derived-baseline") {
+        console.warn("Derived shortage reconciliation needs review:", result.reason);
+      }
+    }).catch(error => {
+      // Derived shopping is advisory state. Never claim success or mutate local
+      // rows after an ambiguous transport failure; the owner listener remains
+      // the only signed-in source of visible shopping state.
+      console.error("Derived shortage reconciliation failed:", error);
+    });
+  }, [
+    currentUser?.uid,
+    inventoryIsProvisional,
+    inventoryServerConfirmed,
+    derivedShortageReconcileFingerprint,
+    managedShortageRowsFingerprint,
+  ]);
 
   useEffect(() => {
     const currentFingerprint = buildAdvisorBatchFingerprint(

@@ -87,3 +87,14 @@ test("verified advisor shortfalls carry deterministic provenance but are not pur
   assert.equal(item?.purchaseAmountConfirmed, false);
   assert.equal(item?.estimatedPriceEUR, undefined);
 });
+
+
+test("managed derived shortage rows do not cancel their own target", () => {
+  const managed: ShoppingItem = {
+    id: "shortage-v1:abc", name: "Milk", quantity: 1, unit: "l", category: "Dairy",
+    checked: false, amountOrigin: "deterministic_shortfall", purchaseAmountConfirmed: false,
+  };
+  const result = evaluateShoppingNeeds([], plan, [managed], "en", fixedNow);
+  assert.equal(result.itemsToAddToShoppingList.length, 1);
+  assert.equal(result.itemsToAddToShoppingList[0]?.quantity, 1);
+});

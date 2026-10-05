@@ -31,6 +31,8 @@ import { normalizeCookLotEvidence, persistConfirmedCookAtomically, type AtomicCo
 import { confirmCookTransaction, type CookConfirmation } from "../utils/confirmedCookTransaction";
 import { persistInventoryClearAtomically } from "../utils/inventoryClearFirestore";
 import { clearShoppingItems, createShoppingItem, createShoppingItems, replaceShoppingItem, removeShoppingItem } from "../utils/shoppingMutationFirestore";
+import { reconcileDerivedShortagesAtomically } from "../utils/derivedShortageShoppingFirestore";
+import { isManagedDerivedShortageRow, type DerivedShortageCandidate } from "../utils/derivedShortageShopping";
 import { replaceDerivedCollectionAtomically } from "../utils/derivedCollectionFirestore";
 import { ensureUserProfileExistsAtomically, replaceUserProfileAtomically } from "../utils/profileMutationFirestore";
 import { appendMealLogAtomically, subscribeMealLogs } from "../utils/mealLogFirestore";
@@ -993,6 +995,22 @@ export function useFirebaseSync(
     return replaceDerivedCollectionAtomically(db, uid, "mealPlans", expected, next);
   };
 
+  const submitDerivedShortageReconciliation = async (
+    candidates: readonly DerivedShortageCandidate[],
+  ) => {
+    const uid = currentUser?.uid;
+    if (!uid || hydratedCollectionUser.current.shoppingList !== uid) {
+      return { outcome: "needs-review" as const, reason: "unverified-authority" as const };
+    }
+    const expectedManagedRows = shoppingList.filter(isManagedDerivedShortageRow);
+    return reconcileDerivedShortagesAtomically(
+      db,
+      uid,
+      expectedManagedRows,
+      candidates,
+    );
+  };
+
   const submitShoppingItemCreate = async (item: ShoppingItem) => {
     const uid = currentUser?.uid;
     if (!uid || hydratedCollectionUser.current.shoppingList !== uid) {
@@ -1068,6 +1086,7 @@ export function useFirebaseSync(
     submitProfileReplace,
     submitRecipesReplace,
     submitMealPlanReplace,
+    submitDerivedShortageReconciliation,
     submitShoppingItemCreate,
     submitShoppingItemsCreate,
     submitShoppingItemsClear,
