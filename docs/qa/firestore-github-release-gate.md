@@ -85,10 +85,15 @@ advances.
 Use `hosted-readonly-preflight` to verify target identity without creating
 Auth users or Firestore documents. Only an explicitly reviewed
 `one-time-synthetic-hosted-e2e` manifest may enable the hosted write probe.
-Verify owner/cross-user isolation and current writer contracts before
-classifying cloud sync as REAL E2E. If an actual isolation or writer failure
-is observed, restore the original release ruleset via the secure process and
-retest. A GitHub Actions green build is not proof of hosted functionality.
+The contract gate verifies the hosted Rules boundary, not the application
+writers themselves. It is therefore **necessary but not sufficient** to
+classify cook/voice/purchase/clear/shortage flows as Production REAL E2E.
+After a green hosted contract run, execute a separately bounded hosted test
+through the actual current writer utilities (or equivalent real application
+path) before upgrading those flow classifications. If an actual isolation or
+writer failure is observed, restore the original release ruleset via the
+secure process and retest. A GitHub Actions green build or Rules API match is
+not proof of hosted application functionality.
 
 ## Required publish request (example, do not copy with a placeholder hash)
 
@@ -146,8 +151,9 @@ valid authority for later upgrades. For every later release, first run
 `workflow_dispatch: inspect` on trusted `main`. Use the resulting backup
 artifact/log output to pin both `expectedHostedRulesetName` and
 `expectedHostedRulesSha256` in the reviewed publish request. Publication
-must fail if either value changes before PATCH. The pre-publication backup remains the rollback target. Hosted current-contract
-QA remains mandatory after propagation before claiming Production E2E. The
-current QA design intentionally does not weaken immutable-journal rules merely
-to clean synthetic evidence; any residual synthetic records must be explicitly
-accepted or removed through a separately reviewed privileged cleanup path.
+must fail if either value changes before PATCH. The pre-publication backup remains the rollback target. Hosted current-contract QA remains mandatory after propagation, followed by
+a bounded real-writer hosted E2E before claiming Production E2E for those
+flows. The current contract QA intentionally does not weaken immutable-journal
+rules merely to clean synthetic evidence; any residual synthetic records must
+be explicitly accepted or removed through a separately reviewed privileged
+cleanup path.
