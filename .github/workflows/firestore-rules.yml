@@ -18,6 +18,7 @@ on:
       - "qa/security/firestore-release-core.mjs"
       - "qa/security/firestore-release-core.test.mjs"
       - "qa/security/firestore-release-github.mjs"
+      # A publish request is itself security-sensitive and must run this gate.
       - "ops/firebase-rules-release-request.json"
   workflow_dispatch:
 
