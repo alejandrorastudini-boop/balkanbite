@@ -30,12 +30,14 @@ jobs:
           package-manager-cache: false
 
       - name: Verify one-time opt-in, deployed commit and exact named database
+        id: validate-hosted-target
         run: node qa/runtime/validate-hosted-run-request.mjs
 
       - name: Install application dependencies
         run: npm install --no-audit --no-fund
 
       - name: Run current hosted Firestore contract probe
+        if: steps.validate-hosted-target.outputs.write_enabled == 'true'
         env:
           QA_ALLOW_HOSTED_WRITES: "true"
           QA_HOSTED_TARGET_URL: "https://balkanbite.vercel.app"
