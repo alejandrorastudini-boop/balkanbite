@@ -38,7 +38,7 @@ test("the existing hosted release must match the exact named database", () => {
   assert.throws(() => getSingleSource({ source: { files: [] } }));
 });
 
-test("unattended publication only replaces an unmistakable deny-all source", () => {
+test("deny-all detector remains available for historical initial-baseline diagnostics", () => {
   assert.equal(isKnownDenyAll(rules), true);
   assert.equal(isKnownDenyAll(rules.replace("if false", "if true")), false);
   assert.equal(isKnownDenyAll(rules + "\nallow read: if true;"), false);
