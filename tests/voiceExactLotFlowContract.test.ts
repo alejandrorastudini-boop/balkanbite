@@ -8,7 +8,7 @@ const sync = readFileSync(new URL("../src/hooks/useFirebaseSync.ts", import.meta
 
 test("signed-in voice removal opens deterministic lot review only when planner requires it", () => {
   assert.match(voice, /if \(pendingAction !== "remove" \|\| !exactLotReviewEnabled\)/);
-  assert.match(voice, /buildVoiceLotReviewPlan\(pantry, resolved\.deductions, purpose, reviewedOn\)/);
+  assert.match(voice, /planVoiceLotReview\(pantry, resolved\.deductions, purpose, reviewedOn\)/);
   assert.match(voice, /if \(plan\.outcome === "not-needed"\)/);
   assert.match(voice, /setPendingLotReview\(\{ plan, reviewedOn \}\)/);
 });
