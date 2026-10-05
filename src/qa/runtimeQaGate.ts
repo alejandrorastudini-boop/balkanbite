@@ -10,6 +10,7 @@ const FRESH_GUEST_ONBOARDING_QA_PATH = "/__qa/fresh-guest-onboarding";
 const MANUAL_SHOPPING_QA_PATH = "/__qa/manual-shopping";
 const COOK_CONFIRMATION_QA_PATH = "/__qa/cook-confirmation";
 const DERIVED_INVENTORY_PROPAGATION_QA_PATH = "/__qa/derived-inventory-propagation";
+const VOICE_LOT_REVIEW_QA_PATH = "/__qa/voice-lot-review";
 const RUNTIME_QA_PREVIEW_HOST =
   "balkanbite-git-preview-qa-agent-runtime-alejandrorastudini-6993.vercel.app";
 
@@ -59,6 +60,10 @@ export function isCookConfirmationQaRoute(): boolean {
     runtimeQaHostAllowed() &&
     window.location.pathname === COOK_CONFIRMATION_QA_PATH
   );
+}
+
+export function isVoiceLotReviewQaRoute(): boolean {
+  return runtimeQaHostAllowed() && window.location.pathname === VOICE_LOT_REVIEW_QA_PATH;
 }
 
 export function isDerivedInventoryPropagationQaRoute(): boolean {
