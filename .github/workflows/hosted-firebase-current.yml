@@ -35,10 +35,6 @@ jobs:
           GITHUB_TOKEN: ${{ github.token }}
         run: node qa/runtime/validate-hosted-run-request.mjs
 
-      - name: Install application dependencies
-        if: steps.validate-hosted-target.outputs.write_enabled == 'true'
-        run: npm install --no-audit --no-fund
-
       - name: Run current hosted Firestore contract probe
         if: steps.validate-hosted-target.outputs.write_enabled == 'true'
         env:
