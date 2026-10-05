@@ -13,8 +13,8 @@ const request = JSON.parse(
 const expectedDb = EXPECTED_HOSTED_DATABASE;
 const target = EXPECTED_HOSTED_TARGET;
 
-assert.equal(process.env.GITHUB_REF, "refs/heads/main",
-  "Hosted QA can run only from a reviewed manifest merged to main");
+assert.match(process.env.GITHUB_REF || "", /^refs\/heads\/qa\/hosted-firestore-run-[A-Za-z0-9._-]+$/,
+  "Hosted QA can run only from a dedicated fresh run branch");
 const gate=validateHostedRunRequestShape(request);
 if (gate.disabled) {
   if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled=false\\n");
@@ -34,6 +34,27 @@ assert.equal(response.status, 200, "Unable to verify current production main SHA
 const currentMain = await response.json();
 assert.equal(currentMain.commit?.sha, request.productionCommit,
   "Main advanced after approved QA request; review before running hosted writes");
+const runSha=String(process.env.GITHUB_SHA || "");
+assert.match(runSha,/^[a-f0-9]{40}$/,"Exact hosted run branch SHA required");
+const compareResponse=await fetch(
+  "https://api.github.com/repos/alejandrorastudini-boop/balkanbite/compare/" +
+    request.productionCommit + "..." + runSha,
+  { headers: {
+    Accept:"application/vnd.github+json",
+    "User-Agent":"BalkanBite-QA",
+    ...(process.env.GITHUB_TOKEN ? { Authorization:"Bearer "+process.env.GITHUB_TOKEN } : {}),
+  } },
+);
+assert.equal(compareResponse.status,200,"Unable to verify hosted run branch delta");
+const comparison=await compareResponse.json();
+assert.equal(comparison.status,"ahead","Hosted run branch must be exactly ahead of Production main");
+assert.equal(comparison.ahead_by,1,"Hosted run branch must contain exactly one reviewed commit");
+assert.equal(comparison.behind_by,0,"Hosted run branch must not be behind Production main");
+assert.deepEqual(
+  (comparison.files || []).map(file=>file.filename),
+  ["qa/runtime/hosted-run-request.json"],
+  "Hosted run branch may change only the reviewed run manifest",
+);
 
 const rulesResponse = await fetch(
   "https://raw.githubusercontent.com/alejandrorastudini-boop/balkanbite/" +
