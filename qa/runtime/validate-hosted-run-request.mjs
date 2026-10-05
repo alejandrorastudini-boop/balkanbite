@@ -58,8 +58,13 @@ while (pendingAssets.length && seenAssets.size < 80 && (!foundDatabase || !found
   const bundle=await asset.text();
   foundDatabase ||= bundle.includes(expectedDb);
   foundCommit ||= bundle.includes(request.productionCommit);
-  for (const match of bundle.matchAll(new RegExp("(?:/)?assets/[A-Za-z0-9_.-]+[.]js","g"))) {
-    const normalized=match[0].startsWith("/") ? match[0] : "/"+match[0];
+  for (const match of bundle.matchAll(
+    new RegExp("(?:/assets/|assets/|[.]/)[A-Za-z0-9_.-]+[.]js","g"),
+  )) {
+    const reference=match[0];
+    const normalized=reference.startsWith("./")
+      ? new URL(reference,new URL(assetPath,target)).pathname
+      : (reference.startsWith("/") ? reference : "/"+reference);
     if (!seenAssets.has(normalized)) pendingAssets.push(normalized);
   }
 }
