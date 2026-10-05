@@ -169,11 +169,11 @@ service cloud.firestore {
       allow create: if ownsIncomingDocument() &&
         ownsDocumentNamespace(documentId) &&
         request.resource.data.keys().hasOnly([
-          'userId', 'mutationId', 'source', 'requestSignature',
+          'userId', 'mutationId', 'source', 'purpose', 'requestSignature',
           'deductions', 'createdAt'
         ]) &&
         request.resource.data.keys().hasAll([
-          'userId', 'mutationId', 'source', 'requestSignature',
+          'userId', 'mutationId', 'source', 'purpose', 'requestSignature',
           'deductions', 'createdAt'
         ]) &&
         request.resource.data.mutationId is string &&
@@ -181,6 +181,8 @@ service cloud.firestore {
         documentId ==
           'u_' + request.auth.uid + '__' + request.resource.data.mutationId &&
         request.resource.data.source == 'voice' &&
+        (request.resource.data.purpose == 'food-use' ||
+         request.resource.data.purpose == 'discard') &&
         request.resource.data.requestSignature is string &&
         request.resource.data.requestSignature.size() > 0 &&
         request.resource.data.deductions is list &&
