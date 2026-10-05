@@ -61,6 +61,7 @@ import {
 import { buildPurchaseMutationId } from "./utils/purchasePantryFirestore";
 import { arePurchaseSourcesVisible, buildPendingPurchaseCommitEvidence, isPurchaseCommitVisible, type PendingPurchaseCommitEvidence } from "./utils/purchaseCommitEvidence";
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
+import type { DeterministicRemovalPurpose } from "./utils/deterministicRemovalIntent";
 import { buildConfirmedVoiceShoppingItems } from "./utils/safeVoiceShoppingCapture";
 import {
   getUserPantryCacheKey,
@@ -197,6 +198,7 @@ export default function App() {
   }>>(new Map());
   const preparedSignedInVoiceDeductions = useRef<Map<string, {
     userId: string;
+    purpose: DeterministicRemovalPurpose;
     deductions: PantryConsumptionDeduction[];
     expectedRemaining: Record<string, number | null>;
   }>>(new Map());
@@ -2152,7 +2154,12 @@ export default function App() {
   const handleVoiceDeductItems = async (
     items: any[],
     mutationId?: string,
+    purpose?: DeterministicRemovalPurpose,
   ): Promise<boolean> => {
+    if (purpose !== "food-use" && purpose !== "discard") {
+      console.warn("Voice pantry deduction missing explicit removal purpose");
+      return false;
+    }
     if (!requireAuthoritativeInventory()) return false;
 
     if (!currentUser) {
@@ -2178,6 +2185,11 @@ export default function App() {
     if (plan && plan.userId !== currentUser.uid) {
       preparedSignedInVoiceDeductions.current.delete(mutationId);
       pendingSignedInVoiceConsumptions.current.delete(mutationId);
+      return false;
+    }
+    // A stable mutation ID freezes the reviewed safety semantics as well as
+    // the quantity allocation. Retrying it with a different purpose fails closed.
+    if (plan && plan.purpose !== purpose) {
       return false;
     }
 
@@ -2206,6 +2218,7 @@ export default function App() {
 
       plan = {
         userId: currentUser.uid,
+        purpose,
         deductions: resolved.deductions.map(item => ({ ...item })),
         expectedRemaining,
       };
@@ -2221,6 +2234,7 @@ export default function App() {
       const persisted = await submitVoiceInventoryConsumption(
         mutationId,
         plan.deductions,
+        plan.purpose,
       );
       if (persisted.outcome === "needs-review") {
         const preserveOriginalPlan =
