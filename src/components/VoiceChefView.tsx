@@ -18,7 +18,7 @@ import {
 } from "lucide-react";
 import { ChatMessage, Language, PantryItem, MealLog } from "../types";
 import { t } from "../utils/translations";
-import { parseDeterministicRemovalIntent } from "../utils/deterministicRemovalIntent";
+import { parseDeterministicRemovalIntent, type DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
 
@@ -30,7 +30,7 @@ interface VoiceChefViewProps {
   onClearChat: () => void;
   onAddItemsToPantry: (items: any[]) => boolean | Promise<boolean>;
   onAddItemsToShoppingList: (items: any[]) => boolean | Promise<boolean>;
-  onDeductItemsFromPantry: (items: any[], mutationId?: string) => boolean | Promise<boolean>;
+  onDeductItemsFromPantry: (items: any[], mutationId?: string, purpose?: DeterministicRemovalPurpose) => boolean | Promise<boolean>;
   onNavigateToRecipes: (query?: string) => void;
   onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
@@ -88,6 +88,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   const [speechSynthesisEnabled, setSpeechSynthesisEnabled] = useState(true);
   const [pendingItems, setPendingItems] = useState<any[] | null>(null);
   const [pendingAction, setPendingAction] = useState<"add" | "remove" | "shopping" | null>(null);
+  const [pendingRemovalPurpose, setPendingRemovalPurpose] = useState<DeterministicRemovalPurpose | null>(null);
   const [isConfirmingPendingItems, setIsConfirmingPendingItems] = useState(false);
   const pendingMutationIdRef = useRef<string | null>(null);
   const voiceMutationSequenceRef = useRef(0);
@@ -263,6 +264,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     const confirmedItems = pendingItems;
     const action = pendingAction;
     const mutationId = action === "remove" ? pendingMutationIdRef.current : null;
+    const removalPurpose = action === "remove" ? pendingRemovalPurpose : null;
     const summary = confirmedItems
       .map((item) => `${item.quantity} ${item.unit} ${item.nameEn || item.name}`)
       .join(", ");
@@ -275,7 +277,9 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
           ? onAddItemsToPantry(confirmedItems)
           : action === "remove"
           ? mutationId
-            ? onDeductItemsFromPantry(confirmedItems, mutationId)
+            ? removalPurpose
+            ? onDeductItemsFromPantry(confirmedItems, mutationId, removalPurpose)
+            : false
             : false
           : onAddItemsToShoppingList(confirmedItems)
       );
@@ -326,6 +330,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       setPendingItems(null);
       setPendingAction(null);
       pendingMutationIdRef.current = null;
+      setPendingRemovalPurpose(null);
     }
 
     onUpdateChatMessages((prev) => [
@@ -345,6 +350,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     setPendingItems(null);
     setPendingAction(null);
     pendingMutationIdRef.current = null;
+    setPendingRemovalPurpose(null);
 
     const cancellationText =
       action === "remove"
@@ -400,6 +406,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     // A new message supersedes any unconfirmed extraction. Nothing pending is persisted.
     setPendingItems(null);
     setPendingAction(null);
+    setPendingRemovalPurpose(null);
     pendingMutationIdRef.current = null;
 
     // Add user message
@@ -481,9 +488,15 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
             : "add";
         setPendingItems(effectiveItems);
         setPendingAction(action);
-        pendingMutationIdRef.current = action === "remove"
-          ? createVoiceRemovalMutationId()
-          : null;
+        // Only deterministic wording may authorize safety-sensitive removal
+        // semantics. Model REMOVE_ITEMS output alone is not authoritative.
+        setPendingRemovalPurpose(
+          action === "remove" ? deterministicRemoval?.purpose ?? null : null
+        );
+        pendingMutationIdRef.current =
+          action === "remove" && deterministicRemoval?.purpose
+            ? createVoiceRemovalMutationId()
+            : null;
         replyText =
           action === "remove"
             ? language === "bg"
