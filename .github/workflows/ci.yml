@@ -43,6 +43,7 @@ jobs:
         run: |
           node --check qa/security/firestore-release-github.mjs
           node --test qa/security/firestore-release-core.test.mjs
+          node qa/security/firestore-release-request-offline.mjs
 
       - name: Build
         run: npm run build
