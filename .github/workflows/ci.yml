@@ -124,6 +124,12 @@ jobs:
           QA_EXPECTED_SHA: ${{ github.sha }}
         run: node qa/runtime/derived-inventory-propagation.mjs
 
+      - name: Run shortage shopping browser acceptance
+        env:
+          QA_PREVIEW_URL: http://127.0.0.1:4173
+          QA_EXPECTED_SHA: ${{ github.sha }}
+        run: node qa/runtime/shortage-shopping.mjs
+
       - name: Run voice exact-lot review browser acceptance
         env:
           QA_PREVIEW_URL: http://127.0.0.1:4173
