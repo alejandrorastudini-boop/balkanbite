@@ -10,7 +10,8 @@ const expectedDb =
 const expectedProject = "gen-lang-client-0319723351";
 const target = "https://balkanbite.vercel.app";
 
-assert.equal(process.env.GITHUB_REF, "refs/heads/qa/hosted-firestore-current-v2");
+assert.equal(process.env.GITHUB_REF, "refs/heads/main",
+  "Hosted QA can run only from a reviewed manifest merged to main");
 assert.ok(["disabled","hosted-readonly-preflight","one-time-synthetic-hosted-e2e"].includes(request.mode),
   "Hosted run mode must be disabled, read-only preflight or explicit synthetic E2E");
 assert.equal(request.projectId, expectedProject);
