@@ -4,6 +4,7 @@ import {
   EXPECTED_HOSTED_DATABASE,
   EXPECTED_HOSTED_PROJECT,
   EXPECTED_HOSTED_TARGET,
+  validateHostedRunBranchComparison,
   validateHostedRunRequestShape,
 } from "./hosted-run-request-core.mjs";
 
@@ -38,4 +39,23 @@ test("active hosted requests fail closed on malformed or wrong target pins",()=>
   assert.throws(()=>validateHostedRunRequestShape({...base,mode:"hosted-readonly-preflight",databaseId:"(default)"}));
   assert.throws(()=>validateHostedRunRequestShape({...base,mode:"hosted-readonly-preflight",targetUrl:"https://example.com"}));
   assert.throws(()=>validateHostedRunRequestShape({...base,mode:"unexpected"}));
+});
+
+test("hosted run branch must be one manifest-only commit over exact main",()=>{
+  assert.doesNotThrow(()=>validateHostedRunBranchComparison({
+    status:"ahead",ahead_by:1,behind_by:0,
+    files:[{filename:"qa/runtime/hosted-run-request.json"}],
+  }));
+  assert.throws(()=>validateHostedRunBranchComparison({
+    status:"ahead",ahead_by:2,behind_by:0,
+    files:[{filename:"qa/runtime/hosted-run-request.json"}],
+  }));
+  assert.throws(()=>validateHostedRunBranchComparison({
+    status:"diverged",ahead_by:1,behind_by:1,
+    files:[{filename:"qa/runtime/hosted-run-request.json"}],
+  }));
+  assert.throws(()=>validateHostedRunBranchComparison({
+    status:"ahead",ahead_by:1,behind_by:0,
+    files:[{filename:"qa/runtime/hosted-run-request.json"},{filename:"firestore.rules"}],
+  }));
 });
