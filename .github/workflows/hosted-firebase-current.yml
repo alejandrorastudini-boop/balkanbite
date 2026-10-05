@@ -3,7 +3,7 @@ name: Current hosted Firebase contract gate
 on:
   push:
     branches:
-      - main
+      - 'qa/hosted-firestore-run-*'
     paths:
       - "qa/runtime/hosted-run-request.json"
 
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   hosted-current-rules-contract:
-    if: github.ref == 'refs/heads/main'
+    if: startsWith(github.ref, 'refs/heads/qa/hosted-firestore-run-')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -39,6 +39,7 @@ jobs:
         if: steps.validate-hosted-target.outputs.write_enabled == 'true'
         env:
           QA_ALLOW_HOSTED_WRITES: "true"
+          QA_VALIDATED_HOSTED_TARGET: "true"
           QA_HOSTED_TARGET_URL: "https://balkanbite.vercel.app"
           QA_ALLOW_PRODUCTION_TARGET: "true"
         run: node qa/runtime/hosted-current-rules-contract.mjs
