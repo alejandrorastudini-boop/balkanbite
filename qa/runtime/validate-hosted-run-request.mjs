@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { createHash } from "node:crypto";
-import { appendFileSync, readFileSync } from "node:fs";
+import { readFileSync } from "node:fs";
 import {
   EXPECTED_HOSTED_DATABASE,
   EXPECTED_HOSTED_TARGET,
@@ -18,7 +18,6 @@ assert.match(process.env.GITHUB_REF || "", /^refs\/heads\/qa\/hosted-firestore-r
   "Hosted QA can run only from a dedicated fresh run branch");
 const gate=validateHostedRunRequestShape(request);
 if (gate.disabled) {
-  if (process.env.GITHUB_OUTPUT) appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled=false\n");
   console.log("Hosted QA manifest disabled; no hosted verification or writes requested.");
   process.exit(0);
 }
@@ -97,10 +96,4 @@ while (pendingAssets.length && seenAssets.size < 80 && !foundDatabase) {
 }
 assert.equal(foundDatabase,true,
   "Production JavaScript graph does not target approved named Firestore database");
-const writeEnabled=gate.writeEnabled;
-if (process.env.GITHUB_OUTPUT) {
-  appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled="+String(writeEnabled)+"\n");
-}
-console.log(writeEnabled
-  ? "Hosted QA write manifest, exact Production commit/Rules and target verified."
-  : "READ-ONLY PREFLIGHT COMPLETE: exact Production commit/Rules and target verified; hosted writes disabled.");
+console.log("READ-ONLY PREFLIGHT COMPLETE: exact Production commit/Rules and target verified; hosted writes are not part of this gate.");
