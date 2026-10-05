@@ -50,6 +50,7 @@ async function patch(token, collection, id, body) {
   return fetch(docUrl(collection,id), { method:"PATCH", headers:headers(token), body:JSON.stringify(fields(body)) });
 }
 async function read(token, collection, id) { return fetch(docUrl(collection,id), { headers:headers(token) }); }
+async function readAnonymous(collection, id) { return fetch(docUrl(collection,id)); }
 async function del(token, collection, id) { return fetch(docUrl(collection,id), { method:"DELETE", headers:headers(token) }); }
 
 const accounts=[];
@@ -96,6 +97,8 @@ try {
     assert.equal(createdRes.status,200,"Owner create failed for "+collection+": "+await createdRes.text());
     assert.equal((await read(owner.token,collection,sid)).status,200);
     assert.equal((await read(other.token,collection,sid)).status,403);
+    assert.ok([401,403].includes((await readAnonymous(collection,sid)).status),
+      "Anonymous journal read not denied for "+collection);
     const mutate=await patch(owner.token,collection,sid,{...payload,requestSignature:"tampered"});
     assert.equal(mutate.status,403,"Immutable journal update not denied for "+collection);
     const remove=await del(owner.token,collection,sid);
