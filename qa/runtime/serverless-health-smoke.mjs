@@ -64,6 +64,7 @@ try {
   assert.equal(payload.aiModel, "gpt-5.6-luna");
   assert.equal(typeof payload.aiConfigured, "boolean");
   assert.equal(payload.buildCommit, process.env.VERCEL_GIT_COMMIT_SHA);
+  assert.match(response.headers.get("cache-control") || "", /no-store/i);
 
   console.log(
     JSON.stringify({
