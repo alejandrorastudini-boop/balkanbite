@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { initializeTestEnvironment } from "@firebase/rules-unit-testing";
 import { readFileSync } from "node:fs";
 import { clearShoppingItems, createShoppingItem, createShoppingItems, removeShoppingItem, replaceShoppingItem } from "../../src/utils/shoppingMutationFirestore.ts";
+import { reconcileDerivedShortagesAtomically } from "../../src/utils/derivedShortageShoppingFirestore.ts";
 
 const projectId = "demo-balkanbite-rules";
 const rules = readFileSync("firestore.rules", "utf8");
@@ -74,6 +75,46 @@ try {
 
   const exactBulkClear = await clearShoppingItems(aliceDb, "alice", [bulkB, bulkA]);
   assert.deepEqual(exactBulkClear, { outcome: "applied" });
+
+  const shortageCandidate = {
+    name: "Milk",
+    quantity: 1,
+    unit: "l",
+    category: "Dairy",
+    amountOrigin: "deterministic_shortfall",
+    purchaseAmountConfirmed: false,
+    reason: "Needed for plan",
+  };
+  const derivedCreated = await reconcileDerivedShortagesAtomically(
+    aliceDb, "alice", [], [shortageCandidate],
+  );
+  assert.equal(derivedCreated.outcome, "applied");
+  assert.equal(derivedCreated.next.length, 1);
+  const derivedRow = derivedCreated.next[0];
+
+  const derivedNoChange = await reconcileDerivedShortagesAtomically(
+    aliceDb, "alice", [derivedRow], [shortageCandidate],
+  );
+  assert.equal(derivedNoChange.outcome, "no-change");
+
+  const derivedUpdated = await reconcileDerivedShortagesAtomically(
+    aliceDb, "alice", [derivedRow], [{ ...shortageCandidate, quantity: 2 }],
+  );
+  assert.equal(derivedUpdated.outcome, "applied");
+  assert.equal(derivedUpdated.next[0].quantity, 2);
+
+  const staleDerived = await reconcileDerivedShortagesAtomically(
+    aliceDb, "alice", [derivedRow], [],
+  );
+  assert.deepEqual(staleDerived, {
+    outcome: "needs-review",
+    reason: "stale-derived-baseline",
+  });
+
+  const removedDerived = await reconcileDerivedShortagesAtomically(
+    aliceDb, "alice", derivedUpdated.next, [],
+  );
+  assert.equal(removedDerived.outcome, "applied");
 
   console.log("shopping mutation emulator: PASS");
 } finally {
