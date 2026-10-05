@@ -13,7 +13,7 @@ test("voice pantry mutation callbacks may be asynchronous", () => {
   );
   assert.match(
     source,
-    /onDeductItemsFromPantry: \(items: any\[\], mutationId: string, purpose: DeterministicRemovalPurpose\) => boolean \| Promise<boolean>;/,
+    /onDeductItemsFromPantry: \(items: any\[\], mutationId: string, purpose: DeterministicRemovalPurpose, lotEvidence\?: readonly ConfirmedVoiceLotEvidence\[\]\) => boolean \| Promise<boolean>;/,
   );
   assert.match(
     source,
@@ -22,7 +22,7 @@ test("voice pantry mutation callbacks may be asynchronous", () => {
 });
 
 test("confirmation text is computed only after awaited mutation result", () => {
-  const start = source.indexOf("const confirmPendingItems = async");
+  const start = source.indexOf("const executePendingMutation = async");
   const end = source.indexOf("const cancelPendingItems", start);
   assert.ok(start >= 0 && end > start);
   const block = source.slice(start, end);
@@ -54,7 +54,7 @@ test("a pending voice commit cannot be double-confirmed or cancelled mid-write",
 });
 
 test("voice failure keeps reviewed pending items available for retry", () => {
-  const start = source.indexOf("const confirmPendingItems = async");
+  const start = source.indexOf("const executePendingMutation = async");
   const end = source.indexOf("const cancelPendingItems", start);
   const block = source.slice(start, end);
   const successStart = block.indexOf("if (mutationSucceeded)");
