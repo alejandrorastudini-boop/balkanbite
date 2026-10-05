@@ -169,7 +169,9 @@ try {
       { lotId: "lot-b", quantity: 0.3 },
     ],
   }];
-  assert.equal((await persistVerifiedVoiceConsumption(alice, exactVoice)).outcome, "recorded");
+  const exactResult = await persistVerifiedVoiceConsumption(alice, exactVoice);
+  console.log("DEBUG exact voice result", exactResult);
+  assert.equal(exactResult.outcome, "recorded");
   const exactStock = await stock(alice, "alice", "lot-rice");
   assert.equal(exactStock.quantity, 0.3);
   assert.equal(exactStock.lotState.unallocatedQuantity, 0);
