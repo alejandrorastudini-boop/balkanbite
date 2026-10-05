@@ -62,6 +62,7 @@ import { buildPurchaseMutationId } from "./utils/purchasePantryFirestore";
 import { arePurchaseSourcesVisible, buildPendingPurchaseCommitEvidence, isPurchaseCommitVisible, type PendingPurchaseCommitEvidence } from "./utils/purchaseCommitEvidence";
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
 import type { DeterministicRemovalPurpose } from "./utils/deterministicRemovalIntent";
+import type { ConfirmedVoiceLotEvidence } from "./utils/voiceLotEvidenceAdapter";
 import { buildConfirmedVoiceShoppingItems } from "./utils/safeVoiceShoppingCapture";
 import {
   getUserPantryCacheKey,
@@ -201,6 +202,7 @@ export default function App() {
     purpose: DeterministicRemovalPurpose;
     deductions: PantryConsumptionDeduction[];
     expectedRemaining: Record<string, number | null>;
+    lotEvidence?: readonly ConfirmedVoiceLotEvidence[];
   }>>(new Map());
   const pendingSignedInPurchaseApplication = useRef<PendingPurchaseCommitEvidence | null>(null);
   const preparedSignedInCooks = useRef<Map<string, {
@@ -2155,6 +2157,7 @@ export default function App() {
     items: any[],
     mutationId?: string,
     purpose?: DeterministicRemovalPurpose,
+    lotEvidence?: readonly ConfirmedVoiceLotEvidence[],
   ): Promise<boolean> => {
     if (purpose !== "food-use" && purpose !== "discard") {
       console.warn("Voice pantry deduction missing explicit removal purpose");
@@ -2192,6 +2195,9 @@ export default function App() {
     if (plan && plan.purpose !== purpose) {
       return false;
     }
+    if (plan && JSON.stringify(plan.lotEvidence ?? []) !== JSON.stringify(lotEvidence ?? [])) {
+      return false;
+    }
 
     if (!plan) {
       const resolved = deductVoiceItemsFromPantry(pantry, items || []);
@@ -2221,6 +2227,7 @@ export default function App() {
         purpose,
         deductions: resolved.deductions.map(item => ({ ...item })),
         expectedRemaining,
+        lotEvidence,
       };
       preparedSignedInVoiceDeductions.current.set(mutationId, plan);
     }
@@ -2235,6 +2242,7 @@ export default function App() {
         mutationId,
         plan.deductions,
         plan.purpose,
+        plan.lotEvidence,
       );
       if (persisted.outcome === "needs-review") {
         const preserveOriginalPlan =
