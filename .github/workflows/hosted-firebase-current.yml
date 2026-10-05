@@ -3,7 +3,7 @@ name: One-time current hosted Firebase E2E
 on:
   push:
     branches:
-      - qa/hosted-firestore-current-v2
+      - main
     paths:
       - "qa/runtime/hosted-run-request.json"
 
@@ -16,7 +16,7 @@ concurrency:
 
 jobs:
   hosted-current-rules-contract:
-    if: github.ref == 'refs/heads/qa/hosted-firestore-current-v2'
+    if: github.ref == 'refs/heads/main'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
