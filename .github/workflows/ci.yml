@@ -44,6 +44,11 @@ jobs:
           node --check qa/security/firestore-release-github.mjs
           node --test qa/security/firestore-release-core.test.mjs
 
+      - name: Validate hosted QA scripts offline
+        run: |
+          node --check qa/runtime/validate-hosted-run-request.mjs
+          node --check qa/runtime/hosted-current-rules-contract.mjs
+
       - name: Build
         run: npm run build
 
