@@ -50,4 +50,6 @@ assert.equal(asset.status, 200, "Production JavaScript asset unavailable");
 const bundle = await asset.text();
 assert.ok(bundle.includes(expectedDb),
   "Production bundle does not target approved named Firestore database");
+assert.ok(bundle.includes(request.productionCommit),
+  "Production bundle is not built from the exact approved main commit");
 console.log("One-time synthetic hosted QA manifest, main commit, health and JS database target verified.");
