@@ -22,7 +22,7 @@ import { parseDeterministicRemovalIntent, type DeterministicRemovalPurpose } fro
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
 import { deductVoiceItemsFromPantry } from "../utils/pantryConsumption";
-import { buildVoiceLotReviewPlan, type VoiceLotReviewPlan } from "../utils/voiceLotReviewPlanner";
+import { planVoiceLotReview, type VoiceLotReviewPlan } from "../utils/voiceLotReviewPlanner";
 import { buildVoiceLotEvidence, type ConfirmedVoiceLotEvidence, type VoiceLotReviewSelection } from "../utils/voiceLotEvidenceAdapter";
 import { VoiceLotReviewModal } from "./VoiceLotReviewModal";
 import { localCalendarDate } from "../utils/effectiveExpiry";
@@ -355,7 +355,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     const resolved = deductVoiceItemsFromPantry(pantry, pendingItems);
     if (resolved.issues.length > 0 || resolved.deductions.length === 0) return;
     const reviewedOn = localCalendarDate(new Date());
-    const plan = buildVoiceLotReviewPlan(pantry, resolved.deductions, purpose, reviewedOn);
+    const plan = planVoiceLotReview(pantry, resolved.deductions, purpose, reviewedOn);
     if (plan.outcome === "invalid") return;
     if (plan.outcome === "not-needed") {
       await executePendingMutation();
