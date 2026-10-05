@@ -12,6 +12,7 @@ on:
       - "src/utils/purchasePantryFirestore.ts"
       - "src/utils/inventoryClearFirestore.ts"
       - "src/utils/shoppingMutationFirestore.ts"
+      - "src/utils/derivedShortageShoppingFirestore.ts"
       - ".github/workflows/firestore-rules.yml"
   workflow_dispatch:
 
