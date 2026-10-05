@@ -27,7 +27,7 @@ test("REMOVE_ITEMS gets one stable mutation ID and failure does not clear it", (
     'const mutationId = action === "remove" ? pendingMutationIdRef.current : null;',
   ));
   assert.ok(confirm.includes(
-    "onDeductItemsFromPantry(confirmedItems, mutationId)",
+    "onDeductItemsFromPantry(confirmedItems, mutationId, removalPurpose)",
   ));
 
   const success = confirm.indexOf("if (mutationSucceeded)");
@@ -105,6 +105,7 @@ test("App caches reviewed deductions and exact expected remainder before dispatc
     "pendingSignedInVoiceConsumptions.current.set(mutationId",
     "submitVoiceInventoryConsumption(",
     "plan.deductions",
+    "plan.purpose",
     'persisted.reason === "in-flight"',
     'persisted.reason === "unverified-authority"',
   ]) {
