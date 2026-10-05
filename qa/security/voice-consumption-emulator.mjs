@@ -35,8 +35,8 @@ const expectation = (pantryItemId, quantity, unit, cookRevision) => ({
 const deduction = (ingredientName, pantryItemId, consumedQuantity, unit) => ({
   ingredientName, pantryItemId, consumedQuantity, unit,
 });
-const request = (mutationId, expectedStock, deductions) => ({
-  userId: "alice", mutationId, expectedStock, deductions,
+const request = (mutationId, expectedStock, deductions, purpose = "food-use") => ({
+  userId: "alice", mutationId, expectedStock, deductions, purpose,
 });
 
 async function seed(uid, id, quantity, unit, cookRevision = 0) {
@@ -88,6 +88,7 @@ try {
   const journal = await getDoc(journalRef(alice, "alice", "voice-remove-1"));
   assert.equal(journal.exists(), true);
   assert.equal(journal.data().source, "voice");
+  assert.equal(journal.data().purpose, "food-use");
   assert.equal(journal.data().requestSignature, voiceConsumptionSignature(voice));
 
   const replay = await persistVerifiedVoiceConsumption(aliceOtherDevice, voice);
@@ -108,6 +109,17 @@ try {
     reason: "conflicting-replay",
   });
   assert.equal((await stock(alice, "alice", "rice-new")).quantity, 150);
+
+  const changedPurposeReplay = await persistVerifiedVoiceConsumption(alice, {
+    ...voice,
+    purpose: "discard",
+  });
+  assert.deepEqual(changedPurposeReplay, {
+    outcome: "needs-review",
+    reason: "conflicting-replay",
+  });
+  assert.equal((await stock(alice, "alice", "rice-new")).quantity, 150);
+  console.log("PASS: replay cannot change voice removal purpose");
 
   await seed("alice", "stale", 100, "g", 3);
   const stale = await persistVerifiedVoiceConsumption(
@@ -218,6 +230,7 @@ try {
       mutationId: "voice-cross",
       expectedStock: [expectation("private", 5, "pcs", 0)],
       deductions: [deduction("eggs", "private", 1, "pcs")],
+      purpose: "food-use",
     }),
     error => error?.code === "permission-denied",
   );
@@ -227,6 +240,7 @@ try {
       mutationId: "voice-guest",
       expectedStock: [expectation("private", 5, "pcs", 0)],
       deductions: [deduction("eggs", "private", 1, "pcs")],
+      purpose: "food-use",
     }),
     error => error?.code === "permission-denied",
   );
