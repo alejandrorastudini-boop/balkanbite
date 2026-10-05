@@ -58,7 +58,7 @@ while (pendingAssets.length && seenAssets.size < 80 && (!foundDatabase || !found
   const bundle=await asset.text();
   foundDatabase ||= bundle.includes(expectedDb);
   foundCommit ||= bundle.includes(request.productionCommit);
-  for (const match of bundle.matchAll(/(?:\\/)?assets\\/[A-Za-z0-9_.-]+\\.js/g)) {
+  for (const match of bundle.matchAll(new RegExp("(?:/)?assets/[A-Za-z0-9_.-]+[.]js","g"))) {
     const normalized=match[0].startsWith("/") ? match[0] : "/"+match[0];
     if (!seenAssets.has(normalized)) pendingAssets.push(normalized);
   }
