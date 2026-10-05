@@ -13,6 +13,8 @@ const runRequest=JSON.parse(
 const runGate=validateHostedRunRequestShape(runRequest);
 assert.equal(runGate.writeEnabled,true,
   "Hosted write probe requires one-time-synthetic-hosted-e2e manifest mode");
+assert.equal(process.env.GITHUB_SHA,runRequest.productionCommit,
+  "Hosted write probe commit must equal reviewed Production commit");
 const targetUrl = new URL(process.env.QA_HOSTED_TARGET_URL || "");
 assert.equal(targetUrl.protocol, "https:");
 assert.ok(targetUrl.hostname.endsWith(".vercel.app"));
