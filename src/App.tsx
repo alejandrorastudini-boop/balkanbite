@@ -63,6 +63,7 @@ import { arePurchaseSourcesVisible, buildPendingPurchaseCommitEvidence, isPurcha
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
 import type { DeterministicRemovalPurpose } from "./utils/deterministicRemovalIntent";
 import type { ConfirmedVoiceLotEvidence } from "./utils/voiceLotEvidenceAdapter";
+import { reconcileDerivedShortageShoppingItems } from "./utils/derivedShortageShopping";
 import { buildConfirmedVoiceShoppingItems } from "./utils/safeVoiceShoppingCapture";
 import {
   getUserPantryCacheKey,
@@ -652,6 +653,16 @@ export default function App() {
       profile
     );
     setMealPlan(newPlan);
+
+    const nextShoppingDiagnostic = evaluateShoppingNeeds(
+      updatedPantry, newPlan, shoppingList, profile.language,
+    );
+    setShoppingList(current =>
+      reconcileDerivedShortageShoppingItems(
+        current,
+        nextShoppingDiagnostic.itemsToAddToShoppingList,
+      ).next
+    );
 
     if (showToast) {
       setAutoMenuToast({
