@@ -3,7 +3,6 @@ import { createHash } from "node:crypto";
 import { appendFileSync, readFileSync } from "node:fs";
 import {
   EXPECTED_HOSTED_DATABASE,
-  EXPECTED_HOSTED_PROJECT,
   EXPECTED_HOSTED_TARGET,
   validateHostedRunRequestShape,
 } from "./hosted-run-request-core.mjs";
@@ -12,7 +11,6 @@ const request = JSON.parse(
   readFileSync(new URL("./hosted-run-request.json", import.meta.url), "utf8"),
 );
 const expectedDb = EXPECTED_HOSTED_DATABASE;
-const expectedProject = EXPECTED_HOSTED_PROJECT;
 const target = EXPECTED_HOSTED_TARGET;
 
 assert.equal(process.env.GITHUB_REF, "refs/heads/main",
