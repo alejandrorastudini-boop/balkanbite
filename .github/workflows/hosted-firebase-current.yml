@@ -1,11 +1,13 @@
-name: One-time synthetic hosted Firebase E2E
+name: One-time current hosted Firebase E2E
 
 on:
   push:
     branches:
-      - qa/hosted-email-auth-e2e
+      - qa/hosted-firestore-current-v2
     paths:
       - "qa/runtime/hosted-run-request.json"
+      - "qa/runtime/hosted-current-rules-contract.mjs"
+      - ".github/workflows/hosted-firebase-current.yml"
 
 permissions:
   contents: read
@@ -16,7 +18,7 @@ concurrency:
 
 jobs:
   hosted-owner-isolation:
-    if: github.ref == 'refs/heads/qa/hosted-email-auth-e2e'
+    if: github.ref == 'refs/heads/qa/hosted-firestore-current-v2'
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -43,4 +45,6 @@ jobs:
           QA_ALLOW_HOSTED_WRITES: "true"
           QA_HOSTED_TARGET_URL: "https://balkanbite.vercel.app"
           QA_ALLOW_PRODUCTION_TARGET: "true"
-        run: node qa/runtime/hosted-email-auth-production.mjs
+        run: |
+          node qa/runtime/hosted-email-auth-production.mjs
+          node qa/runtime/hosted-current-rules-contract.mjs
