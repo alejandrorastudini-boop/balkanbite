@@ -63,7 +63,7 @@ import { arePurchaseSourcesVisible, buildPendingPurchaseCommitEvidence, isPurcha
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
 import type { DeterministicRemovalPurpose } from "./utils/deterministicRemovalIntent";
 import type { ConfirmedVoiceLotEvidence } from "./utils/voiceLotEvidenceAdapter";
-import { reconcileDerivedShortageShoppingItems } from "./utils/derivedShortageShopping";
+import { reconcileDerivedShortageShoppingItems, isManagedDerivedShortageRow } from "./utils/derivedShortageShopping";
 import { buildConfirmedVoiceShoppingItems } from "./utils/safeVoiceShoppingCapture";
 import {
   getUserPantryCacheKey,
@@ -1038,6 +1038,15 @@ export default function App() {
     [shoppingDiagnostic.itemsToAddToShoppingList],
   );
 
+  const managedShortageRowsFingerprint = useMemo(
+    () => JSON.stringify(
+      shoppingList.filter(isManagedDerivedShortageRow)
+        .map(item => [item.id, item.quantity, item.unit, item.checked])
+        .sort((a, b) => String(a[0]).localeCompare(String(b[0]))),
+    ),
+    [shoppingList],
+  );
+
   useEffect(() => {
     if (!currentUser || inventoryIsProvisional || !inventoryServerConfirmed) return;
     // The hook rejects this command until the shopping listener has hydrated,
@@ -1061,6 +1070,7 @@ export default function App() {
     inventoryIsProvisional,
     inventoryServerConfirmed,
     derivedShortageReconcileFingerprint,
+    managedShortageRowsFingerprint,
   ]);
 
   useEffect(() => {
