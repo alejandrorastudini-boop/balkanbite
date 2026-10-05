@@ -72,6 +72,15 @@ const validRevision = (value: unknown): value is number =>
   value >= 0 &&
   value < Number.MAX_SAFE_INTEGER;
 
+const validCalendarDate = (value: unknown): value is string => {
+  if (typeof value !== "string" || !/^\d{4}-\d{2}-\d{2}$/.test(value)) return false;
+  const [year, month, day] = value.split("-").map(Number);
+  const date = new Date(Date.UTC(year, month - 1, day));
+  return date.getUTCFullYear() === year &&
+    date.getUTCMonth() === month - 1 &&
+    date.getUTCDate() === day;
+};
+
 const roundQuantity = (value: number): number =>
   Math.round((value + Number.EPSILON) * 1_000_000) / 1_000_000;
 
@@ -154,7 +163,7 @@ function normalizeRequest(
       if (!isSafeInventoryLogicalId(evidence.pantryItemId) ||
           !expectedIds.has(evidence.pantryItemId) ||
           evidenceIds.has(evidence.pantryItemId) ||
-          !/^\d{4}-\d{2}-\d{2}$/.test(evidence.reviewedOn) ||
+          !validCalendarDate(evidence.reviewedOn) ||
           evidence.deductions.length === 0) return null;
       evidenceIds.add(evidence.pantryItemId);
       const seenLots = new Set<string>();
