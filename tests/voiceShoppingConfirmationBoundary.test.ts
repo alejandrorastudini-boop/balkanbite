@@ -76,7 +76,7 @@ test("confirmation routes shopping separately from pantry add/remove", () => {
   assert.match(confirmBlock, /action === "add"/);
   assert.match(confirmBlock, /onAddItemsToPantry\(confirmedItems\)/);
   assert.match(confirmBlock, /action === "remove"/);
-  assert.match(confirmBlock, /onDeductItemsFromPantry\(confirmedItems, mutationId\)/);
+  assert.match(confirmBlock, /onDeductItemsFromPantry\(confirmedItems, mutationId, removalPurpose\)/);
   assert.match(
     confirmBlock,
     /onAddItemsToShoppingList\(confirmedItems\)/,
@@ -112,7 +112,7 @@ test("pending shopping UI states that AI extraction is not yet persisted", () =>
   );
   assert.match(
     voiceSource,
-    /disabled=\{!pendingItemsAreComplete \|\| isConfirmingPendingItems\}/,
+    /disabled=\{!pendingItemsAreComplete \|\| \(pendingAction === "remove" && !pendingRemovalPurpose\) \|\| isConfirmingPendingItems\}/,
   );
 });
 

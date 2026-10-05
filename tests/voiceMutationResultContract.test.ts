@@ -27,7 +27,7 @@ test("voice mutation callbacks return explicit sync or awaited boolean results t
     );
     assert.match(
       source,
-      /onDeductItemsFromPantry:\s*\(items: any\[\], mutationId\?: string\) => boolean \| Promise<boolean>;/,
+      /onDeductItemsFromPantry:\s*\(items: any\[\], mutationId: string, purpose: DeterministicRemovalPurpose\) => boolean \| Promise<boolean>;/,
     );
   }
 });
@@ -71,7 +71,7 @@ test("App keeps guest voice deduction local but signed-in removal transactional"
     "const guestResult = deductVoiceItemsFromPantry(pantry, items || [])",
   ));
   assert.ok(block.includes("setPantry(guestResult.pantry)"));
-  assert.ok(block.includes("if (!mutationId)"));
+  assert.ok(block.includes('if (!mutationId || (purpose !== "food-use" && purpose !== "discard"))'));
   assert.ok(block.includes(
     "preparedSignedInVoiceDeductions.current.get(mutationId)",
   ));
@@ -80,7 +80,7 @@ test("App keeps guest voice deduction local but signed-in removal transactional"
   ));
   assert.ok(block.includes("submitVoiceInventoryConsumption("));
 
-  const mutationCheck = block.indexOf("if (!mutationId)");
+  const mutationCheck = block.indexOf("if (!mutationId || (purpose !==");
   assert.ok(mutationCheck >= 0);
   assert.equal(
     block.slice(mutationCheck).includes("setPantry("),
@@ -97,11 +97,11 @@ test("VoiceChefView keeps the pending batch when App rejects the mutation", () =
   assert.match(block, /let mutationSucceeded = false;/);
   assert.match(block, /mutationSucceeded = await Promise\.resolve\(/);
   assert.match(block, /onAddItemsToPantry\(confirmedItems\)/);
-  assert.match(block, /onDeductItemsFromPantry\(confirmedItems, mutationId\)/);
+  assert.match(block, /onDeductItemsFromPantry\(confirmedItems, mutationId, removalPurpose\)/);
   assert.match(block, /onAddItemsToShoppingList\(confirmedItems\)/);
   assert.match(
     block,
-    /if \(mutationSucceeded\) \{\s*setPendingItems\(null\);\s*setPendingAction\(null\);\s*pendingMutationIdRef\.current = null;\s*\}/,
+    /if \(mutationSucceeded\) \{\s*setPendingItems\(null\);\s*setPendingAction\(null\);\s*setPendingRemovalPurpose\(null\);\s*pendingMutationIdRef\.current = null;\s*\}/,
   );
 
   const resultIndex = block.indexOf("let mutationSucceeded = false");

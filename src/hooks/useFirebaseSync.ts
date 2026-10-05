@@ -23,6 +23,7 @@ import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "..
 import { persistNewInventoryItems, type InventoryCreationOutcome } from "../utils/inventoryCreationFirestore";
 import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAuthority";
 import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, type VerifiedVoiceDeduction } from "../utils/verifiedVoiceConsumptionFirestore";
+import type { DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import { buildPurchaseMutationId, persistPurchasesIntoPantryAtomically, type PurchasePantryTransactionResult } from "../utils/purchasePantryFirestore";
 import type { PantryPurchase } from "../utils/purchasePantryMerge";
 import { normalizeCookLotEvidence, persistConfirmedCookAtomically, type AtomicCookExpectedStock, type ConfirmedCookLotEvidence } from "../utils/confirmedCookFirestore";
@@ -78,6 +79,7 @@ export function useFirebaseSync(
   const preparedVoiceConsumptions = useRef<Map<string, {
     expectedStock: Array<{ pantryItemId: string; quantity: number; unit: string; cookRevision: number }>;
     deductions: VerifiedVoiceDeduction[];
+    purpose: DeterministicRemovalPurpose;
   }>>(new Map());
   const inFlightPurchaseApplications = useRef<Set<string>>(new Set());
   const inFlightCookConfirmations = useRef<Set<string>>(new Set());
@@ -580,6 +582,7 @@ export function useFirebaseSync(
   const submitVoiceInventoryConsumption = async (
     mutationId: string,
     deductions: readonly VerifiedVoiceDeduction[],
+    purpose: DeterministicRemovalPurpose,
   ): Promise<VerifiedVoiceConsumptionResult | {
     outcome: "needs-review";
     reason: "unverified-authority" | "in-flight" | "stale-local-view";
@@ -599,6 +602,9 @@ export function useFirebaseSync(
     }
 
     let prepared = preparedVoiceConsumptions.current.get(mutationId);
+    if (prepared && prepared.purpose !== purpose) {
+      return { outcome: "needs-review", reason: "conflicting-replay" };
+    }
     if (!prepared) {
       const affectedIds = Array.from(new Set(
         (deductions || []).map(item => item.pantryItemId),
@@ -622,6 +628,7 @@ export function useFirebaseSync(
       prepared = {
         expectedStock,
         deductions: (deductions || []).map(item => ({ ...item })),
+        purpose,
       };
       preparedVoiceConsumptions.current.set(mutationId, prepared);
     }
@@ -633,6 +640,7 @@ export function useFirebaseSync(
         mutationId,
         expectedStock: prepared.expectedStock,
         deductions: prepared.deductions,
+        purpose: prepared.purpose,
       });
       // A definitive result has reached the caller. Success will clear the UI
       // mutation ID; a needs-review retry may safely re-resolve current stock.

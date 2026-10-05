@@ -16,26 +16,27 @@ const recipe = {
   nutritionHighlights: { en: "", bg: "", es: "" },
 } as Recipe;
 const plan: MealPlanDay[] = [{ date: "2026-10-04", breakfast: recipe }];
+const fixedNow = new Date(2026, 9, 4, 12, 0, 0, 0);
 const pending = (id: string, quantity: number, unit: string, checked = false): ShoppingItem => ({
   id, name: "Milk", quantity, unit, category: "Dairy", checked,
 });
 
 test("partial pending quantity leaves only the remaining shortfall", () => {
-  const result = evaluateShoppingNeeds([], plan, [pending("a", 0.5, "l")], "en");
+  const result = evaluateShoppingNeeds([], plan, [pending("a", 0.5, "l")], "en", fixedNow);
   assert.equal(result.itemsToAddToShoppingList[0]?.quantity, 0.5);
   assert.equal(result.itemsToAddToShoppingList[0]?.unit, "l");
 });
 
 test("compatible pending quantities aggregate across rows", () => {
   const result = evaluateShoppingNeeds(
-    [], plan, [pending("a", 250, "ml"), pending("b", 0.75, "l")], "en",
+    [], plan, [pending("a", 250, "ml"), pending("b", 0.75, "l")], "en", fixedNow,
   );
   assert.equal(result.itemsToAddToShoppingList.length, 0);
 });
 
 test("checked or incompatible pending rows do not hide a shortfall", () => {
   const result = evaluateShoppingNeeds(
-    [], plan, [pending("a", 1, "l", true), pending("b", 1, "pcs")], "en",
+    [], plan, [pending("a", 1, "l", true), pending("b", 1, "pcs")], "en", fixedNow,
   );
   assert.equal(result.itemsToAddToShoppingList[0]?.quantity, 1);
 });
@@ -52,6 +53,7 @@ test("equivalent normalized ingredient names aggregate into one candidate", () =
     [{ date: "2026-10-04", breakfast: recipe, lunch: secondRecipe }],
     [],
     "en",
+    fixedNow,
   );
   assert.equal(result.itemsToAddToShoppingList.length, 1);
   assert.equal(result.itemsToAddToShoppingList[0]?.quantity, 2);
