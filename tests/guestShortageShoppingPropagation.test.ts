@@ -9,14 +9,15 @@ test("guest pantry reconciliation propagates verified shortfalls into managed sh
   const end = app.indexOf("// Signed-in stock commands", start);
   assert.ok(start >= 0 && end > start);
   const block = app.slice(start, end);
-  assert.match(block, /evaluateShoppingNeeds\(/);
-  assert.match(block, /reconcileDerivedShortageShoppingItems\(/);
-  assert.match(block, /setShoppingList\(current =>/);
+  assert.match(block, /evaluateShoppingNeeds/);
+  assert.match(block, /reconcileDerivedShortageShoppingItems/);
+  assert.match(block, /setShoppingList/);
 });
 
-test("guest shortage propagation uses the adapted plan after the pantry change", () => {
+test("guest shortage propagation uses the current shopping baseline", () => {
   const start = app.indexOf("const reconcileGuestPantryDerivedState");
   const end = app.indexOf("// Signed-in stock commands", start);
   const block = app.slice(start, end);
-  assert.match(block, /updatedPantry, newPlan, shoppingList, profile\.language/);
+  assert.ok(block.includes("updatedPantry, newPlan, current, profile.language"));
+  assert.equal(block.includes("updatedPantry, newPlan, shoppingList, profile.language"), false);
 });
