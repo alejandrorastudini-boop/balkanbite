@@ -47,6 +47,7 @@ import {
 } from "./utils/pantryConsumption";
 import { buildRecipeShoppingNeeds } from "./utils/recipeShoppingNeeds";
 import type { RecipeCookOutcome } from "./utils/recipeCookFeedback";
+import { normalizeCookLotEvidence, type ConfirmedCookLotEvidence } from "./utils/confirmedCookFirestore";
 import {
   transferCheckedShoppingItems,
   reconcileConfirmedShoppingPurchases,
@@ -205,6 +206,7 @@ export default function App() {
     recipeId: string;
     occurredAt: string;
     result: ReturnType<typeof deductRecipeIngredientsFromPantry>;
+    lotEvidence?: readonly ConfirmedCookLotEvidence[];
     confirmation: {
       cookConfirmationId: string;
       mealId: string;
@@ -1388,6 +1390,7 @@ export default function App() {
   const handleCookRecipe = async (
     recipe: Recipe,
     cookConfirmationId: string,
+    lotEvidence?: readonly ConfirmedCookLotEvidence[],
   ): Promise<RecipeCookOutcome> => {
     if (!requireAuthoritativeInventory()) {
       return { success: false, issueCount: 1 };
@@ -1426,6 +1429,20 @@ export default function App() {
     ) {
       return { success: false, issueCount: 1 };
     }
+    if (prepared) {
+      const expectedIds = new Set<string>(
+        prepared.confirmation.ingredients.map(item => item.pantryItemId),
+      );
+      const frozenEvidence = normalizeCookLotEvidence(prepared.lotEvidence, expectedIds);
+      const replayEvidence = normalizeCookLotEvidence(lotEvidence, expectedIds);
+      if (
+        frozenEvidence === null ||
+        replayEvidence === null ||
+        JSON.stringify(frozenEvidence) !== JSON.stringify(replayEvidence)
+      ) {
+        return { success: false, issueCount: 1 };
+      }
+    }
 
     if (!prepared) {
       const result = deductRecipeIngredientsFromPantry(
@@ -1438,11 +1455,18 @@ export default function App() {
           issueCount: Math.max(1, result.issues.length),
         };
       }
+      const expectedIds = new Set<string>(
+        result.deductions.map(item => item.pantryItemId),
+      );
+      if (normalizeCookLotEvidence(lotEvidence, expectedIds) === null) {
+        return { success: false, issueCount: 1 };
+      }
       prepared = {
         userId: currentUser.uid,
         recipeId: recipe.id,
         occurredAt: new Date().toISOString(),
         result,
+        lotEvidence,
         confirmation: {
           cookConfirmationId,
           mealId: recipe.id,
@@ -1470,7 +1494,7 @@ export default function App() {
       ),
     });
 
-    const committed = await submitConfirmedCook(pantry, prepared.confirmation);
+    const committed = await submitConfirmedCook(pantry, prepared.confirmation, prepared.lotEvidence);
     if (!committed.accepted) {
       return { success: false, issueCount: committed.issueCount };
     }
