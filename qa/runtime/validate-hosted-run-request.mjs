@@ -45,11 +45,26 @@ assert.equal(home.status, 200, "Production homepage unavailable");
 const html = await home.text();
 const scriptPath = html.match(/src="(\/assets\/index-[^"]+\.js)"/)?.[1];
 assert.ok(scriptPath, "Could not resolve production JavaScript asset");
-const asset = await fetch(new URL(scriptPath, target));
-assert.equal(asset.status, 200, "Production JavaScript asset unavailable");
-const bundle = await asset.text();
-assert.ok(bundle.includes(expectedDb),
-  "Production bundle does not target approved named Firestore database");
-assert.ok(bundle.includes(request.productionCommit),
-  "Production bundle is not built from the exact approved main commit");
+const pendingAssets=[scriptPath];
+const seenAssets=new Set();
+let foundDatabase=false;
+let foundCommit=false;
+while (pendingAssets.length && seenAssets.size < 80 && (!foundDatabase || !foundCommit)) {
+  const assetPath=pendingAssets.shift();
+  if (!assetPath || seenAssets.has(assetPath)) continue;
+  seenAssets.add(assetPath);
+  const asset=await fetch(new URL(assetPath,target));
+  assert.equal(asset.status,200,"Production JavaScript asset unavailable: "+assetPath);
+  const bundle=await asset.text();
+  foundDatabase ||= bundle.includes(expectedDb);
+  foundCommit ||= bundle.includes(request.productionCommit);
+  for (const match of bundle.matchAll(/(?:\\/)?assets\\/[A-Za-z0-9_.-]+\\.js/g)) {
+    const normalized=match[0].startsWith("/") ? match[0] : "/"+match[0];
+    if (!seenAssets.has(normalized)) pendingAssets.push(normalized);
+  }
+}
+assert.equal(foundDatabase,true,
+  "Production JavaScript graph does not target approved named Firestore database");
+assert.equal(foundCommit,true,
+  "Production JavaScript graph is not built from the exact approved main commit");
 console.log("One-time synthetic hosted QA manifest, main commit, health and JS database target verified.");
