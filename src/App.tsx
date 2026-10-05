@@ -61,6 +61,7 @@ import {
 import { buildPurchaseMutationId } from "./utils/purchasePantryFirestore";
 import { arePurchaseSourcesVisible, buildPendingPurchaseCommitEvidence, isPurchaseCommitVisible, type PendingPurchaseCommitEvidence } from "./utils/purchaseCommitEvidence";
 import { normalizeVoicePantryItems } from "./utils/safeVoicePantryCapture";
+import type { DeterministicRemovalPurpose } from "./utils/deterministicRemovalIntent";
 import { buildConfirmedVoiceShoppingItems } from "./utils/safeVoiceShoppingCapture";
 import {
   getUserPantryCacheKey,
@@ -198,6 +199,7 @@ export default function App() {
   const preparedSignedInVoiceDeductions = useRef<Map<string, {
     userId: string;
     deductions: PantryConsumptionDeduction[];
+    purpose: DeterministicRemovalPurpose;
     expectedRemaining: Record<string, number | null>;
   }>>(new Map());
   const pendingSignedInPurchaseApplication = useRef<PendingPurchaseCommitEvidence | null>(null);
@@ -2151,7 +2153,8 @@ export default function App() {
 
   const handleVoiceDeductItems = async (
     items: any[],
-    mutationId?: string,
+    mutationId: string,
+    purpose: DeterministicRemovalPurpose,
   ): Promise<boolean> => {
     if (!requireAuthoritativeInventory()) return false;
 
@@ -2169,13 +2172,13 @@ export default function App() {
       return true;
     }
 
-    if (!mutationId) {
-      console.warn("Signed-in voice deduction missing stable mutation ID");
+    if (!mutationId || (purpose !== "food-use" && purpose !== "discard")) {
+      console.warn("Signed-in voice deduction missing stable mutation ID or purpose");
       return false;
     }
 
     let plan = preparedSignedInVoiceDeductions.current.get(mutationId);
-    if (plan && plan.userId !== currentUser.uid) {
+    if (plan && (plan.userId !== currentUser.uid || plan.purpose !== purpose)) {
       preparedSignedInVoiceDeductions.current.delete(mutationId);
       pendingSignedInVoiceConsumptions.current.delete(mutationId);
       return false;
@@ -2207,6 +2210,7 @@ export default function App() {
       plan = {
         userId: currentUser.uid,
         deductions: resolved.deductions.map(item => ({ ...item })),
+        purpose,
         expectedRemaining,
       };
       preparedSignedInVoiceDeductions.current.set(mutationId, plan);
@@ -2221,6 +2225,7 @@ export default function App() {
       const persisted = await submitVoiceInventoryConsumption(
         mutationId,
         plan.deductions,
+        plan.purpose,
       );
       if (persisted.outcome === "needs-review") {
         const preserveOriginalPlan =
