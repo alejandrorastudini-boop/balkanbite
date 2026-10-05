@@ -180,6 +180,25 @@ try {
   );
   console.log("PASS: explicit voice lot evidence preserves exact remaining provenance");
 
+  const changedEvidenceReplay = {
+    ...exactVoice,
+    lotEvidence: [{
+      ...exactVoice.lotEvidence[0],
+      deductions: [{ lotId: "lot-b", quantity: 0.7 }],
+    }],
+  };
+  assert.deepEqual(
+    await persistVerifiedVoiceConsumption(alice, changedEvidenceReplay),
+    { outcome: "needs-review", reason: "conflicting-replay" },
+  );
+  const stockAfterChangedEvidenceReplay = await stock(alice, "alice", "lot-rice");
+  assert.equal(stockAfterChangedEvidenceReplay.quantity, 0.3);
+  assert.deepEqual(
+    stockAfterChangedEvidenceReplay.lotState.activeLots.map(lot => [lot.id, lot.remainingQuantity]),
+    [["lot-b", 0.3]],
+  );
+  console.log("PASS: replay cannot change exact voice lot evidence or deduct twice");
+
   await seed("alice", "stale", 100, "g", 3);
   const stale = await persistVerifiedVoiceConsumption(
     alice,
