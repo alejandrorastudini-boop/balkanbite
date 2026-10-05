@@ -27,7 +27,7 @@ test("REMOVE_ITEMS gets one stable mutation ID and failure does not clear it", (
     'const mutationId = action === "remove" ? pendingMutationIdRef.current : null;',
   ));
   assert.ok(confirm.includes(
-    "onDeductItemsFromPantry(confirmedItems, mutationId)",
+    "onDeductItemsFromPantry(confirmedItems, mutationId, removalPurpose)",
   ));
 
   const success = confirm.indexOf("if (mutationSucceeded)");
@@ -70,6 +70,8 @@ test("hook caches the first exact stock baseline/allocation across uncertain ret
     "visible.unit !== observed.unit",
     "(visible.cookRevision ?? 0) !== observed.cookRevision",
     "preparedVoiceConsumptions.current.set(mutationId, prepared)",
+    "prepared.purpose !== purpose",
+    "purpose: prepared.purpose",
     "inFlightVoiceConsumptions.current.has(mutationId)",
     "persistVerifiedVoiceConsumption(db,",
   ]) {
@@ -102,6 +104,8 @@ test("App caches reviewed deductions and exact expected remainder before dispatc
     "const resolved = deductVoiceItemsFromPantry(pantry, items || [])",
     "const expectedRemaining: Record<string, number | null> = {}",
     "preparedSignedInVoiceDeductions.current.set(mutationId, plan)",
+    "plan.purpose !== purpose",
+    "plan.purpose",
     "pendingSignedInVoiceConsumptions.current.set(mutationId",
     "submitVoiceInventoryConsumption(",
     "plan.deductions",
@@ -112,7 +116,7 @@ test("App caches reviewed deductions and exact expected remainder before dispatc
   }
 
   const guestStart = block.indexOf("if (!currentUser)");
-  const mutationCheck = block.indexOf("if (!mutationId)");
+  const mutationCheck = block.indexOf("if (!mutationId || (purpose !==");
   const guestSet = block.indexOf("setPantry(guestResult.pantry)");
   assert.ok(guestStart >= 0 && guestSet > guestStart && mutationCheck > guestSet);
   assert.equal(
