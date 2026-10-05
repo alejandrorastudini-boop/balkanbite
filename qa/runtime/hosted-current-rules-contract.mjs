@@ -139,8 +139,20 @@ try {
   // They use synthetic-only IDs and no customer data; deleting the temporary
   // Auth identities below prevents future authenticated access. A privileged
   // cleanup mechanism is intentionally not introduced just for QA.
+  const cleanupErrors=[];
   for (const account of accounts) {
-    const login=await identity("accounts:signInWithPassword",{email:account.email,password:account.password,returnSecureToken:true},true);
-    if (login.res.ok) await identity("accounts:delete",{idToken:login.payload.idToken},true);
+    try {
+      const deletion=await identity("accounts:delete",{idToken:account.token},true);
+      assert.equal(deletion.res.ok,true,"Synthetic Auth account deletion failed for "+account.email);
+      const verify=await identity("accounts:signInWithPassword",{
+        email:account.email,password:account.password,returnSecureToken:true,
+      },true);
+      assert.equal(verify.res.ok,false,"Synthetic Auth account still accepts login: "+account.email);
+    } catch (error) {
+      cleanupErrors.push(error);
+    }
+  }
+  if (cleanupErrors.length) {
+    throw new AggregateError(cleanupErrors,"Synthetic hosted QA Auth cleanup incomplete");
   }
 }
