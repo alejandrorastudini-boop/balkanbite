@@ -6,7 +6,12 @@ import {
 } from "firebase/firestore";
 import { getScopedDocumentId } from "./cloudCollectionSync";
 import { isSafeInventoryLogicalId } from "./inventoryIdentity";
-import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
+import {
+  applyConfirmedInventoryLotDeduction,
+  inventoryLotStateMatchesQuantity,
+  type InventoryLotState,
+} from "./inventoryLots";
+import type { ConfirmedVoiceLotEvidence } from "./voiceLotEvidenceAdapter";
 import type { DeterministicRemovalPurpose } from "./deterministicRemovalIntent";
 
 export interface VerifiedVoiceStockExpectation {
@@ -29,6 +34,7 @@ export interface VerifiedVoiceConsumptionRequest {
   expectedStock: readonly VerifiedVoiceStockExpectation[];
   deductions: readonly VerifiedVoiceDeduction[];
   purpose: DeterministicRemovalPurpose;
+  lotEvidence?: readonly ConfirmedVoiceLotEvidence[];
 }
 
 export type VerifiedVoiceConsumptionResult =
@@ -46,6 +52,7 @@ export type VerifiedVoiceConsumptionResult =
         | "stale-stock"
         | "incompatible-unit"
         | "insufficient-quantity"
+        | "invalid-lot-evidence"
         | "conflicting-replay";
       pantryItemId?: string;
     };
@@ -84,6 +91,7 @@ function normalizeRequest(
 ): {
   expectations: VerifiedVoiceStockExpectation[];
   deductions: VerifiedVoiceDeduction[];
+  lotEvidence: ConfirmedVoiceLotEvidence[];
   signature: string;
 } | null {
   if (
@@ -139,15 +147,41 @@ function normalizeRequest(
     a.consumedQuantity - b.consumedQuantity
   );
 
+  const lotEvidence: ConfirmedVoiceLotEvidence[] = [];
+  if (request.lotEvidence !== undefined) {
+    if (!Array.isArray(request.lotEvidence) || request.lotEvidence.length === 0 ||
+        request.lotEvidence.length !== expectationIds.size) return null;
+    const evidenceIds = new Set<string>();
+    for (const evidence of request.lotEvidence) {
+      if (!evidence || !isSafeInventoryLogicalId(evidence.pantryItemId) ||
+          !expectationIds.has(evidence.pantryItemId) || evidenceIds.has(evidence.pantryItemId) ||
+          evidence.purpose !== request.purpose || !/^\\d{4}-\\d{2}-\\d{2}$/.test(evidence.reviewedOn) ||
+          !Array.isArray(evidence.deductions) || evidence.deductions.length === 0) return null;
+      const lotIds = new Set<string>();
+      const normalizedDeductions = [];
+      for (const deduction of evidence.deductions) {
+        if (!deduction || typeof deduction.lotId !== "string" || !deduction.lotId.trim() ||
+            lotIds.has(deduction.lotId) || !positive(deduction.quantity)) return null;
+        lotIds.add(deduction.lotId);
+        normalizedDeductions.push({ lotId: deduction.lotId, quantity: deduction.quantity });
+      }
+      normalizedDeductions.sort((a, b) => a.lotId.localeCompare(b.lotId));
+      evidenceIds.add(evidence.pantryItemId);
+      lotEvidence.push({ ...evidence, deductions: normalizedDeductions });
+    }
+    lotEvidence.sort((a, b) => a.pantryItemId.localeCompare(b.pantryItemId));
+  }
+
   const signature = JSON.stringify({
     version: 1,
     source: "voice",
     purpose: request.purpose,
     expectedStock: expectations,
     deductions,
+    lotEvidence,
   });
 
-  return { expectations, deductions, signature };
+  return { expectations, deductions, lotEvidence, signature };
 }
 
 /**
@@ -181,7 +215,8 @@ export async function persistVerifiedVoiceConsumption(
   if (!normalized) return review("invalid-request");
 
   const { userId, mutationId } = request;
-  const { expectations, deductions, signature } = normalized;
+  const { expectations, deductions, lotEvidence, signature } = normalized;
+  const lotEvidenceById = new Map(lotEvidence.map(item => [item.pantryItemId, item]));
   const journalRef = doc(
     db,
     "inventoryConsumptions",
@@ -225,6 +260,7 @@ export async function persistVerifiedVoiceConsumption(
           quantity: number;
           unit: string;
           cookRevision: number;
+          lotState?: InventoryLotState;
         }>();
 
         for (const { expected, ref } of stockRefs) {
@@ -259,6 +295,7 @@ export async function persistVerifiedVoiceConsumption(
             quantity: data.quantity,
             unit: data.unit,
             cookRevision: revision,
+            ...(data.lotState !== undefined ? { lotState: data.lotState as InventoryLotState } : {}),
           });
         }
 
@@ -278,11 +315,32 @@ export async function persistVerifiedVoiceConsumption(
           );
         }
 
+        const exactLotStates = new Map<string, InventoryLotState | null>();
         for (const [pantryItemId, consumed] of totals) {
           const stock = remote.get(pantryItemId);
           if (!stock) return review("invalid-stock", pantryItemId);
           if (consumed > stock.quantity + 1e-9) {
             return review("insufficient-quantity", pantryItemId);
+          }
+          const evidence = lotEvidenceById.get(pantryItemId);
+          if (evidence) {
+            if (!stock.lotState) return review("invalid-lot-evidence", pantryItemId);
+            const evidenceTotal = roundQuantity(evidence.deductions.reduce((sum, item) => sum + item.quantity, 0));
+            if (Math.abs(evidenceTotal - consumed) > 1e-9) {
+              return review("invalid-lot-evidence", pantryItemId);
+            }
+            const exact = applyConfirmedInventoryLotDeduction(
+              stock.quantity,
+              stock.unit,
+              stock.lotState,
+              evidence.deductions,
+              request.purpose === "food-use" ? "food-use" : "removal",
+              evidence.reviewedOn,
+            );
+            if (exact.outcome !== "applied") {
+              return review("invalid-lot-evidence", pantryItemId);
+            }
+            exactLotStates.set(pantryItemId, exact.state);
           }
         }
 
@@ -290,6 +348,11 @@ export async function persistVerifiedVoiceConsumption(
           const stock = remote.get(pantryItemId);
           if (!stock) return review("invalid-stock", pantryItemId);
           const remaining = roundQuantity(stock.quantity - consumed);
+          const hasExactLotEvidence = lotEvidenceById.has(pantryItemId);
+          const exactLotState = exactLotStates.get(pantryItemId);
+          if (hasExactLotEvidence && remaining > 1e-9 && !exactLotState) {
+            return review("invalid-lot-evidence", pantryItemId);
+          }
           tx.update(
             stock.ref,
             remaining <= 1e-9
@@ -302,7 +365,9 @@ export async function persistVerifiedVoiceConsumption(
                 }
               : {
                   quantity: remaining,
-                  lotState: { version: 1, unallocatedQuantity: remaining, activeLots: [] },
+                  lotState: hasExactLotEvidence
+                    ? exactLotState
+                    : { version: 1, unallocatedQuantity: remaining, activeLots: [] },
                   estimatedCostEUR: null,
                   cookRevision: stock.cookRevision + 1,
                   _deleted: false,
@@ -318,6 +383,7 @@ export async function persistVerifiedVoiceConsumption(
           purpose: request.purpose,
           requestSignature: signature,
           deductions,
+          lotEvidence,
           createdAt: serverTimestamp(),
         });
 
