@@ -16,16 +16,18 @@ import { PantryItem, Language, Currency } from "../types";
 import { t } from "../utils/translations";
 import { validateManualPantryRequiredFields } from "../utils/manualPantryValidation";
 import { knownPantryCostEUR, summarizePantryCosts } from "../utils/pantryCostSummary";
+import { derivePantryItemExpiry } from "../utils/effectiveExpiry";
+import { useLocalCalendarDay } from "../hooks/useLocalCalendarDay";
 import { ConfirmModal } from "./ConfirmModal";
 import { ScanModal } from "./ScanModal";
 
 interface PantryViewProps {
   pantry: PantryItem[];
-  onAddItem: (item: Omit<PantryItem, "id" | "addedAt">) => void;
-  onAddMultipleItems?: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => void;
-  onUpdateQuantity: (id: string, newQty: number) => void;
-  onDeleteItem: (id: string) => void;
-  onClearAll: () => void;
+  onAddItem: (item: Omit<PantryItem, "id" | "addedAt">) => boolean | Promise<boolean>;
+  onAddMultipleItems?: (items: Array<Omit<PantryItem, "id" | "addedAt">>) => boolean | Promise<boolean>;
+  onUpdateQuantity: (id: string, newQty: number, viewed: PantryItem) => void;
+  onDeleteItem: (id: string, viewed: PantryItem) => void;
+  onClearAll: (mutationId: string) => boolean | Promise<boolean>;
   onOpenVoiceTab: () => void;
   language: Language;
   currency: Currency;
@@ -48,8 +50,11 @@ export const PantryView: React.FC<PantryViewProps> = ({
   const [search, setSearch] = useState("");
   const [activeCategory, setActiveCategory] = useState<string>("All");
   const [showAddModal, setShowAddModal] = useState(false);
+  const [isSavingItem, setIsSavingItem] = useState(false);
   const [showScanModal, setShowScanModal] = useState(false);
   const [showClearConfirm, setShowClearConfirm] = useState(false);
+  const [clearMutationId, setClearMutationId] = useState<string | null>(null);
+  const calendarDay = useLocalCalendarDay();
 
   // New item form state
   const [name, setName] = useState("");
@@ -90,17 +95,31 @@ export const PantryView: React.FC<PantryViewProps> = ({
     return matchesSearch && matchesCat;
   });
 
-  const expiringCount = pantry.filter(
-    (i) => i.expiryDaysLeft !== undefined && i.expiryDaysLeft <= 3
-  ).length;
+  const expiryNow = calendarDay
+    ? new Date(`${calendarDay}T12:00:00`)
+    : new Date();
+  const expiringCount = pantry.filter((item) => {
+    const expiry = derivePantryItemExpiry(item, expiryNow);
+    return (
+      expiry.status === "known" &&
+      (expiry.expired || expiry.daysRemaining <= 3)
+    );
+  }).length;
 
   const totalValueEUR = summarizePantryCosts(pantry).totalEUR;
 
   const handleClearWithConfirm = () => {
+    if (!clearMutationId) {
+      const id = typeof globalThis.crypto?.randomUUID === "function"
+        ? globalThis.crypto.randomUUID()
+        : `clear-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+      setClearMutationId(id);
+    }
     setShowClearConfirm(true);
   };
 
-  const handleCreateItem = (e: React.FormEvent) => {
+  const handleCreateItem = async (e: React.FormEvent) => {
+    if (isSavingItem) return;
     e.preventDefault();
     const requiredFields = validateManualPantryRequiredFields({
       quantity: String(quantity),
@@ -131,16 +150,19 @@ export const PantryView: React.FC<PantryViewProps> = ({
     if (!requiredFields.valid) {
       setFormError(
         language === "bg"
-          ? "Задължителни: име, категория, положително количество и мерна единица. По избор: дни до изтичане и цена; ако са попълнени, трябва да са неотрицателни числа."
+          ? "Задължителни: име, категория, положително количество и мерна единица. По избор: цели дни до изтичане и цена; ако са попълнени, трябва да са неотрицателни стойности."
           : language === "es"
-            ? "Obligatorios: nombre, categoría, cantidad positiva y unidad. Opcionales: días hasta caducidad y coste; si se indican, deben ser números no negativos."
-            : "Required: name, category, a positive quantity, and a unit. Optional: expiry days and cost; if provided, they must be non-negative numbers.",
+            ? "Obligatorios: nombre, categoría, cantidad positiva y unidad. Opcionales: días enteros hasta caducidad y coste; si se indican, deben ser valores no negativos."
+            : "Required: name, category, a positive quantity, and a unit. Optional: whole days until expiry and cost; if provided, they must be non-negative values.",
       );
       return;
     }
 
     setFormError("");
-    onAddItem({
+    setIsSavingItem(true);
+    let saved = false;
+    try {
+      saved = await Promise.resolve(onAddItem({
       name: name.trim(),
       quantity: requiredFields.quantity,
       unit: requiredFields.unit,
@@ -151,7 +173,23 @@ export const PantryView: React.FC<PantryViewProps> = ({
       ...(requiredFields.cost !== undefined
         ? { estimatedCostEUR: requiredFields.cost }
         : {}),
-    });
+    }
+      ));
+    } catch (error) {
+      console.error("Manual pantry item save failed:", error);
+    } finally {
+      setIsSavingItem(false);
+    }
+    if (!saved) {
+      setFormError(
+        language === "bg"
+          ? "Продуктът не беше запазен. Данните остават във формуляра — опитайте отново."
+          : language === "es"
+            ? "El alimento no se ha guardado. Tus datos siguen en el formulario; inténtalo de nuevo."
+            : "The item was not saved. Your entries remain in the form; try again.",
+      );
+      return;
+    }
 
     setName("");
     setQuantity("");
@@ -216,7 +254,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                   : language === "bg"
                   ? "Няма данни"
                   : "No data"
-                : `€${totalValueEUR.toFixed(1)}`}
+                : `~€${totalValueEUR.toFixed(1)}`}
             </span>
           </div>
         </div>
@@ -402,11 +440,16 @@ export const PantryView: React.FC<PantryViewProps> = ({
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-4 gap-3">
           {filteredItems.map((item) => {
+            const effectiveExpiry = derivePantryItemExpiry(item, expiryNow);
+            const hasKnownExpiry = effectiveExpiry.status === "known";
             const isExpiring =
-              item.expiryDaysLeft !== undefined && item.expiryDaysLeft <= 3;
+              hasKnownExpiry &&
+              !effectiveExpiry.expired &&
+              effectiveExpiry.daysRemaining <= 3;
             const isCritical =
-              item.expiryDaysLeft !== undefined && item.expiryDaysLeft <= 1;
-              
+              hasKnownExpiry &&
+              (effectiveExpiry.expired || effectiveExpiry.daysRemaining <= 1);
+
             const displayName =
               language === "bg" && item.nameBg ? item.nameBg : item.name;
             const itemCostEUR = knownPantryCostEUR(item.estimatedCostEUR);
@@ -437,23 +480,42 @@ export const PantryView: React.FC<PantryViewProps> = ({
                       {item.expiryDaysLeft !== undefined && (
                         <span
                           className={`text-[10px] flex items-center gap-1 font-bold px-2 py-0.5 rounded-full border ${
-                            isCritical 
-                              ? "text-rose-400 bg-rose-500/10 border-rose-500/20 animate-pulse" 
-                              : isExpiring 
-                                ? "text-amber-400 bg-amber-500/10 border-amber-500/20" 
-                                : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
+                            item.expiryIsPartial
+                              ? "text-stone-300 bg-white/[0.04] border-white/[0.08]"
+                              : isCritical
+                                ? "text-rose-400 bg-rose-500/10 border-rose-500/20 animate-pulse"
+                                : isExpiring
+                                  ? "text-amber-400 bg-amber-500/10 border-amber-500/20"
+                                  : "text-emerald-400 bg-emerald-500/10 border-emerald-500/20"
                           }`}
                         >
                           <Calendar className="w-3 h-3" />
-                          {item.expiryIsPartial && (language === "es" ? "Parte del stock: " : language === "bg" ? "Част от запаса: " : "Some stock: ")}
-                          {item.expiryDaysLeft} {currentText.shelfLifeDays}
+                          {item.expiryIsPartial
+                            ? language === "es"
+                              ? "Caducidad parcial: revisar"
+                              : language === "bg"
+                                ? "Частичен срок: преглед"
+                                : "Partial expiry: review"
+                            : effectiveExpiry.status === "known"
+                              ? effectiveExpiry.expired
+                                ? language === "es"
+                                  ? "Fecha indicada superada"
+                                  : language === "bg"
+                                    ? "Посоченият срок е изтекъл"
+                                    : "Entered expiry has passed"
+                                : `${effectiveExpiry.daysRemaining} ${currentText.shelfLifeDays}`
+                              : language === "es"
+                                ? "Caducidad desconocida"
+                                : language === "bg"
+                                  ? "Неизвестен срок"
+                                  : "Expiry unknown"}
                         </span>
                       )}
                     </div>
                   </div>
 
                   <button
-                    onClick={() => onDeleteItem(item.id)}
+                    onClick={() => onDeleteItem(item.id, item)}
                     disabled={inventoryIsProvisional}
                     className="text-stone-500 hover:text-rose-400 p-1.5 rounded-lg hover:bg-rose-500/10 transition-all opacity-60 group-hover:opacity-100 disabled:opacity-30 disabled:cursor-not-allowed"
                     title={currentText.delete}
@@ -470,7 +532,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
                       onClick={() =>
                         onUpdateQuantity(
                           item.id,
-                          Math.max(0, item.quantity - (item.unit === "g" ? 50 : 1))
+                          Math.max(0, item.quantity - (item.unit === "g" ? 50 : 1)),
+                          item
                         )
                       }
                       className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
@@ -486,7 +549,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
                       onClick={() =>
                         onUpdateQuantity(
                           item.id,
-                          item.quantity + (item.unit === "g" ? 50 : 1)
+                          item.quantity + (item.unit === "g" ? 50 : 1),
+                          item
                         )
                       }
                       className="w-7 h-7 rounded-lg flex items-center justify-center bg-white/[0.04] text-stone-400 hover:bg-white/[0.1] hover:text-white transition-colors cursor-pointer disabled:opacity-40 disabled:cursor-not-allowed"
@@ -518,6 +582,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
               </h2>
               <button
                 onClick={() => setShowAddModal(false)}
+                disabled={isSavingItem}
                 className="text-stone-400 hover:text-white text-sm"
               >
                 ✕
@@ -637,7 +702,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
                     id="pantry-expiry-days"
                     type="number"
                     min="0"
-                    step="any"
+                    step="1"
                     value={expiryDays}
                     onChange={(e) =>
                     setExpiryDays(
@@ -684,12 +749,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setShowAddModal(false)}
+                  disabled={isSavingItem}
                   className="px-3 py-1.5 rounded-lg bg-stone-700 text-stone-300 hover:bg-stone-600 text-xs font-semibold cursor-pointer"
                 >
                   {currentText.cancel}
                 </button>
                 <button
                   type="submit"
+                  disabled={isSavingItem}
                   className="px-4 py-1.5 rounded-lg bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold shadow-md cursor-pointer"
                 >
                   {currentText.save}
@@ -703,10 +770,17 @@ export const PantryView: React.FC<PantryViewProps> = ({
       {/* Confirmation Modal for Clearing Pantry */}
       <ConfirmModal
         isOpen={showClearConfirm}
-        onClose={() => setShowClearConfirm(false)}
-        onConfirm={() => {
-          onClearAll();
+        onClose={() => {
           setShowClearConfirm(false);
+          setClearMutationId(null);
+        }}
+        onConfirm={async () => {
+          if (!clearMutationId) return false;
+          const accepted = await onClearAll(clearMutationId);
+          if (accepted) {
+            setClearMutationId(null);
+          }
+          return accepted;
         }}
         title={currentText.pantryClearAll}
         description={currentText.pantryClearConfirm}
@@ -721,12 +795,14 @@ export const PantryView: React.FC<PantryViewProps> = ({
         onClose={() => setShowScanModal(false)}
         language={language}
         currency={currency}
-        onAddItems={(items) => {
+        onAddItems={async (items) => {
           if (onAddMultipleItems) {
-            onAddMultipleItems(items);
-          } else {
-            (items || []).forEach((item) => onAddItem(item));
+            return onAddMultipleItems(items);
           }
+          const results = await Promise.all(
+            (items || []).map((item) => Promise.resolve(onAddItem(item)))
+          );
+          return results.every(Boolean);
         }}
       />
     </div>

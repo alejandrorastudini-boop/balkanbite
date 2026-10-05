@@ -1,12 +1,17 @@
 import { PantryItem, RecipeIngredient } from "../types";
-import { findMatchingPantryItems } from "./menuAutoPlanner";
+import { findAuthoritativePantryItems } from "./menuAutoPlanner";
 import { normalizeQuantity } from "./quantityUnits";
+import {
+  derivePantryItemExpiry,
+  pantryItemNeedsExpiryReview,
+} from "./effectiveExpiry";
 
 export type PantryConsumptionIssueReason =
   | "invalid_requirement"
   | "no_matching_item"
   | "incompatible_unit"
-  | "insufficient_quantity";
+  | "insufficient_quantity"
+  | "expiry_review_required";
 
 export interface PantryConsumptionIssue {
   ingredientName: string;
@@ -34,10 +39,21 @@ export interface VoiceRemovalItem {
   unit?: unknown;
 }
 
-const sortConsumptionCandidates = (items: PantryItem[]): PantryItem[] =>
+const sortConsumptionCandidates = (
+  items: PantryItem[],
+  now: Date,
+): PantryItem[] =>
   [...items].sort((a, b) => {
-    const aExpiry = a.expiryDaysLeft ?? Number.POSITIVE_INFINITY;
-    const bExpiry = b.expiryDaysLeft ?? Number.POSITIVE_INFINITY;
+    const aEffective = derivePantryItemExpiry(a, now);
+    const bEffective = derivePantryItemExpiry(b, now);
+    const aExpiry =
+      aEffective.status === "known" && !aEffective.expired
+        ? aEffective.daysRemaining
+        : Number.POSITIVE_INFINITY;
+    const bExpiry =
+      bEffective.status === "known" && !bEffective.expired
+        ? bEffective.daysRemaining
+        : Number.POSITIVE_INFINITY;
     if (aExpiry !== bExpiry) return aExpiry - bExpiry;
 
     const aAddedAt = a.addedAt || "";
@@ -52,7 +68,9 @@ const roundQuantity = (value: number): number =>
 
 export function deductRecipeIngredientsFromPantry(
   pantry: PantryItem[],
-  ingredients: RecipeIngredient[]
+  ingredients: RecipeIngredient[],
+  now: Date = new Date(),
+  requireExpiryReview = true,
 ): PantryConsumptionResult {
   let workingPantry = pantry.map((item) => ({ ...item }));
   const deductions: PantryConsumptionDeduction[] = [];
@@ -70,7 +88,7 @@ export function deductRecipeIngredientsFromPantry(
       continue;
     }
 
-    const matchingItems = findMatchingPantryItems(ingredient.name, workingPantry);
+    const matchingItems = findAuthoritativePantryItems(ingredient.name, workingPantry);
     if (matchingItems.length === 0) {
       issues.push({
         ingredientName: ingredient.name,
@@ -81,19 +99,34 @@ export function deductRecipeIngredientsFromPantry(
       continue;
     }
 
-    const compatibleItems = sortConsumptionCandidates(matchingItems).filter((item) => {
+    const compatibleMatchingItems = matchingItems.filter((item) => {
       const normalized = normalizeQuantity(item.quantity, item.unit);
       return Boolean(
         normalized && normalized.unit.dimension === required.unit.dimension
       );
     });
 
+    const compatibleItems = sortConsumptionCandidates(
+      compatibleMatchingItems.filter(
+        (item) =>
+          !requireExpiryReview || !pantryItemNeedsExpiryReview(item, now),
+      ),
+      now,
+    );
+
     if (compatibleItems.length === 0) {
+      const hasCompatibleReviewStock =
+        requireExpiryReview &&
+        compatibleMatchingItems.some(
+          (item) => pantryItemNeedsExpiryReview(item, now),
+        );
       issues.push({
         ingredientName: ingredient.name,
         requiredAmount: ingredient.amount,
         requiredUnit: ingredient.unit,
-        reason: "incompatible_unit",
+        reason: hasCompatibleReviewStock
+          ? "expiry_review_required"
+          : "incompatible_unit",
       });
       continue;
     }
@@ -104,11 +137,22 @@ export function deductRecipeIngredientsFromPantry(
     }, 0);
 
     if (totalCompatibleBase + 1e-9 < required.baseQuantity) {
+      const reviewCompatibleBase = requireExpiryReview
+        ? compatibleMatchingItems
+        .filter((item) => pantryItemNeedsExpiryReview(item, now))
+        .reduce((sum, item) => {
+          const normalized = normalizeQuantity(item.quantity, item.unit);
+          return sum + (normalized?.baseQuantity || 0);
+        }, 0)
+        : 0;
       issues.push({
         ingredientName: ingredient.name,
         requiredAmount: ingredient.amount,
         requiredUnit: ingredient.unit,
-        reason: "insufficient_quantity",
+        reason:
+          totalCompatibleBase + reviewCompatibleBase + 1e-9 >= required.baseQuantity
+            ? "expiry_review_required"
+            : "insufficient_quantity",
       });
       continue;
     }
@@ -151,6 +195,15 @@ export function deductRecipeIngredientsFromPantry(
         workingPantry[index] = {
           ...current,
           quantity: roundQuantity(remainingInItemUnit),
+          lotState: {
+            version: 1,
+            unallocatedQuantity: roundQuantity(remainingInItemUnit),
+            activeLots: [],
+          },
+          // Quantity changed without new monetary evidence. Legacy/current
+          // estimatedCostEUR cannot be assumed to be the value of the
+          // remaining stock, so keep money unknown instead of stale.
+          estimatedCostEUR: null,
         };
       }
 
@@ -180,7 +233,8 @@ export function deductRecipeIngredientsFromPantry(
  */
 export function deductVoiceItemsFromPantry(
   pantry: PantryItem[],
-  items: VoiceRemovalItem[]
+  items: VoiceRemovalItem[],
+  now: Date = new Date(),
 ): PantryConsumptionResult {
   const ingredients: RecipeIngredient[] = (items || []).map((item) => ({
     name: typeof item.name === "string" ? item.name.trim() : "",
@@ -194,5 +248,8 @@ export function deductVoiceItemsFromPantry(
     inPantry: true,
   }));
 
-  return deductRecipeIngredientsFromPantry(pantry, ingredients);
+  // A confirmed voice REMOVE_ITEMS action may represent disposal, not eating.
+  // It must be able to remove review-required stock without claiming it was
+  // suitable for consumption.
+  return deductRecipeIngredientsFromPantry(pantry, ingredients, now, false);
 }

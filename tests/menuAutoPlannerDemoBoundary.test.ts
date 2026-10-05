@@ -59,7 +59,13 @@ test("an explicit existing plan is preserved and only pantry availability is syn
     { date: "2026-09-21", breakfast: plannedRecipe },
   ];
 
-  const result = adaptMealPlanToPantry(pantry, [], existingPlan);
+  const result = adaptMealPlanToPantry(
+    pantry,
+    [],
+    existingPlan,
+    undefined,
+    new Date("2026-09-21T12:00:00.000Z"),
+  );
 
   assert.equal(result.newPlan.length, 1);
   assert.equal(result.newPlan[0]?.date, "2026-09-21");
@@ -77,4 +83,41 @@ test("planner source cannot import implicit initial or sample recipe fallbacks",
 
   assert.doesNotMatch(source, /SAMPLE_RECIPES/);
   assert.doesNotMatch(source, /INITIAL_RECIPES/);
+});
+
+test("planner does not treat passed effective expiry as ready or perishable-saved", () => {
+  const existingPlan: MealPlanDay[] = [
+    { date: "2026-09-25", breakfast: plannedRecipe },
+  ];
+
+  const result = adaptMealPlanToPantry(
+    pantry,
+    [],
+    existingPlan,
+    undefined,
+    new Date("2026-09-25T12:00:00.000Z"),
+  );
+
+  assert.equal(result.readyToCookMealsCount, 0);
+  assert.equal(result.perishableSavedCount, 0);
+});
+
+test("planner does not treat partial merged expiry as exact perishable evidence", () => {
+  const partialPantry: PantryItem[] = [
+    { ...pantry[0], expiryIsPartial: true },
+  ];
+  const existingPlan: MealPlanDay[] = [
+    { date: "2026-09-21", breakfast: plannedRecipe },
+  ];
+
+  const result = adaptMealPlanToPantry(
+    partialPantry,
+    [],
+    existingPlan,
+    undefined,
+    new Date("2026-09-21T12:00:00.000Z"),
+  );
+
+  assert.equal(result.readyToCookMealsCount, 1);
+  assert.equal(result.perishableSavedCount, 0);
 });

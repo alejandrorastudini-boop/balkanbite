@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { buildRecipeShoppingNeeds } from '../src/utils/recipeShoppingNeeds';
+import { assessRecipeShoppingNeed, buildRecipeShoppingNeeds } from '../src/utils/recipeShoppingNeeds';
 import { INITIAL_RECIPES } from '../src/data/initialData';
 import type { PantryItem, ShoppingItem } from '../src/types';
 const stock = (quantity: number, unit: string): PantryItem => ({ id: `${quantity}-${unit}`, name: 'Lentejas', quantity, unit, category: 'Pantry/Grains', addedAt: '2026-09-13' });
@@ -23,4 +23,203 @@ test('counts only compatible pending quantities and is idempotent', () => {
 test('unknown category and invalid quantities stay conservative', () => {
  assert.equal(buildRecipeShoppingNeeds(recipe(500, 'g'), []).items[0].category, 'Other');
  for (const amount of [NaN, Infinity, -1, 0]) assert.equal(buildRecipeShoppingNeeds(recipe(amount, 'g'), []).items.length, 0);
+});
+
+
+test("expiry-review stock makes recipe shopping need unverified instead of covered or auto-purchased", () => {
+  const ingredient = { name: "Tomato", amount: 100, unit: "g", inPantry: false };
+  const reviewPantry = [{
+    id: "tomato-old",
+    name: "Tomato",
+    quantity: 200,
+    unit: "g",
+    category: "Produce" as const,
+    addedAt: "2026-10-01",
+    expiryDaysLeft: 1,
+  }];
+
+  const assessment = assessRecipeShoppingNeed(
+    ingredient,
+    reviewPantry,
+    [],
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+  assert.equal(assessment.status, "unverified");
+
+  const needs = buildRecipeShoppingNeeds(
+    { ...INITIAL_RECIPES[0], ingredients: [ingredient] },
+    reviewPantry,
+    [],
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+  assert.deepEqual(needs.items, []);
+  assert.equal(needs.unverified.length, 1);
+});
+
+test("review stock does not fabricate a shortfall when usable stock alone is insufficient", () => {
+  const ingredient = { name: "Tomato", amount: 100, unit: "g", inPantry: false };
+  const mixedPantry = [
+    {
+      id: "tomato-ok",
+      name: "Tomato",
+      quantity: 50,
+      unit: "g",
+      category: "Produce" as const,
+      addedAt: "2026-10-04",
+    },
+    {
+      id: "tomato-review",
+      name: "Tomato",
+      quantity: 100,
+      unit: "g",
+      category: "Produce" as const,
+      addedAt: "2026-10-01",
+      expiryDaysLeft: 1,
+    },
+  ];
+
+  const assessment = assessRecipeShoppingNeed(
+    ingredient,
+    mixedPantry,
+    [],
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+  assert.equal(assessment.status, "unverified");
+});
+
+test("missing expiry evidence remains eligible for deterministic shopping coverage", () => {
+  const ingredient = { name: "Tomato", amount: 100, unit: "g", inPantry: false };
+  const unknownExpiryPantry = [{
+    id: "tomato-unknown",
+    name: "Tomato",
+    quantity: 100,
+    unit: "g",
+    category: "Produce" as const,
+    addedAt: "2026-09-01",
+  }];
+
+  const assessment = assessRecipeShoppingNeed(
+    ingredient,
+    unknownExpiryPantry,
+    [],
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+  assert.equal(assessment.status, "covered");
+});
+
+
+test("qualified pending product names do not hide a different recipe shortfall", () => {
+  const result = buildRecipeShoppingNeeds(
+    recipe(500, "g"),
+    [stock(320, "g")],
+    [pending(180, "g"), { ...pending(180, "g"), id: "s2", name: "Lentejas rojas" }],
+  );
+  assert.equal(result.items.length, 0);
+
+  const onlyQualified = buildRecipeShoppingNeeds(
+    recipe(500, "g"),
+    [stock(320, "g")],
+    [{ ...pending(180, "g"), name: "Lentejas rojas" }],
+  );
+  assert.equal(onlyQualified.items[0]?.quantity, 180);
+});
+
+test("pending shopping identity normalizes Unicode form, case and whitespace only", () => {
+  const normalizedPending = {
+    ...pending(180, "g"),
+    name: "  LENTEJAS   ",
+  };
+  assert.equal(
+    buildRecipeShoppingNeeds(
+      recipe(500, "g"),
+      [stock(320, "g")],
+      [normalizedPending],
+    ).items.length,
+    0,
+  );
+});
+
+
+test("known pending shopping can cover usable shortfall even when other stock needs expiry review", () => {
+  const ingredient = { name: "Tomato", amount: 100, unit: "g", inPantry: false };
+  const mixedPantry = [
+    {
+      id: "tomato-ok",
+      name: "Tomato",
+      quantity: 50,
+      unit: "g",
+      category: "Produce" as const,
+      addedAt: "2026-10-04",
+    },
+    {
+      id: "tomato-review",
+      name: "Tomato",
+      quantity: 100,
+      unit: "g",
+      category: "Produce" as const,
+      addedAt: "2026-10-01",
+      expiryDaysLeft: 1,
+    },
+  ];
+  const pendingShopping = [{
+    id: "tomato-pending",
+    name: "Tomato",
+    quantity: 50,
+    unit: "g",
+    category: "Produce" as const,
+    checked: false,
+  }];
+
+  const assessment = assessRecipeShoppingNeed(
+    ingredient,
+    mixedPantry,
+    pendingShopping,
+    new Date("2026-10-04T12:00:00.000Z"),
+  );
+  assert.equal(assessment.status, "covered");
+  assert.equal(assessment.quantity, 0);
+});
+
+
+test("repeated recipe ingredients cannot reuse the same pantry quantity", () => {
+  const repeated = {
+    ...INITIAL_RECIPES[0],
+    ingredients: [
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+    ],
+  };
+  const result = buildRecipeShoppingNeeds(repeated, [stock(500, "g")]);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.quantity, 300);
+});
+
+test("repeated recipe ingredients cannot reuse the same pending shopping quantity", () => {
+  const repeated = {
+    ...INITIAL_RECIPES[0],
+    ingredients: [
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+    ],
+  };
+  const result = buildRecipeShoppingNeeds(repeated, [], [pending(500, "g")]);
+  assert.equal(result.items.length, 1);
+  assert.equal(result.items[0]?.quantity, 300);
+});
+
+test("pantry and pending quantities reserve across repeated requirements with compatible units", () => {
+  const repeated = {
+    ...INITIAL_RECIPES[0],
+    ingredients: [
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+      { name: "Lentejas", amount: 400, unit: "g", inPantry: false },
+    ],
+  };
+  const result = buildRecipeShoppingNeeds(
+    repeated,
+    [stock(0.5, "kg")],
+    [pending(300, "g")],
+  );
+  assert.equal(result.items.length, 0);
+  assert.equal(result.unverified.length, 0);
 });

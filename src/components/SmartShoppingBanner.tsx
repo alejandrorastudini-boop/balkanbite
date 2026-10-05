@@ -8,7 +8,7 @@ interface SmartShoppingBannerProps {
   language: Language;
   currency: Currency;
   onOpenAdvisorModal: () => void;
-  onAddMissingToShoppingList: (items: Array<Omit<ShoppingItem, "id" | "checked">>) => void;
+  onAddMissingToShoppingList: (items: Array<Omit<ShoppingItem, "id" | "checked">>) => boolean | Promise<boolean>;
   onGoToShoppingTab: () => void;
   theme?: "dark" | "light";
 }
@@ -25,18 +25,34 @@ export const SmartShoppingBanner: React.FC<SmartShoppingBannerProps> = ({
   const isDark = theme === "dark";
   const [isDismissed, setIsDismissed] = useState(false);
   const [addedSuccess, setAddedSuccess] = useState(false);
+  const [isAdding, setIsAdding] = useState(false);
+  const [addError, setAddError] = useState(false);
 
   if (isDismissed) return null;
   if (diagnostic.urgencyLevel === "optimal") return null;
 
   const isUrgent = diagnostic.urgencyLevel === "urgent";
 
-  const handleQuickAdd = (e: React.MouseEvent) => {
+  const handleQuickAdd = async (e: React.MouseEvent) => {
     e.stopPropagation();
-    if (diagnostic.itemsToAddToShoppingList.length > 0) {
-      onAddMissingToShoppingList(diagnostic.itemsToAddToShoppingList);
+    if (diagnostic.itemsToAddToShoppingList.length === 0 || isAdding) return;
+    setAddError(false);
+    setIsAdding(true);
+    try {
+      const saved = await Promise.resolve(
+        onAddMissingToShoppingList(diagnostic.itemsToAddToShoppingList)
+      );
+      if (!saved) {
+        setAddError(true);
+        return;
+      }
       setAddedSuccess(true);
       setTimeout(() => setAddedSuccess(false), 3500);
+    } catch (error) {
+      console.error("Smart shopping quick add failed:", error);
+      setAddError(true);
+    } finally {
+      setIsAdding(false);
     }
   };
 
@@ -123,7 +139,7 @@ export const SmartShoppingBanner: React.FC<SmartShoppingBannerProps> = ({
             <button
               type="button"
               onClick={handleQuickAdd}
-              disabled={addedSuccess}
+              disabled={addedSuccess || isAdding}
               className="flex-1 sm:flex-initial px-3 py-1.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-xs font-bold flex items-center justify-center gap-1.5 transition-all shadow-sm cursor-pointer"
             >
               {addedSuccess ? (
@@ -144,6 +160,11 @@ export const SmartShoppingBanner: React.FC<SmartShoppingBannerProps> = ({
             </button>
           )}
 
+          {addError && (
+            <span role="alert" className="text-[10px] text-red-300">
+              {language === "bg" ? "Не е запазено" : language === "es" ? "No guardado" : "Not saved"}
+            </span>
+          )}
           <button
             type="button"
             onClick={onOpenAdvisorModal}

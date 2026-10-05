@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { useRef, useState } from "react";
 import {
   Sparkles,
   Clock,
@@ -18,19 +18,24 @@ import {
 import { Recipe, PantryItem, Language, Currency } from "../types";
 import { t } from "../utils/translations";
 import { getRecipeImageUrl } from "../utils/recipeImages";
-import { isIngredientQuantityAvailable } from "../utils/menuAutoPlanner";
+import { syncRecipeWithPantry } from "../utils/menuAutoPlanner";
 import { ConfirmModal } from "./ConfirmModal";
+import { CookLotReviewModal } from "./CookLotReviewModal";
 import { getRecipeCookFeedback, type RecipeCookOutcome } from "../utils/recipeCookFeedback";
+import { deductRecipeIngredientsFromPantry } from "../utils/pantryConsumption";
 import { formatRecipeCostEUR, recipeCheapFilterLabel, recipeCostCurrencyNotice } from "../utils/recipeCostDisplay";
+import { planCookLotEvidenceReview, type CookLotEvidencePlan } from "../utils/cookLotEvidencePlanner";
+import { buildCookLotEvidence, type CookLotReviewSelection } from "../utils/cookLotEvidenceAdapter";
+import type { ConfirmedCookLotEvidence } from "../utils/confirmedCookFirestore";
 
 interface RecipeViewProps {
   recipes: Recipe[];
   pantry: PantryItem[];
-  onCookRecipe: (recipe: Recipe) => RecipeCookOutcome;
-  onAddMissingToShopping: (recipe: Recipe) => void;
+  onCookRecipe: (recipe: Recipe, cookConfirmationId: string, lotEvidence?: readonly ConfirmedCookLotEvidence[]) => RecipeCookOutcome | Promise<RecipeCookOutcome>;
+  onAddMissingToShopping: (recipe: Recipe) => boolean | Promise<boolean>;
   onGenerateAiRecipes: () => Promise<void>;
-  onClearRecipes?: () => void;
-  onLoadSampleRecipes?: () => void;
+  onClearRecipes?: () => void | boolean | Promise<void | boolean>;
+  onLoadSampleRecipes?: () => boolean | Promise<boolean>;
   isLoadingAi: boolean;
   language: Language;
   currency: Currency;
@@ -52,7 +57,55 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   const [activeFilter, setActiveFilter] = useState<string>("all");
   const [cookFeedback, setCookFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
+  const [shoppingAddRecipeId, setShoppingAddRecipeId] = useState<string | null>(null);
+  const [isLoadingSampleRecipes, setIsLoadingSampleRecipes] = useState(false);
+  const [sampleRecipeError, setSampleRecipeError] = useState<string | null>(null);
+  const cookFeedbackTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const [showClearConfirm, setShowClearConfirm] = useState<boolean>(false);
+  const [pendingCook, setPendingCook] = useState<{
+    recipe: Recipe;
+    cookConfirmationId: string;
+    reviewedOn: string;
+    lotPlan: CookLotEvidencePlan;
+  } | null>(null);
+  const cookMutationSequenceRef = useRef(0);
+
+  const handleLoadSampleRecipes = async () => {
+    if (!onLoadSampleRecipes || isLoadingSampleRecipes) return;
+    setSampleRecipeError(null);
+    setIsLoadingSampleRecipes(true);
+    try {
+      const saved = await Promise.resolve(onLoadSampleRecipes());
+      if (!saved) {
+        setSampleRecipeError(
+          language === "bg"
+            ? "Примерните рецепти не бяха запазени. Опитайте отново."
+            : language === "es"
+            ? "Las recetas de ejemplo no se han guardado. Inténtalo de nuevo."
+            : "The sample recipes were not saved. Try again."
+        );
+      }
+    } catch (error) {
+      console.error("Sample recipe load failed:", error);
+      setSampleRecipeError(
+        language === "bg"
+          ? "Примерните рецепти не бяха запазени. Опитайте отново."
+          : language === "es"
+          ? "Las recetas de ejemplo no se han guardado. Inténtalo de nuevo."
+          : "The sample recipes were not saved. Try again."
+      );
+    } finally {
+      setIsLoadingSampleRecipes(false);
+    }
+  };
+
+  const createCookConfirmationId = () => {
+    if (typeof globalThis.crypto?.randomUUID === "function") {
+      return `cook-${globalThis.crypto.randomUUID()}`;
+    }
+    cookMutationSequenceRef.current += 1;
+    return `cook-${Date.now()}-${cookMutationSequenceRef.current}`;
+  };
 
   const filters = [
     { id: "all", label: language === "es" ? "Todos" : language === "bg" ? "Всички" : "All" },
@@ -60,6 +113,16 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
     { id: "cheap", label: recipeCheapFilterLabel(currency) },
     { id: "protein", label: language === "es" ? "💪 Proteína ≈" : language === "bg" ? "💪 Протеин ≈" : "💪 Protein ≈" },
   ];
+
+  const handleAddMissingToShopping = async (recipe: Recipe) => {
+    if (shoppingAddRecipeId !== null) return;
+    setShoppingAddRecipeId(recipe.id);
+    try {
+      await Promise.resolve(onAddMissingToShopping(recipe));
+    } finally {
+      setShoppingAddRecipeId(null);
+    }
+  };
 
   const filteredRecipes = recipes.filter((r) => {
     if (activeFilter === "fast") return r.prepTimeMin + r.cookTimeMin <= 20;
@@ -102,22 +165,89 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
     return recipe.nutritionHighlights?.en;
   };
 
-  const isIngredientAvailable = (ingredient: Recipe["ingredients"][number]) =>
-    isIngredientQuantityAvailable(
-      ingredient.name,
-      ingredient.amount,
-      ingredient.unit,
-      pantry
-    );
+  const recipeWithAvailability = (recipe: Recipe) =>
+    syncRecipeWithPantry(recipe, pantry);
 
-  const handleCook = (recipe: Recipe) => {
-    const outcome = onCookRecipe(recipe);
+  const handleCook = async (
+    recipe: Recipe,
+    cookConfirmationId: string,
+    lotEvidence?: readonly ConfirmedCookLotEvidence[],
+  ): Promise<RecipeCookOutcome> => {
+    let outcome: RecipeCookOutcome;
+    try {
+      outcome = await Promise.resolve(
+        onCookRecipe(recipe, cookConfirmationId, lotEvidence),
+      );
+    } catch (error) {
+      console.error("Recipe cook confirmation failed:", error);
+      outcome = { success: false, issueCount: 1 };
+    }
+    if (cookFeedbackTimerRef.current) {
+      clearTimeout(cookFeedbackTimerRef.current);
+    }
     setCookFeedback(
       getRecipeCookFeedback(outcome, language, currentText.recipeCookSuccess)
     );
-    setTimeout(() => {
+    cookFeedbackTimerRef.current = setTimeout(() => {
       setCookFeedback(null);
+      cookFeedbackTimerRef.current = null;
     }, 4000);
+    return outcome;
+  };
+
+  const requestCookConfirmation = (recipe: Recipe) => {
+    if (pendingCook) return;
+    if (cookFeedbackTimerRef.current) {
+      clearTimeout(cookFeedbackTimerRef.current);
+      cookFeedbackTimerRef.current = null;
+    }
+    setCookFeedback(null);
+    const cookConfirmationId = createCookConfirmationId();
+    const reviewedOn = new Date().toISOString().slice(0, 10);
+    const preview = deductRecipeIngredientsFromPantry(
+      pantry,
+      recipe.ingredients || [],
+    );
+    const confirmation = {
+      cookConfirmationId,
+      mealId: recipe.id,
+      confirmed: true,
+      ingredients: preview.deductions.map((deduction, index) => ({
+        ingredientId: `allocation-${index + 1}`,
+        pantryItemId: deduction.pantryItemId,
+        quantity: deduction.consumedQuantity,
+        unit: deduction.unit,
+      })),
+    };
+    const lotPlan = preview.issues.length > 0 || preview.deductions.length === 0
+      ? { outcome: "not-needed", prompts: [] } as const
+      : planCookLotEvidenceReview(pantry, confirmation, reviewedOn);
+    setPendingCook({ recipe, cookConfirmationId, reviewedOn, lotPlan });
+  };
+
+  const confirmPendingCook = async (
+    selections?: CookLotReviewSelection,
+  ): Promise<boolean> => {
+    const pending = pendingCook;
+    if (!pending) return false;
+    let lotEvidence: readonly ConfirmedCookLotEvidence[] | undefined;
+    if (pending.lotPlan.outcome === "invalid") return false;
+    if (pending.lotPlan.outcome === "review") {
+      if (!selections) return false;
+      const built = buildCookLotEvidence(pending.lotPlan, selections, pending.reviewedOn);
+      if (built.outcome === "invalid") return false;
+      lotEvidence = built.outcome === "exact" ? built.lotEvidence : undefined;
+    }
+    const outcome = await handleCook(
+      pending.recipe,
+      pending.cookConfirmationId,
+      lotEvidence,
+    );
+    if (!outcome.success) return false;
+    if (selectedRecipe?.id === pending.recipe.id) {
+      setSelectedRecipe(null);
+    }
+    return true;
   };
 
   return (
@@ -169,7 +299,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
             {recipes.length === 0 && onLoadSampleRecipes && (
               <button
                 type="button"
-                onClick={onLoadSampleRecipes}
+                disabled={isLoadingSampleRecipes}
+                onClick={() => void handleLoadSampleRecipes()}
                 className="px-3 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-stone-200 text-xs font-bold flex items-center gap-1.5 border border-white/[0.08] cursor-pointer transition-all shrink-0"
               >
                 <BookOpen className="w-3.5 h-3.5 text-emerald-400" />
@@ -179,6 +310,12 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
           </div>
         </div>
       </div>
+
+      {sampleRecipeError && (
+        <div role="alert" className="p-3 rounded-xl text-xs bg-amber-950/70 border border-amber-500/50 text-amber-200">
+          {sampleRecipeError}
+        </div>
+      )}
 
       {/* Cook result notification */}
       {cookFeedback && (
@@ -240,7 +377,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
               {onLoadSampleRecipes && (
                 <button
                   type="button"
-                  onClick={onLoadSampleRecipes}
+                  disabled={isLoadingSampleRecipes}
+                onClick={() => void handleLoadSampleRecipes()}
                   className="px-5 py-2.5 rounded-2xl bg-white/[0.04] hover:bg-white/[0.08] text-stone-200 border border-white/[0.08] text-sm font-bold inline-flex items-center gap-2 transition-all cursor-pointer shadow-sm"
                 >
                   <BookOpen className="w-4 h-4 text-emerald-400" />
@@ -255,7 +393,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
           const title = getRecipeTitle(recipe);
           const desc = getRecipeDesc(recipe);
 
-          const inPantryCount = recipe.ingredients.filter(isIngredientAvailable).length;
+          const availableRecipe = recipeWithAvailability(recipe);
+          const inPantryCount = availableRecipe.ingredients.filter((ingredient) => ingredient.inPantry).length;
           const totalIngCount = recipe.ingredients.length;
           const hasMissing = inPantryCount < totalIngCount;
 
@@ -393,7 +532,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
               <div className="grid grid-cols-2 gap-2 pt-1 border-t border-stone-700/50">
                 <button
                   id={`cook-btn-${recipe.id}`}
-                  onClick={() => handleCook(recipe)}
+                  onClick={() => requestCookConfirmation(recipe)}
                   className="px-3 py-2 rounded-xl bg-emerald-600 hover:bg-emerald-500 text-white text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors shadow-md shadow-emerald-950/40"
                 >
                   <ChefHat className="w-3.5 h-3.5" />
@@ -403,7 +542,8 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                 {hasMissing ? (
                   <button
                     id={`add-missing-btn-${recipe.id}`}
-                    onClick={() => onAddMissingToShopping(recipe)}
+                    onClick={() => void handleAddMissingToShopping(recipe)}
+                    disabled={shoppingAddRecipeId !== null}
                     className="px-3 py-2 rounded-xl bg-stone-700 hover:bg-stone-600 text-stone-200 text-xs font-semibold flex items-center justify-center gap-1.5 transition-colors border border-stone-600"
                   >
                     <ShoppingCart className="w-3.5 h-3.5 text-amber-400" />
@@ -502,11 +642,11 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
                 {currentText.ingredients}
               </h3>
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
-                {selectedRecipe.ingredients.map((ing, i) => (
+                {recipeWithAvailability(selectedRecipe).ingredients.map((ing, i) => (
                   <div
                     key={i}
                     className={`p-3 rounded-xl border text-sm font-medium flex items-center justify-between transition-colors ${
-                      isIngredientAvailable(ing)
+                      ing.inPantry
                         ? "bg-white/[0.02] border-white/[0.04] text-stone-300"
                         : "bg-amber-500/5 border-amber-500/20 text-amber-200"
                     }`}
@@ -542,11 +682,21 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
               </div>
             </div>
 
+            {cookFeedback?.kind === "error" && (
+              <p
+                role="alert"
+                className="text-sm text-amber-300 border border-amber-500/30 bg-amber-500/10 rounded-xl p-3"
+              >
+                {cookFeedback.text}
+              </p>
+            )}
+
             {/* Bottom Actions */}
             <div className="pt-4 mt-2 border-t border-white/[0.04] flex items-center justify-between gap-3">
               <button
                 type="button"
-                onClick={() => onAddMissingToShopping(selectedRecipe)}
+                onClick={() => void handleAddMissingToShopping(selectedRecipe)}
+                disabled={shoppingAddRecipeId !== null}
                 className="px-4 py-2.5 rounded-xl bg-white/[0.04] hover:bg-white/[0.08] text-sm font-bold text-stone-300 flex items-center gap-2 border border-white/[0.04] hover:border-white/[0.1] transition-all cursor-pointer"
               >
                 <ShoppingCart className="w-4 h-4 text-amber-400" />
@@ -556,10 +706,7 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
 
               <button
                 type="button"
-                onClick={() => {
-                  handleCook(selectedRecipe);
-                  setSelectedRecipe(null);
-                }}
+                onClick={() => requestCookConfirmation(selectedRecipe)}
                 className="px-6 py-2.5 rounded-xl bg-emerald-500 hover:bg-emerald-400 text-stone-950 text-sm font-bold flex items-center gap-2 shadow-[0_0_15px_rgba(16,185,129,0.3)] hover:shadow-[0_0_25px_rgba(16,185,129,0.5)] transition-all cursor-pointer"
               >
                 <ChefHat className="w-4 h-4" />
@@ -575,11 +722,9 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
       <ConfirmModal
         isOpen={showClearConfirm}
         onClose={() => setShowClearConfirm(false)}
-        onConfirm={() => {
-          if (onClearRecipes) {
-            onClearRecipes();
-          }
-          setShowClearConfirm(false);
+        onConfirm={async () => {
+          if (!onClearRecipes) return true;
+          return (await onClearRecipes()) !== false;
         }}
         title={currentText.recipesClearAll}
         description={currentText.recipesClearConfirm}
@@ -587,6 +732,40 @@ export const RecipeView: React.FC<RecipeViewProps> = ({
         cancelText={currentText.cancel}
         danger={true}
       />
+
+      {/* Cooking never deducts stock until this explicit reviewed confirmation. */}
+      {pendingCook?.lotPlan.outcome === "review" ? (
+        <CookLotReviewModal
+          plan={pendingCook.lotPlan}
+          pantry={pantry}
+          language={language}
+          onClose={() => setPendingCook(null)}
+          onConfirm={confirmPendingCook}
+        />
+      ) : (
+        <ConfirmModal
+          isOpen={pendingCook !== null}
+          onClose={() => setPendingCook(null)}
+          onConfirm={confirmPendingCook}
+          title={
+            language === "es"
+              ? "¿Ya has cocinado esta receta?"
+              : language === "bg"
+              ? "Сготви ли тази рецепта?"
+              : "Have you cooked this recipe?"
+          }
+          description={
+            language === "es"
+              ? "Confirma solo si ya la has cocinado. Se descontarán las cantidades verificadas de la despensa. Si algo cambió o no puede verificarse, no se descontará nada."
+              : language === "bg"
+              ? "Потвърди само ако вече си приготвил рецептата. Проверените количества ще бъдат приспаднати от наличностите. Ако нещо се е променило или не може да бъде проверено, няма да се приспада нищо."
+              : "Confirm only if you have cooked it. Verified amounts will be deducted from your pantry. If anything changed or cannot be verified, nothing will be deducted."
+          }
+          confirmText={language === "es" ? "Sí, descontar" : language === "bg" ? "Да, приспадни" : "Yes, deduct"}
+          cancelText={language === "es" ? "Cancelar" : language === "bg" ? "Отказ" : "Cancel"}
+          danger={false}
+        />
+      )}
     </div>
   );
 };

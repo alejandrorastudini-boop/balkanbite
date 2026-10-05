@@ -2,10 +2,13 @@ import {StrictMode} from 'react';
 import {createRoot} from 'react-dom/client';
 import App from './App.tsx';
 import {
+  isCookConfirmationQaRoute,
+  isDerivedInventoryPropagationQaRoute,
   isFreshGuestOnboardingQaRoute,
   isManualShoppingQaRoute,
   isProfileHealthDataQaRoute,
   isRuntimeQaRoute,
+  isVoiceLotReviewQaRoute,
   isStartupCloudSyncQaRoute,
 } from './qa/runtimeQaGate';
 import './index.css';
@@ -34,6 +37,24 @@ async function bootstrap() {
   if (isManualShoppingQaRoute()) {
     const {ManualShoppingQaHarness} = await import('./qa/ManualShoppingQaHarness.tsx');
     root.render(<ManualShoppingQaHarness />);
+    return;
+  }
+
+  if (isCookConfirmationQaRoute()) {
+    const {CookConfirmationQaHarness} = await import('./qa/CookConfirmationQaHarness.tsx');
+    root.render(<CookConfirmationQaHarness />);
+    return;
+  }
+
+  if (isVoiceLotReviewQaRoute()) {
+    const {VoiceLotReviewQaHarness} = await import('./qa/VoiceLotReviewQaHarness.tsx');
+    root.render(<VoiceLotReviewQaHarness />);
+    return;
+  }
+
+  if (isDerivedInventoryPropagationQaRoute()) {
+    const {DerivedInventoryPropagationQaHarness} = await import('./qa/DerivedInventoryPropagationQaHarness.tsx');
+    root.render(<DerivedInventoryPropagationQaHarness />);
     return;
   }
 

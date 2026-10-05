@@ -42,7 +42,7 @@ import type { ProgressionActivitySummaryV1 } from "../utils/progressionLedger";
 
 interface ProfileViewProps {
   profile: UserProfile;
-  onUpdateProfile: (updated: Partial<UserProfile>) => void;
+  onUpdateProfile: (updated: Partial<UserProfile>) => void | boolean | Promise<void | boolean>;
   onOpenProModal: () => void;
   onResetApp: () => void;
   onGoToLanding?: () => void;
@@ -298,16 +298,47 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     }
   };
 
-  const handleAddDislike = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!newDislike.trim()) return;
-    const updated = [...profile.disliked, newDislike.trim()];
-    onUpdateProfile({ disliked: updated });
-    setNewDislike("");
+  const [preferenceSaveError, setPreferenceSaveError] = useState<string | null>(null);
+  const [isSavingPreference, setIsSavingPreference] = useState(false);
+
+  const preferenceFailureCopy =
+    language === "bg"
+      ? "Промяната не беше запазена. Опитайте отново."
+      : language === "es"
+      ? "El cambio no se ha guardado. Inténtalo de nuevo."
+      : "The change was not saved. Try again.";
+
+  const persistPreference = async (update: Partial<UserProfile>) => {
+    if (isSavingPreference) return false;
+    setPreferenceSaveError(null);
+    setIsSavingPreference(true);
+    try {
+      const persisted = await onUpdateProfile(update);
+      if (persisted === false) {
+        setPreferenceSaveError(preferenceFailureCopy);
+        return false;
+      }
+      return true;
+    } catch (error) {
+      console.error("Profile preference save failed:", error);
+      setPreferenceSaveError(preferenceFailureCopy);
+      return false;
+    } finally {
+      setIsSavingPreference(false);
+    }
   };
 
-  const handleRemoveDislike = (itemToRemove: string) => {
-    onUpdateProfile({
+  const handleAddDislike = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!newDislike.trim() || isSavingPreference) return;
+    const updated = [...profile.disliked, newDislike.trim()];
+    if (await persistPreference({ disliked: updated })) {
+      setNewDislike("");
+    }
+  };
+
+  const handleRemoveDislike = async (itemToRemove: string) => {
+    await persistPreference({
       disliked: profile.disliked.filter((i) => i !== itemToRemove),
     });
   };
@@ -332,7 +363,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     setHealthFieldEditError(null);
   };
 
-  const saveHealthFieldCorrection = () => {
+  const saveHealthFieldCorrection = async () => {
     if (!healthFieldEdit) return;
 
     const { field, status } = healthFieldEdit;
@@ -393,7 +424,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       return;
     }
 
-    onUpdateProfile({ healthProfile: result.profile });
+    const persisted = await onUpdateProfile({ healthProfile: result.profile });
+    if (persisted === false) {
+      setHealthFieldEditError(
+        language === "bg"
+          ? "Промяната не можа да бъде потвърдена в акаунта."
+          : language === "es"
+          ? "No se pudo confirmar el cambio en tu cuenta."
+          : "The change could not be confirmed in your account.",
+      );
+      return;
+    }
     setHealthFieldEdit(null);
     setHealthFieldEditError(null);
   };
@@ -601,11 +642,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
           id="profile-progress-storage-copy"
           className="text-xs text-stone-500 leading-relaxed"
         >
-          {language === "bg"
-            ? "Засега тази история на активността се съхранява само на това устройство и не се синхронизира с вашия акаунт."
+          {user
+            ? language === "bg"
+              ? "За влезли потребители тази потвърдена история се синхронизира с акаунта от облака."
+              : language === "es"
+              ? "Con la sesión iniciada, este historial verificado se sincroniza con tu cuenta desde la nube."
+              : "When signed in, this verified history is synchronized with your account from the cloud."
+            : language === "bg"
+            ? "Като гост тази история се съхранява само на това устройство."
             : language === "es"
-            ? "Por ahora, este historial de actividad se guarda solo en este dispositivo y no se sincroniza con tu cuenta."
-            : "For now, this activity history is stored only on this device and is not synced to your account."}
+            ? "Como invitado, este historial se guarda solo en este dispositivo."
+            : "As a guest, this history is stored only on this device."}
         </p>
       </div>
 
@@ -646,12 +693,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-4 shadow-inner">
         <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-emerald-500/10 px-3 py-1.5 rounded-lg border border-emerald-500/20 w-fit"><Clock className="w-4 h-4 text-emerald-400" /><span>{currentText.cookingSpeed}</span></div>
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{[{ id: "fast", label: currentText.speedFast }, { id: "moderate", label: currentText.speedModerate }, { id: "elaborate", label: currentText.speedElaborate }].map((opt) => <button key={opt.id} onClick={() => onUpdateProfile({ cookingSpeed: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.cookingSpeed === opt.id ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.cookingSpeed === opt.id && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 ml-1" />}</div></button>)}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">{[{ id: "fast", label: currentText.speedFast }, { id: "moderate", label: currentText.speedModerate }, { id: "elaborate", label: currentText.speedElaborate }].map((opt) => <button key={opt.id} disabled={isSavingPreference} onClick={() => void persistPreference({ cookingSpeed: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.cookingSpeed === opt.id ? "bg-emerald-500/10 border-emerald-500/40 text-emerald-300 shadow-[0_0_15px_rgba(16,185,129,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.cookingSpeed === opt.id && <CheckCircle2 className="w-5 h-5 text-emerald-400 shrink-0 ml-1" />}</div></button>)}</div>
       </div>
 
       <div className="bg-black/20 border border-white/[0.04] rounded-3xl p-6 space-y-4 shadow-inner">
         <div className="flex items-center gap-2.5 text-white font-bold text-xs uppercase tracking-widest bg-teal-500/10 px-3 py-1.5 rounded-lg border border-teal-500/20 w-fit"><Utensils className="w-4 h-4 text-teal-400" /><span>{currentText.dietType}</span></div>
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{[{ id: "all", label: currentText.dietAll }, { id: "mediterranean", label: currentText.dietMed }, { id: "vegetarian", label: currentText.dietVegetarian }, { id: "vegan", label: currentText.dietVegan }].map((opt) => <button key={opt.id} onClick={() => onUpdateProfile({ dietStyle: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.dietStyle === opt.id ? "bg-teal-500/10 border-teal-500/40 text-teal-300 shadow-[0_0_15px_rgba(20,184,166,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.dietStyle === opt.id && <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 ml-1" />}</div></button>)}</div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">{[{ id: "all", label: currentText.dietAll }, { id: "mediterranean", label: currentText.dietMed }, { id: "vegetarian", label: currentText.dietVegetarian }, { id: "vegan", label: currentText.dietVegan }].map((opt) => <button key={opt.id} disabled={isSavingPreference} onClick={() => void persistPreference({ dietStyle: opt.id as any })} className={`p-4 rounded-2xl border text-sm font-bold text-left transition-all cursor-pointer ${profile.dietStyle === opt.id ? "bg-teal-500/10 border-teal-500/40 text-teal-300 shadow-[0_0_15px_rgba(20,184,166,0.1)]" : "bg-white/[0.02] border-white/[0.04] text-stone-400 hover:bg-white/[0.04] hover:text-stone-300"}`}><div className="flex items-center justify-between"><span>{opt.label}</span>{profile.dietStyle === opt.id && <CheckCircle2 className="w-5 h-5 text-teal-400 shrink-0 ml-1" />}</div></button>)}</div>
       </div>
 
 
@@ -1006,17 +1053,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       )}
 
+      {preferenceSaveError && (
+        <div role="alert" className="rounded-xl border border-amber-500/40 bg-amber-950/50 px-3 py-2 text-xs text-amber-200">
+          {preferenceSaveError}
+        </div>
+      )}
+
       <div className="pt-8 pb-10"><button onClick={() => setShowResetConfirm(true)} className="w-full py-4 px-4 border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 hover:border-rose-500/40 text-rose-400 text-sm font-bold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-inner"><RotateCcw className="w-5 h-5" /><span className="tracking-wide uppercase font-['Outfit']">{localResetCopy.buttonLabel}</span></button></div>
 
       <ConfirmModal
         isOpen={showClearLegacyFoodSafetyConfirm}
         onClose={() => setShowClearLegacyFoodSafetyConfirm(false)}
-        onConfirm={() => {
-          onUpdateProfile({
+        onConfirm={async () => {
+          const persisted = await persistPreference({
             allergies: undefined,
             ...(legacyDietRestriction ? { dietStyle: "all" as const } : {}),
           });
+          if (!persisted) return false;
           setShowClearLegacyFoodSafetyConfirm(false);
+          return true;
         }}
         title={
           language === "bg"
@@ -1046,15 +1101,17 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <ConfirmModal
         isOpen={pendingHealthFieldRemoval !== null}
         onClose={() => setPendingHealthFieldRemoval(null)}
-        onConfirm={() => {
-          if (!pendingHealthFieldRemoval) return;
-          onUpdateProfile({
+        onConfirm={async () => {
+          if (!pendingHealthFieldRemoval) return false;
+          const persisted = await onUpdateProfile({
             healthProfile: removeHealthProfileField(
               profile.healthProfile,
               pendingHealthFieldRemoval,
             ),
           });
+          if (persisted === false) return false;
           setPendingHealthFieldRemoval(null);
+          return true;
         }}
         title={
           language === "bg"
@@ -1086,9 +1143,11 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
       <ConfirmModal
         isOpen={showClearHealthDataConfirm}
         onClose={() => setShowClearHealthDataConfirm(false)}
-        onConfirm={() => {
-          onUpdateProfile({ healthProfile: undefined });
+        onConfirm={async () => {
+          const persisted = await onUpdateProfile({ healthProfile: undefined });
+          if (persisted === false) return false;
           setShowClearHealthDataConfirm(false);
+          return true;
         }}
         title={
           language === "es"

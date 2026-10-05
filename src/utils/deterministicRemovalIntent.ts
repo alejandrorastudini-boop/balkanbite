@@ -8,8 +8,11 @@ export interface DeterministicRemovalItem {
   category?: PantryItem["category"];
 }
 
+export type DeterministicRemovalPurpose = "food-use" | "discard";
+
 export interface DeterministicRemovalIntent {
   actionType: "REMOVE_ITEMS";
+  purpose: DeterministicRemovalPurpose;
   items: DeterministicRemovalItem[];
 }
 
@@ -22,24 +25,40 @@ const normalizeText = (value: string): string =>
     .replace(/\s+/g, " ")
     .trim();
 
-const REMOVAL_PATTERNS = [
+const FOOD_USE_PATTERNS = [
   /\bhe usado\b/,
   /\buse\b/,
   /\bhe gastado\b/,
   /\bgaste\b/,
   /\bhe consumido\b/,
   /\bconsumi\b/,
-  /\bdescuenta\b/,
-  /\bdescontar\b/,
   /\bi used\b/,
   /\bused up\b/,
   /\bi consumed\b/,
   /\bconsumed\b/,
-  /\bdeduct\b/,
   /\bизползвах\b/,
   /\bизползвал\b/,
   /\bизразходвах\b/,
   /\bконсумирах\b/,
+];
+
+const DISCARD_PATTERNS = [
+  /\bhe tirado\b/,
+  /\btire\b/,
+  /\btirar\b/,
+  /\bdeseche\b/,
+  /\bdesechar\b/,
+  /\bi threw away\b/,
+  /\bthrew away\b/,
+  /\bdiscard(?:ed)?\b/,
+  /\bизхвърлих\b/,
+  /\bизхвърля\b/,
+];
+
+const AMBIGUOUS_REMOVAL_PATTERNS = [
+  /\bdescuenta\b/,
+  /\bdescontar\b/,
+  /\bdeduct\b/,
   /\bмахни\b/,
 ];
 
@@ -111,9 +130,16 @@ export function parseDeterministicRemovalIntent(
   }
 
   const normalizedTranscript = normalizeText(transcript);
-  if (!REMOVAL_PATTERNS.some((pattern) => pattern.test(normalizedTranscript))) {
+  const foodUse = FOOD_USE_PATTERNS.some(pattern => pattern.test(normalizedTranscript));
+  const discard = DISCARD_PATTERNS.some(pattern => pattern.test(normalizedTranscript));
+  const ambiguous = AMBIGUOUS_REMOVAL_PATTERNS.some(pattern => pattern.test(normalizedTranscript));
+  // Never guess safety semantics. Mixed or generic deduction language needs
+  // explicit human clarification before it can become an exact-lot mutation.
+  if ((foodUse && discard) || (!foodUse && !discard)) {
+    if (ambiguous || foodUse || discard) return null;
     return null;
   }
+  const purpose: DeterministicRemovalPurpose = foodUse ? "food-use" : "discard";
 
   const pantryItem = findSinglePantryMatch(normalizedTranscript, pantry);
   if (!pantryItem) return null;
@@ -154,6 +180,7 @@ export function parseDeterministicRemovalIntent(
 
   return {
     actionType: "REMOVE_ITEMS",
+    purpose,
     items: [
       {
         name: pantryItem.name,

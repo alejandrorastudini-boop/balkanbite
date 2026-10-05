@@ -65,7 +65,7 @@ test("new user input discards any unconfirmed shopping extraction", () => {
 
 test("confirmation routes shopping separately from pantry add/remove", () => {
   const confirmStart = voiceSource.indexOf(
-    "const confirmPendingItems",
+    "const executePendingMutation",
   );
   const cancelStart = voiceSource.indexOf(
     "const cancelPendingItems",
@@ -76,7 +76,7 @@ test("confirmation routes shopping separately from pantry add/remove", () => {
   assert.match(confirmBlock, /action === "add"/);
   assert.match(confirmBlock, /onAddItemsToPantry\(confirmedItems\)/);
   assert.match(confirmBlock, /action === "remove"/);
-  assert.match(confirmBlock, /onDeductItemsFromPantry\(confirmedItems\)/);
+  assert.match(confirmBlock, /onDeductItemsFromPantry\(confirmedItems, mutationId, removalPurpose, lotEvidence\)/);
   assert.match(
     confirmBlock,
     /onAddItemsToShoppingList\(confirmedItems\)/,
@@ -112,7 +112,7 @@ test("pending shopping UI states that AI extraction is not yet persisted", () =>
   );
   assert.match(
     voiceSource,
-    /disabled=\{!pendingItemsAreComplete\}/,
+    /disabled=\{!pendingItemsAreComplete \|\| \(pendingAction === "remove" && !pendingRemovalPurpose\) \|\| isConfirmingPendingItems\}/,
   );
 });
 
@@ -123,7 +123,7 @@ test("App defensively rebuilds confirmed voice-shopping rows", () => {
   );
   assert.match(
     appSource,
-    /setShoppingList\(\(prev\) => \[\.\.\.prev, \.\.\.result\.items\]\)/,
+    /submitShoppingItemsCreate\(result\.items\)/,
   );
   assert.match(
     captureSource,
@@ -158,7 +158,7 @@ test("App rejects the whole confirmed voice-shopping batch if any row fails reva
   );
   const returnIndex = handlerBlock.indexOf("return false;", rejectedIndex);
   const persistIndex = handlerBlock.indexOf(
-    "setShoppingList((prev) => [...prev, ...result.items])",
+    "await submitShoppingItemsCreate(result.items)",
   );
 
   assert.ok(rejectedIndex >= 0);
@@ -187,7 +187,7 @@ test("both full Voice and Chef modal wire the confirmed shopping callback", () =
   );
   assert.match(
     modalSource,
-    /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean;/,
+    /onAddItemsToShoppingList:\s*\(items: any\[\]\) => boolean \| Promise<boolean>;/,
   );
   assert.match(
     modalSource,
