@@ -41,7 +41,6 @@ async function read(token, collection, id) { return fetch(docUrl(collection,id),
 async function del(token, collection, id) { return fetch(docUrl(collection,id), { method:"DELETE", headers:headers(token) }); }
 
 const accounts=[];
-const created=[];
 try {
   for (const label of ["owner","other"]) {
     const email=`balkanbite-rules-${run}-${label}@example.com`;
@@ -66,7 +65,6 @@ try {
     assert.equal(foreignAbsent.status,403,"Cross-user absent read must fail for "+collection);
     const createdRes=await patch(owner.token,collection,sid,payload);
     assert.equal(createdRes.status,200,"Owner create failed for "+collection+": "+await createdRes.text());
-    created.push([owner,collection,sid]);
     assert.equal((await read(owner.token,collection,sid)).status,200);
     assert.equal((await read(other.token,collection,sid)).status,403);
     const mutate=await patch(owner.token,collection,sid,{...payload,requestSignature:"tampered"});
@@ -79,7 +77,6 @@ try {
   const authority={userId:owner.uid,collectionName:"recipes",revision:0};
   const authCreate=await patch(owner.token,"derivedCollectionAuthorities",authorityId,authority);
   assert.equal(authCreate.status,200,"Authority create failed: "+await authCreate.text());
-  created.push([owner,"derivedCollectionAuthorities",authorityId]);
   assert.equal((await read(other.token,"derivedCollectionAuthorities",authorityId)).status,403);
   assert.equal((await patch(other.token,"derivedCollectionAuthorities",authorityId,{...authority,userId:other.uid})).status,403);
 
