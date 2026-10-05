@@ -23,7 +23,7 @@ export function buildDerivedShortageId(
 ): string | null {
   const normalized = normalizeQuantity(1, unit);
   const identity = normalizeIdentity(name);
-  if (!identity || !normalized) return null;
+  if (!identity || !normalized || !normalized.unit.known) return null;
   return `${PREFIX}${stableHash(`${identity}::${normalized.unit.dimension}`)}`;
 }
 
