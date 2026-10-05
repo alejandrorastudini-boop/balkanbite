@@ -40,7 +40,10 @@ assert.equal(rulesHash, request.rulesSha256,
 
 const health = await fetch(target + "/api/health", { cache: "no-store" });
 assert.equal(health.status, 200, "Production health route unavailable");
-assert.equal((await health.json()).status, "ok");
+const healthPayload=await health.json();
+assert.equal(healthPayload.status, "ok");
+assert.equal(healthPayload.buildCommit, request.productionCommit,
+  "Production health does not report the exact approved main commit");
 const home = await fetch(target + "/", { cache: "no-store" });
 assert.equal(home.status, 200, "Production homepage unavailable");
 const html = await home.text();
@@ -49,8 +52,7 @@ assert.ok(scriptPath, "Could not resolve production JavaScript asset");
 const pendingAssets=[scriptPath];
 const seenAssets=new Set();
 let foundDatabase=false;
-let foundCommit=false;
-while (pendingAssets.length && seenAssets.size < 80 && (!foundDatabase || !foundCommit)) {
+while (pendingAssets.length && seenAssets.size < 80 && !foundDatabase) {
   const assetPath=pendingAssets.shift();
   if (!assetPath || seenAssets.has(assetPath)) continue;
   seenAssets.add(assetPath);
@@ -58,7 +60,6 @@ while (pendingAssets.length && seenAssets.size < 80 && (!foundDatabase || !found
   assert.equal(asset.status,200,"Production JavaScript asset unavailable: "+assetPath);
   const bundle=await asset.text();
   foundDatabase ||= bundle.includes(expectedDb);
-  foundCommit ||= bundle.includes(request.productionCommit);
   for (const match of bundle.matchAll(
     new RegExp("(?:/assets/|assets/|[.]/)[A-Za-z0-9_.-]+[.]js","g"),
   )) {
@@ -71,8 +72,6 @@ while (pendingAssets.length && seenAssets.size < 80 && (!foundDatabase || !found
 }
 assert.equal(foundDatabase,true,
   "Production JavaScript graph does not target approved named Firestore database");
-assert.equal(foundCommit,true,
-  "Production JavaScript graph is not built from the exact approved main commit");
 const writeEnabled=request.mode === "one-time-synthetic-hosted-e2e";
 if (process.env.GITHUB_OUTPUT) {
   appendFileSync(process.env.GITHUB_OUTPUT,"write_enabled="+String(writeEnabled)+"\\n");
