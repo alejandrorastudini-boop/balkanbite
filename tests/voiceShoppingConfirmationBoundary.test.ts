@@ -65,7 +65,7 @@ test("new user input discards any unconfirmed shopping extraction", () => {
 
 test("confirmation routes shopping separately from pantry add/remove", () => {
   const confirmStart = voiceSource.indexOf(
-    "const confirmPendingItems",
+    "const executePendingMutation",
   );
   const cancelStart = voiceSource.indexOf(
     "const cancelPendingItems",
@@ -76,7 +76,7 @@ test("confirmation routes shopping separately from pantry add/remove", () => {
   assert.match(confirmBlock, /action === "add"/);
   assert.match(confirmBlock, /onAddItemsToPantry\(confirmedItems\)/);
   assert.match(confirmBlock, /action === "remove"/);
-  assert.match(confirmBlock, /onDeductItemsFromPantry\(confirmedItems, mutationId, removalPurpose\)/);
+  assert.match(confirmBlock, /onDeductItemsFromPantry\(confirmedItems, mutationId, removalPurpose, lotEvidence\)/);
   assert.match(
     confirmBlock,
     /onAddItemsToShoppingList\(confirmedItems\)/,
