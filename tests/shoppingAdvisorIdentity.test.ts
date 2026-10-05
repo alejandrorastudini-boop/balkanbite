@@ -16,6 +16,7 @@ const recipe = {
   nutritionHighlights: { en: "", bg: "", es: "" },
 } as Recipe;
 const plan: MealPlanDay[] = [{ date: "2026-10-04", breakfast: recipe }];
+const fixedNow = new Date(2026, 9, 4, 12, 0, 0, 0);
 
 const pending = (name: string): ShoppingItem => ({
   id: "pending",
@@ -27,12 +28,12 @@ const pending = (name: string): ShoppingItem => ({
 });
 
 test("qualified pending product does not hide a different meal-plan shortfall", () => {
-  const result = evaluateShoppingNeeds([], plan, [pending("Almond milk")], "en");
+  const result = evaluateShoppingNeeds([], plan, [pending("Almond milk")], "en", fixedNow);
   assert.equal(result.itemsToAddToShoppingList.length, 1);
   assert.equal(result.itemsToAddToShoppingList[0]?.name, "Milk");
 });
 
 test("case and whitespace normalized exact identity prevents duplicate suggestion", () => {
-  const result = evaluateShoppingNeeds([], plan, [pending("  MILK  ")], "en");
+  const result = evaluateShoppingNeeds([], plan, [pending("  MILK  ")], "en", fixedNow);
   assert.equal(result.itemsToAddToShoppingList.length, 0);
 });
