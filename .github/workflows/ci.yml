@@ -46,8 +46,10 @@ jobs:
 
       - name: Validate hosted QA scripts offline
         run: |
+          node --check qa/runtime/hosted-run-request-core.mjs
           node --check qa/runtime/validate-hosted-run-request.mjs
           node --check qa/runtime/hosted-current-rules-contract.mjs
+          node --test qa/runtime/hosted-run-request-core.test.mjs
 
       - name: Build
         run: npm run build
