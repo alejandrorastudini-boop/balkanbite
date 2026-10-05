@@ -105,6 +105,24 @@ try {
     assert.equal(remove.status,403,"Immutable journal delete not denied for "+collection);
   }
 
+  const inventoryId=scoped(owner.uid,"inventory-cleanup-"+run);
+  const inventoryRow={
+    userId:owner.uid,id:"inventory-cleanup-"+run,name:"QA synthetic inventory",
+    quantity:1,unit:"pcs",cookRevision:0,
+  };
+  assert.equal((await read(owner.token,"inventory",inventoryId)).status,404,
+    "Owner-scoped absent inventory ID must be readable");
+  assert.equal((await read(other.token,"inventory",inventoryId)).status,403,
+    "Cross-user absent inventory ID must remain hidden");
+  assert.equal((await patch(owner.token,"inventory",inventoryId,inventoryRow)).status,200,
+    "Owner inventory create failed");
+  assert.equal((await patch(other.token,"inventory",inventoryId,{...inventoryRow,userId:other.uid})).status,403,
+    "Cross-user inventory mutation not denied");
+  assert.equal((await del(owner.token,"inventory",inventoryId)).status,200,
+    "Unversioned synthetic inventory cleanup failed");
+  assert.equal((await read(owner.token,"inventory",inventoryId)).status,404,
+    "Synthetic inventory remained after cleanup");
+
   const shoppingId=scoped(owner.uid,"shortage-v1:qa:"+run);
   assert.equal((await read(owner.token,"shoppingList",shoppingId)).status,404,
     "Owner-scoped absent shopping row must be readable for transactional create");
