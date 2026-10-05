@@ -22,7 +22,7 @@ import { submitVerifiedPantryEdit, type VerifiedPantryEditCommandResult } from "
 import { persistVerifiedInventoryAdjustment, type InventoryAdjustment } from "../utils/inventoryAdjustmentFirestore";
 import { persistNewInventoryItems, type InventoryCreationOutcome } from "../utils/inventoryCreationFirestore";
 import { isServerConfirmedInventorySnapshot } from "../utils/inventorySnapshotAuthority";
-import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, type VerifiedVoiceDeduction } from "../utils/verifiedVoiceConsumptionFirestore";
+import { persistVerifiedVoiceConsumption, type VerifiedVoiceConsumptionResult, type VerifiedVoiceDeduction, type VerifiedVoiceRemovalPurpose } from "../utils/verifiedVoiceConsumptionFirestore";
 import { buildPurchaseMutationId, persistPurchasesIntoPantryAtomically, type PurchasePantryTransactionResult } from "../utils/purchasePantryFirestore";
 import type { PantryPurchase } from "../utils/purchasePantryMerge";
 import { normalizeCookLotEvidence, persistConfirmedCookAtomically, type AtomicCookExpectedStock, type ConfirmedCookLotEvidence } from "../utils/confirmedCookFirestore";
@@ -76,6 +76,7 @@ export function useFirebaseSync(
   const inventoryCreationInFlight = useRef(false);
   const inFlightVoiceConsumptions = useRef<Set<string>>(new Set());
   const preparedVoiceConsumptions = useRef<Map<string, {
+    purpose: VerifiedVoiceRemovalPurpose;
     expectedStock: Array<{ pantryItemId: string; quantity: number; unit: string; cookRevision: number }>;
     deductions: VerifiedVoiceDeduction[];
   }>>(new Map());
@@ -580,6 +581,7 @@ export function useFirebaseSync(
   const submitVoiceInventoryConsumption = async (
     mutationId: string,
     deductions: readonly VerifiedVoiceDeduction[],
+    purpose: VerifiedVoiceRemovalPurpose,
   ): Promise<VerifiedVoiceConsumptionResult | {
     outcome: "needs-review";
     reason: "unverified-authority" | "in-flight" | "stale-local-view";
@@ -599,6 +601,9 @@ export function useFirebaseSync(
     }
 
     let prepared = preparedVoiceConsumptions.current.get(mutationId);
+    if (prepared && prepared.purpose !== purpose) {
+      return { outcome: "needs-review", reason: "stale-local-view" };
+    }
     if (!prepared) {
       const affectedIds = Array.from(new Set(
         (deductions || []).map(item => item.pantryItemId),
@@ -620,6 +625,7 @@ export function useFirebaseSync(
         expectedStock.push({ ...observed });
       }
       prepared = {
+        purpose,
         expectedStock,
         deductions: (deductions || []).map(item => ({ ...item })),
       };
@@ -631,6 +637,7 @@ export function useFirebaseSync(
       const result = await persistVerifiedVoiceConsumption(db, {
         userId: uid,
         mutationId,
+        purpose: prepared.purpose,
         expectedStock: prepared.expectedStock,
         deductions: prepared.deductions,
       });
