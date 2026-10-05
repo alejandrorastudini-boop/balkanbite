@@ -15,7 +15,7 @@ test("REMOVE_ITEMS gets one stable mutation ID and failure does not clear it", (
     "const pendingMutationIdRef = useRef<string | null>(null);",
   ));
   assert.ok(voiceSource.includes(
-    'pendingMutationIdRef.current = action === "remove"',
+    'action === "remove" && deterministicRemoval?.purpose',
   ));
   assert.ok(voiceSource.includes("createVoiceRemovalMutationId()"));
 
