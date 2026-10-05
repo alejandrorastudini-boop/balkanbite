@@ -4,6 +4,7 @@ on:
   pull_request:
     branches:
       - main
+      - feat/verified-stack-compact-v1
   push:
     branches:
       - main
