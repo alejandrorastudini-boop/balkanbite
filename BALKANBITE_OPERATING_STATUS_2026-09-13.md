@@ -2,7 +2,8 @@
 
 **Actualizado:** 2026-10-05  
 **Documento:** estado operativo actualizable; no sustituye la visión de producto.  
-**Fuente técnica principal:** código y comportamiento verificable del repositorio GitHub.
+**Fuente técnica principal:** código y comportamiento verificable del repositorio GitHub.  
+**Checkpoint operativo:** issue #340.
 
 ## 1. Producción y main
 
