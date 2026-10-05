@@ -221,6 +221,9 @@ app.get("/api/health", (_req, res) => {
     aiConfigured: hasOpenAIKey(),
     aiProvider: "openai",
     aiModel: OPENAI_MODEL,
+    // Non-secret deployment identity used by hosted QA to fail closed if
+    // Production has not reached the exact reviewed Git commit yet.
+    buildCommit: process.env.VERCEL_GIT_COMMIT_SHA || null,
   });
 });
 
