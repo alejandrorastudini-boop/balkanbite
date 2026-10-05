@@ -7,13 +7,12 @@ export const EXPECTED_HOSTED_TARGET = "https://balkanbite.vercel.app";
 export const HOSTED_RUN_MODES = [
   "disabled",
   "hosted-readonly-preflight",
-  "one-time-synthetic-hosted-e2e",
 ];
 
 export function validateHostedRunRequestShape(request) {
   assert.ok(request && typeof request === "object", "Hosted run request must be an object");
   assert.ok(HOSTED_RUN_MODES.includes(request.mode),
-    "Hosted run mode must be disabled, read-only preflight or explicit synthetic E2E");
+    "Hosted run mode must be disabled or read-only preflight");
   assert.equal(request.projectId, EXPECTED_HOSTED_PROJECT);
   assert.equal(request.databaseId, EXPECTED_HOSTED_DATABASE);
   assert.equal(request.targetUrl, EXPECTED_HOSTED_TARGET);
@@ -27,7 +26,6 @@ export function validateHostedRunRequestShape(request) {
 
   return {
     disabled: request.mode === "disabled",
-    writeEnabled: request.mode === "one-time-synthetic-hosted-e2e",
   };
 }
 
