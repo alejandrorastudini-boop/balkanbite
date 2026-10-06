@@ -240,8 +240,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [newDislike, setNewDislike] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showClearHealthDataConfirm, setShowClearHealthDataConfirm] = useState(false);
-  const [maintenanceEnergyResult, setMaintenanceEnergyResult] =
-    useState<EfsaAdultMaintenanceEnergyResult | null>(null);
+  const [maintenanceEnergyCalculation, setMaintenanceEnergyCalculation] =
+    useState<{ inputKey: string; result: EfsaAdultMaintenanceEnergyResult } | null>(null);
   const [pendingHealthFieldRemoval, setPendingHealthFieldRemoval] =
     useState<HealthProfileFieldKey | null>(null);
   const [healthFieldEdit, setHealthFieldEdit] = useState<{
@@ -268,6 +268,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const maintenanceEnergyPlan = planAdultMaintenanceEnergyCollection(
     profile.healthProfile,
   );
+  const maintenanceEnergyInput =
+    buildEfsaAdultMaintenanceEnergyInputFromHealthProfile(profile.healthProfile);
+  const maintenanceEnergyInputKey = JSON.stringify(maintenanceEnergyInput);
+  const maintenanceEnergyResult =
+    maintenanceEnergyCalculation?.inputKey === maintenanceEnergyInputKey
+      ? maintenanceEnergyCalculation.result
+      : null;
 
   const bulgarianEnergyReference =
     maintenanceEnergyResult?.status === "calculated"
@@ -278,13 +285,10 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
 
   const calculateMaintenanceEnergy = () => {
     if (maintenanceEnergyPlan.status !== "ready") return;
-    setMaintenanceEnergyResult(
-      estimateAdultMaintenanceEnergyEfsa2013(
-        buildEfsaAdultMaintenanceEnergyInputFromHealthProfile(
-          profile.healthProfile,
-        ),
-      ),
-    );
+    setMaintenanceEnergyCalculation({
+      inputKey: maintenanceEnergyInputKey,
+      result: estimateAdultMaintenanceEnergyEfsa2013(maintenanceEnergyInput),
+    });
   };
 
     const healthFieldRows = profile.healthProfile
