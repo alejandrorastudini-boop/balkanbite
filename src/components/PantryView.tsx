@@ -106,7 +106,8 @@ export const PantryView: React.FC<PantryViewProps> = ({
     );
   }).length;
 
-  const totalValueEUR = summarizePantryCosts(pantry).totalEUR;
+  const pantryCostSummary = summarizePantryCosts(pantry);
+  const totalValueEUR = pantryCostSummary.totalEUR;
 
   const handleClearWithConfirm = () => {
     if (!clearMutationId) {
@@ -248,15 +249,32 @@ export const PantryView: React.FC<PantryViewProps> = ({
           </span>
           <div className="flex items-baseline gap-1 mt-2 relative z-10">
             <span className="text-xl font-extrabold text-emerald-400 font-['Outfit'] tracking-tight">
-              {inventoryIsProvisional || totalValueEUR === null || currency !== "EUR"
+              {inventoryIsProvisional || currency !== "EUR"
                 ? language === "es"
                   ? "Sin datos"
                   : language === "bg"
                   ? "Няма данни"
                   : "No data"
-                : `~€${totalValueEUR.toFixed(1)}`}
+                : totalValueEUR !== null
+                ? `~€${totalValueEUR.toFixed(1)}`
+                : pantryCostSummary.knownItemCount > 0
+                ? `~€${pantryCostSummary.knownSubtotalEUR.toFixed(1)} + ?`
+                : language === "es"
+                ? "Sin datos"
+                : language === "bg"
+                ? "Няма данни"
+                : "No data"}
             </span>
           </div>
+          {!inventoryIsProvisional && currency === "EUR" && pantryCostSummary.unknownItemCount > 0 && (
+            <p data-testid="pantry-cost-coverage" className="mt-1 text-[9px] leading-tight text-amber-300/90 relative z-10">
+              {language === "bg"
+                ? `${pantryCostSummary.knownItemCount} с известна стойност · ${pantryCostSummary.unknownItemCount} без надеждна стойност`
+                : language === "es"
+                ? `${pantryCostSummary.knownItemCount} con valor conocido · ${pantryCostSummary.unknownItemCount} sin valor fiable`
+                : `${pantryCostSummary.knownItemCount} with known value · ${pantryCostSummary.unknownItemCount} without reliable value`}
+            </p>
+          )}
         </div>
       </div>
 
