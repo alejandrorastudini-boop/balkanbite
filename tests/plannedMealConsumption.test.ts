@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { MealLog, MealPlanDay, Recipe } from "../src/types";
-import { derivePlannedMealConsumption } from "../src/utils/plannedMealConsumption";
+import { derivePlannedMealConsumption, summarizePlannedDayConsumption } from "../src/utils/plannedMealConsumption";
 
 const recipe = { id: "r1" } as Recipe;
 const day: MealPlanDay = { date: "2026-10-06", lunch: recipe };
@@ -32,4 +32,26 @@ test("different date or meal slot does not confirm consumption", () => {
 
 test("empty planned slot stays not planned", () => {
   assert.equal(derivePlannedMealConsumption(day, [], "breakfast").status, "not_planned");
+});
+
+
+test("daily summary keeps exact adherence separate from other logged meals", () => {
+  const fullDay: MealPlanDay = {
+    date: "2026-10-06",
+    breakfast: { id: "breakfast-r" } as Recipe,
+    lunch: { id: "r1" } as Recipe,
+    dinner: { id: "dinner-r" } as Recipe,
+  };
+  assert.deepEqual(
+    summarizePlannedDayConsumption(fullDay, [
+      log({ id: "lunch", recipeId: "r1" }),
+      log({ id: "breakfast", mealType: "breakfast", recipeId: "other" }),
+    ]),
+    {
+      plannedCount: 3,
+      loggedAsPlannedCount: 1,
+      differentMealLoggedCount: 1,
+      unconfirmedCount: 1,
+    },
+  );
 });
