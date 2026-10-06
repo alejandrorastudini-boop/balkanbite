@@ -23,6 +23,7 @@ import {
   UserProfile,
   Language,
   Currency,
+  MealLog,
 } from "../types";
 import { t } from "../utils/translations";
 import { TabType } from "./BottomNav";
@@ -34,12 +35,14 @@ import type { RecipeCookOutcome } from "../utils/recipeCookFeedback";
 import { getRecipeCookFeedback } from "../utils/recipeCookFeedback";
 import { derivePantryItemExpiry } from "../utils/effectiveExpiry";
 import { useLocalCalendarDay } from "../hooks/useLocalCalendarDay";
+import { summarizeVerifiedNutritionForDate } from "../utils/verifiedNutritionSummary";
 
 interface HomeViewProps {
   pantry: PantryItem[];
   recipes: Recipe[];
   shoppingList: ShoppingItem[];
   mealPlan: MealPlanDay[];
+  mealLogs: MealLog[];
   profile: UserProfile;
   progressionSummary?: ProgressionActivitySummaryV1;
   onNavigateToTab: (tab: TabType) => void;
@@ -56,6 +59,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
   recipes,
   shoppingList,
   mealPlan,
+  mealLogs,
   profile,
   progressionSummary,
   onNavigateToTab,
@@ -70,6 +74,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const isDark = theme === "dark";
   const [cookFeedback, setCookFeedback] = useState<{ kind: "success" | "error"; text: string } | null>(null);
   const calendarDay = useLocalCalendarDay();
+  const verifiedNutritionToday = useMemo(
+    () => summarizeVerifiedNutritionForDate(mealLogs, calendarDay),
+    [mealLogs, calendarDay],
+  );
 
   // Time-based greeting
   const greeting = useMemo(() => {
@@ -141,6 +149,43 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   return (
     <div className="space-y-5 pb-24 max-w-5xl mx-auto">
+      <section
+        data-testid="verified-nutrition-today"
+        className="rounded-3xl border border-emerald-500/20 bg-[#131A1F]/60 p-5 shadow-[0_8px_30px_rgba(16,185,129,0.06)]"
+      >
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-white">
+              {language === "bg" ? "Потвърдено хранене днес" : language === "es" ? "Nutrición verificada de hoy" : "Verified nutrition today"}
+            </h2>
+            <p className="mt-1 text-xs text-stone-400">
+              {language === "bg"
+                ? "Сумира само хранения с потвърдени хранителни стойности."
+                : language === "es"
+                ? "Suma únicamente comidas con nutrición verificada."
+                : "Only meals with verified nutrition are included."}
+            </p>
+          </div>
+          <span className="rounded-full border border-emerald-500/20 bg-emerald-500/10 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wider text-emerald-300">
+            {verifiedNutritionToday.verifiedMealCount} {language === "bg" ? "хран." : language === "es" ? "comidas" : "meals"}
+          </span>
+        </div>
+        <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+          <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-lg font-bold text-white">{Math.round(verifiedNutritionToday.calories)}</div><div className="text-[11px] text-stone-400">kcal</div></div>
+          <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-lg font-bold text-white">{verifiedNutritionToday.proteinG.toFixed(1)} g</div><div className="text-[11px] text-stone-400">{language === "bg" ? "протеин" : language === "es" ? "proteína" : "protein"}</div></div>
+          <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-lg font-bold text-white">{verifiedNutritionToday.carbsG.toFixed(1)} g</div><div className="text-[11px] text-stone-400">{language === "bg" ? "въглехидрати" : language === "es" ? "carbohidratos" : "carbs"}</div></div>
+          <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-lg font-bold text-white">{verifiedNutritionToday.fatG.toFixed(1)} g</div><div className="text-[11px] text-stone-400">{language === "bg" ? "мазнини" : language === "es" ? "grasas" : "fat"}</div></div>
+        </div>
+        {verifiedNutritionToday.excludedMealCount > 0 && (
+          <p className="mt-3 text-[11px] text-amber-300/90">
+            {language === "bg"
+              ? `${verifiedNutritionToday.excludedMealCount} хранения не са включени, защото хранителните им стойности не са потвърдени.`
+              : language === "es"
+              ? `${verifiedNutritionToday.excludedMealCount} comidas no se incluyen porque su nutrición no está verificada.`
+              : `${verifiedNutritionToday.excludedMealCount} meals are excluded because their nutrition is not verified.`}
+          </p>
+        )}
+      </section>
       {/* Toast cook feedback */}
       {cookFeedback && (
         <div
