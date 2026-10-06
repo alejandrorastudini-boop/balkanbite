@@ -11,6 +11,7 @@ if (!bundleArg) {
 
 process.env.VERCEL = "1";
 process.env.NODE_ENV = "production";
+process.env.VERCEL_GIT_COMMIT_SHA = "0123456789abcdef0123456789abcdef01234567";
 
 const bundlePath = path.resolve(bundleArg);
 const require = createRequire(import.meta.url);
@@ -62,6 +63,8 @@ try {
   assert.equal(payload.aiProvider, "openai");
   assert.equal(payload.aiModel, "gpt-5.6-luna");
   assert.equal(typeof payload.aiConfigured, "boolean");
+  assert.equal(payload.buildCommit, process.env.VERCEL_GIT_COMMIT_SHA);
+  assert.match(response.headers.get("cache-control") || "", /no-store/i);
 
   console.log(
     JSON.stringify({
