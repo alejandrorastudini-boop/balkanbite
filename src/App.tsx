@@ -2398,6 +2398,7 @@ export default function App() {
               recipes={recipes}
               shoppingList={shoppingList}
               mealPlan={mealPlan}
+              mealLogs={mealLogs}
               profile={profile}
               progressionSummary={progressionSummary}
               onNavigateToTab={setActiveTab}
