@@ -55,7 +55,7 @@ test("App meal logging never fills missing verified nutrition with zero", () => 
   assert.ok(start >= 0 && end > start);
   const handler = appSource.slice(start, end);
 
-  assert.match(handler, /buildVerifiedMealLog\(/);
+  assert.match(handler, /buildMealLogPreservingNutritionUncertainty\(/);
   assert.match(handler, /if \(!newLog\)/);
   assert.doesNotMatch(handler, /Number\.isFinite\([^)]*\)\s*\?[^:]+:\s*0/);
   assert.doesNotMatch(handler, /nutritionDataStatus:\s*"unknown"/);
