@@ -1,8 +1,8 @@
 {
-  "mode": "disabled",
+  "mode": "hosted-readonly-preflight",
   "projectId": "gen-lang-client-0319723351",
   "databaseId": "ai-studio-balkanbite-9bd2735f-15da-4be1-a327-f9c6d29866b6",
   "targetUrl": "https://balkanbite.vercel.app",
-  "productionCommit": "0000000000000000000000000000000000000000",
-  "rulesSha256": "0000000000000000000000000000000000000000000000000000000000000000"
+  "productionCommit": "6ac65c9576e654771788cf6679c91197cddfe998",
+  "rulesSha256": "67b935c58fab2bd7711abbd7b242077fdd04947c8983d4eca139dc615fd6785a"
 }
