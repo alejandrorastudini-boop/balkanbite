@@ -29,6 +29,7 @@ import {
 import { t } from "../utils/translations";
 import { ConfirmModal } from "./ConfirmModal";
 import { AdminAgentStatusPanel } from "./AdminAgentStatusPortal";
+import { HealthEnergySetupCard } from "./HealthEnergySetupCard";
 import { signInWithGoogle, logout, auth } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { getLocalResetCopy } from "../utils/localResetCopy";
@@ -807,6 +808,16 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         {showInstallGuide && !isInstalled && <div className="p-4 bg-black/40 rounded-2xl border border-white/[0.04] text-sm text-stone-300 space-y-2 animate-in fade-in duration-200 shadow-inner"><p className="font-bold text-emerald-400 flex items-center gap-2"><span>📲</span> {currentText.installGuideTitle}</p><ul className="list-disc pl-5 space-y-1.5 text-stone-400 font-medium"><li>{currentText.installGuideIos}</li><li>{currentText.installGuideAndroid}</li></ul></div>}
         {onGoToLanding && <div className="pt-3"><button id="profile-view-landing-btn" type="button" onClick={onGoToLanding} className="w-full py-3 px-4 border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] hover:border-emerald-500/30 text-stone-300 text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"><Globe className="w-5 h-5 text-emerald-400" /><span>{currentText.viewLandingPage}</span></button></div>}
       </div>
+
+      {maintenanceEnergyPlan.status === "needs_input" && (
+        <HealthEnergySetupCard
+          profile={profile.healthProfile}
+          language={language}
+          onSave={async (healthProfile) =>
+            persistPreference({ healthProfile })
+          }
+        />
+      )}
 
       {profile.healthProfile && (
         <div className="bg-[#131A1F]/60 backdrop-blur-md border border-rose-500/20 rounded-3xl p-6 shadow-[0_8px_30px_rgba(0,0,0,0.4)] space-y-4">
