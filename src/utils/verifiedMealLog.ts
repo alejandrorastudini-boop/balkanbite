@@ -118,6 +118,25 @@ function canonicalMealIdentity(
 }
 
 /**
+ * Builds a meal-history fact even when nutrition is not authoritative.
+ *
+ * Explicitly verified nutrition must still be complete or the request fails.
+ * Otherwise only meal identity is retained and nutrition remains unknown;
+ * numeric estimates from AI/manual input are never promoted to facts.
+ */
+export function buildMealLogPreservingNutritionUncertainty(
+  candidate: VerifiedMealLogCandidate,
+): MealLog | null {
+  if (candidate.nutritionVerified === true) {
+    return buildVerifiedMealLog(candidate);
+  }
+
+  const identity = canonicalMealIdentity(candidate as unknown as Record<string, unknown>);
+  return identity ? { ...identity, nutritionDataStatus: "unknown" } : null;
+}
+
+
+/**
  * Sanitizes historical/local MealLog storage without inventing nutrition.
  *
  * A structurally valid meal remains part of history. Nutrition survives only
