@@ -59,3 +59,19 @@ test("hosted run branch must be one manifest-only commit over exact main",()=>{
     files:[{filename:"qa/runtime/hosted-run-request.json"},{filename:"firestore.rules"}],
   }));
 });
+
+test("hosted run branch rejects reordered or extra manifest deltas",()=>{
+  assert.throws(()=>validateHostedRunBranchComparison({
+    status:"ahead",ahead_by:1,behind_by:0,
+    files:[{filename:"README.md"}],
+  }));
+  assert.throws(()=>validateHostedRunBranchComparison({
+    status:"identical",ahead_by:0,behind_by:0,files:[],
+  }));
+});
+
+test("disabled mode still pins project, database and target",()=>{
+  assert.throws(()=>validateHostedRunRequestShape({...base,mode:"disabled",projectId:"other"}));
+  assert.throws(()=>validateHostedRunRequestShape({...base,mode:"disabled",databaseId:"(default)"}));
+  assert.throws(()=>validateHostedRunRequestShape({...base,mode:"disabled",targetUrl:"https://example.com"}));
+});
