@@ -36,6 +36,7 @@ import { getRecipeCookFeedback } from "../utils/recipeCookFeedback";
 import { derivePantryItemExpiry } from "../utils/effectiveExpiry";
 import { useLocalCalendarDay } from "../hooks/useLocalCalendarDay";
 import { summarizeVerifiedMealNutritionForDate } from "../utils/mealNutritionSummary";
+import { summarizeSevenDayNutritionEvidence } from "../utils/weeklyNutritionEvidence";
 import { summarizePlannedDayConsumption } from "../utils/plannedMealConsumption";
 
 interface HomeViewProps {
@@ -77,6 +78,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
   const calendarDay = useLocalCalendarDay();
   const verifiedNutritionToday = useMemo(
     () => summarizeVerifiedMealNutritionForDate(mealLogs, calendarDay),
+    [mealLogs, calendarDay],
+  );
+  const sevenDayNutritionEvidence = useMemo(
+    () => summarizeSevenDayNutritionEvidence(mealLogs, calendarDay),
     [mealLogs, calendarDay],
   );
 
@@ -187,6 +192,24 @@ export const HomeView: React.FC<HomeViewProps> = ({
               : `${verifiedNutritionToday.unverifiedLogCount} meals are excluded because their nutrition is not verified.`}
           </p>
         )}
+      </section>
+      <section data-testid="seven-day-nutrition-evidence" className="rounded-3xl border border-white/10 bg-[#131A1F]/45 p-5">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h2 className="text-sm font-bold text-white">{language === "bg" ? "Хранителни данни за 7 дни" : language === "es" ? "Evidencia nutricional de 7 días" : "7-day nutrition evidence"}</h2>
+            <p className="mt-1 text-xs text-stone-400">{language === "bg" ? "Обобщение само на потвърдените записи; не е хранителна цел." : language === "es" ? "Resumen solo de registros verificados; no es un objetivo nutricional." : "Summary of verified records only; this is not a nutrition target."}</p>
+          </div>
+          <span className="rounded-full border border-white/10 px-2.5 py-1 text-[10px] font-bold text-stone-300">{sevenDayNutritionEvidence.daysWithVerifiedNutrition}/7 {language === "bg" ? "дни" : language === "es" ? "días" : "days"}</span>
+        </div>
+        {sevenDayNutritionEvidence.totals ? (
+          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+            <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-base font-bold text-white">{Math.round(sevenDayNutritionEvidence.totals.calories)} kcal</div><div className="text-[10px] text-stone-500">{language === "bg" ? "потвърдено общо" : language === "es" ? "total verificado" : "verified total"}</div></div>
+            <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-base font-bold text-white">{sevenDayNutritionEvidence.totals.protein.toFixed(1)} g</div><div className="text-[10px] text-stone-500">{language === "bg" ? "протеин" : language === "es" ? "proteína" : "protein"}</div></div>
+            <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-base font-bold text-white">{sevenDayNutritionEvidence.totals.carbs.toFixed(1)} g</div><div className="text-[10px] text-stone-500">{language === "bg" ? "въглехидрати" : language === "es" ? "carbohidratos" : "carbs"}</div></div>
+            <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-base font-bold text-white">{sevenDayNutritionEvidence.totals.fat.toFixed(1)} g</div><div className="text-[10px] text-stone-500">{language === "bg" ? "мазнини" : language === "es" ? "grasas" : "fat"}</div></div>
+          </div>
+        ) : <p className="mt-4 text-xs text-stone-400">{language === "bg" ? "Все още няма потвърдени хранителни стойности за този период." : language === "es" ? "Todavía no hay nutrición verificada para este periodo." : "There is no verified nutrition for this period yet."}</p>}
+        {sevenDayNutritionEvidence.unverifiedLogCount > 0 && <p className="mt-3 text-[11px] text-amber-300/90">{language === "bg" ? `${sevenDayNutritionEvidence.unverifiedLogCount} записа са извън сумите поради непотвърдени хранителни стойности.` : language === "es" ? `${sevenDayNutritionEvidence.unverifiedLogCount} registros quedan fuera de los totales por nutrición no verificada.` : `${sevenDayNutritionEvidence.unverifiedLogCount} logs are excluded from totals because their nutrition is not verified.`}</p>}
       </section>
       {/* Toast cook feedback */}
       {cookFeedback && (
