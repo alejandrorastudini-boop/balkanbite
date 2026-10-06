@@ -505,6 +505,37 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                   <span>{language === "es" ? "Buscar" : language === "bg" ? "Търси" : "Search"}</span>
                 </button>
               </form>
+              <button
+                type="button"
+                disabled={isScanning}
+                onClick={() => barcodeImageInputRef.current?.click()}
+                className="w-full rounded-xl border border-stone-700 bg-stone-800/70 px-4 py-2.5 text-xs font-bold text-stone-200 hover:border-emerald-500/50 disabled:opacity-50 flex items-center justify-center gap-2 cursor-pointer"
+              >
+                <Camera className="w-4 h-4 text-emerald-400" />
+                <span>
+                  {language === "bg"
+                    ? "Сканирай баркод с камера"
+                    : language === "es"
+                    ? "Escanear código con cámara"
+                    : "Scan barcode with camera"}
+                </span>
+              </button>
+              <p className="text-[10px] text-stone-500 text-center">
+                {language === "bg"
+                  ? "Разпознаването се извършва локално, когато браузърът го поддържа. Винаги можете да въведете EAN ръчно."
+                  : language === "es"
+                  ? "La detección se realiza localmente cuando el navegador la admite. Siempre puedes introducir el EAN manualmente."
+                  : "Detection runs locally when supported by the browser. You can always enter the EAN manually."}
+              </p>
+              <input
+                ref={barcodeImageInputRef}
+                type="file"
+                accept="image/*"
+                capture="environment"
+                onChange={handleBarcodeImage}
+                className="hidden"
+                data-testid="barcode-camera-input"
+              />
             </div>
           ) : (
             <div className="space-y-3">
