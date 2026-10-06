@@ -1,13 +1,14 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { Suspense, lazy, useState, useEffect, useMemo, useRef } from "react";
 import { Header } from "./components/Header";
+const PantryView = lazy(() => import("./components/PantryView").then((module) => ({ default: module.PantryView })));
+const RecipeView = lazy(() => import("./components/RecipeView").then((module) => ({ default: module.RecipeView })));
+const VoiceChefView = lazy(() => import("./components/VoiceChefView").then((module) => ({ default: module.VoiceChefView })));
+const ShoppingView = lazy(() => import("./components/ShoppingView").then((module) => ({ default: module.ShoppingView })));
+const MealPlanView = lazy(() => import("./components/MealPlanView").then((module) => ({ default: module.MealPlanView })));
+const ProfileView = lazy(() => import("./components/ProfileView").then((module) => ({ default: module.ProfileView })));
+
 import { BottomNav, TabType } from "./components/BottomNav";
 import { HomeView } from "./components/HomeView";
-import { PantryView } from "./components/PantryView";
-import { RecipeView } from "./components/RecipeView";
-import { VoiceChefView } from "./components/VoiceChefView";
-import { ShoppingView } from "./components/ShoppingView";
-import { MealPlanView } from "./components/MealPlanView";
-import { ProfileView } from "./components/ProfileView";
 import { ProModal } from "./components/ProModal";
 import { OnboardingModal } from "./components/OnboardingModal";
 import { ChefIaFloatingButton } from "./components/ChefIaFloatingButton";
@@ -2380,6 +2381,7 @@ export default function App() {
         />
 
         <main className="px-4 py-3">
+          <Suspense fallback={<div data-testid="route-view-loading" className="py-8 text-center text-sm text-stone-400">Loading…</div>}>
           {!inventoryIsProvisional && (
             <SmartShoppingBanner
             diagnostic={shoppingDiagnostic}
@@ -2553,6 +2555,7 @@ export default function App() {
               theme={theme}
             />
           )}
+          </Suspense>
         </main>
 
         {!showChefIaModal && activeTab !== "voice" && (
