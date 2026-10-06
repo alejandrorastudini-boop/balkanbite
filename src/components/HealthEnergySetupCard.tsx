@@ -18,6 +18,7 @@ const options: Record<string, readonly string[]> = {
 export const HealthEnergySetupCard: React.FC<Props> = ({ profile, language, onSave }) => {
   const plan = planAdultMaintenanceEnergyCollection(profile);
   const field = plan.status === "needs_input" ? plan.fieldsToRequest[0] : undefined;
+  const [started, setStarted] = useState(false);
   const [status, setStatus] = useState<HealthDataStatus | "">("");
   const [value, setValue] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -70,6 +71,17 @@ export const HealthEnergySetupCard: React.FC<Props> = ({ profile, language, onSa
           {language === "es" ? "Pedimos solo el siguiente dato necesario. Puedes indicar que no lo sabes o que prefieres no decirlo. No usamos valores por defecto." : language === "bg" ? "Искаме само следващите необходими данни. Можете да посочите, че не знаете или предпочитате да не отговаряте. Не използваме стойности по подразбиране." : "Only the next necessary field is requested. You can say you do not know or prefer not to say. No defaults are used."}
         </p>
       </div>
+      {!started ? (
+        <button
+          id="health-energy-start-optional-setup"
+          type="button"
+          onClick={() => setStarted(true)}
+          className="rounded-xl border border-emerald-500/30 bg-emerald-500/10 px-4 py-2.5 text-xs font-bold text-emerald-300"
+        >
+          {language === "es" ? "Empezar configuración opcional" : language === "bg" ? "Започни незадължителната настройка" : "Start optional setup"}
+        </button>
+      ) : (
+        <>
       <div className="text-xs font-bold text-stone-200">{labels[field][language]}</div>
       <select value={status} onChange={(e) => setStatus(e.target.value as HealthDataStatus | "")} className="w-full rounded-xl border border-white/[0.08] bg-[#0B0F12] px-3 py-2.5 text-sm text-white">
         <option value="">{language === "es" ? "Elige una opción" : language === "bg" ? "Изберете опция" : "Choose an option"}</option>
@@ -92,6 +104,8 @@ export const HealthEnergySetupCard: React.FC<Props> = ({ profile, language, onSa
       <button type="button" disabled={!status || (status === "known" && !value) || saving} onClick={save} className="rounded-xl bg-emerald-500 px-4 py-2.5 text-xs font-bold text-stone-950 disabled:opacity-40">
         {saving ? "…" : language === "es" ? "Guardar y continuar" : language === "bg" ? "Запази и продължи" : "Save and continue"}
       </button>
+        </>
+      )}
     </div>
   );
 };
