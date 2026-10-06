@@ -29,3 +29,11 @@ test("pantry total is explicitly presented as estimated in all supported languag
   assert.match(translations, /pantryStatsValue: "Прогнозна стойност"/);
   assert.match(translations, /pantryStatsValue: "Valor estimado"/);
 });
+
+
+test("partial pantry value is labelled as incomplete instead of becoming a false total", () => {
+  assert.match(source, /pantryCostSummary\.knownSubtotalEUR/);
+  assert.match(source, /pantryCostSummary\.unknownItemCount/);
+  assert.match(source, /pantry-cost-coverage/);
+  assert.match(source, /sin valor fiable/);
+});
