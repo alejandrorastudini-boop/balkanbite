@@ -13,3 +13,9 @@ test("rejects malformed or checksum-invalid barcode identities", () => {
     assert.equal(normalizeValidRetailBarcode(code), null);
   }
 });
+
+test("server barcode route validates identity before Open Food Facts fetch", () => {
+  const server = require("node:fs").readFileSync("server.ts", "utf8");
+  assert.match(server, /normalizeValidRetailBarcode\(req\.params\.code\)/);
+  assert.match(server, /reason: "invalid_barcode"/);
+});
