@@ -22,6 +22,7 @@ import {
 } from "../utils/safeScanCandidate";
 import { admitSuccessfulScanItems } from "../utils/safeScanResult";
 import { isConfirmedScanCandidate } from "../utils/confirmedScanCandidate";
+import { detectBarcodeFromImageFile } from "../utils/localBarcodeDetection";
 
 interface ScannedItem extends SafeScanCandidate {
   id: string;
@@ -78,6 +79,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
   const fileInputRef = useRef<HTMLInputElement | null>(null);
+  const barcodeImageInputRef = useRef<HTMLInputElement | null>(null);
   // Only the latest capture request may publish candidates or failure state.
   const captureRequestIdRef = useRef(0);
 
@@ -216,14 +218,11 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     }
   };
 
-  const handleBarcodeSearch = async (e: React.FormEvent) => {
-    e.preventDefault();
-    // A new lookup immediately invalidates any prior suggestion so validation,
-    // not-found responses, and request failures can never leave a stale save path.
-    // Every lookup attempt, including an empty submission, invalidates an older in-flight result.
+  const lookupBarcode = async (rawBarcode: string) => {
     const requestId = ++captureRequestIdRef.current;
+    const barcode = rawBarcode.trim();
     setScannedItems([]);
-    if (!barcodeInput.trim()) {
+    if (!barcode) {
       setIsScanning(false);
       setErrorMsg(
         language === "es"
@@ -237,20 +236,13 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
     setIsScanning(true);
     setErrorMsg(null);
-    setScannedItems([]);
     try {
-      const res = await fetch(`/api/barcode/${encodeURIComponent(barcodeInput.trim())}?lang=${language}`);
+      const res = await fetch(`/api/barcode/${encodeURIComponent(barcode)}?lang=${language}`);
       if (requestId !== captureRequestIdRef.current) return;
-      if (!res.ok) {
-        setScannedItems([]);
-        throw new Error("Barcode not found. No pantry candidate is available to review or add, and nothing can be saved.");
-      }
+      if (!res.ok) throw new Error("Barcode not found");
 
       const data = await res.json();
       if (requestId !== captureRequestIdRef.current) return;
-      // A barcode candidate requires an explicit `found: true` lookup marker.
-      // HTTP success or a generic `success` flag does not establish that a product
-      // exists, so missing/malformed/not-found statuses remain authoritative no-result states.
       if (
         !data ||
         typeof data !== "object" ||
@@ -258,30 +250,24 @@ export const ScanModal: React.FC<ScanModalProps> = ({
         data.available === false ||
         data.found !== true
       ) {
-        throw new Error("Barcode not found. No pantry candidate is available to review or add, and nothing can be saved.");
+        throw new Error("Barcode not found");
       }
       const candidate = normalizeScanCandidate(data);
-      if (!candidate) {
-        throw new Error("Barcode result has no product name. No pantry candidate is available to review or add.");
-      }
+      if (!candidate) throw new Error("Barcode result has no product name");
 
-      const newItem: ScannedItem = {
+      setScannedItems([{
         ...candidate,
         id: `barcode-${Date.now()}`,
         selected: false,
         captureSource: "barcode-suggestion",
         quantityConfirmed: false,
         unitConfirmed: false,
-      };
-
-      setScannedItems([newItem]);
-      // Barcode lookup fields are candidates too; keep their unverified provenance visible during review.
+      }]);
       setErrorMsg(confirmationText);
       setBarcodeInput("");
     } catch (err) {
       if (requestId !== captureRequestIdRef.current) return;
       console.error(err);
-      // Failure and not-found states must never expose an authoritative candidate or save path.
       setScannedItems([]);
       setErrorMsg(
         language === "es"
@@ -293,6 +279,46 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     } finally {
       if (requestId === captureRequestIdRef.current) setIsScanning(false);
     }
+  };
+
+  const handleBarcodeSearch = (e: React.FormEvent) => {
+    e.preventDefault();
+    void lookupBarcode(barcodeInput);
+  };
+
+  const handleBarcodeImage = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    e.target.value = "";
+    if (!file || isScanning) return;
+
+    const captureId = ++captureRequestIdRef.current;
+    setScannedItems([]);
+    setErrorMsg(null);
+    setIsScanning(true);
+    const detection = await detectBarcodeFromImageFile(file);
+    if (captureId !== captureRequestIdRef.current) return;
+
+    if (detection.status === "detected") {
+      setBarcodeInput(detection.rawValue);
+      setIsScanning(false);
+      await lookupBarcode(detection.rawValue);
+      return;
+    }
+
+    setIsScanning(false);
+    setErrorMsg(
+      detection.status === "unsupported"
+        ? language === "bg"
+          ? "Този браузър не поддържа локално разпознаване на баркод. Въведете EAN ръчно."
+          : language === "es"
+          ? "Este navegador no admite lectura local de códigos. Introduce el EAN manualmente."
+          : "This browser does not support local barcode detection. Enter the EAN manually."
+        : language === "bg"
+        ? "Не беше открит четим баркод. Опитайте друга снимка или въведете EAN ръчно."
+        : language === "es"
+        ? "No se detectó un código legible. Prueba otra foto o introduce el EAN manualmente."
+        : "No readable barcode was detected. Try another image or enter the EAN manually."
+    );
   };
 
   const handleToggleItem = (id: string) => {
