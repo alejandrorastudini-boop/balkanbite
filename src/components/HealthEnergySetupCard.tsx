@@ -75,6 +75,7 @@ export const HealthEnergySetupCard: React.FC<Props> = ({ profile, language, onSa
         <option value="">{language === "es" ? "Elige una opción" : language === "bg" ? "Изберете опция" : "Choose an option"}</option>
         <option value="known">{language === "es" ? "Quiero indicarlo" : language === "bg" ? "Искам да посоча" : "I want to provide it"}</option>
         <option value="unknown">{language === "es" ? "No lo sé" : language === "bg" ? "Не знам" : "I don't know"}</option>
+        {field === "pregnancyLactationStatus" && <option value="not_applicable">{language === "es" ? "No aplica" : language === "bg" ? "Не е приложимо" : "Not applicable"}</option>}
         <option value="prefer_not_to_say">{language === "es" ? "Prefiero no decirlo" : language === "bg" ? "Предпочитам да не отговарям" : "Prefer not to say"}</option>
       </select>
       {status === "known" && (
