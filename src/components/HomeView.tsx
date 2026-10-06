@@ -112,13 +112,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
 
   // Today's meal plan
   const todayIsoDate = calendarDay;
-  const todayPlan = useMemo(() => {
-    const matched = findPlannedMealForDate(mealPlan, todayIsoDate);
-    if (matched) return matched;
-    // Fallback: day of week index or first day if available
-    const dayOfWeek = (new Date().getDay() + 6) % 7; // Monday = 0
-    return mealPlan[dayOfWeek] || mealPlan[0] || null;
-  }, [mealPlan, todayIsoDate]);
+  const todayPlan = useMemo(
+    () => findPlannedMealForDate(mealPlan, todayIsoDate),
+    [mealPlan, todayIsoDate],
+  );
   const todayPlanEvidence = useMemo(
     () => summarizePlannedDayConsumption(todayPlan, mealLogs),
     [todayPlan, mealLogs],
@@ -307,7 +304,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
             </span>
           </div>
           <div className="text-2xl font-extrabold tracking-tight mb-0.5">
-            {todayPlan?.lunch || todayPlan?.dinner ? "2+" : todayPlan?.breakfast ? "1" : "0"}
+            {todayPlanEvidence.plannedCount}
           </div>
           <div className={`text-xs font-semibold ${isDark ? "text-stone-400" : "text-slate-600"}`}>
             {currentText.homeTodayMeals || "Comidas de hoy"}
