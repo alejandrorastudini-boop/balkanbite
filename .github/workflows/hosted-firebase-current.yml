@@ -1,14 +1,16 @@
 name: Current hosted Firebase contract gate
 
 on:
-  push:
+  pull_request_target:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
-      - 'qa/hosted-firestore-run-*'
+      - main
     paths:
       - "qa/runtime/hosted-run-request.json"
 
 permissions:
   contents: read
+  pull-requests: read
 
 concurrency:
   group: balkanbite-hosted-contract-gate
@@ -16,12 +18,14 @@ concurrency:
 
 jobs:
   hosted-current-rules-contract:
-    if: startsWith(github.ref, 'refs/heads/qa/hosted-firestore-run-')
+    if: startsWith(github.head_ref, 'qa/hosted-firestore-run-')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
-      - name: Checkout QA-only harness
+      - name: Checkout reviewed QA branch
         uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          ref: ${{ github.event.pull_request.head.sha }}
 
       - name: Configure Node
         uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
@@ -33,6 +37,7 @@ jobs:
         id: validate-hosted-target
         env:
           GITHUB_TOKEN: ${{ github.token }}
+          HOSTED_RUN_HEAD_SHA: ${{ github.event.pull_request.head.sha }}
         run: node qa/runtime/validate-hosted-run-request.mjs
 
       - name: Run current hosted Firestore contract probe
