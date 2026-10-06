@@ -71,6 +71,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   const [missingShoppingAddError, setMissingShoppingAddError] = useState(false);
   const [loggingMealSlot, setLoggingMealSlot] = useState<PlannedMealSlot | null>(null);
   const [mealLogErrorSlot, setMealLogErrorSlot] = useState<PlannedMealSlot | null>(null);
+  const [pendingMealLog, setPendingMealLog] = useState<{ slot: PlannedMealSlot; recipe: Recipe } | null>(null);
   const { sync: syncToCalendar, isSyncing: isCalendarSyncing } = useGoogleCalendarSync();
 
   const handleAddMissingToShopping = async () => {
@@ -110,8 +111,10 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
         } : {}),
       }));
       if (!saved) setMealLogErrorSlot(slot);
+      return saved;
     } catch {
       setMealLogErrorSlot(slot);
+      return false;
     } finally {
       setLoggingMealSlot(null);
     }
@@ -732,7 +735,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
                         type="button"
                         data-testid={`log-planned-meal-${meal.slot}`}
                         disabled={loggingMealSlot !== null}
-                        onClick={() => void logPlannedMealConsumed(meal.slot, meal.recipe!)}
+                        onClick={() => setPendingMealLog({ slot: meal.slot, recipe: meal.recipe! })}
                         className="mt-1 text-[10px] font-bold text-sky-300 hover:text-sky-200 disabled:opacity-50 cursor-pointer"
                       >
                         {loggingMealSlot === meal.slot
@@ -836,6 +839,26 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
           ))}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={pendingMealLog !== null}
+        onClose={() => setPendingMealLog(null)}
+        onConfirm={async () => {
+          if (!pendingMealLog) return false;
+          const pending = pendingMealLog;
+          const saved = await logPlannedMealConsumed(pending.slot, pending.recipe);
+          if (saved !== false) setPendingMealLog(null);
+          return saved !== false;
+        }}
+        title={language === "bg" ? "Потвърдете изяденото хранене" : language === "es" ? "Confirmar comida consumida" : "Confirm eaten meal"}
+        description={language === "bg"
+          ? "Ще се запише, че сте изяли тази планирана рецепта. Това само по себе си не променя количествата в килера."
+          : language === "es"
+          ? "Se registrará que has consumido esta receta planificada. Este registro por sí solo no modifica las cantidades de la despensa."
+          : "This records that you ate the planned recipe. The meal log by itself does not change pantry quantities."}
+        confirmText={language === "bg" ? "Потвърди" : language === "es" ? "Confirmar" : "Confirm"}
+        cancelText={currentText.cancel}
+      />
 
       {/* Confirmation Modal for Clearing Meal Plan */}
       <ConfirmModal
