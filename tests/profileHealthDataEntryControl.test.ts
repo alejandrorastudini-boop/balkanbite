@@ -7,26 +7,16 @@ const source = fs.readFileSync(
   "utf8",
 );
 
-test("profile exposes explicit opt-in entry for missing HealthProfile fields", () => {
-  assert.match(source, /health-profile-entry-card/);
-  assert.match(source, /missingHealthFields/);
-  assert.match(source, /setSelfReportedHealthProfileField/);
-  assert.match(source, /No defaults are used/);
+test("profile keeps new persistent HealthProfile collection unavailable while privacy gate is open", () => {
+  assert.doesNotMatch(source, /health-profile-entry-card/);
+  assert.doesNotMatch(source, /missingHealthFields/);
+  assert.doesNotMatch(source, /beginHealthFieldEntry/);
+  assert.doesNotMatch(source, /setSelfReportedHealthProfileField/);
 });
 
-test("health entry preserves unknown, not-applicable and prefer-not-to-say states", () => {
-  assert.match(source, /value="unknown"/);
-  assert.match(source, /value="not_applicable"/);
-  assert.match(source, /value="prefer_not_to_say"/);
-});
-
-test("health entry describes provenance and remains user initiated", () => {
-  assert.match(source, /Source: self-reported/);
-  assert.match(source, /onClick=\{\(\) => beginHealthFieldEntry\(field\)\}/);
-  assert.doesNotMatch(source, /setSelfReportedHealthProfileField\([^)]*default/i);
-});
-
-test("pregnancy/lactation entry uses progressive disclosure", () => {
-  assert.match(source, /field === "pregnancyLactationStatus"/);
-  assert.match(source, /knownPhysiologicalSex === "female"/);
+test("existing HealthProfile controls remain available without soliciting missing fields", () => {
+  assert.match(source, /profile-health-field-list/);
+  assert.match(source, /correctExistingHealthProfileField/);
+  assert.match(source, /profile-remove-health-field-/);
+  assert.match(source, /profile-calculate-maintenance-energy/);
 });
