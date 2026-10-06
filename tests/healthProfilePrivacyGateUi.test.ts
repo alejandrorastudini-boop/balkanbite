@@ -7,14 +7,13 @@ const source = fs.readFileSync(
   "utf8",
 );
 
-test("profile keeps new persistent HealthProfile collection unavailable while privacy gate is open", () => {
+test("Profile does not collect new persistent health fields while privacy gate is open", () => {
   assert.doesNotMatch(source, /health-profile-entry-card/);
-  assert.doesNotMatch(source, /missingHealthFields/);
-  assert.doesNotMatch(source, /beginHealthFieldEntry/);
+  assert.doesNotMatch(source, /add-health-field-/);
   assert.doesNotMatch(source, /setSelfReportedHealthProfileField/);
 });
 
-test("existing HealthProfile controls remain available without soliciting missing fields", () => {
+test("existing health data remains inspectable, correctable, removable and calculation stays explicit", () => {
   assert.match(source, /profile-health-field-list/);
   assert.match(source, /correctExistingHealthProfileField/);
   assert.match(source, /profile-remove-health-field-/);
