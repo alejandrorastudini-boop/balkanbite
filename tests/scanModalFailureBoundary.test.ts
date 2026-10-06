@@ -27,7 +27,7 @@ test("AI error and empty-result transitions remove every pantry candidate", () =
 });
 
 test("barcode not-found and error transitions remove every pantry candidate", () => {
-  const barcodeSearch = section("const handleBarcodeSearch", "const handleToggleItem");
+  const barcodeSearch = section("const lookupBarcode", "const handleBarcodeSearch");
 
   assert.match(barcodeSearch, /if \(!res\.ok\)[\s\S]*?setScannedItems\(\[\]\)/);
   assert.match(barcodeSearch, /catch \(err\) \{[\s\S]*?setScannedItems\(\[\]\)/);
