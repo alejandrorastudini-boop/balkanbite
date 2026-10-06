@@ -67,3 +67,16 @@ export function summarizeVerifiedMealNutrition(
 export function verifiedMealCalories(log: MealLog): number | null {
   return hasValidVerifiedNutrition(log) ? log.calories : null;
 }
+
+
+/**
+ * Date-scoped adapter over the single verified-nutrition authority.
+ * Date matching uses the already persisted local calendar key; no timezone
+ * inference is introduced here.
+ */
+export function summarizeVerifiedMealNutritionForDate(
+  logs: readonly MealLog[],
+  localDate: string,
+): DailyNutritionSummary {
+  return summarizeVerifiedMealNutrition(logs.filter((log) => log.date === localDate));
+}
