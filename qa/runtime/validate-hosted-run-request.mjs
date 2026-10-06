@@ -14,7 +14,8 @@ const request = JSON.parse(
 const expectedDb = EXPECTED_HOSTED_DATABASE;
 const target = EXPECTED_HOSTED_TARGET;
 
-assert.match(process.env.GITHUB_REF || "", /^refs\/heads\/qa\/hosted-firestore-run-[A-Za-z0-9._-]+$/,
+const runBranch=process.env.GITHUB_HEAD_REF || (process.env.GITHUB_REF || "").replace(/^refs\\/heads\\//,"");
+assert.match(runBranch, /^qa\\/hosted-firestore-run-[A-Za-z0-9._-]+$/,
   "Hosted QA can run only from a dedicated fresh run branch");
 const gate=validateHostedRunRequestShape(request);
 if (gate.disabled) {
@@ -35,7 +36,7 @@ assert.equal(response.status, 200, "Unable to verify current production main SHA
 const currentMain = await response.json();
 assert.equal(currentMain.commit?.sha, request.productionCommit,
   "Main advanced after approved QA request; review before running hosted writes");
-const runSha=String(process.env.GITHUB_SHA || "");
+const runSha=String(process.env.HOSTED_RUN_HEAD_SHA || process.env.GITHUB_SHA || "");
 assert.match(runSha,/^[a-f0-9]{40}$/,"Exact hosted run branch SHA required");
 const compareResponse=await fetch(
   "https://api.github.com/repos/alejandrorastudini-boop/balkanbite/compare/" +
