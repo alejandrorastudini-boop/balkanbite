@@ -449,7 +449,7 @@ export const HomeView: React.FC<HomeViewProps> = ({
                         <Clock className="w-3 h-3" /> {recipe.prepTimeMin + recipe.cookTimeMin} min
                       </span>
                       <span className="flex items-center gap-1">
-                        <Flame className="w-3 h-3 text-amber-400" /> {recipe.caloriesKcal} kcal
+                        <Flame className="w-3 h-3 text-amber-400" /> {recipe.nutritionDataStatus === "verified" ? recipe.calories : "≈" + recipe.calories} kcal
                       </span>
                     </div>
                   </div>
