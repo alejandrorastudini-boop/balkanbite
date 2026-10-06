@@ -23,6 +23,7 @@ import { calculateRecipePantryScore } from "../utils/menuAutoPlanner";
 import { evaluateShoppingNeeds } from "../utils/shoppingAdvisor";
 import { findPlannedMealForDate } from "../utils/mealPlanLookup";
 import { summarizeVerifiedMealNutrition, verifiedMealCalories } from "../utils/mealNutritionSummary";
+import { summarizeSevenDayNutritionEvidence } from "../utils/weeklyNutritionEvidence";
 import { derivePlannedMealConsumption, type PlannedMealSlot } from "../utils/plannedMealConsumption";
 import { localCalendarDate, localDateFromCalendarKey } from "../utils/effectiveExpiry";
 import { useLocalCalendarDay } from "../hooks/useLocalCalendarDay";
@@ -90,6 +91,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
 
   const nutritionSummary = summarizeVerifiedMealNutrition(dailyLogs);
   const totalNutrition = nutritionSummary.totals;
+  const weeklyNutrition = summarizeSevenDayNutritionEvidence(mealLogs, selectedDateStr);
 
   const getRecipeTitle = (recipe?: Recipe | null) => {
     if (!recipe) return "-";
@@ -513,6 +515,55 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
             ? "Тези стойности са само сборът от записаните хранения с проверени хранителни данни. BalkanBite все още не изчислява персонализирани дневни цели."
             : "These values are only the sum of logged meals with verified nutrition. BalkanBite does not calculate personalized daily targets yet."}
         </p>
+
+        <div
+          data-testid="weekly-nutrition-evidence"
+          className="mb-4 rounded-2xl border border-white/[0.07] bg-black/20 p-4"
+        >
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <h4 className="text-xs font-bold text-stone-200">
+                {language === "bg"
+                  ? "Проверени хранителни данни · 7 дни"
+                  : language === "es"
+                  ? "Nutrición verificada · 7 días"
+                  : "Verified nutrition · 7 days"}
+              </h4>
+              <p className="mt-1 text-[11px] text-stone-500">
+                {weeklyNutrition.startDate} → {weeklyNutrition.endDate} · {weeklyNutrition.daysWithVerifiedNutrition}/7{" "}
+                {language === "bg" ? "дни с данни" : language === "es" ? "días con datos" : "days with data"}
+              </p>
+            </div>
+            <span className="text-[10px] font-bold text-emerald-300">
+              {weeklyNutrition.verifiedLogCount} {language === "bg" ? "проверени" : language === "es" ? "verificadas" : "verified"}
+            </span>
+          </div>
+          {weeklyNutrition.totals ? (
+            <div className="mt-3 grid grid-cols-2 sm:grid-cols-4 gap-2 text-xs">
+              <span>{Math.round(weeklyNutrition.totals.calories)} kcal</span>
+              <span>{weeklyNutrition.totals.protein.toFixed(1)} g {language === "es" ? "proteína" : language === "bg" ? "протеин" : "protein"}</span>
+              <span>{weeklyNutrition.totals.carbs.toFixed(1)} g {language === "es" ? "carbohidratos" : language === "bg" ? "въглехидрати" : "carbs"}</span>
+              <span>{weeklyNutrition.totals.fat.toFixed(1)} g {language === "es" ? "grasas" : language === "bg" ? "мазнини" : "fat"}</span>
+            </div>
+          ) : (
+            <p className="mt-3 text-xs text-stone-500">
+              {language === "bg"
+                ? "Няма проверени хранителни стойности за този период."
+                : language === "es"
+                ? "No hay valores nutricionales verificados en este periodo."
+                : "No verified nutrition values in this period."}
+            </p>
+          )}
+          {weeklyNutrition.unverifiedLogCount > 0 && (
+            <p className="mt-2 text-[11px] text-amber-300/90">
+              {language === "bg"
+                ? `${weeklyNutrition.unverifiedLogCount} записа са извън сумите поради непроверени хранителни данни.`
+                : language === "es"
+                ? `${weeklyNutrition.unverifiedLogCount} registros quedan fuera de las sumas por nutrición no verificada.`
+                : `${weeklyNutrition.unverifiedLogCount} logs are excluded from totals because nutrition is unverified.`}
+            </p>
+          )}
+        </div>
 
         {dailyLogs.length > 0 && (
           <div className="space-y-2 mt-4 pt-4 border-t border-stone-800">
