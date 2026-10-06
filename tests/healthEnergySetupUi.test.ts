@@ -8,6 +8,8 @@ const profile = fs.readFileSync(new URL("../src/components/ProfileView.tsx", imp
 test("progressive setup requests only the first currently required field", () => {
   assert.match(source, /plan\.fieldsToRequest\[0\]/);
   assert.match(source, /No defaults are used/);
+  assert.match(source, /health-energy-start-optional-setup/);
+  assert.match(source, /Start optional setup/);
   assert.match(profile, /maintenanceEnergyPlan\.status === "needs_input"/);
 });
 
