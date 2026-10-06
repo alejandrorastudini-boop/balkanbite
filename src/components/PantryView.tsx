@@ -15,7 +15,7 @@ import {
 import { PantryItem, Language, Currency } from "../types";
 import { t } from "../utils/translations";
 import { validateManualPantryRequiredFields } from "../utils/manualPantryValidation";
-import { knownPantryCostEUR, summarizePantryCosts } from "../utils/pantryCostSummary";
+import { knownPantryRemainingCostEUR, summarizePantryCosts } from "../utils/pantryCostSummary";
 import { derivePantryItemExpiry } from "../utils/effectiveExpiry";
 import { useLocalCalendarDay } from "../hooks/useLocalCalendarDay";
 import { ConfirmModal } from "./ConfirmModal";
@@ -452,7 +452,7 @@ export const PantryView: React.FC<PantryViewProps> = ({
 
             const displayName =
               language === "bg" && item.nameBg ? item.nameBg : item.name;
-            const itemCostEUR = knownPantryCostEUR(item.estimatedCostEUR);
+            const itemCostEUR = knownPantryRemainingCostEUR(item);
 
             return (
               <div
