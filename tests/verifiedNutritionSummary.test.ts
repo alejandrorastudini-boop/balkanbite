@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import type { MealLog } from "../src/types";
-import { summarizeVerifiedNutritionForDate } from "../src/utils/verifiedNutritionSummary";
+import { summarizeVerifiedMealNutritionForDate } from "../src/utils/mealNutritionSummary";
 
 const verified = (id: string, date = "2026-10-06"): MealLog => ({
   id,
@@ -16,42 +16,36 @@ const verified = (id: string, date = "2026-10-06"): MealLog => ({
 });
 
 test("sums only complete verified nutrition for the requested local date", () => {
-  const result = summarizeVerifiedNutritionForDate([
+  const result = summarizeVerifiedMealNutritionForDate([
     verified("a"),
     { ...verified("b"), calories: 250, proteinG: 10, carbsG: 20, fatG: 5 },
     verified("tomorrow", "2026-10-07"),
   ], "2026-10-06");
   assert.deepEqual(result, {
-    calories: 750,
-    proteinG: 40,
-    carbsG: 80,
-    fatG: 20,
-    verifiedMealCount: 2,
-    excludedMealCount: 0,
+    totals: { calories: 750, protein: 40, carbs: 80, fat: 20 },
+    verifiedLogCount: 2,
+    unverifiedLogCount: 0,
   });
 });
 
 test("estimated unknown and incomplete nutrition never become authoritative zeroes", () => {
-  const result = summarizeVerifiedNutritionForDate([
+  const result = summarizeVerifiedMealNutritionForDate([
     { ...verified("estimated"), nutritionDataStatus: "estimated" },
     { ...verified("unknown"), nutritionDataStatus: "unknown" },
     { ...verified("incomplete"), fatG: undefined },
   ], "2026-10-06");
   assert.deepEqual(result, {
-    calories: 0,
-    proteinG: 0,
-    carbsG: 0,
-    fatG: 0,
-    verifiedMealCount: 0,
-    excludedMealCount: 3,
+    totals: null,
+    verifiedLogCount: 0,
+    unverifiedLogCount: 3,
   });
 });
 
 test("verified zero values remain valid known nutrition", () => {
-  const result = summarizeVerifiedNutritionForDate([
+  const result = summarizeVerifiedMealNutritionForDate([
     { ...verified("zero"), calories: 0, proteinG: 0, carbsG: 0, fatG: 0 },
   ], "2026-10-06");
-  assert.equal(result.verifiedMealCount, 1);
-  assert.equal(result.excludedMealCount, 0);
-  assert.equal(result.calories, 0);
+  assert.equal(result.verifiedLogCount, 1);
+  assert.equal(result.unverifiedLogCount, 0);
+  assert.equal(result.totals?.calories, 0);
 });
