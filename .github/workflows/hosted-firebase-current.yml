@@ -1,0 +1,45 @@
+name: Current hosted Firebase contract gate
+
+on:
+  push:
+    branches:
+      - 'qa/hosted-firestore-run-*'
+    paths:
+      - "qa/runtime/hosted-run-request.json"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: balkanbite-hosted-contract-gate
+  cancel-in-progress: false
+
+jobs:
+  hosted-current-rules-contract:
+    if: startsWith(github.ref, 'refs/heads/qa/hosted-firestore-run-')
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - name: Checkout QA-only harness
+        uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+
+      - name: Configure Node
+        uses: actions/setup-node@820762786026740c76f36085b0efc47a31fe5020 # v7.0.0
+        with:
+          node-version: "22"
+          package-manager-cache: false
+
+      - name: Verify one-time opt-in, deployed commit and exact named database
+        id: validate-hosted-target
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+        run: node qa/runtime/validate-hosted-run-request.mjs
+
+      - name: Run current hosted Firestore contract probe
+        if: steps.validate-hosted-target.outputs.write_enabled == 'true'
+        env:
+          QA_ALLOW_HOSTED_WRITES: "true"
+          QA_VALIDATED_HOSTED_TARGET: "true"
+          QA_HOSTED_TARGET_URL: "https://balkanbite.vercel.app"
+          QA_ALLOW_PRODUCTION_TARGET: "true"
+        run: node qa/runtime/hosted-current-rules-contract.mjs
