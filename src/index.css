@@ -61,9 +61,7 @@
 [data-theme="light"] .bg-\[\#1A242B\],
 [data-theme="light"] .bg-\[\#1A232A\],
 [data-theme="light"] .bg-stone-900,
-[data-theme="light"] .bg-stone-950,
-[data-theme="light"] .bg-[#131A1F],
-[data-theme="light"] .bg-[#0B0F12] {
+[data-theme="light"] .bg-stone-950 {
   background-color: #ffffff !important;
   border-color: #cbd5e1 !important;
   border-width: 1px !important;
@@ -101,10 +99,7 @@
 /* 4. Disable Transparent Gradients & Dark Gradient Stops */
 [data-theme="light"] .from-\[\#131A1F\],
 [data-theme="light"] .via-\[\#1A242B\],
-[data-theme="light"] .to-\[\#131A1F\],
-[data-theme="light"] .from-[#131A1F],
-[data-theme="light"] .via-[#1A242B],
-[data-theme="light"] .to-[#131A1F] {
+[data-theme="light"] .to-\[\#131A1F\] {
   --tw-gradient-from: #ffffff !important;
   --tw-gradient-to: #f8fafc !important;
   --tw-gradient-stops: #ffffff, #f8fafc, #ffffff !important;
