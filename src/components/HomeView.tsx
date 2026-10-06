@@ -36,6 +36,7 @@ import { getRecipeCookFeedback } from "../utils/recipeCookFeedback";
 import { derivePantryItemExpiry } from "../utils/effectiveExpiry";
 import { useLocalCalendarDay } from "../hooks/useLocalCalendarDay";
 import { summarizeVerifiedMealNutritionForDate } from "../utils/mealNutritionSummary";
+import { summarizePlannedDayConsumption } from "../utils/plannedMealConsumption";
 
 interface HomeViewProps {
   pantry: PantryItem[];
@@ -118,6 +119,10 @@ export const HomeView: React.FC<HomeViewProps> = ({
     const dayOfWeek = (new Date().getDay() + 6) % 7; // Monday = 0
     return mealPlan[dayOfWeek] || mealPlan[0] || null;
   }, [mealPlan, todayIsoDate]);
+  const todayPlanEvidence = useMemo(
+    () => summarizePlannedDayConsumption(todayPlan, mealLogs),
+    [todayPlan, mealLogs],
+  );
 
   // Top 3 recipes with highest pantry score
   const topRecipes = useMemo(() => {
@@ -307,12 +312,18 @@ export const HomeView: React.FC<HomeViewProps> = ({
           <div className={`text-xs font-semibold ${isDark ? "text-stone-400" : "text-slate-600"}`}>
             {currentText.homeTodayMeals || "Comidas de hoy"}
           </div>
-          <div className="mt-3 truncate text-[11px] font-medium text-stone-400">
-            {todayPlan?.lunch
-              ? getRecipeTitle(todayPlan.lunch)
-              : todayPlan?.dinner
-              ? getRecipeTitle(todayPlan.dinner)
-              : currentText.homeNoMealsPlanned || (language === "es" ? "Sin planificar" : "Not planned")}
+          <div className="mt-3 text-[11px] font-medium text-stone-400">
+            {todayPlanEvidence.plannedCount === 0
+              ? currentText.homeNoMealsPlanned || (language === "es" ? "Sin planificar" : language === "bg" ? "Няма план" : "Not planned")
+              : todayPlanEvidence.loggedAsPlannedCount > 0
+              ? language === "bg"
+                ? `${todayPlanEvidence.loggedAsPlannedCount}/${todayPlanEvidence.plannedCount} записани по план`
+                : language === "es"
+                ? `${todayPlanEvidence.loggedAsPlannedCount}/${todayPlanEvidence.plannedCount} registradas según plan`
+                : `${todayPlanEvidence.loggedAsPlannedCount}/${todayPlanEvidence.plannedCount} logged as planned`
+              : todayPlanEvidence.differentMealLoggedCount > 0
+              ? language === "bg" ? "Записано е друго хранене" : language === "es" ? "Hay otra comida registrada" : "A different meal is logged"
+              : language === "bg" ? "Още няма потвърден запис" : language === "es" ? "Aún sin registro confirmado" : "No confirmed log yet"}
           </div>
         </div>
 

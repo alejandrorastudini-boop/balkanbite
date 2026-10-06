@@ -59,3 +59,25 @@ export function derivePlannedMealConsumption(
     matchingLogId: null,
   };
 }
+
+
+export interface PlannedDayConsumptionSummary {
+  plannedCount: number;
+  loggedAsPlannedCount: number;
+  differentMealLoggedCount: number;
+  unconfirmedCount: number;
+}
+
+export function summarizePlannedDayConsumption(
+  day: MealPlanDay | null | undefined,
+  logs: readonly MealLog[],
+): PlannedDayConsumptionSummary {
+  const slots: PlannedMealSlot[] = ["breakfast", "lunch", "dinner"];
+  const states = slots.map((slot) => derivePlannedMealConsumption(day, logs, slot));
+  return {
+    plannedCount: states.filter((state) => state.status !== "not_planned").length,
+    loggedAsPlannedCount: states.filter((state) => state.status === "planned_recipe_logged").length,
+    differentMealLoggedCount: states.filter((state) => state.status === "planned_slot_logged_other").length,
+    unconfirmedCount: states.filter((state) => state.status === "planned_unconfirmed").length,
+  };
+}
