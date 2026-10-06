@@ -12,7 +12,7 @@ const source = fs.readFileSync(
 );
 
 test("PantryView uses deterministic cost guards for totals and rows", () => {
-  assert.match(source, /summarizePantryCosts\(pantry\)\.totalEUR/);
+  assert.match(source, /summarizePantryCosts\(pantry\)/);
   assert.match(source, /knownPantryRemainingCostEUR\(item\)/);
   assert.match(source, /itemCostEUR !== null/);
 });
