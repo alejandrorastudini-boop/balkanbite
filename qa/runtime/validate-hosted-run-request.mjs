@@ -14,8 +14,8 @@ const request = JSON.parse(
 const expectedDb = EXPECTED_HOSTED_DATABASE;
 const target = EXPECTED_HOSTED_TARGET;
 
-const runBranch=process.env.GITHUB_HEAD_REF || (process.env.GITHUB_REF || "").replace(/^refs\\/heads\\//,"");
-assert.match(runBranch, /^qa\\/hosted-firestore-run-[A-Za-z0-9._-]+$/,
+const runBranch=process.env.GITHUB_HEAD_REF || (process.env.GITHUB_REF || "").replace(/^refs\/heads\//,"");
+assert.match(runBranch, /^qa\/hosted-firestore-run-[A-Za-z0-9._-]+$/,
   "Hosted QA can run only from a dedicated fresh run branch");
 const gate=validateHostedRunRequestShape(request);
 if (gate.disabled) {
