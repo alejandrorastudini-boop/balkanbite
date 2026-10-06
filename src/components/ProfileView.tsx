@@ -41,6 +41,8 @@ import { correctExistingHealthProfileField } from "../utils/healthProfileCorrect
 import type { ProgressionActivitySummaryV1 } from "../utils/progressionLedger";
 import { planAdultMaintenanceEnergyCollection } from "../utils/adultEnergyCollectionPlan";
 import { buildEfsaAdultMaintenanceEnergyInputFromHealthProfile } from "../utils/healthProfileEnergyInput";
+import { buildBulgarianAdultEnergyReferenceInputFromHealthProfile } from "../utils/healthProfileBulgarianEnergyInput";
+import { getBulgarianAdultAverageEnergyReference2018 } from "../utils/bulgariaAdultEnergyReference";
 import {
   estimateAdultMaintenanceEnergyEfsa2013,
   type EfsaAdultMaintenanceEnergyResult,
@@ -259,6 +261,13 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const maintenanceEnergyPlan = planAdultMaintenanceEnergyCollection(
     profile.healthProfile,
   );
+
+  const bulgarianEnergyReference =
+    maintenanceEnergyResult?.status === "calculated"
+      ? getBulgarianAdultAverageEnergyReference2018(
+          buildBulgarianAdultEnergyReferenceInputFromHealthProfile(profile.healthProfile),
+        )
+      : null;
 
   const calculateMaintenanceEnergy = () => {
     if (maintenanceEnergyPlan.status !== "ready") return;
@@ -870,6 +879,20 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                         ? "No se guarda como objetivo diario."
                         : "Not stored as a daily target."}
                     </p>
+                    {bulgarianEnergyReference?.status === "reference" && (
+                      <div data-testid="bulgarian-energy-population-reference" className="mt-3 border-t border-white/[0.07] pt-3">
+                        <div className="text-sm font-bold text-stone-200">
+                          {language === "bg" ? "Български ориентир за групата" : language === "es" ? "Referencia poblacional búlgara" : "Bulgarian population reference"}: {bulgarianEnergyReference.averageKcalPerDay} kcal/day
+                        </div>
+                        <p className="mt-1 text-[11px] text-stone-500">
+                          {language === "bg"
+                            ? "Средна стойност за група от Наредба №1/2018. Не е персонализирана и не е цел."
+                            : language === "es"
+                            ? "Promedio poblacional de la Ordenanza nº 1/2018 de Bulgaria. No está personalizado y no es un objetivo."
+                            : "Bulgarian Ordinance No. 1/2018 group average. It is not personalized and is not a target."}
+                        </p>
+                      </div>
+                    )}
                   </div>
                 )}
               </>
