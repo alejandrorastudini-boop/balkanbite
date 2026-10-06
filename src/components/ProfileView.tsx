@@ -38,6 +38,7 @@ import {
   type HealthProfileFieldKey,
 } from "../utils/healthProfile";
 import { correctExistingHealthProfileField } from "../utils/healthProfileCorrection";
+import { setSelfReportedHealthProfileField } from "../utils/healthProfileEntry";
 import type { ProgressionActivitySummaryV1 } from "../utils/progressionLedger";
 import { planAdultMaintenanceEnergyCollection } from "../utils/adultEnergyCollectionPlan";
 import { buildEfsaAdultMaintenanceEnergyInputFromHealthProfile } from "../utils/healthProfileEnergyInput";
@@ -251,6 +252,12 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [healthFieldEditError, setHealthFieldEditError] = useState<string | null>(
     null,
   );
+  const [healthFieldEntry, setHealthFieldEntry] = useState<{
+    field: HealthProfileFieldKey;
+    status: HealthDataStatus;
+    value: string;
+  } | null>(null);
+  const [healthFieldEntryError, setHealthFieldEntryError] = useState<string | null>(null);
   const [showClearLegacyFoodSafetyConfirm, setShowClearLegacyFoodSafetyConfirm] = useState(false);
   const [deferredPrompt, setDeferredPrompt] = useState<any>(null);
   const [isInstalled, setIsInstalled] = useState(false);
@@ -373,6 +380,76 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     await persistPreference({
       disliked: profile.disliked.filter((i) => i !== itemToRemove),
     });
+  };
+
+  const missingHealthFields = HEALTH_PROFILE_FIELD_KEYS.filter(
+    (field) => !profile.healthProfile?.[field],
+  );
+
+  const beginHealthFieldEntry = (field: HealthProfileFieldKey) => {
+    setHealthFieldEntry({ field, status: "known", value: "" });
+    setHealthFieldEntryError(null);
+  };
+
+  const saveHealthFieldEntry = async () => {
+    if (!healthFieldEntry) return;
+    const { field, status } = healthFieldEntry;
+    let value: unknown;
+
+    if (status === "known") {
+      if (NUMERIC_HEALTH_FIELDS.has(field)) {
+        const trimmed = healthFieldEntry.value.trim();
+        const numeric = Number(trimmed);
+        if (!trimmed || !Number.isFinite(numeric) || numeric <= 0) {
+          setHealthFieldEntryError(
+            language === "bg" ? "Въведете положителна числова стойност." :
+            language === "es" ? "Introduce un valor numérico positivo." :
+            "Enter a positive numeric value.",
+          );
+          return;
+        }
+        value = numeric;
+      } else {
+        if (!healthFieldEntry.value) {
+          setHealthFieldEntryError(
+            language === "bg" ? "Изберете стойност." :
+            language === "es" ? "Selecciona un valor." :
+            "Select a value.",
+          );
+          return;
+        }
+        value = healthFieldEntry.value;
+      }
+    }
+
+    const result = setSelfReportedHealthProfileField(
+      profile.healthProfile,
+      field,
+      {
+        status,
+        ...(status === "known" ? { value } : {}),
+        recordedAt: new Date().toISOString(),
+      },
+    );
+    if (!result.ok) {
+      setHealthFieldEntryError(
+        language === "bg" ? "Данните не можаха да бъдат валидирани." :
+        language === "es" ? "No se pudieron validar los datos." :
+        "The data could not be validated.",
+      );
+      return;
+    }
+    const persisted = await onUpdateProfile({ healthProfile: result.profile });
+    if (persisted === false) {
+      setHealthFieldEntryError(
+        language === "bg" ? "Промяната не можа да бъде потвърдена в акаунта." :
+        language === "es" ? "No se pudo confirmar el cambio en tu cuenta." :
+        "The change could not be confirmed in your account.",
+      );
+      return;
+    }
+    setHealthFieldEntry(null);
+    setHealthFieldEntryError(null);
   };
 
   const beginHealthFieldCorrection = (
@@ -807,6 +884,90 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         {showInstallGuide && !isInstalled && <div className="p-4 bg-black/40 rounded-2xl border border-white/[0.04] text-sm text-stone-300 space-y-2 animate-in fade-in duration-200 shadow-inner"><p className="font-bold text-emerald-400 flex items-center gap-2"><span>📲</span> {currentText.installGuideTitle}</p><ul className="list-disc pl-5 space-y-1.5 text-stone-400 font-medium"><li>{currentText.installGuideIos}</li><li>{currentText.installGuideAndroid}</li></ul></div>}
         {onGoToLanding && <div className="pt-3"><button id="profile-view-landing-btn" type="button" onClick={onGoToLanding} className="w-full py-3 px-4 border border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.04] hover:border-emerald-500/30 text-stone-300 text-sm font-bold rounded-xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-sm"><Globe className="w-5 h-5 text-emerald-400" /><span>{currentText.viewLandingPage}</span></button></div>}
       </div>
+
+      {missingHealthFields.length > 0 && (
+        <div
+          data-testid="health-profile-entry-card"
+          className="bg-[#131A1F]/60 backdrop-blur-md border border-sky-500/20 rounded-3xl p-6 space-y-4"
+        >
+          <div>
+            <h3 className="text-base font-bold text-white">
+              {language === "bg" ? "Незадължителни здравни данни" : language === "es" ? "Datos de salud opcionales" : "Optional health data"}
+            </h3>
+            <p className="mt-1 text-xs text-stone-400 leading-relaxed">
+              {language === "bg"
+                ? "Добавяйте само данни, които искате да използвате за конкретни хранителни изчисления. Няма стойности по подразбиране."
+                : language === "es"
+                ? "Añade solo los datos que quieras usar para cálculos nutricionales concretos. No usamos valores por defecto."
+                : "Add only data you want to use for specific nutrition calculations. No defaults are used."}
+            </p>
+          </div>
+          {!healthFieldEntry ? (
+            <div className="flex flex-wrap gap-2">
+              {missingHealthFields.map((field) => (
+                <button
+                  key={field}
+                  type="button"
+                  data-testid={`add-health-field-${field}`}
+                  onClick={() => beginHealthFieldEntry(field)}
+                  className="px-3 py-2 rounded-xl border border-white/[0.08] bg-white/[0.03] text-xs font-bold text-stone-300 hover:border-sky-500/30 cursor-pointer"
+                >
+                  + {HEALTH_FIELD_LABELS[field][language]}
+                </button>
+              ))}
+            </div>
+          ) : (
+            <div data-testid="health-field-entry-editor" className="rounded-2xl border border-white/[0.08] bg-black/20 p-4 space-y-3">
+              <div className="text-sm font-bold text-white">{HEALTH_FIELD_LABELS[healthFieldEntry.field][language]}</div>
+              <select
+                value={healthFieldEntry.status}
+                onChange={(event) => setHealthFieldEntry({ ...healthFieldEntry, status: event.target.value as HealthDataStatus, value: "" })}
+                className="w-full rounded-xl bg-[#131A1F] border border-white/[0.08] px-3 py-2 text-sm text-white"
+              >
+                <option value="known">{language === "bg" ? "Известно" : language === "es" ? "Conocido" : "Known"}</option>
+                <option value="unknown">{language === "bg" ? "Неизвестно" : language === "es" ? "Desconocido" : "Unknown"}</option>
+                <option value="prefer_not_to_say">{language === "bg" ? "Предпочитам да не казвам" : language === "es" ? "Prefiero no decirlo" : "Prefer not to say"}</option>
+                <option value="not_applicable">{language === "bg" ? "Не е приложимо" : language === "es" ? "No aplica" : "Not applicable"}</option>
+              </select>
+              {healthFieldEntry.status === "known" && (
+                NUMERIC_HEALTH_FIELDS.has(healthFieldEntry.field) ? (
+                  <input
+                    type="number"
+                    min="0"
+                    step={healthFieldEntry.field === "ageYears" ? "1" : "0.1"}
+                    value={healthFieldEntry.value}
+                    onChange={(event) => setHealthFieldEntry({ ...healthFieldEntry, value: event.target.value })}
+                    className="w-full rounded-xl bg-[#131A1F] border border-white/[0.08] px-3 py-2 text-sm text-white"
+                  />
+                ) : (
+                  <select
+                    value={healthFieldEntry.value}
+                    onChange={(event) => setHealthFieldEntry({ ...healthFieldEntry, value: event.target.value })}
+                    className="w-full rounded-xl bg-[#131A1F] border border-white/[0.08] px-3 py-2 text-sm text-white"
+                  >
+                    <option value="">{language === "bg" ? "Изберете" : language === "es" ? "Selecciona" : "Select"}</option>
+                    {HEALTH_FIELD_KNOWN_VALUES[healthFieldEntry.field]?.map((value) => (
+                      <option key={value} value={value}>{healthKnownValueLabel(healthFieldEntry.field, value, language)}</option>
+                    ))}
+                  </select>
+                )
+              )}
+              {healthFieldEntryError && <p className="text-xs text-rose-300">{healthFieldEntryError}</p>}
+              <p className="text-[11px] text-stone-500">
+                {language === "bg" ? "Източник: декларирано от вас. Можете да коригирате или изтриете по-късно." : language === "es" ? "Fuente: declarado por ti. Podrás corregirlo o eliminarlo después." : "Source: self-reported. You can correct or delete it later."}
+              </p>
+              <div className="flex gap-2">
+                <button type="button" onClick={saveHealthFieldEntry} className="px-3 py-2 rounded-xl bg-sky-500 text-stone-950 text-xs font-bold cursor-pointer">
+                  {language === "bg" ? "Запази" : language === "es" ? "Guardar" : "Save"}
+                </button>
+                <button type="button" onClick={() => { setHealthFieldEntry(null); setHealthFieldEntryError(null); }} className="px-3 py-2 rounded-xl border border-white/[0.08] text-xs font-bold text-stone-300 cursor-pointer">
+                  {language === "bg" ? "Отказ" : language === "es" ? "Cancelar" : "Cancel"}
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
 
       {profile.healthProfile && (
         <div className="bg-[#131A1F]/60 backdrop-blur-md border border-rose-500/20 rounded-3xl p-6 shadow-[0_8px_30px_rgba(0,0,0,0.4)] space-y-4">
