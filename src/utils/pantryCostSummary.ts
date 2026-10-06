@@ -1,4 +1,4 @@
-import type { InventoryLotState, PantryItem } from "../types";
+import type { InventoryLotState } from "../types";
 import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
 
 export interface PantryCostSummary {
