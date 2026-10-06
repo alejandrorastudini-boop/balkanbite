@@ -993,7 +993,8 @@ Return strictly a JSON array conforming to this schema, with no markdown code fe
   }
 });
 
-// Endpoint: Barcode lookup via Open Food Facts. No AI enrichment is used here.
+// Endpoint: Barcode Lookup
+// Barcode lookup via Open Food Facts. No AI enrichment is used here.
 app.get("/api/barcode/:code", async (req, res) => {
   const code = normalizeValidRetailBarcode(req.params.code);
   if (!code) return res.status(400).json({ found: false, reason: "invalid_barcode" });
