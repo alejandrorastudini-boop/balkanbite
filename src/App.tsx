@@ -6,13 +6,13 @@ const VoiceChefView = lazy(() => import("./components/VoiceChefView").then((modu
 const ShoppingView = lazy(() => import("./components/ShoppingView").then((module) => ({ default: module.ShoppingView })));
 const MealPlanView = lazy(() => import("./components/MealPlanView").then((module) => ({ default: module.MealPlanView })));
 const ProfileView = lazy(() => import("./components/ProfileView").then((module) => ({ default: module.ProfileView })));
+const ChefIaModal = lazy(() => import("./components/ChefIaModal").then((module) => ({ default: module.ChefIaModal })));
 
 import { BottomNav, TabType } from "./components/BottomNav";
 import { HomeView } from "./components/HomeView";
 import { ProModal } from "./components/ProModal";
 import { OnboardingModal } from "./components/OnboardingModal";
 import { ChefIaFloatingButton } from "./components/ChefIaFloatingButton";
-import { ChefIaModal } from "./components/ChefIaModal";
 import { LandingPage } from "./components/LandingPage";
 import { AuthModal } from "./components/AuthModal";
 import { AutoMenuToast } from "./components/AutoMenuToast";
@@ -2575,7 +2575,9 @@ export default function App() {
           theme={theme}
         />
 
-        <ChefIaModal
+        {showChefIaModal && (
+          <Suspense fallback={null}>
+            <ChefIaModal
           isOpen={showChefIaModal}
           onClose={() => setShowChefIaModal(false)}
           onExpandToTab={() => setActiveTab("voice")}
@@ -2593,7 +2595,9 @@ export default function App() {
           foodSafety={foodSafetyQuarantine}
           profileAuthorityReady={!currentUser || profileHydrated}
           language={profile.language}
-        />
+            />
+          </Suspense>
+        )}
 
         {!canRenderApp && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 backdrop-blur-sm">
