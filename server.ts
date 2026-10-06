@@ -7,6 +7,7 @@ import { buildAiCulinaryProfileContext } from "./src/utils/aiCulinaryProfileCont
 import { withOpenAIJsonModeInstruction } from "./src/utils/openAIJsonMode.js";
 import { applyAiRecipeEstimateProvenance } from "./src/utils/aiRecipeProvenance.js";
 import { validateAiRecipeStructure } from "./src/utils/aiRecipeValidation.js";
+import { normalizeValidRetailBarcode } from "./src/utils/retailBarcode.js";
 import {
   getFoodSafetyQuarantineMessage,
   isFoodSafetyReviewRequired,
@@ -992,9 +993,10 @@ Return strictly a JSON array conforming to this schema, with no markdown code fe
   }
 });
 
-// Endpoint: Barcode Lookup via Open Food Facts with AI Enrichment
+// Endpoint: Barcode lookup via Open Food Facts. No AI enrichment is used here.
 app.get("/api/barcode/:code", async (req, res) => {
-  const { code } = req.params;
+  const code = normalizeValidRetailBarcode(req.params.code);
+  if (!code) return res.status(400).json({ found: false, reason: "invalid_barcode" });
   const language = (req.query.lang as string) || "es";
 
   try {
