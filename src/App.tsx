@@ -1,21 +1,22 @@
-import React, { useState, useEffect, useMemo, useRef } from "react";
+import React, { Suspense, lazy, useState, useEffect, useMemo, useRef } from "react";
 import { Header } from "./components/Header";
+const PantryView = lazy(() => import("./components/PantryView").then((module) => ({ default: module.PantryView })));
+const RecipeView = lazy(() => import("./components/RecipeView").then((module) => ({ default: module.RecipeView })));
+const VoiceChefView = lazy(() => import("./components/VoiceChefView").then((module) => ({ default: module.VoiceChefView })));
+const ShoppingView = lazy(() => import("./components/ShoppingView").then((module) => ({ default: module.ShoppingView })));
+const MealPlanView = lazy(() => import("./components/MealPlanView").then((module) => ({ default: module.MealPlanView })));
+const ProfileView = lazy(() => import("./components/ProfileView").then((module) => ({ default: module.ProfileView })));
+const ChefIaModal = lazy(() => import("./components/ChefIaModal").then((module) => ({ default: module.ChefIaModal })));
+const ProModal = lazy(() => import("./components/ProModal").then((module) => ({ default: module.ProModal })));
+const SmartShoppingModal = lazy(() => import("./components/SmartShoppingModal").then((module) => ({ default: module.SmartShoppingModal })));
+
 import { BottomNav, TabType } from "./components/BottomNav";
 import { HomeView } from "./components/HomeView";
-import { PantryView } from "./components/PantryView";
-import { RecipeView } from "./components/RecipeView";
-import { VoiceChefView } from "./components/VoiceChefView";
-import { ShoppingView } from "./components/ShoppingView";
-import { MealPlanView } from "./components/MealPlanView";
-import { ProfileView } from "./components/ProfileView";
-import { ProModal } from "./components/ProModal";
 import { OnboardingModal } from "./components/OnboardingModal";
 import { ChefIaFloatingButton } from "./components/ChefIaFloatingButton";
-import { ChefIaModal } from "./components/ChefIaModal";
 import { LandingPage } from "./components/LandingPage";
 import { AuthModal } from "./components/AuthModal";
 import { AutoMenuToast } from "./components/AutoMenuToast";
-import { SmartShoppingModal } from "./components/SmartShoppingModal";
 import { SmartShoppingBanner } from "./components/SmartShoppingBanner";
 import { useFirebaseSync } from "./hooks/useFirebaseSync";
 import { signInWithGoogle, logout } from "./lib/firebase";
@@ -2380,6 +2381,7 @@ export default function App() {
         />
 
         <main className="px-4 py-3">
+          <Suspense fallback={<div data-testid="route-view-loading" className="py-8 text-center text-sm text-stone-400">Loading…</div>}>
           {!inventoryIsProvisional && (
             <SmartShoppingBanner
             diagnostic={shoppingDiagnostic}
@@ -2553,6 +2555,7 @@ export default function App() {
               theme={theme}
             />
           )}
+          </Suspense>
         </main>
 
         {!showChefIaModal && activeTab !== "voice" && (
@@ -2572,7 +2575,9 @@ export default function App() {
           theme={theme}
         />
 
-        <ChefIaModal
+        {showChefIaModal && (
+          <Suspense fallback={null}>
+            <ChefIaModal
           isOpen={showChefIaModal}
           onClose={() => setShowChefIaModal(false)}
           onExpandToTab={() => setActiveTab("voice")}
@@ -2590,7 +2595,9 @@ export default function App() {
           foodSafety={foodSafetyQuarantine}
           profileAuthorityReady={!currentUser || profileHydrated}
           language={profile.language}
-        />
+            />
+          </Suspense>
+        )}
 
         {!canRenderApp && (
           <div className="fixed inset-0 z-[100] flex items-center justify-center bg-stone-950/80 backdrop-blur-sm">
@@ -2607,11 +2614,15 @@ export default function App() {
           </div>
         )}
 
-        <ProModal
-          isOpen={showProModal}
-          onClose={() => setShowProModal(false)}
-          language={profile.language}
-        />
+        {showProModal && (
+          <Suspense fallback={null}>
+            <ProModal
+              isOpen={showProModal}
+              onClose={() => setShowProModal(false)}
+              language={profile.language}
+            />
+          </Suspense>
+        )}
 
         <OnboardingModal
           isOpen={
@@ -2643,8 +2654,10 @@ export default function App() {
           }}
         />
 
-        <SmartShoppingModal
-          isOpen={showShoppingAdvisorModal && !inventoryIsProvisional}
+        {showShoppingAdvisorModal && !inventoryIsProvisional && (
+          <Suspense fallback={null}>
+            <SmartShoppingModal
+          isOpen={true}
           onClose={() => setShowShoppingAdvisorModal(false)}
           diagnostic={shoppingDiagnostic}
           language={profile.language}
@@ -2656,7 +2669,9 @@ export default function App() {
           }}
           onRequestBrowserNotifications={handleRequestBrowserNotifications}
           hasNotificationPermission={hasNotificationPermission}
-        />
+            />
+          </Suspense>
+        )}
       </div>
     </div>
   );

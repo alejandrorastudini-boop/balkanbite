@@ -1,4 +1,4 @@
-import React, { useState } from "react";
+import React, { Suspense, lazy, useState } from "react";
 import {
   Calendar,
   ChevronLeft,
@@ -17,8 +17,7 @@ import {
 import { Recipe, MealPlanDay, Language, MealLog, ShoppingItem, Currency, PantryItem } from "../types";
 import { t } from "../utils/translations";
 import { ConfirmModal } from "./ConfirmModal";
-import { PrintMenuModal } from "./PrintMenuModal";
-import { useGoogleCalendarSync } from "../hooks/useGoogleCalendarSync";
+const PrintMenuModal = lazy(() => import("./PrintMenuModal").then((module) => ({ default: module.PrintMenuModal })));
 import { calculateRecipePantryScore } from "../utils/menuAutoPlanner";
 import { evaluateShoppingNeeds } from "../utils/shoppingAdvisor";
 import { findPlannedMealForDate } from "../utils/mealPlanLookup";
@@ -72,7 +71,18 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   const [loggingMealSlot, setLoggingMealSlot] = useState<PlannedMealSlot | null>(null);
   const [mealLogErrorSlot, setMealLogErrorSlot] = useState<PlannedMealSlot | null>(null);
   const [pendingMealLog, setPendingMealLog] = useState<{ slot: PlannedMealSlot; recipe: Recipe } | null>(null);
-  const { sync: syncToCalendar, isSyncing: isCalendarSyncing } = useGoogleCalendarSync();
+  const [isCalendarSyncing, setIsCalendarSyncing] = useState(false);
+
+  const syncToCalendar = async (plan: MealPlanDay[], syncLanguage: Language) => {
+    if (isCalendarSyncing) return;
+    setIsCalendarSyncing(true);
+    try {
+      const { syncWeekToGoogleCalendar } = await import("../utils/googleCalendarSync");
+      await syncWeekToGoogleCalendar(plan, syncLanguage);
+    } finally {
+      setIsCalendarSyncing(false);
+    }
+  };
 
   const handleAddMissingToShopping = async () => {
     if (!onAddItemsToShoppingList || isAddingMissingToShopping) return;
@@ -876,7 +886,9 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
       />
 
       {/* Printable Fridge Magnet Menu Sheet Modal */}
-      <PrintMenuModal
+      {showPrintModal && (
+        <Suspense fallback={null}>
+          <PrintMenuModal
         isOpen={showPrintModal}
         onClose={() => setShowPrintModal(false)}
         mealPlan={mealPlan}
@@ -884,7 +896,9 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
         language={language}
         currency={currency}
         userName={userName}
-      />
+          />
+        </Suspense>
+      )}
     </div>
   );
 };
