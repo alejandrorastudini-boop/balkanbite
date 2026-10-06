@@ -23,6 +23,7 @@ import { calculateRecipePantryScore } from "../utils/menuAutoPlanner";
 import { evaluateShoppingNeeds } from "../utils/shoppingAdvisor";
 import { findPlannedMealForDate } from "../utils/mealPlanLookup";
 import { summarizeVerifiedMealNutrition, verifiedMealCalories } from "../utils/mealNutritionSummary";
+import { derivePlannedMealConsumption, type PlannedMealSlot } from "../utils/plannedMealConsumption";
 import { localCalendarDate, localDateFromCalendarKey } from "../utils/effectiveExpiry";
 import { useLocalCalendarDay } from "../hooks/useLocalCalendarDay";
 
@@ -595,11 +596,21 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
           </div>
 
           <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 relative z-10">
-            {[
-              { title: currentText.breakfast, recipe: selectedMeal.breakfast, icon: "🍳" },
-              { title: currentText.lunch, recipe: selectedMeal.lunch, icon: "🥗" },
-              { title: currentText.dinner, recipe: selectedMeal.dinner, icon: "🍲" },
-            ].map((meal, idx) => (
+            {([
+              { title: currentText.breakfast, recipe: selectedMeal.breakfast, icon: "🍳", slot: "breakfast" as PlannedMealSlot },
+              { title: currentText.lunch, recipe: selectedMeal.lunch, icon: "🥗", slot: "lunch" as PlannedMealSlot },
+              { title: currentText.dinner, recipe: selectedMeal.dinner, icon: "🍲", slot: "dinner" as PlannedMealSlot },
+            ]).map((meal, idx) => {
+              const consumption = derivePlannedMealConsumption(selectedMeal, dailyLogs, meal.slot);
+              const consumptionLabel =
+                consumption.status === "planned_recipe_logged"
+                  ? language === "bg" ? "Записано по план" : language === "es" ? "Registrado según plan" : "Logged as planned"
+                  : consumption.status === "planned_slot_logged_other"
+                  ? language === "bg" ? "Записано друго хранене" : language === "es" ? "Registrada otra comida" : "Different meal logged"
+                  : consumption.status === "planned_unconfirmed"
+                  ? language === "bg" ? "Без потвърден запис" : language === "es" ? "Sin registro confirmado" : "No confirmed log"
+                  : null;
+              return (
               <div
                 key={idx}
                 className="bg-black/40 rounded-2xl p-4 border border-white/[0.04] flex items-center gap-4 shadow-inner hover:bg-white/[0.02] transition-colors"
@@ -617,9 +628,24 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
                   <p className="text-sm font-bold text-white truncate font-['Outfit'] tracking-wide">
                     {getRecipeTitle(meal.recipe)}
                   </p>
+                  {consumptionLabel && (
+                    <p
+                      data-testid={`planned-consumption-${meal.slot}`}
+                      className={`text-[10px] font-semibold ${
+                        consumption.status === "planned_recipe_logged"
+                          ? "text-emerald-400"
+                          : consumption.status === "planned_slot_logged_other"
+                          ? "text-amber-300"
+                          : "text-stone-500"
+                      }`}
+                    >
+                      {consumptionLabel}
+                    </p>
+                  )}
                 </div>
               </div>
-            ))}
+            )})
+          }
           </div>
         </div>
       ) : (
