@@ -2,8 +2,6 @@ import React, { useState } from "react";
 import { X, Printer, Calendar, CheckSquare, Sparkles, Heart, Download, Share2 } from "lucide-react";
 import { MealPlanDay, ShoppingItem, Language, Currency } from "../types";
 import { t } from "../utils/translations";
-import html2canvas from "html2canvas";
-import jsPDF from "jspdf";
 
 interface PrintMenuModalProps {
   isOpen: boolean;
@@ -39,6 +37,7 @@ export const PrintMenuModal: React.FC<PrintMenuModalProps> = ({
     if (!element) return;
 
     try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([import("html2canvas"), import("jspdf")]);
       const canvas = await html2canvas(element, {
         scale: 2,
         logging: false,
