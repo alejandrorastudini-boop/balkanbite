@@ -23,6 +23,7 @@ import {
 import { admitSuccessfulScanItems } from "../utils/safeScanResult";
 import { isConfirmedScanCandidate } from "../utils/confirmedScanCandidate";
 import { detectBarcodeFromImageFile } from "../utils/localBarcodeDetection";
+import { normalizeValidRetailBarcode } from "../utils/retailBarcode";
 
 interface ScannedItem extends SafeScanCandidate {
   id: string;
@@ -220,16 +221,16 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
   const lookupBarcode = async (rawBarcode: string) => {
     const requestId = ++captureRequestIdRef.current;
-    const barcode = rawBarcode.trim();
+    const barcode = normalizeValidRetailBarcode(rawBarcode);
     setScannedItems([]);
     if (!barcode) {
       setIsScanning(false);
       setErrorMsg(
         language === "es"
-          ? "Introduce un código de barras para buscar. No hay ningún candidato de despensa para revisar o añadir y no se puede guardar nada."
+          ? "Introduce un código EAN/UPC/GTIN válido. No hay ningún candidato de despensa para revisar o añadir y no se puede guardar nada."
           : language === "bg"
-          ? "Въведете баркод за търсене. Няма предложение за преглед или добавяне в килера и нищо не може да бъде запазено."
-          : "Enter a barcode to search. No pantry candidate is available to review or add, and nothing can be saved."
+          ? "Въведете валиден EAN/UPC/GTIN баркод. Няма предложение за преглед или добавяне в килера и нищо не може да бъде запазено."
+          : "Enter a valid EAN/UPC/GTIN barcode to search. No pantry candidate is available to review or add, and nothing can be saved."
       );
       return;
     }
