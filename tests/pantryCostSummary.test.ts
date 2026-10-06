@@ -13,6 +13,7 @@ test("complete pantry cost total requires every item to have a finite non-negati
       { estimatedCostEUR: 3.5 },
     ]),
     {
+      knownSubtotalEUR: 5.5,
       totalEUR: 5.5,
       knownItemCount: 2,
       unknownItemCount: 0,
@@ -31,6 +32,7 @@ test("null and undefined remain unknown instead of becoming zero", () => {
     assert.equal(summary.complete, false);
     assert.equal(summary.knownItemCount, 1);
     assert.equal(summary.unknownItemCount, 1);
+    assert.equal(summary.knownSubtotalEUR, 2);
   }
 });
 
@@ -49,6 +51,7 @@ test("explicit zero cost remains valid", () => {
   assert.deepEqual(
     summarizePantryCosts([{ estimatedCostEUR: 0 }]),
     {
+      knownSubtotalEUR: 0,
       totalEUR: 0,
       knownItemCount: 1,
       unknownItemCount: 0,
@@ -59,6 +62,7 @@ test("explicit zero cost remains valid", () => {
 
 test("empty pantry has a deterministic zero total", () => {
   assert.deepEqual(summarizePantryCosts([]), {
+    knownSubtotalEUR: 0,
     totalEUR: 0,
     knownItemCount: 0,
     unknownItemCount: 0,

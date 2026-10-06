@@ -12,7 +12,7 @@ const source = fs.readFileSync(
 );
 
 test("PantryView uses deterministic cost guards for totals and rows", () => {
-  assert.match(source, /summarizePantryCosts\(pantry\)\.totalEUR/);
+  assert.match(source, /summarizePantryCosts\(pantry\)/);
   assert.match(source, /knownPantryRemainingCostEUR\(item\)/);
   assert.match(source, /itemCostEUR !== null/);
 });
@@ -28,4 +28,12 @@ test("pantry total is explicitly presented as estimated in all supported languag
   assert.match(translations, /pantryStatsValue: "Estimated value"/);
   assert.match(translations, /pantryStatsValue: "Прогнозна стойност"/);
   assert.match(translations, /pantryStatsValue: "Valor estimado"/);
+});
+
+
+test("partial pantry value is labelled as incomplete instead of becoming a false total", () => {
+  assert.match(source, /pantryCostSummary\.knownSubtotalEUR/);
+  assert.match(source, /pantryCostSummary\.unknownItemCount/);
+  assert.match(source, /pantry-cost-coverage/);
+  assert.match(source, /sin valor fiable/);
 });
