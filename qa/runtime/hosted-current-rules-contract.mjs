@@ -5,7 +5,8 @@ import { validateHostedRunRequestShape } from "./hosted-run-request-core.mjs";
 
 assert.equal(process.env.QA_ALLOW_HOSTED_WRITES, "true",
   "Explicit QA_ALLOW_HOSTED_WRITES=true required");
-assert.match(process.env.GITHUB_REF || "", /^refs\/heads\/qa\/hosted-firestore-run-[A-Za-z0-9._-]+$/,
+const reviewedRunBranch = process.env.GITHUB_HEAD_REF || (process.env.GITHUB_REF || "").replace(/^refs\/heads\//, "");
+assert.match(reviewedRunBranch, /^qa\/hosted-firestore-run-[A-Za-z0-9._-]+$/,
   "Hosted write probe can run only from a dedicated reviewed run branch");
 assert.equal(process.env.QA_VALIDATED_HOSTED_TARGET, "true",
   "Hosted write probe requires successful target preflight in the same workflow");
