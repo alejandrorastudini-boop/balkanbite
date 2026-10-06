@@ -10,6 +10,8 @@ const source = fs.readFileSync(
 test("planned meal can be logged only for the current local calendar day", () => {
   assert.match(source, /selectedDateStr === localCalendarDay/);
   assert.match(source, /Log as eaten/);
+  assert.match(source, /Confirm eaten meal/);
+  assert.match(source, /does not change pantry quantities/);
 });
 
 test("recipe nutrition is authoritative only when recipe status is verified", () => {
