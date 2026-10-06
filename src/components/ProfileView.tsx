@@ -382,9 +382,19 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     });
   };
 
-  const missingHealthFields = HEALTH_PROFILE_FIELD_KEYS.filter(
-    (field) => !profile.healthProfile?.[field],
-  );
+  const knownPhysiologicalSex =
+    profile.healthProfile?.physiologicalSex?.status === "known"
+      ? profile.healthProfile.physiologicalSex.value
+      : undefined;
+  const missingHealthFields = HEALTH_PROFILE_FIELD_KEYS.filter((field) => {
+    if (profile.healthProfile?.[field]) return false;
+    // Pregnancy/lactation is purpose-conditional input for the female energy
+    // equation. Do not solicit it before physiological sex makes it relevant.
+    if (field === "pregnancyLactationStatus") {
+      return knownPhysiologicalSex === "female";
+    }
+    return true;
+  });
 
   const beginHealthFieldEntry = (field: HealthProfileFieldKey) => {
     setHealthFieldEntry({ field, status: "known", value: "" });
