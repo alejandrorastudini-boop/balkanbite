@@ -1,9 +1,10 @@
 name: Current hosted Firebase contract gate
 
 on:
-  push:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches:
-      - 'qa/hosted-firestore-run-*'
+      - main
     paths:
       - "qa/runtime/hosted-run-request.json"
 
@@ -16,7 +17,7 @@ concurrency:
 
 jobs:
   hosted-current-rules-contract:
-    if: startsWith(github.ref, 'refs/heads/qa/hosted-firestore-run-')
+    if: startsWith(github.head_ref, 'qa/hosted-firestore-run-')
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
