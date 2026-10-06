@@ -7,16 +7,16 @@ const ShoppingView = lazy(() => import("./components/ShoppingView").then((module
 const MealPlanView = lazy(() => import("./components/MealPlanView").then((module) => ({ default: module.MealPlanView })));
 const ProfileView = lazy(() => import("./components/ProfileView").then((module) => ({ default: module.ProfileView })));
 const ChefIaModal = lazy(() => import("./components/ChefIaModal").then((module) => ({ default: module.ChefIaModal })));
+const ProModal = lazy(() => import("./components/ProModal").then((module) => ({ default: module.ProModal })));
+const SmartShoppingModal = lazy(() => import("./components/SmartShoppingModal").then((module) => ({ default: module.SmartShoppingModal })));
 
 import { BottomNav, TabType } from "./components/BottomNav";
 import { HomeView } from "./components/HomeView";
-import { ProModal } from "./components/ProModal";
 import { OnboardingModal } from "./components/OnboardingModal";
 import { ChefIaFloatingButton } from "./components/ChefIaFloatingButton";
 import { LandingPage } from "./components/LandingPage";
 import { AuthModal } from "./components/AuthModal";
 import { AutoMenuToast } from "./components/AutoMenuToast";
-import { SmartShoppingModal } from "./components/SmartShoppingModal";
 import { SmartShoppingBanner } from "./components/SmartShoppingBanner";
 import { useFirebaseSync } from "./hooks/useFirebaseSync";
 import { signInWithGoogle, logout } from "./lib/firebase";
@@ -2614,11 +2614,15 @@ export default function App() {
           </div>
         )}
 
-        <ProModal
-          isOpen={showProModal}
-          onClose={() => setShowProModal(false)}
-          language={profile.language}
-        />
+        {showProModal && (
+          <Suspense fallback={null}>
+            <ProModal
+              isOpen={showProModal}
+              onClose={() => setShowProModal(false)}
+              language={profile.language}
+            />
+          </Suspense>
+        )}
 
         <OnboardingModal
           isOpen={
@@ -2650,8 +2654,10 @@ export default function App() {
           }}
         />
 
-        <SmartShoppingModal
-          isOpen={showShoppingAdvisorModal && !inventoryIsProvisional}
+        {showShoppingAdvisorModal && !inventoryIsProvisional && (
+          <Suspense fallback={null}>
+            <SmartShoppingModal
+          isOpen={true}
           onClose={() => setShowShoppingAdvisorModal(false)}
           diagnostic={shoppingDiagnostic}
           language={profile.language}
@@ -2663,7 +2669,9 @@ export default function App() {
           }}
           onRequestBrowserNotifications={handleRequestBrowserNotifications}
           hasNotificationPermission={hasNotificationPermission}
-        />
+            />
+          </Suspense>
+        )}
       </div>
     </div>
   );
