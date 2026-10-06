@@ -1,4 +1,5 @@
 import assert from "node:assert/strict";
+import fs from "node:fs";
 import test from "node:test";
 import { normalizeValidRetailBarcode } from "../src/utils/retailBarcode";
 
@@ -15,7 +16,7 @@ test("rejects malformed or checksum-invalid barcode identities", () => {
 });
 
 test("server barcode route validates identity before Open Food Facts fetch", () => {
-  const server = require("node:fs").readFileSync("server.ts", "utf8");
+  const server = fs.readFileSync("server.ts", "utf8");
   assert.match(server, /normalizeValidRetailBarcode\(req\.params\.code\)/);
   assert.match(server, /reason: "invalid_barcode"/);
 });
