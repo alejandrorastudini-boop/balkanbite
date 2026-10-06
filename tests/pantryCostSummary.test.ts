@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   knownPantryCostEUR,
+  knownPantryRemainingCostEUR,
   summarizePantryCosts,
 } from "../src/utils/pantryCostSummary";
 
@@ -63,4 +64,19 @@ test("empty pantry has a deterministic zero total", () => {
     unknownItemCount: 0,
     complete: true,
   });
+});
+
+test("exact fully allocated lots derive remaining value proportionally", () => {
+  const item = { estimatedCostEUR: null, quantity: 3, unit: "pcs", lotState: { version: 1 as const, unallocatedQuantity: 0, activeLots: [{ id: "acquisition:shop-a", sourceId: "shop-a", source: "shopping_list" as const, acquiredAt: "2026-10-01", initialQuantity: 4, remainingQuantity: 3, initialEstimatedCostEUR: 8 }] } };
+  assert.equal(knownPantryRemainingCostEUR(item), 6);
+  assert.equal(summarizePantryCosts([item]).totalEUR, 6);
+});
+
+test("lot-derived value stays unknown with unallocated stock or missing cost", () => {
+  assert.equal(knownPantryRemainingCostEUR({ estimatedCostEUR: null, quantity: 4, unit: "pcs", lotState: { version: 1, unallocatedQuantity: 1, activeLots: [{ id: "acquisition:shop-a", sourceId: "shop-a", source: "shopping_list", acquiredAt: "2026-10-01", initialQuantity: 4, remainingQuantity: 3, initialEstimatedCostEUR: 8 }] } }), null);
+  assert.equal(knownPantryRemainingCostEUR({ estimatedCostEUR: null, quantity: 2, unit: "pcs", lotState: { version: 1, unallocatedQuantity: 0, activeLots: [{ id: "acquisition:shop-b", sourceId: "shop-b", source: "shopping_list", acquiredAt: "2026-10-01", initialQuantity: 2, remainingQuantity: 2 }] } }), null);
+});
+
+test("invalid explicit lot state cannot become monetary authority", () => {
+  assert.equal(knownPantryRemainingCostEUR({ estimatedCostEUR: null, quantity: 5, unit: "pcs", lotState: { version: 1, unallocatedQuantity: 0, activeLots: [{ id: "acquisition:shop-a", sourceId: "shop-a", source: "shopping_list", acquiredAt: "2026-10-01", initialQuantity: 4, remainingQuantity: 3, initialEstimatedCostEUR: 8 }] } }), null);
 });
