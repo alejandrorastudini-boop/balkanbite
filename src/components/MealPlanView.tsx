@@ -38,6 +38,7 @@ interface MealPlanViewProps {
   userName?: string;
   onClearMealPlan?: () => void | boolean | Promise<void | boolean>;
   onNavigateToVoice?: () => void;
+  onLogMeal?: (logData: Record<string, unknown>) => boolean | Promise<boolean>;
   onGenerateAiWeekPlan?: () => void;
   onAdaptToPantry?: () => void;
   isGeneratingPlan?: boolean;
@@ -54,6 +55,7 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   userName,
   onClearMealPlan,
   onNavigateToVoice,
+  onLogMeal,
   onGenerateAiWeekPlan,
   onAdaptToPantry,
   isGeneratingPlan = false,
@@ -67,6 +69,9 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   const [logTipVisible, setLogTipVisible] = useState(false);
   const [isAddingMissingToShopping, setIsAddingMissingToShopping] = useState(false);
   const [missingShoppingAddError, setMissingShoppingAddError] = useState(false);
+  const [loggingMealSlot, setLoggingMealSlot] = useState<PlannedMealSlot | null>(null);
+  const [mealLogErrorSlot, setMealLogErrorSlot] = useState<PlannedMealSlot | null>(null);
+  const [pendingMealLog, setPendingMealLog] = useState<{ slot: PlannedMealSlot; recipe: Recipe } | null>(null);
   const { sync: syncToCalendar, isSyncing: isCalendarSyncing } = useGoogleCalendarSync();
 
   const handleAddMissingToShopping = async () => {
@@ -87,6 +92,35 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
   };
 
   const selectedDateStr = localCalendarDate(selectedDate) || "";
+  const logPlannedMealConsumed = async (slot: PlannedMealSlot, recipe: Recipe) => {
+    if (!onLogMeal || loggingMealSlot || selectedDateStr !== localCalendarDay) return;
+    setLoggingMealSlot(slot);
+    setMealLogErrorSlot(null);
+    const nutritionVerified = recipe.nutritionDataStatus === "verified";
+    try {
+      const saved = await Promise.resolve(onLogMeal({
+        mealType: slot,
+        recipeId: recipe.id,
+        manualName: getRecipeTitle(recipe),
+        nutritionVerified,
+        ...(nutritionVerified ? {
+          calories: recipe.calories,
+          proteinG: recipe.proteinG,
+          carbsG: recipe.carbsG,
+          fatG: recipe.fatG,
+        } : {}),
+      }));
+      if (!saved) setMealLogErrorSlot(slot);
+      return saved;
+    } catch {
+      setMealLogErrorSlot(slot);
+      return false;
+    } finally {
+      setLoggingMealSlot(null);
+    }
+  };
+
+
   const dailyLogs = mealLogs.filter((log) => log.date === selectedDateStr);
 
   const nutritionSummary = summarizeVerifiedMealNutrition(dailyLogs);
@@ -693,6 +727,27 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
                       {consumptionLabel}
                     </p>
                   )}
+                  {meal.recipe &&
+                    onLogMeal &&
+                    selectedDateStr === localCalendarDay &&
+                    consumption.status !== "planned_recipe_logged" && (
+                      <button
+                        type="button"
+                        data-testid={`log-planned-meal-${meal.slot}`}
+                        disabled={loggingMealSlot !== null}
+                        onClick={() => setPendingMealLog({ slot: meal.slot, recipe: meal.recipe! })}
+                        className="mt-1 text-[10px] font-bold text-sky-300 hover:text-sky-200 disabled:opacity-50 cursor-pointer"
+                      >
+                        {loggingMealSlot === meal.slot
+                          ? language === "bg" ? "Записване…" : language === "es" ? "Registrando…" : "Logging…"
+                          : language === "bg" ? "Запиши като изядено" : language === "es" ? "Registrar como consumida" : "Log as eaten"}
+                      </button>
+                    )}
+                  {mealLogErrorSlot === meal.slot && (
+                    <p className="text-[10px] text-rose-300">
+                      {language === "bg" ? "Записът не беше потвърден." : language === "es" ? "No se pudo confirmar el registro." : "The log could not be confirmed."}
+                    </p>
+                  )}
                 </div>
               </div>
             )})
@@ -784,6 +839,26 @@ export const MealPlanView: React.FC<MealPlanViewProps> = ({
           ))}
         </div>
       </div>
+
+      <ConfirmModal
+        isOpen={pendingMealLog !== null}
+        onClose={() => setPendingMealLog(null)}
+        onConfirm={async () => {
+          if (!pendingMealLog) return false;
+          const pending = pendingMealLog;
+          const saved = await logPlannedMealConsumed(pending.slot, pending.recipe);
+          if (saved !== false) setPendingMealLog(null);
+          return saved !== false;
+        }}
+        title={language === "bg" ? "Потвърдете изяденото хранене" : language === "es" ? "Confirmar comida consumida" : "Confirm eaten meal"}
+        description={language === "bg"
+          ? "Ще се запише, че сте изяли тази планирана рецепта. Това само по себе си не променя количествата в килера."
+          : language === "es"
+          ? "Se registrará que has consumido esta receta planificada. Este registro por sí solo no modifica las cantidades de la despensa."
+          : "This records that you ate the planned recipe. The meal log by itself does not change pantry quantities."}
+        confirmText={language === "bg" ? "Потвърди" : language === "es" ? "Confirmar" : "Confirm"}
+        cancelText={currentText.cancel}
+      />
 
       {/* Confirmation Modal for Clearing Meal Plan */}
       <ConfirmModal

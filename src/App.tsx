@@ -81,7 +81,7 @@ import { parseStoredMealPlanCache } from "./utils/storedMealPlanValidation";
 import { parseStoredShoppingCache } from "./utils/storedShoppingValidation";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
-  buildVerifiedMealLog,
+  buildMealLogPreservingNutritionUncertainty,
   parseMealLogCache,
 } from "./utils/verifiedMealLog";
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
@@ -2049,7 +2049,7 @@ export default function App() {
     const timestamp = instant.toISOString();
     const date = localCalendarDate(instant);
     if (!date) return false;
-    const newLog = buildVerifiedMealLog({
+    const newLog = buildMealLogPreservingNutritionUncertainty({
       ...logData,
       id: `log-${Date.now()}`,
       date,
@@ -2057,7 +2057,7 @@ export default function App() {
     });
 
     if (!newLog) {
-      console.warn("Meal log rejected because verified nutrition was incomplete or invalid.");
+      console.warn("Meal log rejected because meal identity or explicitly verified nutrition was invalid.");
       return false;
     }
     if (!currentUser) {
@@ -2454,6 +2454,7 @@ export default function App() {
             <MealPlanView
               mealPlan={mealPlan}
               mealLogs={mealLogs}
+              onLogMeal={handleLogMeal}
               pantry={pantry}
               language={profile.language}
               currency={profile.currency}
