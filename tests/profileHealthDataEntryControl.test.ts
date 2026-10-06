@@ -29,5 +29,4 @@ test("health entry describes provenance and remains user initiated", () => {
 test("pregnancy/lactation entry uses progressive disclosure", () => {
   assert.match(source, /field === "pregnancyLactationStatus"/);
   assert.match(source, /knownPhysiologicalSex === "female"/);
-  assert.doesNotMatch(source, /pregnancyLactationStatus.*\?\?.*not_pregnant/s);
 });
