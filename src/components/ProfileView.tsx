@@ -39,6 +39,12 @@ import {
 } from "../utils/healthProfile";
 import { correctExistingHealthProfileField } from "../utils/healthProfileCorrection";
 import type { ProgressionActivitySummaryV1 } from "../utils/progressionLedger";
+import { planAdultMaintenanceEnergyCollection } from "../utils/adultEnergyCollectionPlan";
+import { buildEfsaAdultMaintenanceEnergyInputFromHealthProfile } from "../utils/healthProfileEnergyInput";
+import {
+  estimateAdultMaintenanceEnergyEfsa2013,
+  type EfsaAdultMaintenanceEnergyResult,
+} from "../utils/euAdultMaintenanceEnergy";
 
 interface ProfileViewProps {
   profile: UserProfile;
@@ -231,6 +237,8 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [newDislike, setNewDislike] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
   const [showClearHealthDataConfirm, setShowClearHealthDataConfirm] = useState(false);
+  const [maintenanceEnergyResult, setMaintenanceEnergyResult] =
+    useState<EfsaAdultMaintenanceEnergyResult | null>(null);
   const [pendingHealthFieldRemoval, setPendingHealthFieldRemoval] =
     useState<HealthProfileFieldKey | null>(null);
   const [healthFieldEdit, setHealthFieldEdit] = useState<{
@@ -248,7 +256,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   const [user, setUser] = useState<User | null>(null);
   const localResetCopy = getLocalResetCopy(language, user !== null);
 
-  const healthFieldRows = profile.healthProfile
+  const maintenanceEnergyPlan = planAdultMaintenanceEnergyCollection(
+    profile.healthProfile,
+  );
+
+  const calculateMaintenanceEnergy = () => {
+    if (maintenanceEnergyPlan.status !== "ready") return;
+    setMaintenanceEnergyResult(
+      estimateAdultMaintenanceEnergyEfsa2013(
+        buildEfsaAdultMaintenanceEnergyInputFromHealthProfile(
+          profile.healthProfile,
+        ),
+      ),
+    );
+  };
+
+    const healthFieldRows = profile.healthProfile
     ? HEALTH_PROFILE_FIELD_KEYS.flatMap((field) => {
         const datum = profile.healthProfile?.[field];
         return datum ? [{ field, datum: datum as HealthDatum<unknown> }] : [];
@@ -798,6 +821,75 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   : "Your profile contains health data you provided previously. You can remove it without deleting your pantry, recipes, or the rest of your account."}
               </p>
             </div>
+          </div>
+
+          <div
+            data-testid="maintenance-energy-estimate-gate"
+            className="rounded-2xl border border-emerald-500/20 bg-emerald-500/[0.04] p-4 space-y-3"
+          >
+            <div>
+              <h4 className="text-sm font-bold text-white">
+                {language === "bg"
+                  ? "Оценка на енергията за поддържане"
+                  : language === "es"
+                  ? "Estimación de energía de mantenimiento"
+                  : "Maintenance energy estimate"}
+              </h4>
+              <p className="mt-1 text-xs text-stone-400 leading-relaxed">
+                {language === "bg"
+                  ? "По желание: използва запазените от вас данни и метода EFSA 2013. Това е приблизителна оценка, не калорийна цел или медицинско предписание."
+                  : language === "es"
+                  ? "Opcional: usa los datos que has guardado y el método EFSA 2013. Es una estimación aproximada, no un objetivo calórico ni una prescripción médica."
+                  : "Optional: uses the data you saved and the EFSA 2013 method. This is an approximate estimate, not a calorie target or medical prescription."}
+              </p>
+            </div>
+            {maintenanceEnergyPlan.status === "ready" ? (
+              <>
+                <button
+                  id="profile-calculate-maintenance-energy"
+                  type="button"
+                  onClick={calculateMaintenanceEnergy}
+                  className="px-3 py-2 rounded-xl border border-emerald-500/30 bg-emerald-500/10 hover:bg-emerald-500/15 text-emerald-300 text-xs font-bold cursor-pointer"
+                >
+                  {language === "bg"
+                    ? "Изчисли по желание"
+                    : language === "es"
+                    ? "Calcular opcionalmente"
+                    : "Calculate optionally"}
+                </button>
+                {maintenanceEnergyResult?.status === "calculated" && (
+                  <div data-testid="maintenance-energy-result" className="rounded-xl bg-black/20 p-3">
+                    <div className="text-xl font-extrabold text-white">
+                      ≈ {maintenanceEnergyResult.estimatedKcalPerDay} kcal/day
+                    </div>
+                    <p className="mt-1 text-[11px] text-stone-400">
+                      EFSA 2013 · Henry 2005 · PAL {maintenanceEnergyResult.physicalActivityLevel}.{" "}
+                      {language === "bg"
+                        ? "Не се записва като дневна цел."
+                        : language === "es"
+                        ? "No se guarda como objetivo diario."
+                        : "Not stored as a daily target."}
+                    </p>
+                  </div>
+                )}
+              </>
+            ) : maintenanceEnergyPlan.status === "needs_input" ? (
+              <p className="text-xs text-amber-300">
+                {language === "bg"
+                  ? `Липсват данни: ${maintenanceEnergyPlan.fieldsToRequest.join(", ")}. Не използваме стойности по подразбиране.`
+                  : language === "es"
+                  ? `Faltan datos: ${maintenanceEnergyPlan.fieldsToRequest.join(", ")}. No usamos valores por defecto.`
+                  : `Missing data: ${maintenanceEnergyPlan.fieldsToRequest.join(", ")}. No defaults are used.`}
+              </p>
+            ) : (
+              <p className="text-xs text-stone-400">
+                {language === "bg"
+                  ? "Оценката не е налична с текущите данни или избори."
+                  : language === "es"
+                  ? "La estimación no está disponible con los datos o elecciones actuales."
+                  : "The estimate is unavailable with the current data or choices."}
+              </p>
+            )}
           </div>
 
           <div id="profile-health-field-list" className="space-y-2">
