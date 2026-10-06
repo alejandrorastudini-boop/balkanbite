@@ -2,6 +2,8 @@ import type { InventoryLotState } from "../types";
 import { inventoryLotStateMatchesQuantity } from "./inventoryLots";
 
 export interface PantryCostSummary {
+  /** Sum of items with defensible current cost evidence; never presented as a complete pantry total by itself. */
+  knownSubtotalEUR: number;
   totalEUR: number | null;
   knownItemCount: number;
   unknownItemCount: number;
@@ -82,6 +84,7 @@ export function summarizePantryCosts(
   const complete = unknownItemCount === 0;
 
   return {
+    knownSubtotalEUR: total,
     totalEUR: complete ? total : null,
     knownItemCount,
     unknownItemCount,
