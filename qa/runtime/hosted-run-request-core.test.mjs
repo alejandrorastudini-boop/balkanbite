@@ -1,0 +1,77 @@
+import assert from "node:assert/strict";
+import test from "node:test";
+import {
+  EXPECTED_HOSTED_DATABASE,
+  EXPECTED_HOSTED_PROJECT,
+  EXPECTED_HOSTED_TARGET,
+  validateHostedRunBranchComparison,
+  validateHostedRunRequestShape,
+} from "./hosted-run-request-core.mjs";
+
+const base={
+  projectId:EXPECTED_HOSTED_PROJECT,
+  databaseId:EXPECTED_HOSTED_DATABASE,
+  targetUrl:EXPECTED_HOSTED_TARGET,
+  productionCommit:"a".repeat(40),
+  rulesSha256:"b".repeat(64),
+};
+
+test("disabled hosted request never enables writes and accepts placeholders",()=>{
+  const gate=validateHostedRunRequestShape({
+    ...base,mode:"disabled",productionCommit:"0".repeat(40),rulesSha256:"0".repeat(64),
+  });
+  assert.deepEqual(gate,{disabled:true,writeEnabled:false});
+});
+
+test("read-only preflight never enables writes",()=>{
+  assert.deepEqual(validateHostedRunRequestShape({...base,mode:"hosted-readonly-preflight"}),
+    {disabled:false,writeEnabled:false});
+});
+
+test("only explicit synthetic E2E mode enables writes",()=>{
+  assert.deepEqual(validateHostedRunRequestShape({...base,mode:"one-time-synthetic-hosted-e2e"}),
+    {disabled:false,writeEnabled:true});
+});
+
+test("active hosted requests fail closed on malformed or wrong target pins",()=>{
+  assert.throws(()=>validateHostedRunRequestShape({...base,mode:"hosted-readonly-preflight",productionCommit:"short"}));
+  assert.throws(()=>validateHostedRunRequestShape({...base,mode:"hosted-readonly-preflight",rulesSha256:"bad"}));
+  assert.throws(()=>validateHostedRunRequestShape({...base,mode:"hosted-readonly-preflight",databaseId:"(default)"}));
+  assert.throws(()=>validateHostedRunRequestShape({...base,mode:"hosted-readonly-preflight",targetUrl:"https://example.com"}));
+  assert.throws(()=>validateHostedRunRequestShape({...base,mode:"unexpected"}));
+});
+
+test("hosted run branch must be one manifest-only commit over exact main",()=>{
+  assert.doesNotThrow(()=>validateHostedRunBranchComparison({
+    status:"ahead",ahead_by:1,behind_by:0,
+    files:[{filename:"qa/runtime/hosted-run-request.json"}],
+  }));
+  assert.throws(()=>validateHostedRunBranchComparison({
+    status:"ahead",ahead_by:2,behind_by:0,
+    files:[{filename:"qa/runtime/hosted-run-request.json"}],
+  }));
+  assert.throws(()=>validateHostedRunBranchComparison({
+    status:"diverged",ahead_by:1,behind_by:1,
+    files:[{filename:"qa/runtime/hosted-run-request.json"}],
+  }));
+  assert.throws(()=>validateHostedRunBranchComparison({
+    status:"ahead",ahead_by:1,behind_by:0,
+    files:[{filename:"qa/runtime/hosted-run-request.json"},{filename:"firestore.rules"}],
+  }));
+});
+
+test("hosted run branch rejects reordered or extra manifest deltas",()=>{
+  assert.throws(()=>validateHostedRunBranchComparison({
+    status:"ahead",ahead_by:1,behind_by:0,
+    files:[{filename:"README.md"}],
+  }));
+  assert.throws(()=>validateHostedRunBranchComparison({
+    status:"identical",ahead_by:0,behind_by:0,files:[],
+  }));
+});
+
+test("disabled mode still pins project, database and target",()=>{
+  assert.throws(()=>validateHostedRunRequestShape({...base,mode:"disabled",projectId:"other"}));
+  assert.throws(()=>validateHostedRunRequestShape({...base,mode:"disabled",databaseId:"(default)"}));
+  assert.throws(()=>validateHostedRunRequestShape({...base,mode:"disabled",targetUrl:"https://example.com"}));
+});
