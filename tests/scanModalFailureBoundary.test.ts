@@ -27,13 +27,13 @@ test("AI error and empty-result transitions remove every pantry candidate", () =
 });
 
 test("barcode not-found and error transitions remove every pantry candidate", () => {
-  const barcodeSearch = section("const handleBarcodeSearch", "const handleToggleItem");
+  const barcodeSearch = section("const lookupBarcode", "const handleBarcodeSearch");
 
   assert.match(barcodeSearch, /if \(!res\.ok\)[\s\S]*?setScannedItems\(\[\]\)/);
   assert.match(barcodeSearch, /catch \(err\) \{[\s\S]*?setScannedItems\(\[\]\)/);
   assert.ok(
-    clearCount(barcodeSearch) >= 3,
-    "barcode capture must clear stale candidates before lookup and again for not-found/error outcomes"
+    clearCount(barcodeSearch) >= 2,
+    "barcode lookup must clear stale candidates before lookup and again on error; non-success payloads throw into the same error boundary"
   );
 });
 
