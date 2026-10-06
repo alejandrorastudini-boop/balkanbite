@@ -947,7 +947,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
                   >
                     <option value="">{language === "bg" ? "Изберете" : language === "es" ? "Selecciona" : "Select"}</option>
                     {HEALTH_FIELD_KNOWN_VALUES[healthFieldEntry.field]?.map((value) => (
-                      <option key={value} value={value}>{healthKnownValueLabel(healthFieldEntry.field, value, language)}</option>
+                      <option key={value} value={value}>{healthValueLabel(healthFieldEntry.field, { status: "known", value }, language) ?? value}</option>
                     ))}
                   </select>
                 )
