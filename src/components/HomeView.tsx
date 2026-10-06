@@ -172,9 +172,9 @@ export const HomeView: React.FC<HomeViewProps> = ({
         </div>
         <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
           <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-lg font-bold text-white">{Math.round(verifiedNutritionToday.totals?.calories ?? 0)}</div><div className="text-[11px] text-stone-400">kcal</div></div>
-          <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-lg font-bold text-white">{verifiedNutritionToday.totals?.protein ?? 0.toFixed(1)} g</div><div className="text-[11px] text-stone-400">{language === "bg" ? "протеин" : language === "es" ? "proteína" : "protein"}</div></div>
-          <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-lg font-bold text-white">{verifiedNutritionToday.totals?.carbs ?? 0.toFixed(1)} g</div><div className="text-[11px] text-stone-400">{language === "bg" ? "въглехидрати" : language === "es" ? "carbohidratos" : "carbs"}</div></div>
-          <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-lg font-bold text-white">{verifiedNutritionToday.totals?.fat ?? 0.toFixed(1)} g</div><div className="text-[11px] text-stone-400">{language === "bg" ? "мазнини" : language === "es" ? "grasas" : "fat"}</div></div>
+          <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-lg font-bold text-white">{(verifiedNutritionToday.totals?.protein ?? 0).toFixed(1)} g</div><div className="text-[11px] text-stone-400">{language === "bg" ? "протеин" : language === "es" ? "proteína" : "protein"}</div></div>
+          <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-lg font-bold text-white">{(verifiedNutritionToday.totals?.carbs ?? 0).toFixed(1)} g</div><div className="text-[11px] text-stone-400">{language === "bg" ? "въглехидрати" : language === "es" ? "carbohidratos" : "carbs"}</div></div>
+          <div className="rounded-2xl bg-white/[0.04] p-3"><div className="text-lg font-bold text-white">{(verifiedNutritionToday.totals?.fat ?? 0).toFixed(1)} g</div><div className="text-[11px] text-stone-400">{language === "bg" ? "мазнини" : language === "es" ? "grasas" : "fat"}</div></div>
         </div>
         {verifiedNutritionToday.unverifiedLogCount > 0 && (
           <p className="mt-3 text-[11px] text-amber-300/90">
