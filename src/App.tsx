@@ -11,11 +11,11 @@ const ProModal = lazy(() => import("./components/ProModal").then((module) => ({ 
 const SmartShoppingModal = lazy(() => import("./components/SmartShoppingModal").then((module) => ({ default: module.SmartShoppingModal })));
 const OnboardingModal = lazy(() => import("./components/OnboardingModal").then((module) => ({ default: module.OnboardingModal })));
 const AuthModal = lazy(() => import("./components/AuthModal").then((module) => ({ default: module.AuthModal })));
+const LandingPage = lazy(() => import("./components/LandingPage").then((module) => ({ default: module.LandingPage })));
 
 import { BottomNav, TabType } from "./components/BottomNav";
 import { HomeView } from "./components/HomeView";
 import { ChefIaFloatingButton } from "./components/ChefIaFloatingButton";
-import { LandingPage } from "./components/LandingPage";
 import { AutoMenuToast } from "./components/AutoMenuToast";
 import { SmartShoppingBanner } from "./components/SmartShoppingBanner";
 import { useFirebaseSync } from "./hooks/useFirebaseSync";
@@ -2328,7 +2328,8 @@ export default function App() {
 
   if (showLanding) {
     return (
-      <LandingPage
+      <Suspense fallback={<div data-testid="landing-loading" className="min-h-screen bg-[#0B0F12]" />}>
+        <LandingPage
         language={profile.language}
         onLanguageChange={(lang: Language) => { void handleProfilePreferenceUpdate({ language: lang }); }}
         currency={profile.currency}
@@ -2343,7 +2344,8 @@ export default function App() {
           setShowLanding(false);
           setShowAuthModal(true);
         }}
-      />
+        />
+      </Suspense>
     );
   }
 
