@@ -9,13 +9,13 @@ const ProfileView = lazy(() => import("./components/ProfileView").then((module) 
 const ChefIaModal = lazy(() => import("./components/ChefIaModal").then((module) => ({ default: module.ChefIaModal })));
 const ProModal = lazy(() => import("./components/ProModal").then((module) => ({ default: module.ProModal })));
 const SmartShoppingModal = lazy(() => import("./components/SmartShoppingModal").then((module) => ({ default: module.SmartShoppingModal })));
+const OnboardingModal = lazy(() => import("./components/OnboardingModal").then((module) => ({ default: module.OnboardingModal })));
+const AuthModal = lazy(() => import("./components/AuthModal").then((module) => ({ default: module.AuthModal })));
 
 import { BottomNav, TabType } from "./components/BottomNav";
 import { HomeView } from "./components/HomeView";
-import { OnboardingModal } from "./components/OnboardingModal";
 import { ChefIaFloatingButton } from "./components/ChefIaFloatingButton";
 import { LandingPage } from "./components/LandingPage";
-import { AuthModal } from "./components/AuthModal";
 import { AutoMenuToast } from "./components/AutoMenuToast";
 import { SmartShoppingBanner } from "./components/SmartShoppingBanner";
 import { useFirebaseSync } from "./hooks/useFirebaseSync";
@@ -2624,24 +2624,30 @@ export default function App() {
           </Suspense>
         )}
 
-        <OnboardingModal
-          isOpen={
-            !showLanding &&
-            !showAuthModal &&
-            (!currentUser || profileHydrated) &&
-            !profile.onboardingCompleted
-          }
-          onComplete={(upd) => handleProfileUpdate(upd)}
-          language={profile.language}
-        />
+        {!showLanding &&
+          !showAuthModal &&
+          (!currentUser || profileHydrated) &&
+          !profile.onboardingCompleted && (
+            <Suspense fallback={null}>
+              <OnboardingModal
+                isOpen={true}
+                onComplete={(upd) => handleProfileUpdate(upd)}
+                language={profile.language}
+              />
+            </Suspense>
+          )}
 
-        <AuthModal
-          isOpen={showAuthModal}
-          onClose={() => setShowAuthModal(false)}
-          currentUser={currentUser}
-          language={profile.language}
-          onGuestAccess={() => setShowAuthModal(false)}
-        />
+        {showAuthModal && (
+          <Suspense fallback={null}>
+            <AuthModal
+              isOpen={true}
+              onClose={() => setShowAuthModal(false)}
+              currentUser={currentUser}
+              language={profile.language}
+              onGuestAccess={() => setShowAuthModal(false)}
+            />
+          </Suspense>
+        )}
 
         <AutoMenuToast
           isVisible={autoMenuToast.isVisible}
