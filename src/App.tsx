@@ -2626,12 +2626,12 @@ export default function App() {
 
         <Suspense fallback={null}>
           <OnboardingModal
-            isOpen={
-              !showLanding &&
-              !showAuthModal &&
-              (!currentUser || profileHydrated) &&
-              !profile.onboardingCompleted
-            }
+          isOpen={
+            !showLanding &&
+            !showAuthModal &&
+            (!currentUser || profileHydrated) &&
+            !profile.onboardingCompleted
+          }
             onComplete={(upd) => handleProfileUpdate(upd)}
             language={profile.language}
           />
