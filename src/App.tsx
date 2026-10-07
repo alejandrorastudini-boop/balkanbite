@@ -2624,18 +2624,18 @@ export default function App() {
           </Suspense>
         )}
 
-        {!showLanding &&
-          !showAuthModal &&
-          (!currentUser || profileHydrated) &&
-          !profile.onboardingCompleted && (
-            <Suspense fallback={null}>
-              <OnboardingModal
-                isOpen={true}
-                onComplete={(upd) => handleProfileUpdate(upd)}
-                language={profile.language}
-              />
-            </Suspense>
-          )}
+        <Suspense fallback={null}>
+          <OnboardingModal
+            isOpen={
+              !showLanding &&
+              !showAuthModal &&
+              (!currentUser || profileHydrated) &&
+              !profile.onboardingCompleted
+            }
+            onComplete={(upd) => handleProfileUpdate(upd)}
+            language={profile.language}
+          />
+        </Suspense>
 
         {showAuthModal && (
           <Suspense fallback={null}>
