@@ -271,13 +271,18 @@ export function screenRecipeFoodRestrictions(
       (restrictionIds ?? []).filter((id) => ALL_RESTRICTION_IDS.has(id)),
     ),
   );
+  // Do not silently discard an unrecognized runtime restriction ID while
+  // reporting a seemingly complete no-match for the remaining selection.
+  const hasInvalidSelection = (restrictionIds ?? []).some(
+    (id) => !ALL_RESTRICTION_IDS.has(id),
+  );
   const classified = (ingredients ?? []).map((ingredient) =>
     classifyIngredient(ingredient?.name),
   );
 
   // An absent ingredient list or an absent/invalid selection is missing
   // evidence, not evidence that no restriction was detected.
-  if (selected.length === 0 || classified.length === 0) {
+  if (hasInvalidSelection || selected.length === 0 || classified.length === 0) {
     return {
       status: "unverifiable",
       restrictionResults: selected.map((restrictionId) => ({
