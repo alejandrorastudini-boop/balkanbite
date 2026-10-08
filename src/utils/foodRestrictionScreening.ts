@@ -282,7 +282,7 @@ export function screenRecipeFoodRestrictions(
 
   // An absent ingredient list or an absent/invalid selection is missing
   // evidence, not evidence that no restriction was detected.
-  if (hasInvalidSelection || selected.length === 0 || classified.length === 0) {
+  if (selected.length === 0 || classified.length === 0) {
     return {
       status: "unverifiable",
       restrictionResults: selected.map((restrictionId) => ({
@@ -312,7 +312,7 @@ export function screenRecipeFoodRestrictions(
     const status: FoodRestrictionScreeningStatus =
       matchedIngredients.length > 0
         ? "match_detected"
-        : unverifiableIngredients.length > 0
+        : hasInvalidSelection || unverifiableIngredients.length > 0
           ? "unverifiable"
           : "no_match_detected";
 
