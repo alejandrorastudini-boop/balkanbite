@@ -180,3 +180,22 @@ test("missing or unrecognized restriction selection never becomes a no-match", (
     assert.equal(result.establishesAllergenSafety, false);
   }
 });
+
+test("unrecognized selection cannot silently produce no-match", () => {
+  const result = screenRecipeFoodRestrictions(
+    [{ name: "rice" }],
+    ["eu_annex_ii:peanuts", "unknown:restriction" as never],
+  );
+  assert.equal(result.status, "unverifiable");
+  assert.equal(result.restrictionResults[0]?.status, "unverifiable");
+  assert.equal(result.establishesAllergenSafety, false);
+});
+
+test("known allergen match remains detected despite another unknown selection", () => {
+  const result = screenRecipeFoodRestrictions(
+    [{ name: "peanuts" }],
+    ["eu_annex_ii:peanuts", "unknown:restriction" as never],
+  );
+  assert.equal(result.status, "match_detected");
+  assert.equal(shouldBlockRecipeForFoodRestrictionScreening(result), true);
+});
