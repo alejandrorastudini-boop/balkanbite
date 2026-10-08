@@ -571,8 +571,6 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
       contexts: [pantry, profile, foodSafety],
     })) return;
 
-    if (rejectUnwiredFoodRestrictionIntent(req, res)) return;
-
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
       return res.status(409).json(
         foodSafetyBlockedPayload(
@@ -581,6 +579,8 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
         ),
       );
     }
+
+    if (rejectUnwiredFoodRestrictionIntent(req, res)) return;
 
     if (!hasOpenAIKey()) {
       return res.status(503).json({
@@ -713,8 +713,6 @@ app.post("/api/ai/generate-weekly-plan", async (req, res) => {
       contexts: [pantry, recipes, profile, foodSafety],
     })) return;
 
-    if (rejectUnwiredFoodRestrictionIntent(req, res)) return;
-
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
       return res.status(409).json(
         foodSafetyBlockedPayload(
@@ -723,6 +721,8 @@ app.post("/api/ai/generate-weekly-plan", async (req, res) => {
         ),
       );
     }
+
+    if (rejectUnwiredFoodRestrictionIntent(req, res)) return;
 
     if (!hasOpenAIKey()) {
       return res.status(400).json({ error: "OpenAI API key not configured" });
@@ -862,8 +862,6 @@ app.post("/api/ai/suggest-shopping", async (req, res) => {
       contexts: [pantry, profile, foodSafety],
     })) return;
 
-    if (rejectUnwiredFoodRestrictionIntent(req, res)) return;
-
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
       return res.status(409).json(
         foodSafetyBlockedPayload(
@@ -875,6 +873,8 @@ app.post("/api/ai/suggest-shopping", async (req, res) => {
 
     // AI unavailability is not a valid product or price detection. Keep the
     // response explicitly empty so clients cannot save a fabricated basket.
+    if (rejectUnwiredFoodRestrictionIntent(req, res)) return;
+
     if (!hasOpenAIKey()) {
       return res.status(503).json({
         error: "Shopping suggestions are temporarily unavailable",
