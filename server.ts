@@ -83,6 +83,28 @@ function foodRecommendationRequiresReview(
   );
 }
 
+/**
+ * Canonical restriction intent is not yet wired into recommendation filtering.
+ * Reject it explicitly rather than silently generating unscreened advice.
+ * This does not collect, persist or log the supplied sensitive values.
+ */
+function rejectUnwiredFoodRestrictionIntent(
+  req: express.Request,
+  res: express.Response,
+): boolean {
+  if (
+    !req.body ||
+    typeof req.body !== "object" ||
+    !Object.prototype.hasOwnProperty.call(req.body, "foodRestrictionIntent")
+  ) return false;
+
+  res.status(409).json({
+    code: "FOOD_RESTRICTION_SCREENING_NOT_AVAILABLE",
+    error: "Confirmed food restrictions cannot yet be applied to AI recommendations.",
+  });
+  return true;
+}
+
 function foodSafetyBlockedPayload(
   language: "en" | "es" | "bg",
   extra: Record<string, unknown>,
@@ -549,6 +571,8 @@ app.post("/api/ai/generate-recipes", async (req, res) => {
       contexts: [pantry, profile, foodSafety],
     })) return;
 
+    if (rejectUnwiredFoodRestrictionIntent(req, res)) return;
+
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
       return res.status(409).json(
         foodSafetyBlockedPayload(
@@ -688,6 +712,8 @@ app.post("/api/ai/generate-weekly-plan", async (req, res) => {
       collections: [pantry, recipes],
       contexts: [pantry, recipes, profile, foodSafety],
     })) return;
+
+    if (rejectUnwiredFoodRestrictionIntent(req, res)) return;
 
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
       return res.status(409).json(
@@ -835,6 +861,8 @@ app.post("/api/ai/suggest-shopping", async (req, res) => {
       collections: [pantry],
       contexts: [pantry, profile, foodSafety],
     })) return;
+
+    if (rejectUnwiredFoodRestrictionIntent(req, res)) return;
 
     if (foodRecommendationRequiresReview(profile, foodSafety)) {
       return res.status(409).json(
