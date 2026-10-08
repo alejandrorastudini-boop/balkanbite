@@ -150,3 +150,19 @@ test("restriction intent requires an exact versioned purpose and ISO provenance 
     { status: "invalid", reason: "invalid_restriction" },
   );
 });
+
+test("same canonical restriction with conflicting kinds is not accepted twice", () => {
+  const result = validateFoodRestrictionIntent({
+    version: 1,
+    purpose: "food_recommendation_safety_screening_v1",
+    useIntent: "use_once",
+    restrictions: ["allergy", "intolerance"].map((kind) => ({
+      restrictionId: "eu_annex_ii:milk",
+      kind,
+      confirmedByUser: true,
+      confirmedAt,
+      source: "self_reported",
+    })),
+  });
+  assert.deepEqual(result, { status: "invalid", reason: "duplicate_restriction" });
+});
