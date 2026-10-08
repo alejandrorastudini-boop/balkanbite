@@ -163,3 +163,20 @@ test("Annex II exception-like product names are not promoted to matches without 
     assert.equal(result.status, "unverifiable", name);
   }
 });
+
+test("missing ingredient evidence never becomes a no-match result", () => {
+  for (const ingredients of [undefined, []]) {
+    const result = screenRecipeFoodRestrictions(ingredients, ["eu_annex_ii:peanuts"]);
+    assert.equal(result.status, "unverifiable");
+    assert.equal(result.restrictionResults[0]?.status, "unverifiable");
+    assert.equal(result.establishesAllergenSafety, false);
+  }
+});
+
+test("missing or unrecognized restriction selection never becomes a no-match", () => {
+  for (const restrictionIds of [undefined, [], ["invalid" as never]]) {
+    const result = screenRecipeFoodRestrictions([{ name: "rice" }], restrictionIds);
+    assert.equal(result.status, "unverifiable");
+    assert.equal(result.establishesAllergenSafety, false);
+  }
+});

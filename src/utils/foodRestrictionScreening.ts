@@ -275,6 +275,23 @@ export function screenRecipeFoodRestrictions(
     classifyIngredient(ingredient?.name),
   );
 
+  // An absent ingredient list or an absent/invalid selection is missing
+  // evidence, not evidence that no restriction was detected.
+  if (selected.length === 0 || classified.length === 0) {
+    return {
+      status: "unverifiable",
+      restrictionResults: selected.map((restrictionId) => ({
+        restrictionId,
+        status: "unverifiable" as const,
+        matchedIngredients: [],
+        unverifiableIngredients: [],
+      })),
+      evidenceScope: "declared_ingredient_names_only",
+      crossContactEvidence: "unknown",
+      establishesAllergenSafety: false,
+    };
+  }
+
   const restrictionResults = selected.map((restrictionId) => {
     const matchedIngredients: string[] = [];
     const unverifiableIngredients: string[] = [];
