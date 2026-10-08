@@ -88,7 +88,9 @@ export function validateFoodRestrictionIntent(value: unknown): FoodRestrictionIn
       return { status: "invalid", reason: "invalid_restriction" };
     }
 
-    const key = String(item.kind) + ":" + item.restrictionId;
+    // A canonical restriction ID has one meaning within a single intent.
+    // Repeating it with another kind is conflicting input, not two facts.
+    const key = item.restrictionId as string;
     if (seen.has(key)) {
       return { status: "invalid", reason: "duplicate_restriction" };
     }
