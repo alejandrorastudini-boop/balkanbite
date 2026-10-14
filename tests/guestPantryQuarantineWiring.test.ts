@@ -30,3 +30,12 @@ test("guest inventory changes are gated on backup safety and explicit incomplete
   assert.match(app, /setGuestPantryRecoveryAcknowledged\(true\)/);
   assert.match(app, /Continuar solo con entradas validadas/);
 });
+
+test("guest recovery consent never survives signed-in and guest scope transitions", () => {
+  const signedInTransition = app.indexOf("setPantry(cachedUserPantry ?? []);");
+  const guestTransition = app.indexOf("setPantry(loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY)));");
+  assert.ok(signedInTransition >= 0 && guestTransition > signedInTransition);
+  assert.match(app.slice(signedInTransition, guestTransition), /setGuestPantryRecoveryAcknowledged\(false\)/);
+  assert.match(app.slice(guestTransition, guestTransition + 140), /setGuestPantryRecoveryAcknowledged\(false\)/);
+});
+
