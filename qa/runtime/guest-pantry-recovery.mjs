@@ -32,6 +32,9 @@ async function run({ original, previousBackup = null, expectedBlocked = false, e
   try {
     await context.addInitScript(({ original, previousBackup, MAIN, BACKUP }) => {
       localStorage.setItem("balkanbite_show_landing", "false");
+      // Simulate a returning guest with completed onboarding, not a fresh
+      // profile where the onboarding dialog correctly blocks background clicks.
+      localStorage.setItem("balkanbite_profile", JSON.stringify({ language: "en", onboardingCompleted: true }));
       localStorage.setItem(MAIN, original);
       if (previousBackup !== null) localStorage.setItem(BACKUP, previousBackup);
     }, { original, previousBackup, MAIN, BACKUP });
