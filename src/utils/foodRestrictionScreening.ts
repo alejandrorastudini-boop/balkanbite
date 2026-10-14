@@ -61,7 +61,10 @@ const DIRECT_RULES: readonly IngredientRule[] = [
     composition: "known",
   },
   {
-    names: ["crustaceans", "crustacean", "crustaceos", "crustaceo", "ракообразни"],
+    names: [
+      "crustaceans", "crustacean", "crustaceos", "crustaceo", "ракообразни",
+      "shrimp", "prawns", "gambas", "langostinos", "скариди",
+    ],
     restrictionIds: ["eu_annex_ii:crustaceans"],
     composition: "known",
   },
@@ -71,7 +74,7 @@ const DIRECT_RULES: readonly IngredientRule[] = [
     composition: "known",
   },
   {
-    names: ["fish", "pescado", "риба"],
+    names: ["fish", "pescado", "риба", "salmon", "salmón", "сьомга"],
     restrictionIds: ["eu_annex_ii:fish"],
     composition: "known",
   },
@@ -130,7 +133,10 @@ const DIRECT_RULES: readonly IngredientRule[] = [
     composition: "known",
   },
   {
-    names: ["mollusc", "molluscs", "molusco", "moluscos", "мекотело", "мекотели"],
+    names: [
+      "mollusc", "molluscs", "molusco", "moluscos", "мекотело", "мекотели",
+      "mussels", "mejillones", "миди", "squid", "calamares", "калмари",
+    ],
     restrictionIds: ["eu_annex_ii:molluscs"],
     composition: "known",
   },
