@@ -2,6 +2,7 @@ import { normalizeValidRetailBarcode } from "./retailBarcode";
 
 export type LocalBarcodeDetectionResult =
   | { status: "detected"; rawValue: string }
+  | { status: "unverified"; rawValue: string }
   | { status: "multiple"; rawValues: string[] }
   | { status: "not_found" }
   | { status: "unsupported" }
@@ -54,11 +55,13 @@ export async function detectBarcodeFromImageFile(
       return { status: "multiple", rawValues: validValues };
     }
 
-    // A detected code is only a lookup proposal, never confirmed stock.
-    // Preserve the old unverified raw fallback for manual correction.
-    const rawValue = validValues[0] ?? candidates[0];
-    return rawValue
-      ? { status: "detected", rawValue }
+    // A failed checksum must never become a detected retail identity.
+    // Keep the raw text for explicit manual correction without a lookup.
+    if (validValues.length === 1) {
+      return { status: "detected", rawValue: validValues[0] };
+    }
+    return candidates[0]
+      ? { status: "unverified", rawValue: candidates[0] }
       : { status: "not_found" };
   } catch {
     return { status: "failed" };
