@@ -322,6 +322,9 @@ test("App swaps guest state for only the current user's provisional cache", () =
 
 
 test("provisional inventory stays read-only and non-authoritative in the UI", () => {
+  // Authenticated provisional stock remains blocked; guest quarantine
+  // additionally requires explicit human review before derived claims.
+  assert.match(appSource, /const pantryDerivedDataProvisional = inventoryIsProvisional \\|\\| guestPantryReviewPending/);
   assert.match(
     appSource,
     /const requireAuthoritativeInventory = \(\) => \{[\s\S]*if \(!inventoryIsProvisional\) return true;/
@@ -350,7 +353,7 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
 
   assert.match(
     appSource,
-    /shoppingUrgencyLevel=\{[\s\S]*inventoryIsProvisional \? undefined : shoppingDiagnostic\.urgencyLevel/
+    /shoppingUrgencyLevel=\{[\s\S]*pantryDerivedDataProvisional \? undefined : shoppingDiagnostic\.urgencyLevel/
   );
   assert.match(
     appSource,
@@ -358,7 +361,7 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
   );
   assert.match(
     appSource,
-    /\{!inventoryIsProvisional && \(\s*<SmartShoppingBanner/
+    /\{!pantryDerivedDataProvisional && \(\s*<SmartShoppingBanner/
   );
 
   assert.match(
