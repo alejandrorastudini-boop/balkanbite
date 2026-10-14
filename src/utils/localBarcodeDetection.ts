@@ -1,3 +1,5 @@
+import { normalizeValidRetailBarcode } from "./retailBarcode";
+
 export type LocalBarcodeDetectionResult =
   | { status: "detected"; rawValue: string }
   | { status: "not_found" }
@@ -35,11 +37,17 @@ export async function detectBarcodeFromImageFile(
       formats: ["ean_13", "ean_8", "upc_a", "upc_e"],
     });
     const detections = await detector.detect(bitmap);
-    const rawValue = detections
+    const candidates = detections
       .map((entry) =>
         typeof entry.rawValue === "string" ? entry.rawValue.trim() : "",
       )
-      .find(Boolean);
+      .filter(Boolean);
+    // A photo can contain multiple detections. Prefer a valid retail
+    // identity instead of discarding it because noisy OCR came first.
+    // This is still only a lookup proposal, never confirmed stock.
+    const rawValue =
+      candidates.find((candidate) => normalizeValidRetailBarcode(candidate) !== null) ??
+      candidates[0];
 
     return rawValue
       ? { status: "detected", rawValue }
