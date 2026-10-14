@@ -1,4 +1,4 @@
-import { normalizeValidRetailBarcode } from "./retailBarcode";
+import { expandValidUpcEToUpcA, normalizeValidRetailBarcode } from "./retailBarcode";
 
 export type LocalBarcodeDetectionResult =
   | { status: "detected"; rawValue: string }
@@ -9,7 +9,7 @@ export type LocalBarcodeDetectionResult =
   | { status: "failed" };
 
 type BarcodeDetectorLike = {
-  detect: (source: ImageBitmap) => Promise<Array<{ rawValue?: unknown }>>;
+  detect: (source: ImageBitmap) => Promise<Array<{ rawValue?: unknown; format?: unknown }>>;
 };
 
 type BarcodeDetectorConstructor = new (options: {
@@ -40,16 +40,20 @@ export async function detectBarcodeFromImageFile(
     });
     const detections = await detector.detect(bitmap);
     const candidates = detections
-      .map((entry) =>
-        typeof entry.rawValue === "string" ? entry.rawValue.trim() : "",
-      )
-      .filter(Boolean);
-    // A photo may contain more than one genuine retail code. Never guess
-    // which product the user intended. Duplicate readings of one code are
-    // not ambiguous; distinct checksum-valid identities require review.
+      .map((entry) => ({
+        rawValue: typeof entry.rawValue === "string" ? entry.rawValue.trim() : "",
+        format: entry.format,
+      }))
+      .filter((entry) => Boolean(entry.rawValue));
+    // Format matters: an 8-digit UPC-E is NOT an 8-digit EAN-8. Only the
+    // detector's explicit format authorizes GS1 zero-expansion to UPC-A.
+    // Unknown format stays in the legacy GTIN-only validation path.
     const validValues = Array.from(new Set(
-      candidates.map(normalizeValidRetailBarcode)
-        .filter((code): code is string => code !== null),
+      candidates.map((entry) =>
+        entry.format === "upc_e"
+          ? expandValidUpcEToUpcA(entry.rawValue)
+          : normalizeValidRetailBarcode(entry.rawValue),
+      ).filter((code): code is string => code !== null),
     ));
     if (validValues.length > 1) {
       return { status: "multiple", rawValues: validValues };
@@ -61,7 +65,7 @@ export async function detectBarcodeFromImageFile(
       return { status: "detected", rawValue: validValues[0] };
     }
     return candidates[0]
-      ? { status: "unverified", rawValue: candidates[0] }
+      ? { status: "unverified", rawValue: candidates[0].rawValue }
       : { status: "not_found" };
   } catch {
     return { status: "failed" };
