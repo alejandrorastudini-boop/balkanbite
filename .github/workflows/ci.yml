@@ -70,6 +70,9 @@ jobs:
           OPENAI_API_KEY: ""
         run: node qa/runtime/serverless-health-smoke.mjs dist/serverless-api.cjs
 
+      - name: Detect DEP0169 during normal serverless health requests
+        run: node qa/runtime/node-deprecation-smoke.mjs dist/serverless-api.cjs
+
   runtime-harness:
     needs: validate
     runs-on: ubuntu-24.04
