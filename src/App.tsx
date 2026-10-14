@@ -513,7 +513,7 @@ export default function App() {
       setGuestPantryRecovery(
         !result.saved ? "blocked" : result.recoveryAvailable ? "available" : "none"
       );
-      if (!result.saved) console.warn("Guest pantry save blocked until data recovery is safe:", result.reason);
+      if ("reason" in result) console.warn("Guest pantry save blocked until data recovery is safe:", result.reason);
     } catch (e) {
       setGuestPantryRecovery("blocked");
       console.warn("Guest pantry localStorage save was blocked", e);
