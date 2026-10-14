@@ -65,7 +65,7 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
     detections = [{ rawValue: "invalid-first" }, { rawValue: "bad-second" }];
     assert.deepEqual(
       await detect({} as File),
-      { status: "detected", rawValue: "invalid-first" },
+      { status: "unverified", rawValue: "invalid-first" },
     );
     assert.equal(closed, 3);
 
@@ -84,6 +84,13 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
       Reflect.deleteProperty(globalThis, "BarcodeDetector");
     }
   }
+});
+
+test("invalid read requires manual correction, not an automatic product lookup", () => {
+  assert.match(source, /detection\\.status === "unverified"/);
+  assert.match(source, /setBarcodeInput\\(detection\\.rawValue\\)/);
+  assert.match(source, /failed the GS1 check digit/);
+  assert.match(detector, /status: "unverified", rawValue: candidates\\[0\\]/);
 });
 
 test("ambiguous retail codes stay in local review until the user chooses one", () => {
