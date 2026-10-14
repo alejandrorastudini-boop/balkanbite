@@ -272,6 +272,8 @@ export function screenRecipeFoodRestrictions(
   ingredients: readonly { name?: unknown }[] | undefined,
   restrictionIds: readonly BalkanBiteFoodRestrictionId[] | undefined,
 ): RecipeFoodRestrictionScreening {
+  // The TS array type cannot be trusted for external runtime values.
+  const providedIds = Array.isArray(restrictionIds) ? restrictionIds : [];
   const selected = Array.from(
     new Set(providedIds.filter((id) => ALL_RESTRICTION_IDS.has(id))),
   );
