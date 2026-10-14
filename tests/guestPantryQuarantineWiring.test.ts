@@ -15,6 +15,8 @@ test("guest recovery is visible, exportable and never uploaded by the recovery U
   assert.match(app, /data-testid="guest-pantry-recovery"/);
   assert.match(app, /downloadGuestPantryRecovery/);
   assert.match(app, /GUEST_PANTRY_QUARANTINE_KEY/);
+  assert.match(app, /data-testid="guest-pantry-download-previous-backup"/);
+  assert.match(app, /downloadGuestPantryRecovery\("backup"\)/);
   assert.match(app, /new Blob\(\[raw\], \{ type: "application\/json" \}\)/);
   const start = app.indexOf("const downloadGuestPantryRecovery");
   const end = app.indexOf("  return (", start);
