@@ -23,7 +23,7 @@ export function screenWithTransientFoodRestrictionIntent(
   }
   const ids = getConfirmedRestrictionIds(parsed.value);
   if (ids.length === 0) return { status: "not_screened", reason: "no_confirmed_restrictions" };
-  if (!ingredients || ingredients.length === 0) {
+  if (!Array.isArray(ingredients) || ingredients.length === 0) {
     return { status: "not_screened", reason: "missing_ingredients" };
   }
   return { status: "screened", screening: screenRecipeFoodRestrictions(ingredients, ids) };
