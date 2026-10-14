@@ -39,3 +39,14 @@ test("guest recovery consent never survives signed-in and guest scope transition
   assert.match(app.slice(guestTransition, guestTransition + 140), /setGuestPantryRecoveryAcknowledged\(false\)/);
 });
 
+
+test("incomplete guest pantry suppresses derived shopping warnings and suggestions", () => {
+  assert.match(app, /const pantryDerivedDataProvisional = inventoryIsProvisional \|\| guestPantryReviewPending/);
+  assert.match(app, /if \(pantryDerivedDataProvisional\) return;/);
+  assert.match(app, /pantryDerivedDataProvisional \? undefined : shoppingDiagnostic\.urgencyLevel/);
+  assert.match(app, /\{!pantryDerivedDataProvisional && \(\s*<SmartShoppingBanner/);
+  const start = app.indexOf("const handleAddMultipleShoppingItems = async");
+  const end = app.indexOf("const handle", start + 10);
+  assert.ok(start >= 0 && end > start);
+  assert.match(app.slice(start, end), /if \(!requireAuthoritativeInventory\(\)\) return false;/);
+});
