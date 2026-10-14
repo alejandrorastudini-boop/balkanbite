@@ -113,6 +113,7 @@ export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
     loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY))
   );
+  const [guestPantryRecoveryAcknowledged, setGuestPantryRecoveryAcknowledged] = useState(false);
   const [guestPantryRecovery, setGuestPantryRecovery] = useState<"none" | "available" | "blocked">(() => {
     // Block guest writes on the very first render until recovery storage
     // has been verified. A late effect must not temporarily allow mutations.
@@ -653,6 +654,16 @@ export default function App() {
           : profile.language === "es"
           ? "La despensa de invitados está bloqueada para no perder datos antiguos. Descarga la copia original y revisa los datos."
           : "Guest pantry changes are blocked to protect older data. Download the original copy and review the entries."
+      );
+      return false;
+    }
+    if (!currentUser && guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged) {
+      alert(
+        profile.language === "bg"
+          ? "Някои стари записи са непроверени. Преди да използвате непълните наличности, потвърдете изрично, че искате да продължите само с проверените записи."
+          : profile.language === "es"
+          ? "Hay entradas antiguas sin verificar. Antes de usar una despensa incompleta, confirma expresamente que deseas trabajar solo con las entradas validadas."
+          : "Some older entries are unverified. Before using an incomplete pantry, explicitly confirm that you want to work only with verified entries."
       );
       return false;
     }
@@ -2443,6 +2454,29 @@ export default function App() {
                 ? "Algunos registros antiguos no se han podido validar. Se ha conservado el contenido original por separado; no se convierte automáticamente en existencias."
                 : "Some older records could not be verified. Their original content was preserved separately, not counted as confirmed stock."}
             </p>
+            {guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged && (
+              <button
+                type="button"
+                data-testid="guest-pantry-continue-verified"
+                onClick={() => setGuestPantryRecoveryAcknowledged(true)}
+                className="mt-2 mr-2 rounded-lg border border-emerald-400/60 px-3 py-2 text-xs font-semibold hover:bg-emerald-500/10"
+              >
+                {profile.language === "bg"
+                  ? "Продължи само с проверените продукти"
+                  : profile.language === "es"
+                  ? "Continuar solo con entradas validadas"
+                  : "Continue with verified entries only"}
+              </button>
+            )}
+            {guestPantryRecovery === "available" && guestPantryRecoveryAcknowledged && (
+              <p className="mt-2 text-xs font-semibold">
+                {profile.language === "bg"
+                  ? "Работите само с проверените записи; непроверените остават в резервното копие."
+                  : profile.language === "es"
+                  ? "Estás trabajando solo con las entradas validadas; las demás permanecen en la copia de recuperación."
+                  : "You are using verified entries only; unverified records remain in the recovery copy."}
+              </p>
+            )}
             <button type="button" onClick={downloadGuestPantryRecovery} className="mt-2 rounded-lg border border-amber-400/60 px-3 py-2 text-xs font-semibold hover:bg-amber-500/10">
               {profile.language === "bg" ? "Изтеглете оригиналните данни" : profile.language === "es" ? "Descargar datos originales" : "Download original data"}
             </button>
