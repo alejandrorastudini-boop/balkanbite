@@ -79,6 +79,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
   const [scannedItems, setScannedItems] = useState<ScannedItem[]>([]);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
   const [barcodeInput, setBarcodeInput] = useState("");
+  const [barcodeChoices, setBarcodeChoices] = useState<string[]>([]);
   const fileInputRef = useRef<HTMLInputElement | null>(null);
   const barcodeImageInputRef = useRef<HTMLInputElement | null>(null);
   // Only the latest capture request may publish candidates or failure state.
@@ -97,6 +98,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     setIsSaving(false);
     setErrorMsg(null);
     setBarcodeInput("");
+    setBarcodeChoices([]);
   }, [isOpen]);
 
   if (!isOpen) return null;
@@ -221,6 +223,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
   const lookupBarcode = async (rawBarcode: string) => {
     const requestId = ++captureRequestIdRef.current;
+    setBarcodeChoices([]);
     const barcode = normalizeValidRetailBarcode(rawBarcode);
     setScannedItems([]);
     if (!barcode) {
@@ -294,10 +297,17 @@ export const ScanModal: React.FC<ScanModalProps> = ({
 
     const captureId = ++captureRequestIdRef.current;
     setScannedItems([]);
+    setBarcodeChoices([]);
     setErrorMsg(null);
     setIsScanning(true);
     const detection = await detectBarcodeFromImageFile(file);
     if (captureId !== captureRequestIdRef.current) return;
+
+    if (detection.status === "multiple") {
+      setBarcodeChoices(detection.rawValues);
+      setIsScanning(false);
+      return;
+    }
 
     if (detection.status === "detected") {
       setBarcodeInput(detection.rawValue);
@@ -428,6 +438,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     setIsScanning(false);
     setErrorMsg(null);
     setBarcodeInput("");
+    setBarcodeChoices([]);
   };
 
   const selectedCount = scannedItems.filter((item) => item.selected).length;
@@ -493,6 +504,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                       // still in flight, so an old response cannot restore a stale save path.
                       ++captureRequestIdRef.current;
                       setBarcodeInput(e.target.value);
+                      setBarcodeChoices([]);
                       setScannedItems([]);
                       setIsScanning(false);
                       setErrorMsg(null);
@@ -506,6 +518,34 @@ export const ScanModal: React.FC<ScanModalProps> = ({
                   <span>{language === "es" ? "Buscar" : language === "bg" ? "Търси" : "Search"}</span>
                 </button>
               </form>
+              {barcodeChoices.length > 1 && (
+                <div data-testid="barcode-multiple-review" className="rounded-xl border border-amber-500/40 bg-amber-500/10 px-3 py-3 space-y-2">
+                  <p className="text-xs font-semibold text-amber-200">
+                    {language === "es"
+                      ? "Se encontraron varios códigos válidos. Elige el del producto que quieres consultar."
+                      : language === "bg"
+                      ? "Открити са няколко валидни баркода. Изберете кода на продукта, който искате да проверите."
+                      : "Multiple valid barcodes found. Choose the code of the product you want to look up."}
+                  </p>
+                  <div className="flex flex-wrap gap-2 max-h-32 overflow-y-auto">
+                    {barcodeChoices.map((code) => (
+                      <button
+                        key={code}
+                        type="button"
+                        disabled={isScanning}
+                        onClick={() => {
+                          setBarcodeInput(code);
+                          setBarcodeChoices([]);
+                          void lookupBarcode(code);
+                        }}
+                        className="rounded-lg border border-amber-500/40 bg-stone-850 px-3 py-2 font-mono text-xs text-white hover:border-emerald-400 disabled:opacity-50"
+                      >
+                        {code}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+              )}
               <button
                 type="button"
                 disabled={isScanning}
