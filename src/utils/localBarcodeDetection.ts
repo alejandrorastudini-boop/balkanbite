@@ -2,6 +2,7 @@ import { normalizeValidRetailBarcode } from "./retailBarcode";
 
 export type LocalBarcodeDetectionResult =
   | { status: "detected"; rawValue: string }
+  | { status: "multiple"; rawValues: string[] }
   | { status: "not_found" }
   | { status: "unsupported" }
   | { status: "failed" };
@@ -42,13 +43,20 @@ export async function detectBarcodeFromImageFile(
         typeof entry.rawValue === "string" ? entry.rawValue.trim() : "",
       )
       .filter(Boolean);
-    // A photo can contain multiple detections. Prefer a valid retail
-    // identity instead of discarding it because noisy OCR came first.
-    // This is still only a lookup proposal, never confirmed stock.
-    const rawValue =
-      candidates.find((candidate) => normalizeValidRetailBarcode(candidate) !== null) ??
-      candidates[0];
+    // A photo may contain more than one genuine retail code. Never guess
+    // which product the user intended. Duplicate readings of one code are
+    // not ambiguous; distinct checksum-valid identities require review.
+    const validValues = Array.from(new Set(
+      candidates.map(normalizeValidRetailBarcode)
+        .filter((code): code is string => code !== null),
+    ));
+    if (validValues.length > 1) {
+      return { status: "multiple", rawValues: validValues };
+    }
 
+    // A detected code is only a lookup proposal, never confirmed stock.
+    // Preserve the old unverified raw fallback for manual correction.
+    const rawValue = validValues[0] ?? candidates[0];
     return rawValue
       ? { status: "detected", rawValue }
       : { status: "not_found" };

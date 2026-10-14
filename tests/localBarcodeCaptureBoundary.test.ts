@@ -26,7 +26,7 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
   let detections: Array<{ rawValue?: unknown }> = [
     { rawValue: "barcode-not-readable" },
     { rawValue: "4006381333931" },
-    { rawValue: "96385074" },
+    { rawValue: "4006381333931" },
   ];
 
   try {
@@ -47,6 +47,19 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
     );
     assert.equal(closed, 1);
 
+    // Distinct valid identities must never silently select the first product.
+    detections = [
+      { rawValue: "not-a-gtin" },
+      { rawValue: "4006381333931" },
+      { rawValue: "96385074" },
+      { rawValue: "4006381333931" },
+    ];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "multiple", rawValues: ["4006381333931", "96385074"] },
+    );
+    assert.equal(closed, 2);
+
     // The original untrusted raw value stays visible for manual correction
     // if no detection passes checksum; no candidate is silently invented.
     detections = [{ rawValue: "invalid-first" }, { rawValue: "bad-second" }];
@@ -54,7 +67,11 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
       await detect({} as File),
       { status: "detected", rawValue: "invalid-first" },
     );
-    assert.equal(closed, 2);
+    assert.equal(closed, 3);
+
+    detections = [];
+    assert.deepEqual(await detect({} as File), { status: "not_found" });
+    assert.equal(closed, 4);
   } finally {
     if (originalBitmap) {
       Object.defineProperty(globalThis, "createImageBitmap", originalBitmap);
@@ -67,4 +84,13 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
       Reflect.deleteProperty(globalThis, "BarcodeDetector");
     }
   }
+});
+
+test("ambiguous retail codes stay in local review until the user chooses one", () => {
+  assert.match(source, /data-testid="barcode-multiple-review"/);
+  assert.match(source, /detection\.status === "multiple"/);
+  assert.match(source, /setBarcodeChoices\(detection\.rawValues\)/);
+  assert.match(source, /barcodeChoices\.map\(\(code\) =>/);
+  assert.match(source, /void lookupBarcode\(code\)/);
+  assert.match(source, /setBarcodeChoices\(\[\]\)/);
 });
