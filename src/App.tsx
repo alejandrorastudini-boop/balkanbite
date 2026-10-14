@@ -70,7 +70,13 @@ import {
   getUserPantryCacheKey,
   parseUserPantryCache,
 } from "./utils/startupPantryCache";
-import { loadGuestPantry } from "./utils/guestPantry";
+import {
+  GUEST_PANTRY_KEY,
+  GUEST_PANTRY_QUARANTINE_KEY,
+  inspectGuestPantry,
+  loadGuestPantry,
+  writeGuestPantrySafely,
+} from "./utils/guestPantry";
 import {
   createSignedInProfileDefaults,
   parseGuestProfileCache,
@@ -105,7 +111,10 @@ import {
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
-    loadGuestPantry(localStorage.getItem("balkanbite_pantry"))
+    loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY))
+  );
+  const [guestPantryRecovery, setGuestPantryRecovery] = useState<"none" | "available" | "blocked">(
+    () => localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY) === null ? "none" : "available"
   );
 
   const [recipes, setRecipes] = useState<Recipe[]>(() => {
@@ -414,7 +423,7 @@ export default function App() {
 
     if (firebaseLoading || pantryScope === "guest") return;
 
-    setPantry(loadGuestPantry(localStorage.getItem("balkanbite_pantry")));
+    setPantry(loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY)));
     setPantryScope("guest");
   }, [currentUser, firebaseLoading, inventoryHydrated, pantryScope, isResetting]);
 
@@ -491,9 +500,14 @@ export default function App() {
       }
 
       if (pantryScope !== "guest") return;
-      localStorage.setItem("balkanbite_pantry", JSON.stringify(pantry));
+      const result = writeGuestPantrySafely(localStorage, pantry);
+      setGuestPantryRecovery(
+        !result.saved ? "blocked" : result.recoveryAvailable ? "available" : "none"
+      );
+      if (!result.saved) console.warn("Guest pantry save blocked until data recovery is safe:", result.reason);
     } catch (e) {
-      console.warn("localStorage write error", e);
+      setGuestPantryRecovery("blocked");
+      console.warn("Guest pantry localStorage save was blocked", e);
     }
   }, [pantry, currentUser, inventoryHydrated, pantryScope, isResetting]);
 
@@ -623,6 +637,16 @@ export default function App() {
   };
 
   const requireAuthoritativeInventory = () => {
+    if (!currentUser && guestPantryRecovery === "blocked") {
+      alert(
+        profile.language === "bg"
+          ? "Записът на гост-панела е спрян, за да не се загубят стари данни. Изтеглете оригиналното копие и прегледайте данните."
+          : profile.language === "es"
+          ? "La despensa de invitados está bloqueada para no perder datos antiguos. Descarga la copia original y revisa los datos."
+          : "Guest pantry changes are blocked to protect older data. Download the original copy and review the entries."
+      );
+      return false;
+    }
     if (!inventoryIsProvisional) return true;
 
     alert(
@@ -2349,6 +2373,29 @@ export default function App() {
     );
   }
 
+  const downloadGuestPantryRecovery = () => {
+    // Export only on explicit user action; never upload or log pantry details.
+    try {
+      const original = localStorage.getItem(GUEST_PANTRY_KEY);
+      const savedBackup = localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
+      const raw = guestPantryRecovery === "blocked" &&
+        inspectGuestPantry(original).requiresRecovery ? original : savedBackup;
+      if (raw === null) return;
+      const url = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "balkanbite-guest-pantry-original.json";
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      alert(profile.language === "es"
+        ? "No fue posible exportar los datos desde este navegador."
+        : profile.language === "bg"
+        ? "Не успяхме да експортираме данните от този браузър."
+        : "Could not export the data from this browser.");
+    }
+  };
+
   return (
     <div
       id="app-root"
@@ -2358,6 +2405,33 @@ export default function App() {
       }`}
     >
       <div className="w-full max-w-6xl mx-auto min-h-screen relative pb-28 px-2.5 sm:px-6 lg:px-8">
+        {!currentUser && guestPantryRecovery !== "none" && (
+          <section role="alert" data-testid="guest-pantry-recovery" className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+            <p className="font-semibold">
+              {profile.language === "bg"
+                ? "Възстановяване на данни от гост-панела"
+                : profile.language === "es"
+                ? "Recuperación de datos de la despensa invitada"
+                : "Guest pantry data recovery"}
+            </p>
+            <p className="mt-1">
+              {guestPantryRecovery === "blocked"
+                ? profile.language === "bg"
+                  ? "Не можахме да запазим безопасно оригиналните записи. Новите промени няма да се съхраняват, докато проблемът не бъде решен."
+                  : profile.language === "es"
+                  ? "No se pudo proteger la copia original. Las modificaciones no se guardarán hasta resolverlo."
+                  : "The original data could not be protected. Edits will not be saved until this is resolved."
+                : profile.language === "bg"
+                ? "Някои стари записи не могат да бъдат потвърдени. Запазихме оригиналното съдържание отделно; не се превръща автоматично в наличност."
+                : profile.language === "es"
+                ? "Algunos registros antiguos no se han podido validar. Se ha conservado el contenido original por separado; no se convierte automáticamente en existencias."
+                : "Some older records could not be verified. Their original content was preserved separately, not counted as confirmed stock."}
+            </p>
+            <button type="button" onClick={downloadGuestPantryRecovery} className="mt-2 rounded-lg border border-amber-400/60 px-3 py-2 text-xs font-semibold hover:bg-amber-500/10">
+              {profile.language === "bg" ? "Изтеглете оригиналните данни (.json)" : profile.language === "es" ? "Descargar datos originales (.json)" : "Download original data (.json)"}
+            </button>
+          </section>
+        )}
         <Header
           language={profile.language}
           onLanguageChange={(lang: Language) => { void handleProfilePreferenceUpdate({ language: lang }); }}
