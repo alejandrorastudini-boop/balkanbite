@@ -284,6 +284,33 @@ test("provisional pantry cache preserves valid v1 lot state and rejects corrupt 
   assert.equal(parseUserPantryCache(JSON.stringify(unsupported)), null);
 });
 
+test("provisional signed-in cache rejects incomplete fields without inventing replacements", () => {
+  const valid = {
+    id: "owner-rice-1",
+    name: "Rice",
+    quantity: 1,
+    unit: "kg",
+    category: "Pantry/Grains",
+    addedAt: "2026-10-15",
+  };
+  assert.deepEqual(parseUserPantryCache(JSON.stringify([valid])), [valid]);
+
+  for (const invalid of [
+    { ...valid, category: undefined },
+    { ...valid, category: "MadeUp" },
+    { ...valid, addedAt: undefined },
+    { ...valid, addedAt: "" },
+    { ...valid, id: " " },
+    { ...valid, id: "unbounded-" + "x".repeat(301) },
+  ]) {
+    assert.equal(parseUserPantryCache(JSON.stringify([invalid])), null);
+  }
+  assert.equal(parseUserPantryCache(JSON.stringify([[valid]])), null);
+  // A mixed list is wholly provisional/unknown; never silently trim rows
+  // and pretend the remainder is the full remote inventory.
+  assert.equal(parseUserPantryCache(JSON.stringify([valid, { id: "incomplete" }])), null);
+});
+
 test("one invalid cached item invalidates the provisional cache", () => {
   const mixed = [
     {
