@@ -199,3 +199,42 @@ test("known allergen match remains detected despite another unknown selection", 
   assert.equal(result.status, "match_detected");
   assert.equal(shouldBlockRecipeForFoodRestrictionScreening(result), true);
 });
+
+test("exact seafood ingredient aliases identify regulated categories in EN/ES/BG", () => {
+  const cases = [
+    ["shrimp", "eu_annex_ii:crustaceans"],
+    ["gambas", "eu_annex_ii:crustaceans"],
+    ["скариди", "eu_annex_ii:crustaceans"],
+    ["salmon", "eu_annex_ii:fish"],
+    ["salmón", "eu_annex_ii:fish"],
+    ["сьомга", "eu_annex_ii:fish"],
+    ["mussels", "eu_annex_ii:molluscs"],
+    ["mejillones", "eu_annex_ii:molluscs"],
+    ["миди", "eu_annex_ii:molluscs"],
+    ["squid", "eu_annex_ii:molluscs"],
+    ["calamares", "eu_annex_ii:molluscs"],
+    ["калмари", "eu_annex_ii:molluscs"],
+  ] as const;
+
+  for (const [name, restrictionId] of cases) {
+    const screening = screenRecipeFoodRestrictions([{ name }], [restrictionId]);
+    assert.equal(screening.status, "match_detected", name);
+    assert.equal(shouldBlockRecipeForFoodRestrictionScreening(screening), true, name);
+    assert.equal(screening.establishesAllergenSafety, false);
+  }
+});
+
+test("seafood aliases do not conflate crustaceans, molluscs and fish", () => {
+  const cases = [
+    ["gambas", "eu_annex_ii:molluscs"],
+    ["mejillones", "eu_annex_ii:crustaceans"],
+    ["сьомга", "eu_annex_ii:molluscs"],
+  ] as const;
+
+  for (const [name, restrictionId] of cases) {
+    const screening = screenRecipeFoodRestrictions([{ name }], [restrictionId]);
+    assert.equal(screening.status, "unverifiable", name);
+    assert.equal(shouldBlockRecipeForFoodRestrictionScreening(screening), false, name);
+    assert.equal(screening.establishesAllergenSafety, false);
+  }
+});
