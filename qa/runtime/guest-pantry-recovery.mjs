@@ -85,6 +85,15 @@ async function run({ original, previousBackup = null, expectedBlocked = false, e
     assert.ok(download.suggestedFilename().endsWith("." + expectedExtension));
     const downloaded = await fs.readFile(await download.path(), "utf8");
     assert.equal(downloaded, original, "recovery export must preserve exact original bytes");
+    if (expectedBlocked && previousBackup !== null && previousBackup !== original) {
+      // Both different historical sources must be individually recoverable.
+      const previousDownload = page.waitForEvent("download", { timeout: 15000 });
+      await page.getByTestId("guest-pantry-download-previous-backup").click();
+      const older = await previousDownload;
+      assert.match(older.suggestedFilename(), /guest-pantry-previous-backup\.json$/);
+      assert.equal(await fs.readFile(await older.path(), "utf8"), previousBackup);
+      evidence.checks.push("both-conflicting-raw-copies-exportable");
+    }
     // Review permission must not survive a page reload: the incomplete
     // pantry is not silently made authoritative for a later session.
     if (!expectedBlocked) {
