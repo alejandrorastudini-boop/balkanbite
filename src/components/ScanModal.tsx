@@ -310,6 +310,19 @@ export const ScanModal: React.FC<ScanModalProps> = ({
       return;
     }
 
+    if (detection.status === "unverified") {
+      setBarcodeInput(detection.rawValue);
+      setIsScanning(false);
+      setErrorMsg(
+        language === "es"
+          ? "Se leyó un código que no supera la validación GS1. Revísalo y corrígelo manualmente antes de buscar."
+          : language === "bg"
+          ? "Разчетеният баркод не преминава GS1 проверката. Проверете и поправете кода ръчно преди търсене."
+          : "The scanned code failed the GS1 check digit. Review and correct it manually before searching."
+      );
+      return;
+    }
+
     if (detection.status === "detected") {
       setBarcodeInput(detection.rawValue);
       setIsScanning(false);
