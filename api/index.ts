@@ -1,5 +1,23 @@
 import app from "../server.js";
 
+/**
+ * TEMPORARY DIAGNOSTIC — preview-only DEP0169 stack capture for #166.
+ * This branch must not be merged: do not instrument production requests.
+ * Only Node warning stack frames are printed, never request data/headers.
+ */
+if (process.env.VERCEL_ENV === "preview") {
+  let dep0169Captured = false;
+  process.on("warning", (warning) => {
+    if (dep0169Captured || warning.code !== "DEP0169") return;
+    dep0169Captured = true;
+    const stack = String(warning.stack ?? warning.message)
+      .split("\n")
+      .slice(0, 18)
+      .join("\n");
+    console.error("[BALKANBITE_PREVIEW_DEP0169_STACK] " + stack);
+  });
+}
+
 const FIREBASE_API_KEY = "AIzaSyDv1M9ayqOn3X_UsMWNG_R4nxDrOH80C44";
 const ADMIN_EMAIL = "alejandrorastudini@gmail.com";
 const AGENT_STATE_URL = "https://api.github.com/repos/alejandrorastudini-boop/balkanbite-dev-agent/contents/runtime-state/agent-state.json?ref=agent-state";
