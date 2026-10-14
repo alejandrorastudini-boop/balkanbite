@@ -45,15 +45,19 @@ export async function detectBarcodeFromImageFile(
         format: entry.format,
       }))
       .filter((entry) => Boolean(entry.rawValue));
-    // Format matters: an 8-digit UPC-E is NOT an 8-digit EAN-8. Only the
-    // detector's explicit format authorizes GS1 zero-expansion to UPC-A.
-    // Unknown format stays in the legacy GTIN-only validation path.
+    // 8 digits without an explicit symbology are ambiguous: UPC-E and
+    // EAN-8 may BOTH satisfy an EAN-8 checksum but name different goods.
+    // Never guess an EAN-8 or silently expand a UPC-E.
     const validValues = Array.from(new Set(
-      candidates.map((entry) =>
-        entry.format === "upc_e"
-          ? expandValidUpcEToUpcA(entry.rawValue)
-          : normalizeValidRetailBarcode(entry.rawValue),
-      ).filter((code): code is string => code !== null),
+      candidates.map((entry) => {
+        if (entry.format === "upc_e") {
+          return expandValidUpcEToUpcA(entry.rawValue);
+        }
+        if (entry.rawValue.length === 8 && entry.format !== "ean_8") {
+          return null;
+        }
+        return normalizeValidRetailBarcode(entry.rawValue);
+      }).filter((code): code is string => code !== null),
     ));
     if (validValues.length > 1) {
       return { status: "multiple", rawValues: validValues };
