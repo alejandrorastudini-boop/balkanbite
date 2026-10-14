@@ -2387,8 +2387,11 @@ export default function App() {
     try {
       const original = localStorage.getItem(GUEST_PANTRY_KEY);
       const savedBackup = localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
-      const raw = guestPantryRecovery === "blocked" &&
-        inspectGuestPantry(original).requiresRecovery ? original : savedBackup;
+      // If persistence is blocked for any reason, expose the current raw
+      // original even when the failure was a full storage/quota outage.
+      const raw = guestPantryRecovery === "blocked"
+        ? (original ?? savedBackup)
+        : savedBackup;
       if (raw === null) return;
       const url = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
       const link = document.createElement("a");
