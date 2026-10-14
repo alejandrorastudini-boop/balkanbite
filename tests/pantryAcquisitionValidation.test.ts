@@ -46,3 +46,25 @@ test("batch acquisition is all-or-nothing and non-empty", () => {
     false,
   );
 });
+
+test("malformed runtime acquisitions fail closed without throwing or adding stock", () => {
+  const valid = { name: "Rice", quantity: 1, unit: "kg" };
+  for (const item of [null, undefined, "rice", 1, [], [{ name: "Rice", quantity: 1, unit: "kg" }]]) {
+    assert.equal(hasValidPantryAcquisitionRequiredFields(item), false);
+  }
+
+  for (const batch of [null, undefined, valid, "rice", 0, { 0: valid, length: 1 }, []]) {
+    assert.equal(isValidPantryAcquisitionBatch(batch), false);
+  }
+
+  const sparse = new Array(1);
+  assert.equal(isValidPantryAcquisitionBatch(sparse), false);
+
+  const partiallySparse = [valid, valid];
+  delete (partiallySparse as Array<unknown>)[1];
+  assert.equal(isValidPantryAcquisitionBatch(partiallySparse), false);
+
+  assert.equal(isValidPantryAcquisitionBatch([valid, null]), false);
+  assert.equal(isValidPantryAcquisitionBatch([undefined, valid]), false);
+  assert.equal(isValidPantryAcquisitionBatch([valid]), true);
+});
