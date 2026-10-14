@@ -121,12 +121,14 @@ export function writeGuestPantrySafely(
   items: readonly PantryItem[],
 ): GuestPantrySaveResult {
   if (!Array.isArray(items)) return { saved: false, reason: "invalid-items" };
-  const candidate = inspectGuestPantry(JSON.stringify(items));
-  if (candidate.requiresRecovery || candidate.items.length !== items.length) {
-    return { saved: false, reason: "invalid-items" };
-  }
 
   try {
+    const serialized = JSON.stringify(items);
+    const candidate = inspectGuestPantry(serialized);
+    if (candidate.requiresRecovery || candidate.items.length !== items.length) {
+      return { saved: false, reason: "invalid-items" };
+    }
+
     const original = storage.getItem(GUEST_PANTRY_KEY);
     let backup = storage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
     if (inspectGuestPantry(original).requiresRecovery) {
@@ -140,7 +142,7 @@ export function writeGuestPantrySafely(
         if (backup !== original) return { saved: false, reason: "storage-unavailable" };
       }
     }
-    storage.setItem(GUEST_PANTRY_KEY, JSON.stringify(items));
+    storage.setItem(GUEST_PANTRY_KEY, serialized);
     return { saved: true, recoveryAvailable: backup !== null };
   } catch {
     return { saved: false, reason: "storage-unavailable" };
