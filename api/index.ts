@@ -8,7 +8,7 @@ import app from "../server.js";
 if (process.env.VERCEL_ENV === "preview") {
   let dep0169Captured = false;
   process.on("warning", (warning) => {
-    if (dep0169Captured || warning.code !== "DEP0169") return;
+    if (dep0169Captured || (warning as Error & { code?: string }).code !== "DEP0169") return;
     dep0169Captured = true;
     const stack = String(warning.stack ?? warning.message)
       .split("\n")
