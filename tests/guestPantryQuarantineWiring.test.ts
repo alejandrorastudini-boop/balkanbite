@@ -22,7 +22,11 @@ test("guest recovery is visible, exportable and never uploaded by the recovery U
   assert.doesNotMatch(app.slice(start, end), /fetch\(|navigator\.sendBeacon\(/);
 });
 
-test("guest inventory actions reject writes while the backup cannot be preserved", () => {
+test("guest inventory changes are gated on backup safety and explicit incomplete-stock review", () => {
   assert.match(app, /!currentUser && guestPantryRecovery === "blocked"/);
   assert.match(app, /La despensa de invitados está bloqueada para no perder datos antiguos/);
+  assert.match(app, /guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged/);
+  assert.match(app, /data-testid="guest-pantry-continue-verified"/);
+  assert.match(app, /setGuestPantryRecoveryAcknowledged\(true\)/);
+  assert.match(app, /Continuar solo con entradas validadas/);
 });
