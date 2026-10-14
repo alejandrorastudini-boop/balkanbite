@@ -115,6 +115,28 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
       { status: "unverified", rawValue: "01234558" },
     );
     assert.equal(closed, 9);
+
+    // Do not reinterpret an explicit EAN-13 as eight-digit EAN-8, etc.
+    detections = [{ rawValue: "96385074", format: "ean_13" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "unverified", rawValue: "96385074" },
+    );
+    assert.equal(closed, 10);
+
+    detections = [{ rawValue: "4006381333931", format: "upc_a" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "unverified", rawValue: "4006381333931" },
+    );
+    assert.equal(closed, 11);
+
+    detections = [{ rawValue: "4006381333931", format: "qr_code" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "unverified", rawValue: "4006381333931" },
+    );
+    assert.equal(closed, 12);
   } finally {
     if (originalBitmap) {
       Object.defineProperty(globalThis, "createImageBitmap", originalBitmap);
