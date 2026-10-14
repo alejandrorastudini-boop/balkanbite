@@ -26,7 +26,7 @@ await fs.mkdir(output, { recursive: true });
 const browser = await chromium.launch({ headless: true });
 const evidence = { buildSha: sha, scenario: "guest-pantry-nondestructive-recovery", result: "running", checks: [] };
 
-async function run({ original, previousBackup = null, expectedBlocked = false, expectedExtension = "json" }) {
+async function run({ original, previousBackup = null, expectedBlocked = false, expectedExtension = "json", expectedItems = [valid] }) {
   const context = await browser.newContext({ acceptDownloads: true });
   let page;
   try {
@@ -54,7 +54,7 @@ async function run({ original, previousBackup = null, expectedBlocked = false, e
         { timeout: 12000 },
       );
       const persisted = await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
-      assert.deepEqual(JSON.parse(persisted), [valid], "only valid stock remains active after backup");
+      assert.deepEqual(JSON.parse(persisted), expectedItems, "active stock must include exactly the validated entries");
     }
 
     const stored = await page.evaluate(({ MAIN, BACKUP }) => ({
@@ -92,7 +92,7 @@ async function run({ original, previousBackup = null, expectedBlocked = false, e
 try {
   const mixed = JSON.stringify([valid, { id: "qa-unknown", note: "keep original untouched" }]);
   await run({ original: mixed });
-  await run({ original: "{ malformed original text", expectedExtension: "txt" });
+  await run({ original: "{ malformed original text", expectedExtension: "txt", expectedItems: [] });
   await run({
     original: JSON.stringify([{ id: "qa-new-unknown" }]),
     previousBackup: JSON.stringify([{ id: "older-quarantined-record" }]),
