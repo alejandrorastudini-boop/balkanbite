@@ -421,6 +421,9 @@ export default function App() {
         } catch {
           setPantry([]);
         }
+        // Consent to work with incomplete guest stock is session-scoped.
+        // Never carry it across a signed-in account transition.
+        setGuestPantryRecoveryAcknowledged(false);
         setPantryScope(currentUser.uid);
         return;
       }
@@ -434,6 +437,7 @@ export default function App() {
     if (firebaseLoading || pantryScope === "guest") return;
 
     setPantry(loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY)));
+    setGuestPantryRecoveryAcknowledged(false);
     setPantryScope("guest");
   }, [currentUser, firebaseLoading, inventoryHydrated, pantryScope, isResetting]);
 
