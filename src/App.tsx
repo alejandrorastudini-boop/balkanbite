@@ -113,9 +113,18 @@ export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
     loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY))
   );
-  const [guestPantryRecovery, setGuestPantryRecovery] = useState<"none" | "available" | "blocked">(
-    () => localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY) === null ? "none" : "available"
-  );
+  const [guestPantryRecovery, setGuestPantryRecovery] = useState<"none" | "available" | "blocked">(() => {
+    // Block guest writes on the very first render until recovery storage
+    // has been verified. A late effect must not temporarily allow mutations.
+    try {
+      const raw = localStorage.getItem(GUEST_PANTRY_KEY);
+      const originalBackup = localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
+      if (inspectGuestPantry(raw).requiresRecovery) return "blocked";
+      return originalBackup === null ? "none" : "available";
+    } catch {
+      return "blocked";
+    }
+  });
 
   const [recipes, setRecipes] = useState<Recipe[]>(() => {
     const list =
@@ -2384,7 +2393,11 @@ export default function App() {
       const url = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
       const link = document.createElement("a");
       link.href = url;
-      link.download = "balkanbite-guest-pantry-original.json";
+      // The untouched original could itself contain malformed JSON.
+      // Preserve its exact bytes and do not mislabel invalid text as JSON.
+      let extension = "json";
+      try { JSON.parse(raw); } catch { extension = "txt"; }
+      link.download = `balkanbite-guest-pantry-original.${extension}`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
@@ -2428,7 +2441,7 @@ export default function App() {
                 : "Some older records could not be verified. Their original content was preserved separately, not counted as confirmed stock."}
             </p>
             <button type="button" onClick={downloadGuestPantryRecovery} className="mt-2 rounded-lg border border-amber-400/60 px-3 py-2 text-xs font-semibold hover:bg-amber-500/10">
-              {profile.language === "bg" ? "Изтеглете оригиналните данни (.json)" : profile.language === "es" ? "Descargar datos originales (.json)" : "Download original data (.json)"}
+              {profile.language === "bg" ? "Изтеглете оригиналните данни" : profile.language === "es" ? "Descargar datos originales" : "Download original data"}
             </button>
           </section>
         )}
