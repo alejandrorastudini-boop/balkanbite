@@ -298,6 +298,7 @@ export const ScanModal: React.FC<ScanModalProps> = ({
     const captureId = ++captureRequestIdRef.current;
     setScannedItems([]);
     setBarcodeChoices([]);
+    setBarcodeInput("");
     setErrorMsg(null);
     setIsScanning(true);
     const detection = await detectBarcodeFromImageFile(file);
