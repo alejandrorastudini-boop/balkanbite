@@ -199,3 +199,28 @@ test("known allergen match remains detected despite another unknown selection", 
   assert.equal(result.status, "match_detected");
   assert.equal(shouldBlockRecipeForFoodRestrictionScreening(result), true);
 });
+
+test("malformed runtime ingredient collections fail closed without throwing", () => {
+  const malformed: unknown[] = ["peanuts", { 0: { name: "peanuts" }, length: 1 }, 42, null];
+  for (const raw of malformed) {
+    const result = screenRecipeFoodRestrictions(raw as never, ["eu_annex_ii:peanuts"]);
+    assert.equal(result.status, "unverifiable");
+    assert.equal(result.establishesAllergenSafety, false);
+    assert.equal(result.crossContactEvidence, "unknown");
+  }
+});
+
+test("malformed runtime restriction collections cannot produce clean no-match", () => {
+  const malformed: unknown[] = ["eu_annex_ii:peanuts", { 0: "eu_annex_ii:peanuts", length: 1 }, 17, null];
+  for (const raw of malformed) {
+    const result = screenRecipeFoodRestrictions([{ name: "rice" }], raw as never);
+    assert.equal(result.status, "unverifiable");
+    assert.equal(result.establishesAllergenSafety, false);
+  }
+  const explicitMatch = screenRecipeFoodRestrictions(
+    [{ name: "peanuts" }],
+    ["eu_annex_ii:peanuts", "bad-id" as never],
+  );
+  assert.equal(explicitMatch.status, "match_detected");
+  assert.equal(shouldBlockRecipeForFoodRestrictionScreening(explicitMatch), true);
+});
