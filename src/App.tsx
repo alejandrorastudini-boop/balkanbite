@@ -2405,15 +2405,26 @@ export default function App() {
     );
   }
 
-  const downloadGuestPantryRecovery = () => {
+  const hasDistinctGuestPantryBackup = (() => {
+    if (currentUser || guestPantryRecovery !== "blocked") return false;
+    try {
+      const original = localStorage.getItem(GUEST_PANTRY_KEY);
+      const backup = localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
+      return original !== null && backup !== null && original !== backup;
+    } catch {
+      return false;
+    }
+  })();
+
+  const downloadGuestPantryRecovery = (source: "current" | "backup") => {
     // Export only on explicit user action; never upload or log pantry details.
     try {
       const original = localStorage.getItem(GUEST_PANTRY_KEY);
       const savedBackup = localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
-      // If persistence is blocked for any reason, expose the current raw
-      // original even when the failure was a full storage/quota outage.
-      const raw = guestPantryRecovery === "blocked"
-        ? (original ?? savedBackup)
+      // When backup conflicts with a different original, both must remain
+      // accessible separately. No recovery button mutates localStorage.
+      const raw = source === "backup" ? savedBackup
+        : guestPantryRecovery === "blocked" ? (original ?? savedBackup)
         : savedBackup;
       if (raw === null) return;
       const url = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
@@ -2423,7 +2434,7 @@ export default function App() {
       // Preserve its exact bytes and do not mislabel invalid text as JSON.
       let extension = "json";
       try { JSON.parse(raw); } catch { extension = "txt"; }
-      link.download = `balkanbite-guest-pantry-original.${extension}`;
+      link.download = `balkanbite-guest-pantry-${source === "backup" ? "previous-backup" : "original"}.${extension}`;
       link.click();
       window.setTimeout(() => URL.revokeObjectURL(url), 1000);
     } catch {
@@ -2489,9 +2500,14 @@ export default function App() {
                   : "You are using verified entries only; unverified records remain in the recovery copy."}
               </p>
             )}
-            <button type="button" onClick={downloadGuestPantryRecovery} className="mt-2 rounded-lg border border-amber-400/60 px-3 py-2 text-xs font-semibold hover:bg-amber-500/10">
+            <button type="button" onClick={() => downloadGuestPantryRecovery("current")} className="mt-2 rounded-lg border border-amber-400/60 px-3 py-2 text-xs font-semibold hover:bg-amber-500/10">
               {profile.language === "bg" ? "Изтеглете оригиналните данни" : profile.language === "es" ? "Descargar datos originales" : "Download original data"}
             </button>
+            {hasDistinctGuestPantryBackup && (
+              <button type="button" data-testid="guest-pantry-download-previous-backup" onClick={() => downloadGuestPantryRecovery("backup")} className="mt-2 ml-2 rounded-lg border border-amber-400/60 px-3 py-2 text-xs font-semibold hover:bg-amber-500/10">
+                {profile.language === "bg" ? "Изтеглете предишното резервно копие" : profile.language === "es" ? "Descargar copia anterior" : "Download previous backup"}
+              </button>
+            )}
           </section>
         )}
         <Header
