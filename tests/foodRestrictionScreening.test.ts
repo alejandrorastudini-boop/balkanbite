@@ -203,7 +203,9 @@ test("known allergen match remains detected despite another unknown selection", 
 test("exact seafood ingredient aliases identify regulated categories in EN/ES/BG", () => {
   const cases = [
     ["shrimp", "eu_annex_ii:crustaceans"],
+    ["prawns", "eu_annex_ii:crustaceans"],
     ["gambas", "eu_annex_ii:crustaceans"],
+    ["langostinos", "eu_annex_ii:crustaceans"],
     ["скариди", "eu_annex_ii:crustaceans"],
     ["salmon", "eu_annex_ii:fish"],
     ["salmón", "eu_annex_ii:fish"],
@@ -233,8 +235,9 @@ test("seafood aliases do not conflate crustaceans, molluscs and fish", () => {
 
   for (const [name, restrictionId] of cases) {
     const screening = screenRecipeFoodRestrictions([{ name }], [restrictionId]);
-    assert.equal(screening.status, "unverifiable", name);
+    assert.equal(screening.status, "no_match_detected", name);
     assert.equal(shouldBlockRecipeForFoodRestrictionScreening(screening), false, name);
+    assert.equal(screening.crossContactEvidence, "unknown");
     assert.equal(screening.establishesAllergenSafety, false);
   }
 });
