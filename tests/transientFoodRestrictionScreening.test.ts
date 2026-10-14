@@ -35,3 +35,12 @@ test("unknown compound ingredients remain unverifiable", () => {
   if (result.status !== "screened") return;
   assert.equal(result.screening.status, "unverifiable");
 });
+
+test("malformed runtime ingredient collections are not screened or persisted", () => {
+  for (const raw of ["peanuts", { 0: { name: "peanuts" }, length: 1 }, 42, null]) {
+    assert.deepEqual(
+      screen(raw as never, intent("use_once")),
+      { status: "not_screened", reason: "missing_ingredients" },
+    );
+  }
+});
