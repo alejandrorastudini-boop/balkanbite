@@ -53,9 +53,17 @@ export async function detectBarcodeFromImageFile(
         if (entry.format === "upc_e") {
           return expandValidUpcEToUpcA(entry.rawValue);
         }
-        if (entry.rawValue.length === 8 && entry.format !== "ean_8") {
-          return null;
-        }
+        // Explicit browser symbologies must agree with the digit count.
+        // If they contradict, request human correction, never reinterpret.
+        if (entry.format === "ean_8" && entry.rawValue.length !== 8) return null;
+        if (entry.format === "ean_13" && entry.rawValue.length !== 13) return null;
+        if (entry.format === "upc_a" && entry.rawValue.length !== 12) return null;
+        if (entry.rawValue.length === 8 && entry.format !== "ean_8") return null;
+        if (entry.format !== undefined &&
+            entry.format !== "unknown" &&
+            entry.format !== "ean_8" &&
+            entry.format !== "ean_13" &&
+            entry.format !== "upc_a") return null;
         return normalizeValidRetailBarcode(entry.rawValue);
       }).filter((code): code is string => code !== null),
     ));
