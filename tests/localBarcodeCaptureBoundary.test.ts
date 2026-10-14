@@ -51,7 +51,7 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
     detections = [
       { rawValue: "not-a-gtin" },
       { rawValue: "4006381333931" },
-      { rawValue: "96385074" },
+      { rawValue: "96385074", format: "ean_8" },
       { rawValue: "4006381333931" },
     ];
     assert.deepEqual(
@@ -107,6 +107,14 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
     detections = [];
     assert.deepEqual(await detect({} as File), { status: "not_found" });
     assert.equal(closed, 8);
+
+    // Without a format, eight digits cannot safely distinguish UPC-E/EAN-8.
+    detections = [{ rawValue: "01234558" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "unverified", rawValue: "01234558" },
+    );
+    assert.equal(closed, 9);
   } finally {
     if (originalBitmap) {
       Object.defineProperty(globalThis, "createImageBitmap", originalBitmap);
