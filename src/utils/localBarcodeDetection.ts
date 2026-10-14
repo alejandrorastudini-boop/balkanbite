@@ -1,4 +1,4 @@
-import { normalizeValidRetailBarcode } from "./retailBarcode";
+import { expandValidUpcEToUpcA, normalizeValidRetailBarcode } from "./retailBarcode";
 
 export type LocalBarcodeDetectionResult =
   | { status: "detected"; rawValue: string }
@@ -9,7 +9,7 @@ export type LocalBarcodeDetectionResult =
   | { status: "failed" };
 
 type BarcodeDetectorLike = {
-  detect: (source: ImageBitmap) => Promise<Array<{ rawValue?: unknown }>>;
+  detect: (source: ImageBitmap) => Promise<Array<{ rawValue?: unknown; format?: unknown }>>;
 };
 
 type BarcodeDetectorConstructor = new (options: {
@@ -40,16 +40,32 @@ export async function detectBarcodeFromImageFile(
     });
     const detections = await detector.detect(bitmap);
     const candidates = detections
-      .map((entry) =>
-        typeof entry.rawValue === "string" ? entry.rawValue.trim() : "",
-      )
-      .filter(Boolean);
-    // A photo may contain more than one genuine retail code. Never guess
-    // which product the user intended. Duplicate readings of one code are
-    // not ambiguous; distinct checksum-valid identities require review.
+      .map((entry) => ({
+        rawValue: typeof entry.rawValue === "string" ? entry.rawValue.trim() : "",
+        format: entry.format,
+      }))
+      .filter((entry) => Boolean(entry.rawValue));
+    // 8 digits without an explicit symbology are ambiguous: UPC-E and
+    // EAN-8 may BOTH satisfy an EAN-8 checksum but name different goods.
+    // Never guess an EAN-8 or silently expand a UPC-E.
     const validValues = Array.from(new Set(
-      candidates.map(normalizeValidRetailBarcode)
-        .filter((code): code is string => code !== null),
+      candidates.map((entry) => {
+        if (entry.format === "upc_e") {
+          return expandValidUpcEToUpcA(entry.rawValue);
+        }
+        // Explicit browser symbologies must agree with the digit count.
+        // If they contradict, request human correction, never reinterpret.
+        if (entry.format === "ean_8" && entry.rawValue.length !== 8) return null;
+        if (entry.format === "ean_13" && entry.rawValue.length !== 13) return null;
+        if (entry.format === "upc_a" && entry.rawValue.length !== 12) return null;
+        if (entry.rawValue.length === 8 && entry.format !== "ean_8") return null;
+        if (entry.format !== undefined &&
+            entry.format !== "unknown" &&
+            entry.format !== "ean_8" &&
+            entry.format !== "ean_13" &&
+            entry.format !== "upc_a") return null;
+        return normalizeValidRetailBarcode(entry.rawValue);
+      }).filter((code): code is string => code !== null),
     ));
     if (validValues.length > 1) {
       return { status: "multiple", rawValues: validValues };
@@ -61,7 +77,7 @@ export async function detectBarcodeFromImageFile(
       return { status: "detected", rawValue: validValues[0] };
     }
     return candidates[0]
-      ? { status: "unverified", rawValue: candidates[0] }
+      ? { status: "unverified", rawValue: candidates[0].rawValue }
       : { status: "not_found" };
   } catch {
     return { status: "failed" };

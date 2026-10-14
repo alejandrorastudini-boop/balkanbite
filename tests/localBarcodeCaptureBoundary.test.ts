@@ -23,7 +23,7 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
   const originalBitmap = Object.getOwnPropertyDescriptor(globalThis, "createImageBitmap");
   const originalDetector = Object.getOwnPropertyDescriptor(globalThis, "BarcodeDetector");
   let closed = 0;
-  let detections: Array<{ rawValue?: unknown }> = [
+  let detections: Array<{ rawValue?: unknown; format?: unknown }> = [
     { rawValue: "barcode-not-readable" },
     { rawValue: "4006381333931" },
     { rawValue: "4006381333931" },
@@ -51,7 +51,7 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
     detections = [
       { rawValue: "not-a-gtin" },
       { rawValue: "4006381333931" },
-      { rawValue: "96385074" },
+      { rawValue: "96385074", format: "ean_8" },
       { rawValue: "4006381333931" },
     ];
     assert.deepEqual(
@@ -60,6 +60,41 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
     );
     assert.equal(closed, 2);
 
+    // Two eight-digit barcodes can pass checksums but describe different
+    // product identities depending on the symbology returned by the browser.
+    detections = [{ rawValue: "01234558", format: "upc_e" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "detected", rawValue: "012345000058" },
+    );
+    assert.equal(closed, 3);
+
+    detections = [{ rawValue: "01234558", format: "ean_8" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "detected", rawValue: "01234558" },
+    );
+    assert.equal(closed, 4);
+
+    // Do not look up an invalid compact UPC-E as an unrelated EAN-8.
+    detections = [{ rawValue: "01234559", format: "upc_e" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "unverified", rawValue: "01234559" },
+    );
+    assert.equal(closed, 5);
+
+    // Same GTIN encoded in UPC-E + UPC-A is one identity, not two choices.
+    detections = [
+      { rawValue: "01234558", format: "upc_e" },
+      { rawValue: "012345000058", format: "upc_a" },
+    ];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "detected", rawValue: "012345000058" },
+    );
+    assert.equal(closed, 6);
+
     // The original untrusted raw value stays visible for manual correction
     // if no detection passes checksum; no candidate is silently invented.
     detections = [{ rawValue: "invalid-first" }, { rawValue: "bad-second" }];
@@ -67,11 +102,41 @@ test("photo with noisy and valid detections prioritizes checksum-valid retail co
       await detect({} as File),
       { status: "unverified", rawValue: "invalid-first" },
     );
-    assert.equal(closed, 3);
+    assert.equal(closed, 7);
 
     detections = [];
     assert.deepEqual(await detect({} as File), { status: "not_found" });
-    assert.equal(closed, 4);
+    assert.equal(closed, 8);
+
+    // Without a format, eight digits cannot safely distinguish UPC-E/EAN-8.
+    detections = [{ rawValue: "01234558" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "unverified", rawValue: "01234558" },
+    );
+    assert.equal(closed, 9);
+
+    // Do not reinterpret an explicit EAN-13 as eight-digit EAN-8, etc.
+    detections = [{ rawValue: "96385074", format: "ean_13" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "unverified", rawValue: "96385074" },
+    );
+    assert.equal(closed, 10);
+
+    detections = [{ rawValue: "4006381333931", format: "upc_a" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "unverified", rawValue: "4006381333931" },
+    );
+    assert.equal(closed, 11);
+
+    detections = [{ rawValue: "4006381333931", format: "qr_code" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "unverified", rawValue: "4006381333931" },
+    );
+    assert.equal(closed, 12);
   } finally {
     if (originalBitmap) {
       Object.defineProperty(globalThis, "createImageBitmap", originalBitmap);
@@ -90,7 +155,7 @@ test("invalid read requires manual correction, not an automatic product lookup",
   assert.match(source, /detection\.status === "unverified"/);
   assert.match(source, /setBarcodeInput\(detection\.rawValue\)/);
   assert.match(source, /failed the GS1 check digit/);
-  assert.match(detector, /status: "unverified", rawValue: candidates\[0\]/);
+  assert.match(detector, /status: "unverified", rawValue: candidates\[0\]\.rawValue/);
 });
 
 test("ambiguous retail codes stay in local review until the user chooses one", () => {
