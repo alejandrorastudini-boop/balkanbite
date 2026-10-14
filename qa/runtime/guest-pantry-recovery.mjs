@@ -31,6 +31,10 @@ async function run({ original, previousBackup = null, expectedBlocked = false, e
   let page;
   try {
     await context.addInitScript(({ original, previousBackup, MAIN, BACKUP }) => {
+      // Seed a fresh session only once. A reload must preserve actual
+      // storage, or the test could silently replay the original fixture.
+      if (sessionStorage.getItem("__qa_guest_recovery_seeded")) return;
+      sessionStorage.setItem("__qa_guest_recovery_seeded", "true");
       localStorage.setItem("balkanbite_show_landing", "false");
       // Simulate a returning guest with completed onboarding, not a fresh
       // profile where the onboarding dialog correctly blocks background clicks.
@@ -81,6 +85,20 @@ async function run({ original, previousBackup = null, expectedBlocked = false, e
     assert.ok(download.suggestedFilename().endsWith("." + expectedExtension));
     const downloaded = await fs.readFile(await download.path(), "utf8");
     assert.equal(downloaded, original, "recovery export must preserve exact original bytes");
+    // Review permission must not survive a page reload: the incomplete
+    // pantry is not silently made authoritative for a later session.
+    if (!expectedBlocked) {
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+      await page.getByTestId("guest-pantry-recovery").waitFor({ state: "visible", timeout: 20000 });
+      await page.getByTestId("guest-pantry-continue-verified").waitFor({ state: "visible", timeout: 10000 });
+      const persistedAfterReload = await page.evaluate(({ MAIN, BACKUP }) => ({
+        primary: localStorage.getItem(MAIN),
+        backup: localStorage.getItem(BACKUP),
+      }), { MAIN, BACKUP });
+      assert.equal(persistedAfterReload.backup, original, "reload must retain exact original backup");
+      assert.deepEqual(JSON.parse(persistedAfterReload.primary), expectedItems);
+      evidence.checks.push("review-reset-on-page-reload");
+    }
     evidence.checks.push(expectedBlocked ? "conflict-blocks-overwrite" :
       expectedExtension === "txt" ? "malformed-json-recovery-export" : "backup-before-overwrite");
   } finally {
