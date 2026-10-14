@@ -61,8 +61,19 @@ async function run({ original, previousBackup = null, expectedBlocked = false, e
     assert.equal(stored.backup, previousBackup ?? original, "the backup must keep the exact original bytes");
     if (expectedBlocked) assert.equal(stored.primary, original, "conflicting backup must block primary overwrite");
 
+    if (expectedBlocked) {
+      assert.equal(await page.getByTestId("guest-pantry-continue-verified").count(), 0);
+    } else {
+      const continueButton = page.getByTestId("guest-pantry-continue-verified");
+      await continueButton.waitFor({ state: "visible", timeout: 10000 });
+      await continueButton.click();
+      await page.getByTestId("guest-pantry-recovery").getByText(/verified entries only|entradas validadas; las demás|проверените записи/).waitFor({ timeout: 10000 });
+    }
+
     const pendingDownload = page.waitForEvent("download", { timeout: 15000 });
-    await page.getByTestId("guest-pantry-recovery").getByRole("button").click();
+    await page.getByTestId("guest-pantry-recovery").getByRole("button", {
+      name: /Download original data|Descargar datos originales|Изтеглете оригиналните данни/,
+    }).click();
     const download = await pendingDownload;
     assert.ok(download.suggestedFilename().endsWith("." + expectedExtension));
     const downloaded = await fs.readFile(await download.path(), "utf8");
