@@ -1,6 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import test from "node:test";
+import { detectBarcodeFromImageFile as detect } from "../src/utils/localBarcodeDetection";
 
 const source = fs.readFileSync("src/components/ScanModal.tsx", "utf8");
 const detector = fs.readFileSync("src/utils/localBarcodeDetection.ts", "utf8");
@@ -16,4 +17,54 @@ test("local detector supports retail EAN and UPC families without remote image u
   assert.match(detector, /"ean_13", "ean_8", "upc_a", "upc_e"/);
   assert.match(detector, /BarcodeDetector/);
   assert.doesNotMatch(detector, /fetch\(/);
+});
+
+test("photo with noisy and valid detections prioritizes checksum-valid retail code", async () => {
+  const originalBitmap = Object.getOwnPropertyDescriptor(globalThis, "createImageBitmap");
+  const originalDetector = Object.getOwnPropertyDescriptor(globalThis, "BarcodeDetector");
+  let closed = 0;
+  let detections: Array<{ rawValue?: unknown }> = [
+    { rawValue: "barcode-not-readable" },
+    { rawValue: "4006381333931" },
+    { rawValue: "96385074" },
+  ];
+
+  try {
+    Object.defineProperty(globalThis, "createImageBitmap", {
+      configurable: true,
+      value: async () => ({ close: () => { closed += 1; } }),
+    });
+    Object.defineProperty(globalThis, "BarcodeDetector", {
+      configurable: true,
+      value: class {
+        async detect() { return detections; }
+      },
+    });
+
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "detected", rawValue: "4006381333931" },
+    );
+    assert.equal(closed, 1);
+
+    // The original untrusted raw value stays visible for manual correction
+    // if no detection passes checksum; no candidate is silently invented.
+    detections = [{ rawValue: "invalid-first" }, { rawValue: "bad-second" }];
+    assert.deepEqual(
+      await detect({} as File),
+      { status: "detected", rawValue: "invalid-first" },
+    );
+    assert.equal(closed, 2);
+  } finally {
+    if (originalBitmap) {
+      Object.defineProperty(globalThis, "createImageBitmap", originalBitmap);
+    } else {
+      Reflect.deleteProperty(globalThis, "createImageBitmap");
+    }
+    if (originalDetector) {
+      Object.defineProperty(globalThis, "BarcodeDetector", originalDetector);
+    } else {
+      Reflect.deleteProperty(globalThis, "BarcodeDetector");
+    }
+  }
 });
