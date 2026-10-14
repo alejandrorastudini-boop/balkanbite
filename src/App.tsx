@@ -650,6 +650,11 @@ export default function App() {
     );
   };
 
+  const guestPantryReviewPending = !currentUser &&
+    (guestPantryRecovery === "blocked" ||
+      (guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged));
+  const pantryDerivedDataProvisional = inventoryIsProvisional || guestPantryReviewPending;
+
   const requireAuthoritativeInventory = () => {
     if (!currentUser && guestPantryRecovery === "blocked") {
       alert(
@@ -1165,7 +1170,9 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (inventoryIsProvisional) return;
+    // Do not claim ingredients are missing when guest inventory is only
+    // a validated *subset* of unreviewed historical local storage.
+    if (pantryDerivedDataProvisional) return;
 
     if (
       hasNotificationPermission &&
@@ -1200,11 +1207,12 @@ export default function App() {
         }
       }
     }
-  }, [shoppingDiagnostic, hasNotificationPermission, profile.language, inventoryIsProvisional]);
+  }, [shoppingDiagnostic, hasNotificationPermission, profile.language, pantryDerivedDataProvisional]);
 
   const handleAddMultipleShoppingItems = async (
     items: Array<Omit<ShoppingItem, "id" | "checked">>
   ): Promise<boolean> => {
+    if (!requireAuthoritativeInventory()) return false;
     if (items.length === 0) return false;
     const fingerprint = buildAdvisorBatchFingerprint(items);
     if (committedAdvisorBatchFingerprint.current === fingerprint) {
@@ -2500,10 +2508,10 @@ export default function App() {
           activeTab={activeTab}
           onOpenShoppingAdvisor={handleOpenShoppingAdvisor}
           shoppingUrgencyLevel={
-            inventoryIsProvisional ? undefined : shoppingDiagnostic.urgencyLevel
+            pantryDerivedDataProvisional ? undefined : shoppingDiagnostic.urgencyLevel
           }
           shoppingBadgeCount={
-            inventoryIsProvisional
+            pantryDerivedDataProvisional
               ? 0
               : shoppingDiagnostic.missingMealIngredients.length +
                 shoppingDiagnostic.pendingShoppingItemsCount
@@ -2512,7 +2520,7 @@ export default function App() {
 
         <main className="px-4 py-3">
           <Suspense fallback={<div data-testid="route-view-loading" className="py-8 text-center text-sm text-stone-400">Loading…</div>}>
-          {!inventoryIsProvisional && (
+          {!pantryDerivedDataProvisional && (
             <SmartShoppingBanner
             diagnostic={shoppingDiagnostic}
             language={profile.language}
