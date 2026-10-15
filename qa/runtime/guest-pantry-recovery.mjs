@@ -236,8 +236,70 @@ async function runGuestPantryAddEditDeleteReload() {
   }
 }
 
+async function runTwoTabStaleInventory() {
+  const context = await browser.newContext();
+  const pages = [];
+  try {
+    await context.addInitScript(({ MAIN, valid }) => {
+      if (localStorage.getItem("__qa_two_tab_initialized") !== null) return;
+      localStorage.setItem("__qa_two_tab_initialized", "yes");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+    }, { MAIN, valid });
+
+    for (let index = 0; index < 2; index++) {
+      const page = await context.newPage();
+      pages.push(page);
+      page.on("dialog", dialog => dialog.dismiss());
+      await page.goto(new URL("/", base).toString(), {
+        waitUntil: "domcontentloaded", timeout: 30000,
+      });
+      await page.locator("#nav-tab-pantry").click();
+      await page.locator(`#pantry-item-${valid.id}`).waitFor({
+        state: "visible", timeout: 15000,
+      });
+    }
+    const [first, stale] = pages;
+    const increment = page => page.locator(`#pantry-item-${valid.id}`)
+      .getByRole("button", { name: "Increase quantity" });
+    await increment(first).click();
+    await first.waitForFunction(({ MAIN, id }) => {
+      const rows = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      return rows.length === 1 && rows[0].id === id && rows[0].quantity === 550;
+    }, { MAIN, id: valid.id });
+
+    // The second tab loaded 500g, so overwriting 550g must fail closed.
+    await increment(stale).click();
+    await stale.getByTestId("guest-pantry-recovery")
+      .getByText(/could not be protected/i)
+      .waitFor({ state: "visible", timeout: 12000 });
+    const originalAfterStaleWrite = await stale.evaluate(MAIN =>
+      localStorage.getItem(MAIN), MAIN);
+    assert.equal(JSON.parse(originalAfterStaleWrite)[0].quantity, 550);
+    assert.equal(await stale.locator(`#pantry-item-${valid.id}`)
+      .getByText("500", { exact: false }).count() > 0, true);
+
+    // A fresh reload sees the latest quantity and can safely add 50g.
+    await stale.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await stale.locator("#nav-tab-pantry").click();
+    await increment(stale).click();
+    await stale.waitForFunction(({ MAIN, id }) => {
+      const rows = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      return rows.length === 1 && rows[0].id === id && rows[0].quantity === 600;
+    }, { MAIN, id: valid.id });
+    evidence.checks.push("stale-second-tab-cannot-overwrite-newer-stock");
+  } finally {
+    await Promise.all(pages.map(page => page.close().catch(() => {})));
+    await context.close();
+  }
+}
+
 try {
   await runGuestPantryAddEditDeleteReload();
+  await runTwoTabStaleInventory();
   await runFailedGuestQuantityWrite();
   const mixed = JSON.stringify([valid, { id: "qa-unknown", note: "keep original untouched" }]);
   await run({ original: mixed });
