@@ -117,7 +117,7 @@ test("App caches reviewed deductions and exact expected remainder before dispatc
 
   const guestStart = block.indexOf("if (!currentUser)");
   const mutationCheck = block.indexOf("if (!mutationId || (purpose !==");
-  const guestSet = block.indexOf("setPantry(guestResult.pantry)");
+  const guestSet = block.indexOf("return commitGuestPantry(guestResult.pantry)");
   assert.ok(guestStart >= 0 && guestSet > guestStart && mutationCheck > guestSet);
   assert.equal(
     block.slice(mutationCheck).includes("setPantry("),
