@@ -157,3 +157,44 @@ test("known old demo fixtures are skipped without classifying real stock as unce
     items: [realItem], requiresRecovery: false, quarantinedCount: 0,
   });
 });
+
+test("stale guest tab cannot overwrite another tab's confirmed inventory", () => {
+  const initial = [realItem];
+  const next = { ...realItem, id: "other-tab-milk", name: "Milk", quantity: 1, unit: "l", category: "Dairy" as const };
+  const values = new Map<string, string>([[GUEST_PANTRY_KEY, JSON.stringify(initial)]]);
+  let primaryWrites = 0;
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    setItem: (key: string, value: string) => {
+      if (key === GUEST_PANTRY_KEY) primaryWrites++;
+      values.set(key, value);
+    },
+  };
+
+  // Tab A writes the new item after both tabs originally loaded one row.
+  assert.deepEqual(writeGuestPantrySafely(storage, [next, ...initial], initial), {
+    saved: true, recoveryAvailable: false,
+  });
+  const latest = values.get(GUEST_PANTRY_KEY)!;
+  assert.equal(primaryWrites, 1);
+
+  // Tab B still holds the old one-row snapshot. An attempted quantity edit
+  // must fail closed, without modifying localStorage or backups.
+  const staleEdit = [{ ...realItem, quantity: 2 }];
+  assert.deepEqual(writeGuestPantrySafely(storage, staleEdit, initial), {
+    saved: false, reason: "stale-snapshot",
+  });
+  assert.equal(primaryWrites, 1);
+  assert.equal(values.get(GUEST_PANTRY_KEY), latest);
+  assert.equal(values.has(GUEST_PANTRY_QUARANTINE_KEY), false);
+
+  // After reloading tab B from the latest confirmed source, its edit may
+  // succeed while preserving tab A's added product.
+  const refreshed = inspectGuestPantry(latest).items;
+  const revised = refreshed.map(item => item.id === realItem.id ? { ...item, quantity: 2 } : item);
+  assert.deepEqual(writeGuestPantrySafely(storage, revised, refreshed), {
+    saved: true, recoveryAvailable: false,
+  });
+  assert.equal(primaryWrites, 2);
+  assert.deepEqual(inspectGuestPantry(values.get(GUEST_PANTRY_KEY)!).items, revised);
+});
