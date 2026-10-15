@@ -158,6 +158,24 @@ test("known old demo fixtures are skipped without classifying real stock as unce
   });
 });
 
+test("silent storage write failure is not reported as a committed guest inventory change", () => {
+  const original = JSON.stringify([realItem]);
+  const values = new Map<string, string>([[GUEST_PANTRY_KEY, original]]);
+  const storage = {
+    getItem: (key: string) => values.get(key) ?? null,
+    // A faulty adapter may return normally without persisting the primary key.
+    setItem: (key: string, value: string) => {
+      if (key !== GUEST_PANTRY_KEY) values.set(key, value);
+    },
+  };
+  const next = [{ ...realItem, quantity: 550 }];
+  assert.deepEqual(writeGuestPantrySafely(storage, next, [realItem]), {
+    saved: false, reason: "storage-unavailable",
+  });
+  assert.equal(values.get(GUEST_PANTRY_KEY), original);
+  assert.equal(values.has(GUEST_PANTRY_QUARANTINE_KEY), false);
+});
+
 test("stale guest tab cannot overwrite another tab's confirmed inventory", () => {
   const initial = [realItem];
   const next = { ...realItem, id: "other-tab-milk", name: "Milk", quantity: 1, unit: "l", category: "Dairy" as const };

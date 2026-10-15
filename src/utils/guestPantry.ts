@@ -151,6 +151,11 @@ export function writeGuestPantrySafely(
       }
     }
     storage.setItem(GUEST_PANTRY_KEY, serialized);
+    // An adapter can acknowledge setItem without actually persisting the bytes.
+    // Never publish the inventory as committed until a readback confirms it.
+    if (storage.getItem(GUEST_PANTRY_KEY) !== serialized) {
+      return { saved: false, reason: "storage-unavailable" };
+    }
     return { saved: true, recoveryAvailable: backup !== null };
   } catch {
     return { saved: false, reason: "storage-unavailable" };

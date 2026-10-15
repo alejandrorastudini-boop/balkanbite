@@ -116,7 +116,7 @@ async function run({ original, previousBackup = null, expectedBlocked = false, e
   }
 }
 
-async function runFailedGuestQuantityWrite() {
+async function runFailedGuestQuantityWrite({ silent = false } = {}) {
   const context = await browser.newContext();
   let page;
   try {
@@ -137,13 +137,16 @@ async function runFailedGuestQuantityWrite() {
 
     // The guest write fails AFTER app hydration, like a quota/security error
     // on a real mutation. A successful React update must never be claimed.
-    await page.evaluate(MAIN => {
+    await page.evaluate(({ MAIN, silent }) => {
       const nativeSetItem = Storage.prototype.setItem;
       Storage.prototype.setItem = function(key, value) {
-        if (key === MAIN) throw new DOMException("local storage quota reached", "QuotaExceededError");
+        if (key === MAIN) {
+          if (silent) return;
+          throw new DOMException("local storage quota reached", "QuotaExceededError");
+        }
         return nativeSetItem.call(this, key, value);
       };
-    }, MAIN);
+    }, { MAIN, silent });
 
     await page.getByRole("button", { name: "Increase quantity" }).click();
     await page.getByTestId("guest-pantry-recovery").getByText(/could not be protected/i).waitFor({ state: "visible", timeout: 12000 });
@@ -152,7 +155,9 @@ async function runFailedGuestQuantityWrite() {
     const riceCard = page.getByText("QA Rice", { exact: true }).locator("xpath=ancestor::div[contains(@class, 'group')][1]");
     await riceCard.getByText("500", { exact: false }).first().waitFor({ state: "visible", timeout: 5000 });
     assert.equal(await page.getByText("550", { exact: false }).count(), 0, "failed quantity must not appear as confirmed stock");
-    evidence.checks.push("failed-mutation-preserves-stock-and-storage");
+    evidence.checks.push(silent
+      ? "silent-write-rejected-no-optimistic-stock"
+      : "failed-mutation-preserves-stock-and-storage");
   } finally {
     await page?.close().catch(() => {});
     await context.close();
@@ -301,6 +306,7 @@ try {
   await runGuestPantryAddEditDeleteReload();
   await runTwoTabStaleInventory();
   await runFailedGuestQuantityWrite();
+  await runFailedGuestQuantityWrite({ silent: true });
   const mixed = JSON.stringify([valid, { id: "qa-unknown", note: "keep original untouched" }]);
   await run({ original: mixed });
   await run({ original: "{ malformed original text", expectedExtension: "txt", expectedItems: [] });
