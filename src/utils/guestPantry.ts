@@ -109,7 +109,7 @@ export interface GuestPantryStorage {
 
 export type GuestPantrySaveResult =
   | { saved: true; recoveryAvailable: boolean }
-  | { saved: false; reason: "invalid-items" | "backup-conflict" | "storage-unavailable" };
+  | { saved: false; reason: "invalid-items" | "backup-conflict" | "storage-unavailable" | "stale-snapshot" };
 
 /**
  * Never rewrite malformed guest localStorage over the only recoverable copy.
@@ -119,6 +119,7 @@ export type GuestPantrySaveResult =
 export function writeGuestPantrySafely(
   storage: GuestPantryStorage,
   items: readonly PantryItem[],
+  expectedSnapshot?: readonly PantryItem[],
 ): GuestPantrySaveResult {
   if (!Array.isArray(items)) return { saved: false, reason: "invalid-items" };
 
@@ -130,6 +131,13 @@ export function writeGuestPantrySafely(
     }
 
     const original = storage.getItem(GUEST_PANTRY_KEY);
+    // A second tab may have written a newer pantry since this tab hydrated.
+    // Do not replace a changed inventory with a stale local React snapshot.
+    // This is a best-effort stale-view guard, NOT a cross-tab transaction.
+    if (expectedSnapshot !== undefined &&
+        JSON.stringify(inspectGuestPantry(original).items) !== JSON.stringify(expectedSnapshot)) {
+      return { saved: false, reason: "stale-snapshot" };
+    }
     let backup = storage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
     if (inspectGuestPantry(original).requiresRecovery) {
       if (original === null) return { saved: false, reason: "storage-unavailable" };
