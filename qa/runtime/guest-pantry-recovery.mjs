@@ -116,7 +116,51 @@ async function run({ original, previousBackup = null, expectedBlocked = false, e
   }
 }
 
+async function runFailedGuestQuantityWrite() {
+  const context = await browser.newContext();
+  let page;
+  try {
+    const raw = JSON.stringify([valid]);
+    await context.addInitScript(({ MAIN, raw }) => {
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({ language: "en", onboardingCompleted: true }));
+      localStorage.setItem(MAIN, raw);
+    }, { MAIN, raw });
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.locator("#nav-tab-pantry").click();
+    await page.getByText("QA Rice", { exact: true }).waitFor({ state: "visible", timeout: 15000 });
+    await page.getByRole("button", { name: "Increase quantity" }).waitFor({ state: "visible", timeout: 15000 });
+    const before = await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
+    assert.equal(before, raw);
+
+    // The guest write fails AFTER app hydration, like a quota/security error
+    // on a real mutation. A successful React update must never be claimed.
+    await page.evaluate(MAIN => {
+      const nativeSetItem = Storage.prototype.setItem;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === MAIN) throw new DOMException("local storage quota reached", "QuotaExceededError");
+        return nativeSetItem.call(this, key, value);
+      };
+    }, MAIN);
+
+    await page.getByRole("button", { name: "Increase quantity" }).click();
+    await page.getByTestId("guest-pantry-recovery").getByText(/could not be protected/i).waitFor({ state: "visible", timeout: 12000 });
+    const after = await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
+    assert.equal(after, before, "failed writes must keep original storage");
+    const riceCard = page.getByText("QA Rice", { exact: true }).locator("xpath=ancestor::div[contains(@class, 'group')][1]");
+    await riceCard.getByText("500", { exact: false }).first().waitFor({ state: "visible", timeout: 5000 });
+    assert.equal(await page.getByText("550", { exact: false }).count(), 0, "failed quantity must not appear as confirmed stock");
+    evidence.checks.push("failed-mutation-preserves-stock-and-storage");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 try {
+  await runFailedGuestQuantityWrite();
   const mixed = JSON.stringify([valid, { id: "qa-unknown", note: "keep original untouched" }]);
   await run({ original: mixed });
   await run({ original: "{ malformed original text", expectedExtension: "txt", expectedItems: [] });
