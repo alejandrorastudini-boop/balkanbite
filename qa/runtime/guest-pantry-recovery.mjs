@@ -159,7 +159,85 @@ async function runFailedGuestQuantityWrite() {
   }
 }
 
+async function runGuestPantryAddEditDeleteReload() {
+  // This is an actual App + localStorage browser flow, not a mocked React
+  // state assertion. No account, personal record, or external service used.
+  const context = await browser.newContext();
+  let page;
+  const readRows = async () => JSON.parse(
+    await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN),
+  );
+  try {
+    await context.addInitScript(({ MAIN }) => {
+      if (sessionStorage.getItem("__qa_guest_crud_seeded")) return;
+      sessionStorage.setItem("__qa_guest_crud_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, "[]");
+    }, { MAIN });
+    page = await context.newPage();
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-pantry").click();
+    await page.locator("#pantry-view").waitFor({ state: "visible", timeout: 15000 });
+    assert.deepEqual(await readRows(), []);
+
+    await page.locator("#pantry-add-item-btn").click();
+    await page.locator("#pantry-item-name").fill("QA guest lentils");
+    await page.locator("#pantry-quantity").fill("200");
+    await page.locator("#pantry-view form select").first().selectOption("g");
+    await page.locator("#pantry-category").selectOption("Pantry/Grains");
+    await page.locator("#pantry-view form button[type=submit]").click();
+
+    await page.waitForFunction(MAIN => {
+      const raw = localStorage.getItem(MAIN);
+      if (!raw) return false;
+      const rows = JSON.parse(raw);
+      return rows.length === 1 && rows[0].name === "QA guest lentils" &&
+        rows[0].quantity === 200 && rows[0].unit === "g" &&
+        rows[0].category === "Pantry/Grains";
+    }, MAIN);
+    let [row] = await readRows();
+    const id = row.id;
+    assert.ok(typeof id === "string" && id.trim(), "item gets real ID");
+    await page.locator(`#pantry-item-${id}`).waitFor({ state: "visible" });
+    evidence.checks.push("manual-add-commits-before-success");
+
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.locator("#nav-tab-pantry").click();
+    await page.locator(`#pantry-item-${id}`).waitFor({ state: "visible" });
+    [row] = await readRows();
+    assert.equal(row.quantity, 200, "refresh retains the exact stored quantity");
+    evidence.checks.push("manual-add-rehydrates");
+
+    await page.locator(`#pantry-item-${id}`).getByRole("button", {
+      name: "Increase quantity",
+    }).click();
+    await page.waitForFunction(({ MAIN, id }) => {
+      const rows = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      return rows.length === 1 && rows[0].id === id && rows[0].quantity === 250;
+    }, { MAIN, id });
+    evidence.checks.push("manual-edit-commits");
+
+    await page.locator(`#pantry-item-${id}`).getByRole("button", {
+      name: "Delete",
+    }).click();
+    await page.waitForFunction(MAIN => localStorage.getItem(MAIN) === "[]", MAIN);
+    assert.equal(await page.locator(`#pantry-item-${id}`).count(), 0);
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    assert.deepEqual(await readRows(), [], "deleted items must not return after reload");
+    evidence.checks.push("manual-delete-persists-and-reloads");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 try {
+  await runGuestPantryAddEditDeleteReload();
   await runFailedGuestQuantityWrite();
   const mixed = JSON.stringify([valid, { id: "qa-unknown", note: "keep original untouched" }]);
   await run({ original: mixed });
