@@ -512,3 +512,48 @@ test("manual and batch pantry additions revalidate required fields at the App bo
     "batch validation must happen before authoritative pantry rows are created",
   );
 });
+
+test("provisional signed-in cache rejects incomplete fields without inventing replacements", () => {
+  const valid = {
+    id: "owner-rice-1",
+    name: "Rice",
+    quantity: 1,
+    unit: "kg",
+    category: "Pantry/Grains",
+    addedAt: "2026-10-15",
+  };
+  assert.deepEqual(parseUserPantryCache(JSON.stringify([valid])), [valid]);
+
+  for (const invalid of [
+    { ...valid, category: undefined },
+    { ...valid, category: "MadeUp" },
+    { ...valid, addedAt: undefined },
+    { ...valid, addedAt: "" },
+    { ...valid, id: " " },
+    { ...valid, id: "unbounded-" + "x".repeat(301) },
+  ]) {
+    assert.equal(parseUserPantryCache(JSON.stringify([invalid])), null);
+  }
+  assert.equal(parseUserPantryCache(JSON.stringify([[valid]])), null);
+  // A mixed list is wholly provisional/unknown; never silently trim rows
+  // and pretend the remainder is the full remote inventory.
+  assert.equal(parseUserPantryCache(JSON.stringify([valid, { id: "incomplete" }])), null);
+});
+
+test("duplicate logical identities invalidate an owner-scoped provisional pantry cache", () => {
+  const rice = {
+    id: "logical-rice",
+    name: "Rice",
+    quantity: 1,
+    unit: "kg",
+    category: "Pantry/Grains",
+    addedAt: "2026-10-15",
+  };
+  const sameIdDifferentStock = { ...rice, quantity: 3, name: "Rice variant" };
+  assert.equal(parseUserPantryCache(JSON.stringify([rice, { ...rice }])), null);
+  assert.equal(parseUserPantryCache(JSON.stringify([rice, sameIdDifferentStock])), null);
+  assert.deepEqual(
+    parseUserPantryCache(JSON.stringify([rice, { ...rice, id: "other-rice" }])),
+    [rice, { ...rice, id: "other-rice" }],
+  );
+});
