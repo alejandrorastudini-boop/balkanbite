@@ -6,7 +6,7 @@ const app = readFileSync("src/App.tsx", "utf8");
 
 test("guest app protects the original local pantry before rewriting the cache", () => {
   assert.match(app, /loadGuestPantry\(localStorage\.getItem\(GUEST_PANTRY_KEY\)\)/);
-  assert.match(app, /writeGuestPantrySafely\(localStorage, nextPantry\)/);
+  assert.match(app, /writeGuestPantrySafely\(localStorage, nextPantry, guestPantryCommittedRef\.current\)/);
   assert.match(app, /writeGuestPantrySafely\(localStorage, inspected\.items\)/);
   assert.doesNotMatch(app, /writeGuestPantrySafely\(localStorage, pantry\)/);
   assert.doesNotMatch(app, /localStorage\.setItem\("balkanbite_pantry", JSON\.stringify\(pantry\)\)/);
@@ -60,7 +60,7 @@ test("guest pantry mutations commit storage before any React or derived-state up
   const end = app.indexOf("const updatePantryAndReconcileMenu =", guard);
   assert.ok(guard >= 0 && end > guard);
   const commit = app.slice(guard, end);
-  const write = commit.indexOf("writeGuestPantrySafely(localStorage, nextPantry)");
+  const write = commit.indexOf("writeGuestPantrySafely(localStorage, nextPantry, guestPantryCommittedRef.current)");
   const fail = commit.indexOf("if (!result.saved)");
   const publish = commit.indexOf("setPantry(nextPantry)");
   const derived = commit.indexOf("reconcileGuestPantryDerivedState(nextPantry");
@@ -80,4 +80,17 @@ test("guest pantry mutations commit storage before any React or derived-state up
   }
   assert.doesNotMatch(app, /setPantry\(\(prev\) => \{\s*const updatedPantry/);
   assert.doesNotMatch(app, /setPantry\(preview\.pantry\)/);
+});
+
+test("guest pantry commit rejects stale multi-tab state without publishing it", () => {
+  const start = app.indexOf("const commitGuestPantry = (");
+  const end = app.indexOf("const updatePantryAndReconcileMenu =", start);
+  const commit = app.slice(start, end);
+  assert.match(commit, /writeGuestPantrySafely\(localStorage, nextPantry, guestPantryCommittedRef\.current\)/);
+  assert.match(commit, /result\.reason === "stale-snapshot"/);
+  assert.match(commit, /Reload to review the current stock/);
+  const refused = commit.indexOf("if (!result.saved)");
+  const published = commit.indexOf("guestPantryCommittedRef.current = nextPantry");
+  assert.ok(refused >= 0 && published > refused);
+  assert.match(commit.slice(refused, published), /return false/);
 });
