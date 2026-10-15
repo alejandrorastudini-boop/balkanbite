@@ -798,7 +798,7 @@ export default function App() {
     if (!result.saved) {
       setGuestPantryRecovery("blocked");
       setGuestPantryRecoveryAcknowledged(false);
-      console.warn("Guest pantry change rejected; authoritative local write failed:", result.reason);
+      if ("reason" in result) console.warn("Guest pantry change rejected; authoritative local write failed:", result.reason);
       alert(profile.language === "bg"
         ? "Промяната не е запазена. Проверете или изтеглете оригиналните данни, преди да опитате отново."
         : profile.language === "es"
