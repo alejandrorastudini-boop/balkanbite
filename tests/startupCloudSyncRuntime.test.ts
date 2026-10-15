@@ -311,6 +311,24 @@ test("provisional signed-in cache rejects incomplete fields without inventing re
   assert.equal(parseUserPantryCache(JSON.stringify([valid, { id: "incomplete" }])), null);
 });
 
+test("duplicate logical identities invalidate an owner-scoped provisional pantry cache", () => {
+  const rice = {
+    id: "logical-rice",
+    name: "Rice",
+    quantity: 1,
+    unit: "kg",
+    category: "Pantry/Grains",
+    addedAt: "2026-10-15",
+  };
+  const sameIdDifferentStock = { ...rice, quantity: 3, name: "Rice variant" };
+  assert.equal(parseUserPantryCache(JSON.stringify([rice, { ...rice }])), null);
+  assert.equal(parseUserPantryCache(JSON.stringify([rice, sameIdDifferentStock])), null);
+  assert.deepEqual(
+    parseUserPantryCache(JSON.stringify([rice, { ...rice, id: "other-rice" }])),
+    [rice, { ...rice, id: "other-rice" }],
+  );
+});
+
 test("one invalid cached item invalidates the provisional cache", () => {
   const mixed = [
     {

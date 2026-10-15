@@ -44,7 +44,14 @@ export function parseUserPantryCache(raw: string | null): PantryItem[] | null {
   try {
     const parsed: unknown = JSON.parse(raw);
     if (!Array.isArray(parsed)) return null;
-    if (!parsed.every(isCachedPantryItem)) return null;
+    const seen = new Set<string>();
+    for (const item of parsed) {
+      // Duplicated logical IDs make local stock ambiguous, even when both
+      // rows individually pass quantity and unit validation. Preserve
+      // uncertainty until the owner-scoped Firestore snapshot arrives.
+      if (!isCachedPantryItem(item) || seen.has(item.id)) return null;
+      seen.add(item.id);
+    }
     return parsed;
   } catch {
     return null;
