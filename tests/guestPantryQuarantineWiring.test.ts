@@ -6,7 +6,9 @@ const app = readFileSync("src/App.tsx", "utf8");
 
 test("guest app protects the original local pantry before rewriting the cache", () => {
   assert.match(app, /loadGuestPantry\(localStorage\.getItem\(GUEST_PANTRY_KEY\)\)/);
-  assert.match(app, /writeGuestPantrySafely\(localStorage, pantry\)/);
+  assert.match(app, /writeGuestPantrySafely\(localStorage, nextPantry\)/);
+  assert.match(app, /writeGuestPantrySafely\(localStorage, inspected\.items\)/);
+  assert.doesNotMatch(app, /writeGuestPantrySafely\(localStorage, pantry\)/);
   assert.doesNotMatch(app, /localStorage\.setItem\("balkanbite_pantry", JSON\.stringify\(pantry\)\)/);
   assert.match(app, /setGuestPantryRecovery\(/);
 });
