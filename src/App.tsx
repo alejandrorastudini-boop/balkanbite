@@ -531,7 +531,7 @@ export default function App() {
         const result = writeGuestPantrySafely(localStorage, inspected.items);
         if (!result.saved) {
           setGuestPantryRecovery("blocked");
-          console.warn("Guest original data could not be backed up:", result.reason);
+          if ("reason" in result) console.warn("Guest original data could not be backed up:", result.reason);
           return;
         }
         setGuestPantryRecovery(result.recoveryAvailable ? "available" : "none");
