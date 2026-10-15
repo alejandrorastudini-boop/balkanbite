@@ -506,29 +506,44 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (isResetting) return;
-
+    if (isResetting || !currentUser) return;
+    // Authenticated storage remains a provisional UI cache, never authority.
     try {
-      if (currentUser) {
-        if (!inventoryHydrated || pantryScope !== currentUser.uid) return;
-        localStorage.setItem(
-          getUserPantryCacheKey(currentUser.uid),
-          JSON.stringify(pantry)
-        );
-        return;
-      }
-
-      if (pantryScope !== "guest") return;
-      const result = writeGuestPantrySafely(localStorage, pantry);
-      setGuestPantryRecovery(
-        !result.saved ? "blocked" : result.recoveryAvailable ? "available" : "none"
+      if (!inventoryHydrated || pantryScope !== currentUser.uid) return;
+      localStorage.setItem(
+        getUserPantryCacheKey(currentUser.uid),
+        JSON.stringify(pantry),
       );
-      if ("reason" in result) console.warn("Guest pantry save blocked until data recovery is safe:", result.reason);
-    } catch (e) {
-      setGuestPantryRecovery("blocked");
-      console.warn("Guest pantry localStorage save was blocked", e);
+    } catch (error) {
+      console.warn("Signed-in provisional pantry cache write failed", error);
     }
   }, [pantry, currentUser, inventoryHydrated, pantryScope, isResetting]);
+
+  useEffect(() => {
+    if (isResetting || currentUser || firebaseLoading || pantryScope !== "guest") return;
+    // One-time guest scope hydration/migration, not a post-render writer.
+    // All subsequent guest inventory mutations are committed synchronously
+    // in commitGuestPantry BEFORE React and derived states change.
+    try {
+      const raw = localStorage.getItem(GUEST_PANTRY_KEY);
+      const inspected = inspectGuestPantry(raw);
+      if (inspected.requiresRecovery) {
+        const result = writeGuestPantrySafely(localStorage, inspected.items);
+        if (!result.saved) {
+          setGuestPantryRecovery("blocked");
+          console.warn("Guest original data could not be backed up:", result.reason);
+          return;
+        }
+        setGuestPantryRecovery(result.recoveryAvailable ? "available" : "none");
+        return;
+      }
+      const savedBackup = localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
+      setGuestPantryRecovery(savedBackup === null ? "none" : "available");
+    } catch (error) {
+      setGuestPantryRecovery("blocked");
+      console.warn("Guest pantry hydration/recovery failed", error);
+    }
+  }, [currentUser, firebaseLoading, pantryScope, isResetting]);
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest") return;
