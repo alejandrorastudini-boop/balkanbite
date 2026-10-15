@@ -113,6 +113,9 @@ export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
     loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY))
   );
+  // Keep the latest successfully persisted guest snapshot for rapid successive
+  // commands; React state updates need not flush between two user actions.
+  const guestPantryCommittedRef = useRef<PantryItem[]>(pantry);
   const [guestPantryRecoveryAcknowledged, setGuestPantryRecoveryAcknowledged] = useState(false);
   const [guestPantryRecovery, setGuestPantryRecovery] = useState<"none" | "available" | "blocked">(() => {
     // Block guest writes on the very first render until recovery storage
@@ -436,7 +439,9 @@ export default function App() {
 
     if (firebaseLoading || pantryScope === "guest") return;
 
-    setPantry(loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY)));
+    const loadedGuestPantry = loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY));
+    guestPantryCommittedRef.current = loadedGuestPantry;
+    setPantry(loadedGuestPantry);
     setGuestPantryRecoveryAcknowledged(false);
     setPantryScope("guest");
   }, [currentUser, firebaseLoading, inventoryHydrated, pantryScope, isResetting]);
@@ -767,18 +772,39 @@ export default function App() {
     }
   }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
 
+  const commitGuestPantry = (
+    nextPantry: PantryItem[],
+    { reconcile = true, showToast = true }: { reconcile?: boolean; showToast?: boolean } = {},
+  ): boolean => {
+    if (currentUser || pantryScope !== "guest") return false;
+    // Commit local storage BEFORE publishing a changed stock or propagating
+    // recipes, menus, shopping shortages, or progression events.
+    const result = writeGuestPantrySafely(localStorage, nextPantry);
+    if (!result.saved) {
+      setGuestPantryRecovery("blocked");
+      setGuestPantryRecoveryAcknowledged(false);
+      console.warn("Guest pantry change rejected; authoritative local write failed:", result.reason);
+      alert(profile.language === "bg"
+        ? "Промяната не е запазена. Проверете или изтеглете оригиналните данни, преди да опитате отново."
+        : profile.language === "es"
+        ? "El cambio no se ha guardado. Revisa o descarga los datos originales antes de intentarlo de nuevo."
+        : "The change was not saved. Review or download the original data before retrying.");
+      return false;
+    }
+    guestPantryCommittedRef.current = nextPantry;
+    setPantry(nextPantry);
+    setGuestPantryRecovery(result.recoveryAvailable ? "available" : "none");
+    if (reconcile) reconcileGuestPantryDerivedState(nextPantry, showToast);
+    return true;
+  };
+
   const updatePantryAndReconcileMenu = (
     newPantryItemsToAdd: PantryItem[],
     showToast = true
   ): boolean => {
     if (!requireAuthoritativeInventory()) return false;
-
-    setPantry((prevPantry) => {
-      const updatedPantry = [...newPantryItemsToAdd, ...prevPantry];
-      reconcileGuestPantryDerivedState(updatedPantry, showToast);
-      return updatedPantry;
-    });
-    return true;
+    const next = [...newPantryItemsToAdd, ...guestPantryCommittedRef.current];
+    return commitGuestPantry(next, { showToast });
   };
 
   const finalizeSignedInPurchaseIfVisible = (
@@ -1287,8 +1313,7 @@ export default function App() {
     if (currentUser) {
       return dispatchSignedInPantryCreations([newItem]);
     }
-    updatePantryAndReconcileMenu([newItem], true);
-    return true;
+    return updatePantryAndReconcileMenu([newItem], true);
   };
 
   const handleAddMultiplePantryItems = async (items: Array<Omit<PantryItem, "id" | "addedAt">>): Promise<boolean> => {
@@ -1305,8 +1330,7 @@ export default function App() {
     if (currentUser) {
       return dispatchSignedInPantryCreations(newItems);
     }
-    updatePantryAndReconcileMenu(newItems, true);
-    return true;
+    return updatePantryAndReconcileMenu(newItems, true);
   };
 
   // The signed-in manual +/- and delete path NEVER optimistically changes
@@ -1367,8 +1391,7 @@ export default function App() {
       dispatchVerifiedPantryChange(viewed, newQty);
       return;
     }
-    setPantry((prev) => {
-      const updatedPantry = prev.map((item) =>
+    const updatedPantry = guestPantryCommittedRef.current.map((item) =>
         item.id === id
           ? {
               ...item,
@@ -1385,9 +1408,7 @@ export default function App() {
             }
           : item,
       );
-      reconcileGuestPantryDerivedState(updatedPantry);
-      return updatedPantry;
-    });
+    commitGuestPantry(updatedPantry);
   };
 
   const handleDeletePantryItem = (id: string, viewed: PantryItem) => {
@@ -1397,18 +1418,14 @@ export default function App() {
       dispatchVerifiedPantryChange(viewed, "remove");
       return;
     }
-    setPantry((prev) => {
-      const updatedPantry = prev.filter((item) => item.id !== id);
-      reconcileGuestPantryDerivedState(updatedPantry);
-      return updatedPantry;
-    });
+    const updatedPantry = guestPantryCommittedRef.current.filter((item) => item.id !== id);
+    commitGuestPantry(updatedPantry);
   };
 
   const handleClearPantry = async (mutationId: string): Promise<boolean> => {
     if (!requireAuthoritativeInventory()) return false;
     if (!currentUser) {
-      setPantry([]);
-      return true;
+      return commitGuestPantry([], { reconcile: false });
     }
     pendingSignedInDerivedReconciliations.current.set(`clear:${mutationId}`, {
       userId: currentUser.uid,
@@ -1521,8 +1538,7 @@ export default function App() {
       if (result.issues.length > 0) {
         return { success: false, issueCount: result.issues.length };
       }
-      setPantry(result.pantry);
-      reconcileGuestPantryDerivedState(result.pantry);
+      if (!commitGuestPantry(result.pantry)) return { success: false, issueCount: 1 };
       const actionId = createProgressionActionId(
         typeof globalThis.crypto?.randomUUID === "function"
           ? () => globalThis.crypto.randomUUID()
@@ -1883,8 +1899,7 @@ export default function App() {
 
     if (preview.acceptedSourceIds.length > 0) {
       if (!currentUser) {
-        setPantry(preview.pantry);
-        reconcileGuestPantryDerivedState(preview.pantry, true);
+        if (!commitGuestPantry(preview.pantry)) return;
         setShoppingList(preview.shoppingList);
         appendLocalProgressionEvents(
           buildPurchaseProgressEvents({
@@ -2057,8 +2072,7 @@ export default function App() {
     }
 
     if (!currentUser) {
-      setPantry(preview.pantry);
-      reconcileGuestPantryDerivedState(preview.pantry, true);
+      if (!commitGuestPantry(preview.pantry)) return false;
       setShoppingList(preview.shoppingList);
       appendLocalProgressionEvents(
         buildPurchaseProgressEvents({
@@ -2279,9 +2293,7 @@ export default function App() {
         );
         return false;
       }
-      setPantry(guestResult.pantry);
-      reconcileGuestPantryDerivedState(guestResult.pantry);
-      return true;
+      return commitGuestPantry(guestResult.pantry);
     }
 
     if (!mutationId || (purpose !== "food-use" && purpose !== "discard")) {
