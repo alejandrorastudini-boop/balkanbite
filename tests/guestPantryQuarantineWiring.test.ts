@@ -52,3 +52,30 @@ test("incomplete guest pantry suppresses derived shopping warnings and suggestio
   assert.ok(start >= 0 && end > start);
   assert.match(app.slice(start, end), /if \(!requireAuthoritativeInventory\(\)\) return false;/);
 });
+
+test("guest pantry mutations commit storage before any React or derived-state update", () => {
+  const guard = app.indexOf("const commitGuestPantry = (");
+  const end = app.indexOf("const updatePantryAndReconcileMenu =", guard);
+  assert.ok(guard >= 0 && end > guard);
+  const commit = app.slice(guard, end);
+  const write = commit.indexOf("writeGuestPantrySafely(localStorage, nextPantry)");
+  const fail = commit.indexOf("if (!result.saved)");
+  const publish = commit.indexOf("setPantry(nextPantry)");
+  const derived = commit.indexOf("reconcileGuestPantryDerivedState(nextPantry");
+  assert.ok(write >= 0 && fail > write && publish > fail && derived > publish);
+  assert.match(commit.slice(fail, publish), /return false;/);
+
+  for (const expected of [
+    "return updatePantryAndReconcileMenu([newItem], true)",
+    "return updatePantryAndReconcileMenu(newItems, true)",
+    "commitGuestPantry(updatedPantry)",
+    "return commitGuestPantry([], { reconcile: false })",
+    "if (!commitGuestPantry(result.pantry)) return { success: false, issueCount: 1 }",
+    "if (!commitGuestPantry(preview.pantry)) return",
+    "return commitGuestPantry(guestResult.pantry)",
+  ]) {
+    assert.ok(app.includes(expected), `missing commit-first guest route: ${expected}`);
+  }
+  assert.doesNotMatch(app, /setPantry\(\(prev\) => \{\s*const updatedPantry/);
+  assert.doesNotMatch(app, /setPantry\(preview\.pantry\)/);
+});
