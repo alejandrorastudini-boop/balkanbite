@@ -70,7 +70,7 @@ test("App keeps guest voice deduction local but signed-in removal transactional"
   assert.ok(block.includes(
     "const guestResult = deductVoiceItemsFromPantry(pantry, items || [])",
   ));
-  assert.ok(block.includes("setPantry(guestResult.pantry)"));
+  assert.ok(block.includes("return commitGuestPantry(guestResult.pantry)"));
   assert.ok(block.includes('if (!mutationId || (purpose !== "food-use" && purpose !== "discard"))'));
   assert.ok(block.includes(
     "preparedSignedInVoiceDeductions.current.get(mutationId)",
@@ -141,6 +141,6 @@ test("pantry reconcile helper exposes whether the authoritative gate accepted sc
 
   assert.match(block, /\): boolean =>/);
   assert.match(block, /if \(!requireAuthoritativeInventory\(\)\) return false;/);
-  assert.match(block, /setPantry\(\(prevPantry\) =>/);
-  assert.match(block, /return true;/);
+  assert.match(block, /return commitGuestPantry\(next, \{ showToast \}\);/);
+  assert.match(block, /const next = \[\.\.\.newPantryItemsToAdd, \.\.\.guestPantryCommittedRef\.current\]/);
 });

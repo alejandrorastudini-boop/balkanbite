@@ -70,7 +70,13 @@ import {
   getUserPantryCacheKey,
   parseUserPantryCache,
 } from "./utils/startupPantryCache";
-import { loadGuestPantry } from "./utils/guestPantry";
+import {
+  GUEST_PANTRY_KEY,
+  GUEST_PANTRY_QUARANTINE_KEY,
+  inspectGuestPantry,
+  loadGuestPantry,
+  writeGuestPantrySafely,
+} from "./utils/guestPantry";
 import {
   createSignedInProfileDefaults,
   parseGuestProfileCache,
@@ -105,8 +111,24 @@ import {
 
 export default function App() {
   const [pantry, setPantry] = useState<PantryItem[]>(() =>
-    loadGuestPantry(localStorage.getItem("balkanbite_pantry"))
+    loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY))
   );
+  // Keep the latest successfully persisted guest snapshot for rapid successive
+  // commands; React state updates need not flush between two user actions.
+  const guestPantryCommittedRef = useRef<PantryItem[]>(pantry);
+  const [guestPantryRecoveryAcknowledged, setGuestPantryRecoveryAcknowledged] = useState(false);
+  const [guestPantryRecovery, setGuestPantryRecovery] = useState<"none" | "available" | "blocked">(() => {
+    // Block guest writes on the very first render until recovery storage
+    // has been verified. A late effect must not temporarily allow mutations.
+    try {
+      const raw = localStorage.getItem(GUEST_PANTRY_KEY);
+      const originalBackup = localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
+      if (inspectGuestPantry(raw).requiresRecovery) return "blocked";
+      return originalBackup === null ? "none" : "available";
+    } catch {
+      return "blocked";
+    }
+  });
 
   const [recipes, setRecipes] = useState<Recipe[]>(() => {
     const list =
@@ -402,6 +424,9 @@ export default function App() {
         } catch {
           setPantry([]);
         }
+        // Consent to work with incomplete guest stock is session-scoped.
+        // Never carry it across a signed-in account transition.
+        setGuestPantryRecoveryAcknowledged(false);
         setPantryScope(currentUser.uid);
         return;
       }
@@ -414,7 +439,10 @@ export default function App() {
 
     if (firebaseLoading || pantryScope === "guest") return;
 
-    setPantry(loadGuestPantry(localStorage.getItem("balkanbite_pantry")));
+    const loadedGuestPantry = loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY));
+    guestPantryCommittedRef.current = loadedGuestPantry;
+    setPantry(loadedGuestPantry);
+    setGuestPantryRecoveryAcknowledged(false);
     setPantryScope("guest");
   }, [currentUser, firebaseLoading, inventoryHydrated, pantryScope, isResetting]);
 
@@ -478,24 +506,44 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (isResetting) return;
-
+    if (isResetting || !currentUser) return;
+    // Authenticated storage remains a provisional UI cache, never authority.
     try {
-      if (currentUser) {
-        if (!inventoryHydrated || pantryScope !== currentUser.uid) return;
-        localStorage.setItem(
-          getUserPantryCacheKey(currentUser.uid),
-          JSON.stringify(pantry)
-        );
-        return;
-      }
-
-      if (pantryScope !== "guest") return;
-      localStorage.setItem("balkanbite_pantry", JSON.stringify(pantry));
-    } catch (e) {
-      console.warn("localStorage write error", e);
+      if (!inventoryHydrated || pantryScope !== currentUser.uid) return;
+      localStorage.setItem(
+        getUserPantryCacheKey(currentUser.uid),
+        JSON.stringify(pantry),
+      );
+    } catch (error) {
+      console.warn("Signed-in provisional pantry cache write failed", error);
     }
   }, [pantry, currentUser, inventoryHydrated, pantryScope, isResetting]);
+
+  useEffect(() => {
+    if (isResetting || currentUser || firebaseLoading || pantryScope !== "guest") return;
+    // One-time guest scope hydration/migration, not a post-render writer.
+    // All subsequent guest inventory mutations are committed synchronously
+    // in commitGuestPantry BEFORE React and derived states change.
+    try {
+      const raw = localStorage.getItem(GUEST_PANTRY_KEY);
+      const inspected = inspectGuestPantry(raw);
+      if (inspected.requiresRecovery) {
+        const result = writeGuestPantrySafely(localStorage, inspected.items);
+        if (!result.saved) {
+          setGuestPantryRecovery("blocked");
+          if ("reason" in result) console.warn("Guest original data could not be backed up:", result.reason);
+          return;
+        }
+        setGuestPantryRecovery(result.recoveryAvailable ? "available" : "none");
+        return;
+      }
+      const savedBackup = localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
+      setGuestPantryRecovery(savedBackup === null ? "none" : "available");
+    } catch (error) {
+      setGuestPantryRecovery("blocked");
+      console.warn("Guest pantry hydration/recovery failed", error);
+    }
+  }, [currentUser, firebaseLoading, pantryScope, isResetting]);
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest") return;
@@ -622,7 +670,32 @@ export default function App() {
     );
   };
 
+  const guestPantryReviewPending = !currentUser &&
+    (guestPantryRecovery === "blocked" ||
+      (guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged));
+  const pantryDerivedDataProvisional = inventoryIsProvisional || guestPantryReviewPending;
+
   const requireAuthoritativeInventory = () => {
+    if (!currentUser && guestPantryRecovery === "blocked") {
+      alert(
+        profile.language === "bg"
+          ? "Записът на гост-панела е спрян, за да не се загубят стари данни. Изтеглете оригиналното копие и прегледайте данните."
+          : profile.language === "es"
+          ? "La despensa de invitados está bloqueada para no perder datos antiguos. Descarga la copia original y revisa los datos."
+          : "Guest pantry changes are blocked to protect older data. Download the original copy and review the entries."
+      );
+      return false;
+    }
+    if (!currentUser && guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged) {
+      alert(
+        profile.language === "bg"
+          ? "Някои стари записи са непроверени. Преди да използвате непълните наличности, потвърдете изрично, че искате да продължите само с проверените записи."
+          : profile.language === "es"
+          ? "Hay entradas antiguas sin verificar. Antes de usar una despensa incompleta, confirma expresamente que deseas trabajar solo con las entradas validadas."
+          : "Some older entries are unverified. Before using an incomplete pantry, explicitly confirm that you want to work only with verified entries."
+      );
+      return false;
+    }
     if (!inventoryIsProvisional) return true;
 
     alert(
@@ -714,18 +787,39 @@ export default function App() {
     }
   }, [pantry, currentUser, inventoryHydrated, inventoryServerConfirmed]);
 
+  const commitGuestPantry = (
+    nextPantry: PantryItem[],
+    { reconcile = true, showToast = true }: { reconcile?: boolean; showToast?: boolean } = {},
+  ): boolean => {
+    if (currentUser || pantryScope !== "guest") return false;
+    // Commit local storage BEFORE publishing a changed stock or propagating
+    // recipes, menus, shopping shortages, or progression events.
+    const result = writeGuestPantrySafely(localStorage, nextPantry);
+    if (!result.saved) {
+      setGuestPantryRecovery("blocked");
+      setGuestPantryRecoveryAcknowledged(false);
+      if ("reason" in result) console.warn("Guest pantry change rejected; authoritative local write failed:", result.reason);
+      alert(profile.language === "bg"
+        ? "Промяната не е запазена. Проверете или изтеглете оригиналните данни, преди да опитате отново."
+        : profile.language === "es"
+        ? "El cambio no se ha guardado. Revisa o descarga los datos originales antes de intentarlo de nuevo."
+        : "The change was not saved. Review or download the original data before retrying.");
+      return false;
+    }
+    guestPantryCommittedRef.current = nextPantry;
+    setPantry(nextPantry);
+    setGuestPantryRecovery(result.recoveryAvailable ? "available" : "none");
+    if (reconcile) reconcileGuestPantryDerivedState(nextPantry, showToast);
+    return true;
+  };
+
   const updatePantryAndReconcileMenu = (
     newPantryItemsToAdd: PantryItem[],
     showToast = true
   ): boolean => {
     if (!requireAuthoritativeInventory()) return false;
-
-    setPantry((prevPantry) => {
-      const updatedPantry = [...newPantryItemsToAdd, ...prevPantry];
-      reconcileGuestPantryDerivedState(updatedPantry, showToast);
-      return updatedPantry;
-    });
-    return true;
+    const next = [...newPantryItemsToAdd, ...guestPantryCommittedRef.current];
+    return commitGuestPantry(next, { showToast });
   };
 
   const finalizeSignedInPurchaseIfVisible = (
@@ -1117,7 +1211,9 @@ export default function App() {
   };
 
   useEffect(() => {
-    if (inventoryIsProvisional) return;
+    // Do not claim ingredients are missing when guest inventory is only
+    // a validated *subset* of unreviewed historical local storage.
+    if (pantryDerivedDataProvisional) return;
 
     if (
       hasNotificationPermission &&
@@ -1152,11 +1248,12 @@ export default function App() {
         }
       }
     }
-  }, [shoppingDiagnostic, hasNotificationPermission, profile.language, inventoryIsProvisional]);
+  }, [shoppingDiagnostic, hasNotificationPermission, profile.language, pantryDerivedDataProvisional]);
 
   const handleAddMultipleShoppingItems = async (
     items: Array<Omit<ShoppingItem, "id" | "checked">>
   ): Promise<boolean> => {
+    if (!requireAuthoritativeInventory()) return false;
     if (items.length === 0) return false;
     const fingerprint = buildAdvisorBatchFingerprint(items);
     if (committedAdvisorBatchFingerprint.current === fingerprint) {
@@ -1231,8 +1328,7 @@ export default function App() {
     if (currentUser) {
       return dispatchSignedInPantryCreations([newItem]);
     }
-    updatePantryAndReconcileMenu([newItem], true);
-    return true;
+    return updatePantryAndReconcileMenu([newItem], true);
   };
 
   const handleAddMultiplePantryItems = async (items: Array<Omit<PantryItem, "id" | "addedAt">>): Promise<boolean> => {
@@ -1249,8 +1345,7 @@ export default function App() {
     if (currentUser) {
       return dispatchSignedInPantryCreations(newItems);
     }
-    updatePantryAndReconcileMenu(newItems, true);
-    return true;
+    return updatePantryAndReconcileMenu(newItems, true);
   };
 
   // The signed-in manual +/- and delete path NEVER optimistically changes
@@ -1311,8 +1406,7 @@ export default function App() {
       dispatchVerifiedPantryChange(viewed, newQty);
       return;
     }
-    setPantry((prev) => {
-      const updatedPantry = prev.map((item) =>
+    const updatedPantry = guestPantryCommittedRef.current.map((item) =>
         item.id === id
           ? {
               ...item,
@@ -1329,9 +1423,7 @@ export default function App() {
             }
           : item,
       );
-      reconcileGuestPantryDerivedState(updatedPantry);
-      return updatedPantry;
-    });
+    commitGuestPantry(updatedPantry);
   };
 
   const handleDeletePantryItem = (id: string, viewed: PantryItem) => {
@@ -1341,18 +1433,14 @@ export default function App() {
       dispatchVerifiedPantryChange(viewed, "remove");
       return;
     }
-    setPantry((prev) => {
-      const updatedPantry = prev.filter((item) => item.id !== id);
-      reconcileGuestPantryDerivedState(updatedPantry);
-      return updatedPantry;
-    });
+    const updatedPantry = guestPantryCommittedRef.current.filter((item) => item.id !== id);
+    commitGuestPantry(updatedPantry);
   };
 
   const handleClearPantry = async (mutationId: string): Promise<boolean> => {
     if (!requireAuthoritativeInventory()) return false;
     if (!currentUser) {
-      setPantry([]);
-      return true;
+      return commitGuestPantry([], { reconcile: false });
     }
     pendingSignedInDerivedReconciliations.current.set(`clear:${mutationId}`, {
       userId: currentUser.uid,
@@ -1465,8 +1553,7 @@ export default function App() {
       if (result.issues.length > 0) {
         return { success: false, issueCount: result.issues.length };
       }
-      setPantry(result.pantry);
-      reconcileGuestPantryDerivedState(result.pantry);
+      if (!commitGuestPantry(result.pantry)) return { success: false, issueCount: 1 };
       const actionId = createProgressionActionId(
         typeof globalThis.crypto?.randomUUID === "function"
           ? () => globalThis.crypto.randomUUID()
@@ -1827,8 +1914,7 @@ export default function App() {
 
     if (preview.acceptedSourceIds.length > 0) {
       if (!currentUser) {
-        setPantry(preview.pantry);
-        reconcileGuestPantryDerivedState(preview.pantry, true);
+        if (!commitGuestPantry(preview.pantry)) return;
         setShoppingList(preview.shoppingList);
         appendLocalProgressionEvents(
           buildPurchaseProgressEvents({
@@ -2001,8 +2087,7 @@ export default function App() {
     }
 
     if (!currentUser) {
-      setPantry(preview.pantry);
-      reconcileGuestPantryDerivedState(preview.pantry, true);
+      if (!commitGuestPantry(preview.pantry)) return false;
       setShoppingList(preview.shoppingList);
       appendLocalProgressionEvents(
         buildPurchaseProgressEvents({
@@ -2223,9 +2308,7 @@ export default function App() {
         );
         return false;
       }
-      setPantry(guestResult.pantry);
-      reconcileGuestPantryDerivedState(guestResult.pantry);
-      return true;
+      return commitGuestPantry(guestResult.pantry);
     }
 
     if (!mutationId || (purpose !== "food-use" && purpose !== "discard")) {
@@ -2349,6 +2432,47 @@ export default function App() {
     );
   }
 
+  const hasDistinctGuestPantryBackup = (() => {
+    if (currentUser || guestPantryRecovery !== "blocked") return false;
+    try {
+      const original = localStorage.getItem(GUEST_PANTRY_KEY);
+      const backup = localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
+      return original !== null && backup !== null && original !== backup;
+    } catch {
+      return false;
+    }
+  })();
+
+  const downloadGuestPantryRecovery = (source: "current" | "backup") => {
+    // Export only on explicit user action; never upload or log pantry details.
+    try {
+      const original = localStorage.getItem(GUEST_PANTRY_KEY);
+      const savedBackup = localStorage.getItem(GUEST_PANTRY_QUARANTINE_KEY);
+      // When backup conflicts with a different original, both must remain
+      // accessible separately. No recovery button mutates localStorage.
+      const raw = source === "backup" ? savedBackup
+        : guestPantryRecovery === "blocked" ? (original ?? savedBackup)
+        : savedBackup;
+      if (raw === null) return;
+      const url = URL.createObjectURL(new Blob([raw], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      // The untouched original could itself contain malformed JSON.
+      // Preserve its exact bytes and do not mislabel invalid text as JSON.
+      let extension = "json";
+      try { JSON.parse(raw); } catch { extension = "txt"; }
+      link.download = `balkanbite-guest-pantry-${source === "backup" ? "previous-backup" : "original"}.${extension}`;
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch {
+      alert(profile.language === "es"
+        ? "No fue posible exportar los datos desde este navegador."
+        : profile.language === "bg"
+        ? "Не успяхме да експортираме данните от този браузър."
+        : "Could not export the data from this browser.");
+    }
+  };
+
   return (
     <div
       id="app-root"
@@ -2358,6 +2482,61 @@ export default function App() {
       }`}
     >
       <div className="w-full max-w-6xl mx-auto min-h-screen relative pb-28 px-2.5 sm:px-6 lg:px-8">
+        {!currentUser && guestPantryRecovery !== "none" && (
+          <section role="alert" data-testid="guest-pantry-recovery" className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+            <p className="font-semibold">
+              {profile.language === "bg"
+                ? "Възстановяване на данни от гост-панела"
+                : profile.language === "es"
+                ? "Recuperación de datos de la despensa invitada"
+                : "Guest pantry data recovery"}
+            </p>
+            <p className="mt-1">
+              {guestPantryRecovery === "blocked"
+                ? profile.language === "bg"
+                  ? "Не можахме да запазим безопасно оригиналните записи. Новите промени няма да се съхраняват, докато проблемът не бъде решен."
+                  : profile.language === "es"
+                  ? "No se pudo proteger la copia original. Las modificaciones no se guardarán hasta resolverlo."
+                  : "The original data could not be protected. Edits will not be saved until this is resolved."
+                : profile.language === "bg"
+                ? "Някои стари записи не могат да бъдат потвърдени. Запазихме оригиналното съдържание отделно; не се превръща автоматично в наличност."
+                : profile.language === "es"
+                ? "Algunos registros antiguos no se han podido validar. Se ha conservado el contenido original por separado; no se convierte automáticamente en existencias."
+                : "Some older records could not be verified. Their original content was preserved separately, not counted as confirmed stock."}
+            </p>
+            {guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged && (
+              <button
+                type="button"
+                data-testid="guest-pantry-continue-verified"
+                onClick={() => setGuestPantryRecoveryAcknowledged(true)}
+                className="mt-2 mr-2 rounded-lg border border-emerald-400/60 px-3 py-2 text-xs font-semibold hover:bg-emerald-500/10"
+              >
+                {profile.language === "bg"
+                  ? "Продължи само с проверените продукти"
+                  : profile.language === "es"
+                  ? "Continuar solo con entradas validadas"
+                  : "Continue with verified entries only"}
+              </button>
+            )}
+            {guestPantryRecovery === "available" && guestPantryRecoveryAcknowledged && (
+              <p className="mt-2 text-xs font-semibold">
+                {profile.language === "bg"
+                  ? "Работите само с проверените записи; непроверените остават в резервното копие."
+                  : profile.language === "es"
+                  ? "Estás trabajando solo con las entradas validadas; las demás permanecen en la copia de recuperación."
+                  : "You are using verified entries only; unverified records remain in the recovery copy."}
+              </p>
+            )}
+            <button type="button" onClick={() => downloadGuestPantryRecovery("current")} className="mt-2 rounded-lg border border-amber-400/60 px-3 py-2 text-xs font-semibold hover:bg-amber-500/10">
+              {profile.language === "bg" ? "Изтеглете оригиналните данни" : profile.language === "es" ? "Descargar datos originales" : "Download original data"}
+            </button>
+            {hasDistinctGuestPantryBackup && (
+              <button type="button" data-testid="guest-pantry-download-previous-backup" onClick={() => downloadGuestPantryRecovery("backup")} className="mt-2 ml-2 rounded-lg border border-amber-400/60 px-3 py-2 text-xs font-semibold hover:bg-amber-500/10">
+                {profile.language === "bg" ? "Изтеглете предишното резервно копие" : profile.language === "es" ? "Descargar copia anterior" : "Download previous backup"}
+              </button>
+            )}
+          </section>
+        )}
         <Header
           language={profile.language}
           onLanguageChange={(lang: Language) => { void handleProfilePreferenceUpdate({ language: lang }); }}
@@ -2372,10 +2551,10 @@ export default function App() {
           activeTab={activeTab}
           onOpenShoppingAdvisor={handleOpenShoppingAdvisor}
           shoppingUrgencyLevel={
-            inventoryIsProvisional ? undefined : shoppingDiagnostic.urgencyLevel
+            pantryDerivedDataProvisional ? undefined : shoppingDiagnostic.urgencyLevel
           }
           shoppingBadgeCount={
-            inventoryIsProvisional
+            pantryDerivedDataProvisional
               ? 0
               : shoppingDiagnostic.missingMealIngredients.length +
                 shoppingDiagnostic.pendingShoppingItemsCount
@@ -2384,7 +2563,7 @@ export default function App() {
 
         <main className="px-4 py-3">
           <Suspense fallback={<div data-testid="route-view-loading" className="py-8 text-center text-sm text-stone-400">Loading…</div>}>
-          {!inventoryIsProvisional && (
+          {!pantryDerivedDataProvisional && (
             <SmartShoppingBanner
             diagnostic={shoppingDiagnostic}
             language={profile.language}
