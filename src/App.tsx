@@ -794,16 +794,22 @@ export default function App() {
     if (currentUser || pantryScope !== "guest") return false;
     // Commit local storage BEFORE publishing a changed stock or propagating
     // recipes, menus, shopping shortages, or progression events.
-    const result = writeGuestPantrySafely(localStorage, nextPantry);
+    const result = writeGuestPantrySafely(localStorage, nextPantry, guestPantryCommittedRef.current);
     if (!result.saved) {
       setGuestPantryRecovery("blocked");
       setGuestPantryRecoveryAcknowledged(false);
       if ("reason" in result) console.warn("Guest pantry change rejected; authoritative local write failed:", result.reason);
-      alert(profile.language === "bg"
-        ? "Промяната не е запазена. Проверете или изтеглете оригиналните данни, преди да опитате отново."
-        : profile.language === "es"
-        ? "El cambio no se ha guardado. Revisa o descarga los datos originales antes de intentarlo de nuevo."
-        : "The change was not saved. Review or download the original data before retrying.");
+      alert("reason" in result && result.reason === "stale-snapshot"
+        ? profile.language === "bg"
+          ? "Деспенсата е променена в друг раздел. Тази промяна не е запазена. Презаредете, за да видите актуалните данни."
+          : profile.language === "es"
+          ? "La despensa ha cambiado en otra pestaña. No se ha guardado esta edición. Recarga para ver los datos actuales."
+          : "The pantry changed in another tab. This edit was not saved. Reload to review the current stock."
+        : profile.language === "bg"
+          ? "Промяната не е запазена. Проверете или изтеглете оригиналните данни, преди да опитате отново."
+          : profile.language === "es"
+          ? "El cambio no se ha guardado. Revisa o descarga los datos originales antes de intentarlo de nuevo."
+          : "The change was not saved. Review or download the original data before retrying.");
       return false;
     }
     guestPantryCommittedRef.current = nextPantry;
