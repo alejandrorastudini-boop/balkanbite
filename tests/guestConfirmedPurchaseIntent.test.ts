@@ -233,7 +233,10 @@ test("changed plan, unrelated shopping, or progression during recovery stays unt
     a.faults.set(SHOPPING, "silent");
     assert.equal(commitConfirmedGuestPurchaseIntent(a.storage, command()).status, "blocked");
     a.faults.clear();
-    const externalValue = key === GUEST_PANTRY_KEY ? "[]" : key === PROGRESS
+    const externalValue = key === GUEST_PANTRY_KEY
+      ? JSON.stringify([{ id: "qa-external-stock", name: "QA other food", quantity: 1,
+        unit: "kg", category: "Produce", addedAt: "2026-10-16" }])
+      : key === PROGRESS
       ? JSON.stringify([{ version: 1, eventId: "cook:other", type: "recipe_cook_inventory_applied",
         occurredAt: "2026-10-16T09:00:00Z", evidence: "deterministic_state_transition", evidenceCount: 1 }])
       : key === SHOPPING ? JSON.stringify([{ ...manual, quantity: 99 }])
