@@ -313,12 +313,20 @@ async function runGuestDerivedShoppingSilentFailure() {
     await page.waitForFunction(() => window.__qaShoppingWriteAttempts > 0);
     const stale = await page.evaluate(key => localStorage.getItem(key), SHOPPING);
     assert.equal(stale, startingShopping, "fault injection must retain the old derived snapshot");
+    await page.getByTestId("guest-shopping-consistency-warning").waitFor({
+      state: "visible", timeout: 10000,
+    });
 
     // After an actual reload, a managed shortfall with no planned recipe
     // must not return as if it were still derived from confirmed stock.
     await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
     await page.locator("#nav-tab-pantry").click();
     await page.locator(`#pantry-item-${valid.id}`).waitFor({ state: "visible" });
+    await page.waitForFunction(({ SHOPPING, MANAGED_ID }) => {
+      const raw = localStorage.getItem(SHOPPING);
+      if (!raw) return false;
+      return !JSON.parse(raw).some(row => row.id === MANAGED_ID);
+    }, { SHOPPING, MANAGED_ID }, { timeout: 10000 });
     const savedPantry = JSON.parse(await page.evaluate(key => localStorage.getItem(key), MAIN));
     const savedShopping = JSON.parse(await page.evaluate(key => localStorage.getItem(key), SHOPPING));
     assert.equal(savedPantry[0].quantity, 550);
