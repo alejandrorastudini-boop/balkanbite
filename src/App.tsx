@@ -98,6 +98,7 @@ import {
 import {
   GUEST_PURCHASE_INTENT_KEY,
   recoverConfirmedGuestPurchaseIntent,
+  commitConfirmedGuestPurchaseIntent,
 } from "./utils/guestConfirmedPurchaseIntent";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
@@ -2127,6 +2128,95 @@ export default function App() {
     }
   };
 
+  /**
+   * First real guest purchase writer, narrowly gated: only when the recipe
+   * and meal-plan projections do not change after the confirmed acquisition.
+   * Complex changes still use the legacy path; this is NOT an app-wide
+   * transaction and does not cover cooking, voice or meal logs.
+   */
+  const tryJournalGuestCheckedTransfer = (
+    preview: ReturnType<typeof transferCheckedShoppingItems>,
+    occurredAt: string,
+    acquiredAt: string,
+  ): "saved" | "blocked" | "ineligible" => {
+    if (guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
+        guestDerivedShoppingRecoveryProblem || workspaceScope !== "guest" ||
+        preview.rejected.length > 0 || preview.newlyAppliedSourceIds.length === 0 ||
+        preview.newlyAppliedSourceIds.length !== preview.acceptedSourceIds.length) return "ineligible";
+
+    try {
+      const rawRecipes = localStorage.getItem("balkanbite_recipes");
+      const rawPlan = localStorage.getItem("balkanbite_mealplan");
+      const rawShopping = localStorage.getItem("balkanbite_shopping");
+      const rawProgression = localStorage.getItem("balkanbite_progression");
+      if (rawRecipes === null || rawPlan === null || rawShopping === null ||
+          rawProgression === null) return "ineligible";
+      const storedRecipes = parseStoredRecipeCache(rawRecipes);
+      const storedPlan = parseStoredMealPlanCache(rawPlan);
+      const storedShopping = parseStoredShoppingCache(rawShopping);
+      if (!storedRecipes || !storedPlan || !storedShopping ||
+          !guestShoppingCacheIsComplete(rawShopping) ||
+          JSON.stringify(storedRecipes) !== JSON.stringify(recipes) ||
+          JSON.stringify(storedPlan) !== JSON.stringify(mealPlan) ||
+          JSON.stringify(storedShopping) !== JSON.stringify(shoppingList) ||
+          JSON.stringify(parseProgressionLedgerCache(rawProgression)) !==
+            JSON.stringify(progressionLedger)) return "ineligible";
+
+      const syncedRecipes = syncRecipesWithPantry(recipes, preview.pantry);
+      const { newPlan } = adaptMealPlanSafelyToPantry(
+        preview.pantry, syncedRecipes, mealPlan, profile,
+      );
+      if (JSON.stringify(syncedRecipes) !== JSON.stringify(recipes) ||
+          JSON.stringify(newPlan) !== JSON.stringify(mealPlan)) return "ineligible";
+
+      const operationId = typeof globalThis.crypto?.randomUUID === "function"
+        ? `guest-purchase-${globalThis.crypto.randomUUID()}`
+        : `guest-purchase-${Date.now()}`;
+      const written = commitConfirmedGuestPurchaseIntent(localStorage, {
+        operationId, occurredAt, acquiredAt,
+        expectedPantry: guestPantryCommittedRef.current,
+        expectedShopping: shoppingList,
+        expectedProgression: progressionLedger,
+      });
+      if (written.status === "saved" || written.status === "saved-pending-cleanup") {
+        const stockRaw = localStorage.getItem(GUEST_PANTRY_KEY);
+        const stock = inspectGuestPantry(stockRaw);
+        const committedShopping = parseStoredShoppingCache(localStorage.getItem("balkanbite_shopping"));
+        const ledgerRaw = localStorage.getItem("balkanbite_progression");
+        if (stock.requiresRecovery || !committedShopping || ledgerRaw === null) {
+          setGuestJournalRecoveryStatus("blocked");
+          setGuestDerivedShoppingRecoveryProblem(true);
+          return "blocked";
+        }
+        guestPantryCommittedRef.current = stock.items;
+        setPantry(stock.items);
+        setShoppingList(committedShopping);
+        setProgressionLedger(parseProgressionLedgerCache(ledgerRaw));
+        if (written.status === "saved-pending-cleanup") {
+          setGuestJournalRecoveryStatus("pending");
+        }
+        return "saved";
+      }
+
+      // No fallback after a WAL attempt: it may have saved the pantry but not
+      // the remaining keys. The exact original intent is retained for reload.
+      const retained = localStorage.getItem(GUEST_PURCHASE_INTENT_KEY) !== null;
+      setGuestJournalRecoveryStatus(retained ? "blocked" : "clear");
+      setGuestDerivedShoppingRecoveryProblem(true);
+      alert(profile.language === "bg"
+        ? "Покупката не е потвърдена напълно. Проверете данните след презареждане."
+        : profile.language === "es"
+        ? "No se ha podido confirmar toda la compra. Recarga y revisa los datos antes de continuar."
+        : "The entire purchase could not be confirmed. Reload and review the data before continuing.");
+      return "blocked";
+    } catch (error) {
+      setGuestJournalRecoveryStatus("blocked");
+      setGuestDerivedShoppingRecoveryProblem(true);
+      console.warn("Guest purchase intent failed", error);
+      return "blocked";
+    }
+  };
+
   const handleTransferToPantry = async () => {
     if (!requireAuthoritativeInventory()) return;
     const checkedItems = shoppingList.filter(item => item.checked);
@@ -2143,14 +2233,18 @@ export default function App() {
 
     if (preview.acceptedSourceIds.length > 0) {
       if (!currentUser) {
-        if (!commitGuestPantry(preview.pantry)) return;
-        setShoppingList(preview.shoppingList);
-        appendLocalProgressionEvents(
-          buildPurchaseProgressEvents({
-            occurredAt,
-            newlyAppliedSourceIds: preview.newlyAppliedSourceIds,
-          }),
-        );
+        const purchaseIntent = tryJournalGuestCheckedTransfer(preview, occurredAt, acquiredAt);
+        if (purchaseIntent === "blocked") return;
+        if (purchaseIntent === "ineligible") {
+          if (!commitGuestPantry(preview.pantry)) return;
+          setShoppingList(preview.shoppingList);
+          appendLocalProgressionEvents(
+            buildPurchaseProgressEvents({
+              occurredAt,
+              newlyAppliedSourceIds: preview.newlyAppliedSourceIds,
+            }),
+          );
+        }
       } else {
         const acceptedPreviewSources = new Set(preview.acceptedSourceIds);
         const purchases = checkedItems
