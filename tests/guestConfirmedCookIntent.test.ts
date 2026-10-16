@@ -245,3 +245,26 @@ test("malformed and tampered journal cannot overwrite stock or invent progressio
   });
   assert.equal(f.ledgerWrites, 0);
 });
+
+test("legacy recipe cook cannot stage over pending derived cook journal", () => {
+  const f = fixture();
+  f.data.set("balkanbite_guest_cook_derived_intent_v1", "unfinished-derived");
+  assert.deepEqual(commitConfirmedGuestCookIntent(f.storage, command()), {
+    status: "blocked", reason: "unresolved-intent",
+  });
+  assert.equal(f.stockWrites, 0);
+  assert.equal(f.data.get(INTENT), undefined);
+});
+
+test("legacy cook recovery preserves ledger when another derived journal appears", () => {
+  const f = fixture();
+  f.failures.set(PROGRESSION, "silent");
+  assert.equal(commitConfirmedGuestCookIntent(f.storage, command()).status, "blocked");
+  f.failures.clear();
+  f.data.set("balkanbite_guest_cook_derived_intent_v1", "conflicting-derived");
+  assert.deepEqual(recoverConfirmedGuestCookIntent(f.storage), {
+    status: "blocked", reason: "conflict",
+  });
+  assert.deepEqual(JSON.parse(f.data.get(PROGRESSION)!), []);
+  assert.ok(f.data.get(INTENT));
+});
