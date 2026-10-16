@@ -110,6 +110,13 @@ import {
   commitDerivedGuestCookIntent,
   recoverDerivedGuestCookIntent,
 } from "./utils/guestCookDerivedIntent";
+import {
+  GUEST_VOICE_INTENT_KEY,
+  GUEST_VOICE_RECEIPTS_KEY,
+  commitGuestVoiceRemoval,
+  recoverGuestVoiceRemoval,
+  parseGuestVoiceReceipts,
+} from "./utils/guestVoiceRemovalIntent";
 import { hasPendingGuestMutationJournal } from "./utils/guestJournalExclusivity";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
@@ -148,7 +155,8 @@ export default function App() {
       return localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) === null &&
         localStorage.getItem(GUEST_PURCHASE_INTENT_KEY) === null &&
         localStorage.getItem(GUEST_COOK_INTENT_KEY) === null &&
-        localStorage.getItem(GUEST_COOK_DERIVED_INTENT_KEY) === null
+        localStorage.getItem(GUEST_COOK_DERIVED_INTENT_KEY) === null &&
+        localStorage.getItem(GUEST_VOICE_INTENT_KEY) === null
         ? "clear" : "pending";
     } catch {
       return "blocked";
@@ -481,7 +489,8 @@ export default function App() {
       if (localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) !== null ||
           localStorage.getItem(GUEST_PURCHASE_INTENT_KEY) !== null ||
           localStorage.getItem(GUEST_COOK_INTENT_KEY) !== null ||
-          localStorage.getItem(GUEST_COOK_DERIVED_INTENT_KEY) !== null) {
+          localStorage.getItem(GUEST_COOK_DERIVED_INTENT_KEY) !== null ||
+          localStorage.getItem(GUEST_VOICE_INTENT_KEY) !== null) {
         setGuestJournalRecoveryStatus("pending");
       }
     } catch {
@@ -562,6 +571,12 @@ export default function App() {
     // hydration writers may publish shopping/progression. Recovery NEVER
     // reapplies an acquisition: it verifies the pantry after-snapshot and
     // restores only shopping/progression bytes when their baselines match.
+    const voiceRecovery = recoverGuestVoiceRemoval(localStorage);
+    if (voiceRecovery.status === "blocked") {
+      setGuestJournalRecoveryStatus("blocked");
+      setGuestDerivedShoppingRecoveryProblem(true);
+      return;
+    }
     const derivedCookRecovery = recoverDerivedGuestCookIntent(localStorage);
     if (derivedCookRecovery.status === "blocked") {
       setGuestJournalRecoveryStatus("blocked");
@@ -611,7 +626,7 @@ export default function App() {
       }
       setProgressionLedger(parseProgressionLedgerCache(rawProgression));
     }
-    if (derivedCookRecovery.status !== "none") {
+    if (derivedCookRecovery.status !== "none" || voiceRecovery.status !== "none") {
       // Before unfreezing independent React cache writers, publish the exact
       // recovered five-key state (no recomputation and no filtered legacy rows).
       const pantryRaw = localStorage.getItem(GUEST_PANTRY_KEY);
@@ -2885,15 +2900,109 @@ export default function App() {
     if (!requireAuthoritativeInventory()) return false;
 
     if (!currentUser) {
-      const guestResult = deductVoiceItemsFromPantry(pantry, items || []);
-      if (guestResult.issues.length > 0 || guestResult.deductions.length === 0) {
-        console.warn(
-          "Voice pantry consumption skipped for unresolved items",
-          guestResult.issues,
+      if (!mutationId || (purpose !== "food-use" && purpose !== "discard") ||
+          workspaceScope !== "guest" || guestPantryRecovery !== "none") return false;
+      try {
+        // An acknowledged mutationId is a no-op EVEN if current stock is now
+        // insufficient for a second deduction. Never recalculate first.
+        const receipts = parseGuestVoiceReceipts(
+          localStorage.getItem(GUEST_VOICE_RECEIPTS_KEY),
         );
+        if (receipts?.some(receipt => receipt.mutationId === mutationId)) {
+          const already = receipts.find(receipt => receipt.mutationId === mutationId)!;
+          const canonical = (items || []).map(item => ({
+            name: typeof item?.name === "string" ? item.name.trim() : "",
+            quantity: typeof item?.quantity === "number"
+              ? item.quantity : Number(item?.quantity),
+            unit: typeof item?.unit === "string" ? item.unit.trim() : "",
+          }));
+          return already.purpose === purpose &&
+            JSON.stringify(already.items) === JSON.stringify(canonical);
+        }
+
+        const rawRecipes = localStorage.getItem("balkanbite_recipes");
+        const rawPlan = localStorage.getItem("balkanbite_mealplan");
+        const rawShopping = localStorage.getItem("balkanbite_shopping");
+        const storedRecipes = parseStoredRecipeCache(rawRecipes);
+        const storedPlan = parseStoredMealPlanCache(rawPlan);
+        const storedShopping = parseStoredShoppingCache(rawShopping);
+        const pantryBaseline = guestPantryCommittedRef.current;
+        if (!storedRecipes || !storedPlan || !storedShopping ||
+            !guestShoppingCacheIsComplete(rawShopping) ||
+            JSON.stringify(storedPlan) !== JSON.stringify(mealPlan) ||
+            JSON.stringify(storedShopping) !== JSON.stringify(shoppingList) ||
+            JSON.stringify(pantryBaseline) !== JSON.stringify(pantry) ||
+            storedRecipes.length !== recipes.length ||
+            storedRecipes.some(row => {
+              const displayed = recipes.find(r => r.id === row.id);
+              return !displayed ||
+                JSON.stringify(row.ingredients) !== JSON.stringify(displayed.ingredients);
+            })) {
+          console.warn("Voice guest mutation requires complete unchanged source caches");
+          return false;
+        }
+        const occurredAt = new Date().toISOString();
+        const result = deductVoiceItemsFromPantry(
+          pantryBaseline, items || [], new Date(occurredAt),
+        );
+        if (result.issues.length > 0 || result.deductions.length === 0) {
+          console.warn("Voice guest removal rejected; unresolved stock/units", result.issues);
+          return false;
+        }
+        const syncedRecipes = syncRecipesWithPantry(
+          storedRecipes, result.pantry, new Date(occurredAt),
+        );
+        const { newPlan } = adaptMealPlanSafelyToPantry(
+          result.pantry, syncedRecipes, storedPlan, profile,
+        );
+        const nextShopping = reconcileDerivedShortageShoppingItems(
+          storedShopping, evaluateShoppingNeeds(
+            result.pantry, newPlan, storedShopping, profile.language,
+          ).itemsToAddToShoppingList,
+        ).next;
+        const saved = commitGuestVoiceRemoval(localStorage, {
+          mutationId, purpose, occurredAt, language: profile.language,
+          items: items || [], expectedPantry: pantryBaseline,
+          expectedRecipes: storedRecipes, expectedPlan: storedPlan,
+          expectedShopping: storedShopping,
+          nextRecipes: syncedRecipes, nextPlan: newPlan, nextShopping,
+        });
+        if (saved.status === "already-applied") return true;
+        if (saved.status !== "saved" && saved.status !== "saved-pending-cleanup") {
+          setGuestJournalRecoveryStatus("blocked");
+          setGuestDerivedShoppingRecoveryProblem(true);
+          console.warn("Guest voice WAL could not complete safely", saved);
+          return false;
+        }
+        const committedPantry = inspectGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY));
+        const actualReceipts = parseGuestVoiceReceipts(
+          localStorage.getItem(GUEST_VOICE_RECEIPTS_KEY),
+        );
+        if (committedPantry.requiresRecovery ||
+            JSON.stringify(committedPantry.items) !== JSON.stringify(result.pantry) ||
+            localStorage.getItem("balkanbite_recipes") !== JSON.stringify(syncedRecipes) ||
+            localStorage.getItem("balkanbite_mealplan") !== JSON.stringify(newPlan) ||
+            localStorage.getItem("balkanbite_shopping") !== JSON.stringify(nextShopping) ||
+            !actualReceipts?.some(receipt => receipt.mutationId === mutationId)) {
+          setGuestJournalRecoveryStatus("blocked");
+          setGuestDerivedShoppingRecoveryProblem(true);
+          return false;
+        }
+        guestPantryCommittedRef.current = committedPantry.items;
+        setPantry(committedPantry.items);
+        setRecipes(syncedRecipes.map(recipe => ({
+          ...recipe, imageUrl: getRecipeImageUrl(recipe),
+        })));
+        setMealPlan(newPlan);
+        setShoppingList(nextShopping);
+        if (saved.status === "saved-pending-cleanup") setGuestJournalRecoveryStatus("pending");
+        return true;
+      } catch (error) {
+        console.warn("Guest voice removal journal could not be verified", error);
+        setGuestJournalRecoveryStatus("blocked");
+        setGuestDerivedShoppingRecoveryProblem(true);
         return false;
       }
-      return commitGuestPantry(guestResult.pantry);
     }
 
     if (!mutationId || (purpose !== "food-use" && purpose !== "discard")) {
