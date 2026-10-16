@@ -48,6 +48,15 @@ New QA-only tests:
 
 These scenarios verify selected interleavings only; they **do not** eliminate the gap between snapshot preflight and writes. A successful test cannot prove arbitrary cross-tab atomicity. Require a separate design for cross-tab coordination (for example Web Locks with capability/fallback policy) before treating simultaneous mutations as safe. Keep recoverability and legacy browsers in scope.
 
+## Verification update — 2026-10-16
+
+- Read-only GitHub inspection confirmed `main=f6d6133149f585cf416cf5809d6280f6dc5486cd`, Draft PR #453 HEAD `8e44d1054728c68383555833303e29de366713ef`, no production baseline shift and no QA-branch Vercel deployments at inspection.
+- The current local execution container has Node v22 and globally installed `tsc` but **cannot resolve github.com**. A complete checkout and `npm install` were therefore unavailable; no full suite/lint/build/Chromium run has occurred on the QA HEAD.
+- The **verbatim** new pure parser `src/utils/chefNavigationIntent.ts` and its three tests were mirrored into a temporary **isolated** local directory, with a minimal type-only `Language` declaration. Node's experimental TS loader required adjusting the *temporary test import* to the explicit `.ts` extension; no repository test source was changed for that workaround. `node --experimental-strip-types --test` returned **3/3 PASS**. Global `tsc --noEmit --strict --target ES2022 --module ESNext --moduleResolution bundler` against the isolated parser returned PASS.
+- This is **not** representative of `npm test` (main suite), application `npm run lint`/build, actual React mounting, recognized audio, Chromium interaction, or cross-tab recovery.
+- Small source correction: removed an unused unsupported `theme` prop from the full-page `VoiceChefView` mount. It has **not** been covered by full-app TypeScript CI.
+- The QA branch remains unmerged and should be treated as **IN_PROGRESS / UNVERIFIED** until a fresh CI result at an exact head SHA exists.
+
 ## Next gates, in order
 
 1. Run `npm test` on the exact QA head. Investigate any type, recipe-cache, shopping or progression fixture disagreements; do not weaken expectations to force green.
