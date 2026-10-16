@@ -286,16 +286,36 @@ async function runGuestDerivedShoppingSilentFailure() {
   // #459: prove the crash-consistency boundary with an actual App runtime.
   // No invented household data: all food names and amounts are QA fixtures.
   const SHOPPING = "balkanbite_shopping";
-  const MANAGED_ID = "shortage-v1:qa-stale-row";
+  // Deterministic managed ID matches the planner's FNV-derived identity.
+  const hashSource = "qa rice::mass";
+  let managedHash = 2166136261;
+  for (let i = 0; i < hashSource.length; i++) {
+    managedHash ^= hashSource.charCodeAt(i);
+    managedHash = Math.imul(managedHash, 16777619);
+  }
+  const MANAGED_ID = `shortage-v1:${(managedHash >>> 0).toString(36)}`;
+  const plannedRecipe = {
+    id: "qa-rice-plan", title: { en: "QA planned rice", bg: "QA ориз", es: "QA arroz" },
+    description: { en: "QA planned test", bg: "QA тест", es: "QA prueba" },
+    prepTimeMin: 0, cookTimeMin: 0, costPerServingEUR: 0, difficulty: "easy",
+    servings: 1, calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0,
+    nutritionDataStatus: "estimated", costDataStatus: "estimated", tags: [],
+    ingredients: [{ name: "QA Rice", amount: 520, unit: "g", inPantry: false }],
+    instructions: { en: ["QA step"], bg: ["QA стъпка"], es: ["QA paso"] },
+    nutritionHighlights: { en: "QA only", bg: "QA", es: "QA" },
+  };
+  const planDate = new Date().toLocaleDateString("en-CA");
+  const plan = [{ date: planDate, lunch: plannedRecipe }];
   const managed = {
     id: MANAGED_ID,
-    name: "QA stale generated shortfall",
-    quantity: 100,
+    name: "QA Rice",
+    quantity: 20,
     unit: "g",
     category: "Other",
     checked: false,
     amountOrigin: "deterministic_shortfall",
     purchaseAmountConfirmed: false,
+    reason: "Para QA planned rice (Today)",
   };
   const manual = {
     id: "qa-manual-item",
@@ -310,7 +330,7 @@ async function runGuestDerivedShoppingSilentFailure() {
   const context = await browser.newContext();
   let page;
   try {
-    await context.addInitScript(({ MAIN, SHOPPING, valid, manual, managed }) => {
+    await context.addInitScript(({ MAIN, SHOPPING, valid, manual, managed, plan }) => {
       if (sessionStorage.getItem("__qa_crash_seeded")) return;
       sessionStorage.setItem("__qa_crash_seeded", "true");
       localStorage.setItem("balkanbite_show_landing", "false");
@@ -318,10 +338,10 @@ async function runGuestDerivedShoppingSilentFailure() {
         language: "en", onboardingCompleted: true,
       }));
       localStorage.setItem("balkanbite_recipes", "[]");
-      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_mealplan", JSON.stringify(plan));
       localStorage.setItem(MAIN, JSON.stringify([valid]));
       localStorage.setItem(SHOPPING, JSON.stringify([manual, managed]));
-    }, { MAIN, SHOPPING, valid, manual, managed });
+    }, { MAIN, SHOPPING, valid, manual, managed, plan });
 
     page = await context.newPage();
     page.on("dialog", dialog => dialog.dismiss());
