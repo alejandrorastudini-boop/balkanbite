@@ -80,7 +80,7 @@ test("App keeps guest voice deduction local but signed-in removal transactional"
   ));
   assert.ok(block.includes("submitVoiceInventoryConsumption("));
 
-  const mutationCheck = block.indexOf("if (!mutationId || (purpose !==");
+  const mutationCheck = block.lastIndexOf("if (!mutationId || (purpose !==");
   assert.ok(mutationCheck >= 0);
   assert.equal(
     block.slice(mutationCheck).includes("setPantry("),
