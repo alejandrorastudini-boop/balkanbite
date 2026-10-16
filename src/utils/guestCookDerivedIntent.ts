@@ -1,9 +1,10 @@
 import type { Language, MealPlanDay, PantryItem, Recipe, ShoppingItem } from "../types";
 import { GUEST_PANTRY_KEY, inspectGuestPantry, writeGuestPantrySafely } from "./guestPantry";
 import type { CookIntentStorage } from "./guestConfirmedCookIntent";
-import { GUEST_COOK_INTENT_KEY } from "./guestConfirmedCookIntent";
-import { GUEST_PURCHASE_INTENT_KEY } from "./guestConfirmedPurchaseIntent";
-import { GUEST_PANTRY_SHOPPING_JOURNAL_KEY } from "./guestPantryShoppingJournal";
+import {
+  hasPendingGuestMutationJournal,
+  hasConflictingGuestMutationJournal,
+} from "./guestJournalExclusivity";
 import { deductRecipeIngredientsFromPantry } from "./pantryConsumption";
 import { syncRecipesWithPantry } from "./menuAutoPlanner";
 import { evaluateShoppingNeeds } from "./shoppingAdvisor";
@@ -118,9 +119,7 @@ function fromCommandExpected(command: DerivedGuestCookCommand): FiveKeys {
   ];
 }
 function noOtherPending(storage: CookIntentStorage): boolean {
-  return [GUEST_COOK_DERIVED_INTENT_KEY, GUEST_COOK_INTENT_KEY,
-    GUEST_PURCHASE_INTENT_KEY, GUEST_PANTRY_SHOPPING_JOURNAL_KEY]
-    .every(key => storage.getItem(key) === null);
+  return !hasPendingGuestMutationJournal(storage);
 }
 
 /** Re-evaluate all derivations from the exact snapshotted input; never guess data. */
@@ -273,8 +272,7 @@ export function recoverDerivedGuestCookIntent(
     if (raw === null) return { status: "none" };
     const entry = completeIntent(raw);
     if (!entry) return { status: "blocked", reason: "invalid-intent" };
-    if ([GUEST_COOK_INTENT_KEY, GUEST_PURCHASE_INTENT_KEY,
-      GUEST_PANTRY_SHOPPING_JOURNAL_KEY].some(key => storage.getItem(key) !== null)) {
+    if (hasConflictingGuestMutationJournal(storage, GUEST_COOK_DERIVED_INTENT_KEY)) {
       return { status: "blocked", reason: "conflict" };
     }
     const current = KEYS.map(key => storage.getItem(key));
