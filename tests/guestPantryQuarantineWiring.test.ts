@@ -94,3 +94,28 @@ test("guest pantry commit rejects stale multi-tab state without publishing it", 
   assert.ok(refused >= 0 && published > refused);
   assert.match(commit.slice(refused, published), /return false/);
 });
+
+test("legacy guest writes recheck all persisted WALs after hydration without mutating signed-in workspace", () => {
+  const late = app.indexOf("const blockLegacyGuestWriteForPendingJournal = () => {");
+  const inventoryGate = app.indexOf("const requireAuthoritativeInventory = () => {");
+  const commitStart = app.indexOf("const commitGuestPantry = (");
+  const commitEnd = app.indexOf("const updatePantryAndReconcileMenu =", commitStart);
+  assert.ok(late >= 0 && inventoryGate > late && commitStart > inventoryGate);
+  assert.match(app.slice(late, inventoryGate), /hasPendingGuestMutationJournal\(localStorage\)/);
+  assert.match(app.slice(inventoryGate, commitStart), /blockLegacyGuestWriteForPendingJournal\(\)/);
+  const commit = app.slice(commitStart, commitEnd);
+  assert.ok(commit.indexOf("blockLegacyGuestWriteForPendingJournal()") >= 0);
+  assert.ok(commit.indexOf("blockLegacyGuestWriteForPendingJournal()") <
+    commit.indexOf("writeGuestPantrySafely(localStorage, nextPantry"));
+
+  for (const cache of ["balkanbite_recipes", "balkanbite_shopping",
+    "balkanbite_mealplan", "balkanbite_progression"]) {
+    const writer = app.indexOf('localStorage.setItem("'+cache+'"');
+    // Progression uses multiline setItem and shopping uses serialized data.
+    if (cache === "balkanbite_shopping" || cache === "balkanbite_progression") continue;
+    assert.ok(writer > late, `guest cache writer ${cache} must exist`);
+    assert.match(app.slice(writer - 200, writer), /blockLegacyGuestWriteForPendingJournal\(\)/);
+  }
+  assert.match(app, /if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const existingRaw = localStorage\.getItem\("balkanbite_shopping"\)/);
+  assert.match(app, /if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*localStorage\.setItem\(\s*"balkanbite_progression"/);
+});
