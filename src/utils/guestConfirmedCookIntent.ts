@@ -3,8 +3,10 @@ import {
   GUEST_PANTRY_KEY, inspectGuestPantry, writeGuestPantrySafely,
   type GuestPantryStorage,
 } from "./guestPantry";
-import { GUEST_PANTRY_SHOPPING_JOURNAL_KEY } from "./guestPantryShoppingJournal";
-import { GUEST_PURCHASE_INTENT_KEY } from "./guestConfirmedPurchaseIntent";
+import {
+  hasPendingGuestMutationJournal,
+  hasConflictingGuestMutationJournal,
+} from "./guestJournalExclusivity";
 import { deductRecipeIngredientsFromPantry } from "./pantryConsumption";
 import {
   appendProgressionEvents, buildRecipeCookProgressEvent,
@@ -173,8 +175,7 @@ export function commitConfirmedGuestCookIntent(
     return { status: "blocked", reason: "invalid-confirmation" };
   }
   try {
-    if ([GUEST_COOK_INTENT_KEY, GUEST_PURCHASE_INTENT_KEY,
-      GUEST_PANTRY_SHOPPING_JOURNAL_KEY].some(key => storage.getItem(key) !== null)) {
+    if (hasPendingGuestMutationJournal(storage)) {
       return { status: "blocked", reason: "unresolved-intent" };
     }
     const keys = [GUEST_PANTRY_KEY, PROGRESSION, RECIPES, PLAN, SHOPPING];
@@ -236,8 +237,8 @@ export function recoverConfirmedGuestCookIntent(
     if (raw === null) return { status: "none" };
     const j = validIntent(raw);
     if (!j) return { status: "blocked", reason: "invalid-intent" };
-    if ([GUEST_PURCHASE_INTENT_KEY, GUEST_PANTRY_SHOPPING_JOURNAL_KEY]
-      .some(key => storage.getItem(key) !== null) || !stableSources(storage, j)) {
+    if (hasConflictingGuestMutationJournal(storage, GUEST_COOK_INTENT_KEY) ||
+        !stableSources(storage, j)) {
       return { status: "blocked", reason: "conflict" };
     }
     const stock = storage.getItem(GUEST_PANTRY_KEY);
