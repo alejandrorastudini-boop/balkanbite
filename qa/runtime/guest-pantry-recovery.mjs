@@ -530,7 +530,7 @@ async function runRealGuestCookIntent({ silentProgressionFailure = false } = {})
     description: { en: "QA", es: "QA", bg: "QA" },
     prepTimeMin: 0, cookTimeMin: 0, costPerServingEUR: 0,
     difficulty: "easy", servings: 1, calories: 0, proteinG: 0, carbsG: 0,
-    fatG: 0, fiberG: 0, tags: [],
+    fatG: 0, fiberG: 0, tags: [], imageUrl: "/images/qa-rice.png",
     ingredients: [{ name: "QA Rice", amount: 100, unit: "g", inPantry: true }],
     instructions: { en: ["Cook"], es: ["Cocinar"], bg: ["Готви"] },
     nutritionHighlights: { en: "QA", es: "QA", bg: "QA" },
@@ -545,9 +545,20 @@ async function runRealGuestCookIntent({ silentProgressionFailure = false } = {})
       localStorage.setItem("balkanbite_profile", JSON.stringify({
         language: "en", onboardingCompleted: true,
       }));
-      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem(MAIN, JSON.stringify([{ ...valid, quantity: 5000 }]));
       localStorage.setItem("balkanbite_recipes", JSON.stringify([recipe]));
-      localStorage.setItem("balkanbite_mealplan", "[]");
+      // Match the planner's existing seven-day projection exactly. Stock
+      // remains above all 21 requirements after this 100 g deduction, so
+      // cooking need not rewrite the meal plan or any shortage shopping.
+      const today = new Date();
+      const plan = Array.from({ length: 7 }, (_, offset) => {
+        const day = new Date(today);
+        day.setDate(today.getDate() + offset);
+        const date = [day.getFullYear(), String(day.getMonth() + 1).padStart(2, "0"),
+          String(day.getDate()).padStart(2, "0")].join("-");
+        return { date, breakfast: recipe, lunch: recipe, dinner: recipe };
+      });
+      localStorage.setItem("balkanbite_mealplan", JSON.stringify(plan));
       localStorage.setItem("balkanbite_shopping", "[]");
       localStorage.setItem(PROGRESSION, "[]");
     }, { MAIN, PROGRESSION, recipe, valid });
@@ -575,7 +586,7 @@ async function runRealGuestCookIntent({ silentProgressionFailure = false } = {})
       timeout: 15000,
     });
     await page.waitForFunction(MAIN =>
-      JSON.parse(localStorage.getItem(MAIN) || "[]")?.[0]?.quantity === 400,
+      JSON.parse(localStorage.getItem(MAIN) || "[]")?.[0]?.quantity === 4900,
       MAIN, { timeout: 15000 },
     );
     if (silentProgressionFailure) {
@@ -596,7 +607,7 @@ async function runRealGuestCookIntent({ silentProgressionFailure = false } = {})
       const stock = JSON.parse(localStorage.getItem(MAIN) || "[]");
       const events = JSON.parse(localStorage.getItem(PROGRESSION) || "[]");
       return localStorage.getItem(INTENT) === null &&
-        stock.length === 1 && stock[0].quantity === 400 &&
+        stock.length === 1 && stock[0].quantity === 4900 &&
         events.length === 1 &&
         events[0].type === "recipe_cook_inventory_applied" &&
         events[0].eventId.startsWith("cook:cook-") &&
@@ -608,7 +619,7 @@ async function runRealGuestCookIntent({ silentProgressionFailure = false } = {})
       events: JSON.parse(localStorage.getItem(PROGRESSION) || "[]"),
       marker: localStorage.getItem(INTENT),
     }), { MAIN, PROGRESSION, INTENT });
-    assert.equal(final.stock[0].quantity, 400);
+    assert.equal(final.stock[0].quantity, 4900);
     assert.equal(final.events.length, 1);
     assert.equal(final.marker, null);
     evidence.checks.push(silentProgressionFailure
