@@ -3,7 +3,10 @@ import { GUEST_PANTRY_KEY, inspectGuestPantry, type GuestPantryStorage } from ".
 import { parseStoredMealPlanCache } from "./storedMealPlanValidation";
 import { parseStoredShoppingCache } from "./storedShoppingValidation";
 import { evaluateShoppingNeeds } from "./shoppingAdvisor";
-import { reconcileDerivedShortageShoppingItems } from "./derivedShortageShopping";
+import {
+  reconcileDerivedShortageShoppingItems,
+  isManagedDerivedShortageRow,
+} from "./derivedShortageShopping";
 
 const SHOPPING_KEY = "balkanbite_shopping";
 const MEAL_PLAN_KEY = "balkanbite_mealplan";
@@ -63,6 +66,13 @@ export function repairGuestDerivedShoppingOnHydration(
         !completeStoredArray(shoppingRaw, savedShopping.length)) {
       // Do not replace a malformed/partially filtered cache automatically.
       return { status: "blocked" };
+    }
+
+    // Only repair already-managed rows known to exist before the crash.
+    // A missing/newly-generated shortage needs a durable intent/journal:
+    // otherwise boot-time default demo plans could fabricate shopping entries.
+    if (!savedShopping.some(isManagedDerivedShortageRow)) {
+      return { status: "unchanged" };
     }
 
     const candidates = evaluateShoppingNeeds(
