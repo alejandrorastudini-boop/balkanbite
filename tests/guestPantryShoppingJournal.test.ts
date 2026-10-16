@@ -230,8 +230,10 @@ test("stale pantry or shopping snapshot rejects before creating a journal", () =
   assert.deepEqual(writeGuestPantryShoppingWithJournal(state.storage, {
     ...next(), expectedPantry: [{ ...rice, quantity: 999 }],
   }), { status: "blocked", reason: "stale-snapshot" });
+  const staleManual = { ...manual, quantity: 999 };
   assert.deepEqual(writeGuestPantryShoppingWithJournal(state.storage, {
-    ...next(), expectedShopping: [{ ...manual, quantity: 999 }],
+    ...next(), expectedShopping: [staleManual],
+    nextShopping: [staleManual, newShortage],
   }), { status: "blocked", reason: "stale-snapshot" });
   assert.equal(state.raw.get(JOURNAL), undefined);
 });
