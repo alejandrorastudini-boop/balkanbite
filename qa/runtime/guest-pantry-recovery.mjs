@@ -149,7 +149,13 @@ async function runFailedGuestQuantityWrite({ silent = false } = {}) {
     }, { MAIN, silent });
 
     await page.getByRole("button", { name: "Increase quantity" }).click();
-    await page.getByTestId("guest-pantry-recovery").getByText(/could not be protected/i).waitFor({ state: "visible", timeout: 12000 });
+    // The old direct writer and new journal writer signal storage failure in
+    // different banners. The assertions below still require unchanged bytes
+    // and unchanged displayed stock, never an optimistic write.
+    await page.locator(
+      '[data-testid="guest-pantry-recovery"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
+    ).filter({ hasText: /could not be protected|shopping list could not be confirmed|unfinished local operation/i })
+      .first().waitFor({ state: "visible", timeout: 12000 });
     const after = await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
     assert.equal(after, before, "failed writes must keep original storage");
     const riceCard = page.getByText("QA Rice", { exact: true }).locator("xpath=ancestor::div[contains(@class, 'group')][1]");
