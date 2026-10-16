@@ -1383,6 +1383,21 @@ async function runTwoTabVoicePurchaseRecovery() {
         localStorage.getItem(INTENT) !== null;
     }, { MAIN, INTENT }, { timeout: 15000 });
 
+    // Keep the same synthetic receipt-write failure active in BOTH browser
+    // tabs. A blocked mutation can trigger an eager journal recovery in the
+    // other tab; without this interception it may legitimately complete
+    // the receipt and clear the marker before our assertions run.
+    await purchaseTab.evaluate(RECEIPTS => {
+      const original = Storage.prototype.setItem;
+      window.__qaTwoTabRecoveryReceiptWrites = 0;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === RECEIPTS) {
+          window.__qaTwoTabRecoveryReceiptWrites++;
+          return;
+        }
+        return original.call(this, key, value);
+      };
+    }, RECEIPTS);
     // A different real browser tab must refuse purchase while the voice WAL
     // is incomplete. No optimistic milk stock/progression may be published.
     await purchaseTab.locator("#transfer-to-pantry-btn").click();
