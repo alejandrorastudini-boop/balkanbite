@@ -236,7 +236,7 @@ test("changed plan, unrelated shopping, or progression during recovery stays unt
     const externalValue = key === GUEST_PANTRY_KEY ? "[]" : key === PROGRESS
       ? JSON.stringify([{ version: 1, eventId: "cook:other", type: "recipe_cook_inventory_applied",
         occurredAt: "2026-10-16T09:00:00Z", evidence: "deterministic_state_transition", evidenceCount: 1 }])
-      : key === SHOPPING ? JSON.stringify([manual])
+      : key === SHOPPING ? JSON.stringify([{ ...manual, quantity: 99 }])
       : "[{\"date\":\"2026-10-17\"}]";
     a.data.set(key, externalValue);
     const before = a.data.get(key);
