@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { ChatMessage, Language, PantryItem, MealLog } from "../types";
 import { t } from "../utils/translations";
+import { parseChefNavigationIntent, chefNavigationFeedback, type ChefNavigationTab } from "../utils/chefNavigationIntent";
 import { parseDeterministicRemovalIntent, type DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
@@ -38,6 +39,7 @@ interface VoiceChefViewProps {
   onDeductItemsFromPantry: (items: any[], mutationId: string, purpose: DeterministicRemovalPurpose, lotEvidence?: readonly ConfirmedVoiceLotEvidence[]) => boolean | Promise<boolean>;
   exactLotReviewEnabled?: boolean;
   onNavigateToRecipes: (query?: string) => void;
+  onNavigateToTab: (tab: ChefNavigationTab) => void;
   onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
   profileAuthorityReady?: boolean;
@@ -55,6 +57,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   onDeductItemsFromPantry,
   exactLotReviewEnabled = false,
   onNavigateToRecipes,
+  onNavigateToTab,
   onLogMeal,
   foodSafety,
   profileAuthorityReady = true,
@@ -464,6 +467,23 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
 
     onUpdateChatMessages((prev) => [...prev, userMsg]);
     setInputText("");
+
+    // Navigation is read-only, deterministic, and visibly changes the active
+    // screen without an AI request or an unreviewed inventory/health mutation.
+    // Ambiguous or compound instructions remain on the existing Chef path.
+    const navigation = parseChefNavigationIntent(text);
+    if (navigation) {
+      const feedback = chefNavigationFeedback(navigation.tab, language);
+      onUpdateChatMessages((prev) => [...prev, {
+        id: `ai-nav-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+        sender: "assistant",
+        text: feedback,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+      speakText(feedback);
+      onNavigateToTab(navigation.tab);
+      return;
+    }
     setIsProcessing(true);
 
     try {
@@ -481,6 +501,11 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       });
 
       const data = await res.json();
+      // A 503/failed model call cannot masquerade as a successfully processed
+      // conversational command through the default "got it" fallback.
+      if (!res.ok || data?.success === false) {
+        throw new Error("Chef IA intent response unavailable");
+      }
       const parsedRemoval = parseDeterministicRemovalIntent(text, pantry);
       const deterministicRemoval =
         !data.actionType || data.actionType === "ANSWER"
