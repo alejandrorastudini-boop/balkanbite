@@ -95,6 +95,10 @@ import {
   recoverGuestPantryShoppingJournal,
   writeGuestPantryWithDerivedShoppingJournal,
 } from "./utils/guestPantryShoppingJournal";
+import {
+  GUEST_PURCHASE_INTENT_KEY,
+  recoverConfirmedGuestPurchaseIntent,
+} from "./utils/guestConfirmedPurchaseIntent";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
   buildMealLogPreservingNutritionUncertainty,
@@ -129,7 +133,9 @@ export default function App() {
   const [guestDerivedShoppingRecoveryProblem, setGuestDerivedShoppingRecoveryProblem] = useState(false);
   const [guestJournalRecoveryStatus, setGuestJournalRecoveryStatus] = useState<"clear" | "pending" | "blocked">(() => {
     try {
-      return localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) === null ? "clear" : "pending";
+      return localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) === null &&
+        localStorage.getItem(GUEST_PURCHASE_INTENT_KEY) === null
+        ? "clear" : "pending";
     } catch {
       return "blocked";
     }
@@ -458,7 +464,10 @@ export default function App() {
 
     // Recheck for a journal created during a previous authenticated session.
     try {
-      if (localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) !== null) setGuestJournalRecoveryStatus("pending");
+      if (localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) !== null ||
+          localStorage.getItem(GUEST_PURCHASE_INTENT_KEY) !== null) {
+        setGuestJournalRecoveryStatus("pending");
+      }
     } catch {
       setGuestJournalRecoveryStatus("blocked");
     }
@@ -533,8 +542,16 @@ export default function App() {
         pantryScope !== "guest" || workspaceScope !== "guest" ||
         guestJournalRecoveryStatus === "clear") return;
 
-    // Only completes the derived shopping write, never re-executes a purchase
-    // or a consumption. Other guest writers wait for the recovered snapshot.
+    // Order matters: purchase recovery must finish or block BEFORE React
+    // hydration writers may publish shopping/progression. Recovery NEVER
+    // reapplies an acquisition: it verifies the pantry after-snapshot and
+    // restores only shopping/progression bytes when their baselines match.
+    const purchaseRecovery = recoverConfirmedGuestPurchaseIntent(localStorage);
+    if (purchaseRecovery.status === "blocked") {
+      setGuestJournalRecoveryStatus("blocked");
+      setGuestDerivedShoppingRecoveryProblem(true);
+      return;
+    }
     const recovery = recoverGuestPantryShoppingJournal(localStorage);
     if (recovery.status === "blocked") {
       setGuestJournalRecoveryStatus("blocked");
@@ -547,6 +564,23 @@ export default function App() {
       setGuestJournalRecoveryStatus("blocked");
       setGuestDerivedShoppingRecoveryProblem(true);
       return;
+    }
+    if (purchaseRecovery.status !== "none") {
+      const rawProgression = localStorage.getItem("balkanbite_progression");
+      // No journal can justify replacing unknown historical progression with
+      // an empty ledger; reject a malformed/filtered cache for review.
+      let completeProgression = false;
+      try {
+        const decoded: unknown = rawProgression === null ? null : JSON.parse(rawProgression);
+        completeProgression = Array.isArray(decoded) &&
+          parseProgressionLedgerCache(rawProgression).length === decoded.length;
+      } catch { /* keep original bytes for assisted review */ }
+      if (!completeProgression) {
+        setGuestJournalRecoveryStatus("blocked");
+        setGuestDerivedShoppingRecoveryProblem(true);
+        return;
+      }
+      setProgressionLedger(parseProgressionLedgerCache(rawProgression));
     }
     if (savedShopping !== null) setShoppingList(savedShopping);
     setGuestJournalRecoveryStatus("clear");
@@ -730,7 +764,8 @@ export default function App() {
   }, [chatMessages, currentUser, workspaceScope, isResetting]);
 
   useEffect(() => {
-    if (isResetting || currentUser || workspaceScope !== "guest") return;
+    if (isResetting || currentUser || workspaceScope !== "guest" ||
+        guestJournalRecoveryStatus !== "clear") return;
     try {
       localStorage.setItem(
         "balkanbite_progression",
@@ -739,10 +774,11 @@ export default function App() {
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [progressionLedger, currentUser, workspaceScope, isResetting]);
+  }, [progressionLedger, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus]);
 
   const appendLocalProgressionEvents = (events: readonly unknown[]) => {
     if (events.length === 0) return;
+    if (!currentUser && guestJournalRecoveryStatus !== "clear") return;
     const expectedScope = currentUser?.uid ?? "guest";
     if (workspaceScope !== expectedScope) return;
 
