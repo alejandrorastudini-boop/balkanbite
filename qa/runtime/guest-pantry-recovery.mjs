@@ -1028,6 +1028,100 @@ async function runGuestJournalHydration(mode) {
   }
 }
 
+async function runLateGuestJournalPreventsLegacyWrite(mode) {
+  // A second tab can stage a journal after this tab has finished hydrating.
+  // The React boot status is still "clear", so every legacy write must
+  // re-read the real shared markers instead of overwriting another intent.
+  const marker = mode === "legacy-pantry"
+    ? "balkanbite_guest_cook_derived_intent_v1"
+    : "balkanbite_guest_purchase_intent_v1";
+  const manual = {
+    id: "qa-late-journal-manual", name: "QA Salt", quantity: 1,
+    unit: "kg", category: "Other", checked: false,
+    amountOrigin: "user_entered", purchaseAmountConfirmed: false,
+  };
+  const SHOPPING = "balkanbite_shopping";
+  const RECIPES = "balkanbite_recipes";
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, SHOPPING, manual, valid }) => {
+      if (sessionStorage.getItem("__qa_late_journal_seeded")) return;
+      sessionStorage.setItem("__qa_late_journal_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem(SHOPPING, JSON.stringify([manual]));
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
+    }, { MAIN, SHOPPING, manual, valid });
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    if (mode === "legacy-pantry") {
+      await page.locator("#nav-tab-pantry").click();
+      await page.locator(`#pantry-item-${valid.id}`).waitFor({
+        state: "visible", timeout: 15000,
+      });
+    } else {
+      await page.locator("#nav-tab-shopping").click();
+      await page.locator(`#shopping-item-${manual.id}`).waitFor({
+        state: "visible", timeout: 15000,
+      });
+    }
+
+    const before = await page.evaluate(({ MAIN, SHOPPING }) => ({
+      pantry: localStorage.getItem(MAIN),
+      shopping: localStorage.getItem(SHOPPING),
+    }), { MAIN, SHOPPING });
+    const historical = "{legacy recipe evidence";
+    await page.evaluate(({ marker, mode, RECIPES, historical }) => {
+      localStorage.setItem(marker, "synthetic unfinished cross-tab journal");
+      // Make the normal quantity-WAL route deliberately ineligible so
+      // the legacy commitGuestPantry guard is actually exercised.
+      if (mode === "legacy-pantry") localStorage.setItem(RECIPES, historical);
+    }, { marker, mode, RECIPES, historical });
+    if (mode === "legacy-pantry") {
+      await page.locator(`#pantry-item-${valid.id}`)
+        .getByRole("button", { name: "Increase quantity" }).click();
+    } else {
+      await page.locator(`#shopping-item-${manual.id}`)
+        .getByRole("button", { name: /Confirm purchase of/i }).click();
+    }
+    await page.getByTestId("guest-journal-recovery-warning").waitFor({
+      state: "visible", timeout: 15000,
+    });
+    const after = await page.evaluate(({ MAIN, SHOPPING, RECIPES, marker }) => ({
+      pantry: localStorage.getItem(MAIN),
+      shopping: localStorage.getItem(SHOPPING),
+      recipes: localStorage.getItem(RECIPES),
+      pending: localStorage.getItem(marker),
+    }), { MAIN, SHOPPING, RECIPES, marker });
+    assert.equal(after.pantry, before.pantry, "no legacy pantry overwrite with active cross-tab WAL");
+    assert.equal(after.shopping, before.shopping, "no shopping effect overwrite with active cross-tab WAL");
+    assert.equal(after.pending, "synthetic unfinished cross-tab journal",
+      "unrecognized pending WAL bytes must remain intact for review");
+    if (mode === "legacy-pantry") {
+      assert.equal(after.recipes, historical,
+        "invalid historical recipe evidence cannot be sanitized by a legacy write");
+      assert.equal(await page.locator(`#pantry-item-${valid.id}`)
+        .getByText("550", { exact: false }).count(), 0,
+        "rejected pantry edit must not appear as confirmed stock");
+    }
+    evidence.checks.push(mode === "legacy-pantry"
+      ? "late-pending-wal-refuses-direct-legacy-pantry-commit"
+      : "late-pending-wal-freezes-legacy-shopping-effect");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runTwoTabStaleInventory() {
   const context = await browser.newContext();
   const pages = [];
@@ -1095,6 +1189,8 @@ async function runTwoTabStaleInventory() {
 try {
   await runGuestPantryAddEditDeleteReload();
   await runTwoTabStaleInventory();
+  await runLateGuestJournalPreventsLegacyWrite("legacy-pantry");
+  await runLateGuestJournalPreventsLegacyWrite("shopping-effect");
   await runFailedGuestQuantityWrite();
   await runFailedGuestQuantityWrite({ silent: true });
   await runGuestDerivedShoppingSilentFailure();
