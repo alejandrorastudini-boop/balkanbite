@@ -2375,6 +2375,7 @@ export default function App() {
   };
 
   const handleVoiceAddShoppingItems = async (items: any[]): Promise<boolean> => {
+    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
     const now = Date.now();
     const result = buildConfirmedVoiceShoppingItems(
       items || [],
