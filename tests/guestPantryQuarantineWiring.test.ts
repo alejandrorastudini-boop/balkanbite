@@ -45,7 +45,7 @@ test("guest recovery consent never survives signed-in and guest scope transition
 
 
 test("incomplete guest pantry suppresses derived shopping warnings and suggestions", () => {
-  assert.match(app, /const pantryDerivedDataProvisional = inventoryIsProvisional \|\| guestPantryReviewPending/);
+  assert.match(app, /const pantryDerivedDataProvisional\s*=\s*inventoryIsProvisional \|\| guestPantryReviewPending \|\| guestDerivedShoppingRecoveryProblem/);
   assert.match(app, /if \(pantryDerivedDataProvisional\) return;/);
   assert.match(app, /pantryDerivedDataProvisional \? undefined : shoppingDiagnostic\.urgencyLevel/);
   assert.match(app, /\{!pantryDerivedDataProvisional && \(\s*<SmartShoppingBanner/);
