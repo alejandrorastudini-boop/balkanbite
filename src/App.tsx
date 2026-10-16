@@ -110,6 +110,7 @@ import {
   commitDerivedGuestCookIntent,
   recoverDerivedGuestCookIntent,
 } from "./utils/guestCookDerivedIntent";
+import { hasPendingGuestMutationJournal } from "./utils/guestJournalExclusivity";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
   buildMealLogPreservingNutritionUncertainty,
@@ -683,9 +684,27 @@ export default function App() {
     }
   }, [currentUser, firebaseLoading, pantryScope, isResetting, guestJournalRecoveryStatus]);
 
+  /**
+   * A journal can appear in another guest tab after this tab finished
+   * hydration. React's own guest persistence effects must re-read all WAL
+   * markers immediately before writing, not trust their initial clear state.
+   * This is best-effort conflict detection (localStorage has no atomic CAS).
+   */
+  const blockLegacyGuestWriteForPendingJournal = (): boolean => {
+    try {
+      if (!hasPendingGuestMutationJournal(localStorage)) return false;
+    } catch (error) {
+      console.warn("Unable to verify guest transaction markers", error);
+    }
+    setGuestJournalRecoveryStatus("blocked");
+    setGuestDerivedShoppingRecoveryProblem(true);
+    return true;
+  };
+
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
         guestJournalRecoveryStatus !== "clear") return;
+    if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
       localStorage.setItem("balkanbite_recipes", JSON.stringify(recipes));
     } catch (e) {
@@ -696,6 +715,7 @@ export default function App() {
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
         guestJournalRecoveryStatus !== "clear") return;
+    if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
       const existingRaw = localStorage.getItem("balkanbite_shopping");
       if (!guestShoppingCacheIsComplete(existingRaw)) {
@@ -791,6 +811,7 @@ export default function App() {
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
         guestJournalRecoveryStatus !== "clear") return;
+    if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
       localStorage.setItem("balkanbite_mealplan", JSON.stringify(mealPlan));
     } catch (e) {
@@ -822,6 +843,7 @@ export default function App() {
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
         guestJournalRecoveryStatus !== "clear") return;
+    if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
       localStorage.setItem(
         "balkanbite_progression",
@@ -834,7 +856,8 @@ export default function App() {
 
   const appendLocalProgressionEvents = (events: readonly unknown[]) => {
     if (events.length === 0) return;
-    if (!currentUser && guestJournalRecoveryStatus !== "clear") return;
+    if (!currentUser && (guestJournalRecoveryStatus !== "clear" ||
+        blockLegacyGuestWriteForPendingJournal())) return;
     const expectedScope = currentUser?.uid ?? "guest";
     if (workspaceScope !== expectedScope) return;
 
@@ -991,6 +1014,14 @@ export default function App() {
     { reconcile = true, showToast = true }: { reconcile?: boolean; showToast?: boolean } = {},
   ): boolean => {
     if (currentUser || pantryScope !== "guest") return false;
+    if (blockLegacyGuestWriteForPendingJournal()) {
+      alert(profile.language === "bg"
+        ? "Има незавършена локална операция. Презаредете и прегледайте данните, преди да промените наличностите."
+        : profile.language === "es"
+        ? "Hay una operación local pendiente. Recarga y revisa los datos antes de modificar la despensa."
+        : "A local operation is unfinished. Reload and review the data before editing pantry stock.");
+      return false;
+    }
     // Commit local storage BEFORE publishing a changed stock or propagating
     // recipes, menus, shopping shortages, or progression events.
     const result = writeGuestPantrySafely(localStorage, nextPantry, guestPantryCommittedRef.current);
