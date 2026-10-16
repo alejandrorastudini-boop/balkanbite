@@ -402,6 +402,120 @@ async function runGuestDerivedShoppingSilentFailure() {
   }
 }
 
+async function runRealQuantityJournalCommit({ silentShoppingFailure = false } = {}) {
+  // Real UI quantity edit, not an artificially seeded journal: capture a
+  // newly-created WAL marker before the stock write and verify reload.
+  const JOURNAL = "balkanbite_guest_pantry_shopping_journal_v1";
+  const SHOPPING = "balkanbite_shopping";
+  const planDay = new Date().toLocaleDateString("en-CA");
+  const plannedRecipe = {
+    id: "qa-journal-live-plan",
+    title: { en: "QA rice planned", es: "QA arroz", bg: "QA ориз" },
+    description: { en: "QA only", es: "QA prueba", bg: "QA тест" },
+    prepTimeMin: 0, cookTimeMin: 0, costPerServingEUR: 0, difficulty: "easy",
+    servings: 1, calories: 0, proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0,
+    nutritionDataStatus: "estimated", costDataStatus: "estimated", tags: [],
+    ingredients: [{ name: "QA Rice", amount: 620, unit: "g", inPantry: false }],
+    instructions: { en: ["QA step"], es: ["QA paso"], bg: ["QA стъпка"] },
+    nutritionHighlights: { en: "QA only", es: "QA", bg: "QA" },
+  };
+  const manual = {
+    id: "qa-live-manual-item", name: "QA manual milk", quantity: 1, unit: "l",
+    category: "Dairy", checked: false, amountOrigin: "user_entered",
+    purchaseAmountConfirmed: false,
+  };
+  const hashSource = "qa rice::mass";
+  let hash = 2166136261;
+  for (const char of hashSource) {
+    hash ^= char.charCodeAt(0);
+    hash = Math.imul(hash, 16777619);
+  }
+  const managedId = `shortage-v1:${(hash >>> 0).toString(36)}`;
+  const managed = {
+    id: managedId, name: "QA Rice", quantity: 120, unit: "g", category: "Other",
+    checked: false, amountOrigin: "deterministic_shortfall",
+    purchaseAmountConfirmed: false,
+    reason: "For QA rice planned (Today)",
+  };
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, SHOPPING, valid, plannedRecipe, planDay, manual, managed }) => {
+      if (sessionStorage.getItem("__qa_live_journal_seeded")) return;
+      sessionStorage.setItem("__qa_live_journal_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", JSON.stringify([
+        { date: planDay, lunch: plannedRecipe },
+      ]));
+      localStorage.setItem(SHOPPING, JSON.stringify([manual, managed]));
+    }, { MAIN, SHOPPING, valid, plannedRecipe, planDay, manual, managed });
+    page = await context.newPage();
+    page.on("dialog", d => d.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-pantry").click();
+    await page.locator(`#pantry-item-${valid.id}`).waitFor({ state: "visible" });
+    await page.evaluate(({ JOURNAL, SHOPPING, silentShoppingFailure }) => {
+      const native = Storage.prototype.setItem;
+      window.__qaWALStages = 0;
+      window.__qaLiveShoppingFailures = 0;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === JOURNAL) window.__qaWALStages++;
+        if (key === SHOPPING && silentShoppingFailure) {
+          window.__qaLiveShoppingFailures++;
+          return;
+        }
+        return native.call(this, key, value);
+      };
+    }, { JOURNAL, SHOPPING, silentShoppingFailure });
+    await page.locator(`#pantry-item-${valid.id}`).getByRole("button", {
+      name: "Increase quantity",
+    }).click();
+    await page.waitForFunction(() => window.__qaWALStages > 0, null, {
+      timeout: 12000,
+    });
+    await page.waitForFunction(MAIN => JSON.parse(localStorage.getItem(MAIN))[0].quantity === 550,
+      MAIN, { timeout: 12000 });
+    if (silentShoppingFailure) {
+      await page.getByTestId("guest-journal-recovery-warning")
+        .waitFor({ state: "visible", timeout: 12000 });
+      assert.equal(await page.evaluate(({ JOURNAL }) => localStorage.getItem(JOURNAL) !== null,
+        { JOURNAL }), true, "failed shopping write must preserve WAL");
+      assert.equal(await page.evaluate(({ SHOPPING, managedId }) =>
+        JSON.parse(localStorage.getItem(SHOPPING))
+          .find(x => x.id === managedId)?.quantity,
+        { SHOPPING, managedId }), 120, "do not claim 70g shortage committed");
+    } else {
+      assert.equal(await page.evaluate(JOURNAL => localStorage.getItem(JOURNAL), JOURNAL),
+        null, "successful operation must clean WAL");
+    }
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForFunction(({ MAIN, SHOPPING, JOURNAL, managedId }) => {
+      const stock = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      const items = JSON.parse(localStorage.getItem(SHOPPING) || "[]");
+      const shortage = items.find(item => item.id === managedId);
+      return stock.length === 1 && stock[0].quantity === 550 &&
+        shortage?.quantity === 70 && localStorage.getItem(JOURNAL) === null;
+    }, { MAIN, SHOPPING, JOURNAL, managedId }, { timeout: 15000 });
+    const list = JSON.parse(await page.evaluate(SHOPPING => localStorage.getItem(SHOPPING), SHOPPING));
+    assert.deepEqual(list.find(x => x.id === manual.id), manual,
+      "manually-entered shopping data must not change");
+    assert.equal(list.find(x => x.id === managedId)?.quantity, 70);
+    evidence.checks.push(silentShoppingFailure
+      ? "real-ui-quantity-journal-replays-after-shopping-write-failure"
+      : "real-ui-quantity-journal-commits-derived-shortfall");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runGuestJournalHydration(mode) {
   const JOURNAL = "balkanbite_guest_pantry_shopping_journal_v1";
   const SHOPPING = "balkanbite_shopping";
@@ -574,6 +688,8 @@ try {
   await runFailedGuestQuantityWrite();
   await runFailedGuestQuantityWrite({ silent: true });
   await runGuestDerivedShoppingSilentFailure();
+  await runRealQuantityJournalCommit();
+  await runRealQuantityJournalCommit({ silentShoppingFailure: true });
   await runMalformedGuestShoppingOnStartup();
   for (const mode of ["applied", "unapplied", "conflict", "malformed"]) {
     await runGuestJournalHydration(mode);
