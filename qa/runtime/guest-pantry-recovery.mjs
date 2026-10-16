@@ -1311,8 +1311,72 @@ async function runTwoTabStaleInventory() {
   }
 }
 
+async function runChefReadOnlyNavigationAndFailure() {
+  const context = await browser.newContext();
+  let page;
+  let parseIntentRequests = 0;
+  try {
+    await context.addInitScript(({ MAIN, valid }) => {
+      if (sessionStorage.getItem("__qa_chef_navigation_seeded")) return;
+      sessionStorage.setItem("__qa_chef_navigation_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_shopping", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
+    }, { MAIN, valid });
+    await context.route("**/api/ai/parse-intent", async route => {
+      parseIntentRequests++;
+      await route.fulfill({
+        status: 503, contentType: "application/json",
+        body: JSON.stringify({
+          success: false, error: "Synthetic unavailable AI",
+          actionType: "ANSWER", items: [], mealLog: null,
+        }),
+      });
+    });
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    const before = await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
+    await page.locator("#chef-ia-floating-btn").click();
+    await page.locator("#chef-ia-modal-panel").waitFor({ state: "visible", timeout: 15000 });
+    await page.locator("#voice-text-input").fill("Show me my pantry");
+    await page.locator("#voice-send-btn").click();
+    await page.locator("#chef-ia-modal-panel").waitFor({ state: "hidden", timeout: 15000 });
+    await page.locator(`#pantry-item-${valid.id}`).waitFor({ state: "visible", timeout: 15000 });
+    assert.equal(parseIntentRequests, 0, "read-only navigation must not call paid or unavailable AI");
+    assert.equal(await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN), before,
+      "navigation cannot mutate known pantry quantities");
+    await page.locator("#chef-ia-floating-btn").click();
+    await page.getByText("Opening your pantry.", { exact: true })
+      .waitFor({ state: "visible", timeout: 15000 });
+    await page.locator("#voice-text-input").fill("What could I cook this weekend?");
+    await page.locator("#voice-send-btn").click();
+    await page.getByText("Sorry, I had a brief issue processing that. Please try again.", {
+      exact: true,
+    }).waitFor({ state: "visible", timeout: 15000 });
+    assert.equal(parseIntentRequests, 1, "non-navigation request must reach existing interpreter");
+    assert.equal(await page.getByText("Got it! Processed your request.", { exact: true }).count(), 0,
+      "HTTP 503 cannot masquerade as a successful command");
+    assert.equal(await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN), before,
+      "an AI failure cannot overwrite pantry evidence");
+    evidence.checks.push("chef-local-navigation-visible-no-ai-and-http-failure-honest");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 try {
   await runGuestPantryAddEditDeleteReload();
+  await runChefReadOnlyNavigationAndFailure();
   await runTwoTabStaleInventory();
   await runLateGuestJournalPreventsLegacyWrite("legacy-pantry");
   await runLateGuestJournalPreventsLegacyWrite("shopping-effect");
