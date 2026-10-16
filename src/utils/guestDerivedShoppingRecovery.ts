@@ -24,6 +24,17 @@ function completeStoredArray(raw: string, acceptedLength: number): boolean {
 }
 
 /**
+ * A guest shopping cache must never be replaced by the parsed subset of
+ * malformed historical rows. Preserve original bytes until recovery is
+ * explicitly supported. Null (never saved) is a valid new-guest state.
+ */
+export function guestShoppingCacheIsComplete(raw: string | null): boolean {
+  if (raw === null) return true;
+  const parsed = parseStoredShoppingCache(raw);
+  return parsed !== null && completeStoredArray(raw, parsed.length);
+}
+
+/**
  * Reconcile ONLY app-managed shortage rows after guest hydration.
  *
  * This is a deterministic, best-effort recovery for an interrupted derived
