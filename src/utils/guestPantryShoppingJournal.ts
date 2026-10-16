@@ -1,11 +1,15 @@
-import type { PantryItem, ShoppingItem } from "../types";
+import type { Language, PantryItem, ShoppingItem } from "../types";
+import { evaluateShoppingNeeds } from "./shoppingAdvisor";
 import {
   GUEST_PANTRY_KEY,
   inspectGuestPantry,
   writeGuestPantrySafely,
   type GuestPantryStorage,
 } from "./guestPantry";
-import { isManagedDerivedShortageRow } from "./derivedShortageShopping";
+import {
+  isManagedDerivedShortageRow,
+  reconcileDerivedShortageShoppingItems,
+} from "./derivedShortageShopping";
 import { parseStoredMealPlanCache } from "./storedMealPlanValidation";
 import { parseStoredShoppingCache } from "./storedShoppingValidation";
 
@@ -35,6 +39,8 @@ export interface GuestPantryShoppingWrite {
   nextPantry: readonly PantryItem[];
   expectedShopping: readonly ShoppingItem[];
   nextShopping: readonly ShoppingItem[];
+  /** Protect the plan used to compute shortfalls against concurrent changes. */
+  expectedMealPlanRaw: string;
 }
 
 export type GuestJournalWriteResult =
@@ -160,6 +166,9 @@ export function writeGuestPantryShoppingWithJournal(
         completeShopping(shoppingBeforeRaw) === null) {
       return { status: "blocked", reason: "invalid-input" };
     }
+    if (mealPlanRaw !== write.expectedMealPlanRaw) {
+      return { status: "blocked", reason: "stale-snapshot" };
+    }
     // Reject stale React snapshots even if stored JSON has harmless whitespace.
     if (JSON.stringify(completePantry(pantryBeforeRaw)) !== beforePantry ||
         JSON.stringify(completeShopping(shoppingBeforeRaw)) !== beforeShopping) {
@@ -256,6 +265,56 @@ export function recoverGuestPantryShoppingJournal(
     return finishJournal(storage, raw)
       ? { status: "shopping-replayed" }
       : { status: "blocked", reason: "storage-unavailable" };
+  } catch {
+    return { status: "blocked", reason: "storage-unavailable" };
+  }
+}
+
+/**
+ * Safe future App entrypoint: calculate shortfalls from the exact saved plan,
+ * confirmed post-change stock, and actual saved shopping rows. Caller-provided
+ * item names/amounts are not accepted as fresh shortage facts.
+ *
+ * Still requires App integration/QA; the currently changing recipe/plan
+ * projection is NOT included in this two-key journal.
+ */
+export function writeGuestPantryWithDerivedShoppingJournal(
+  storage: GuestJournalStorage,
+  command: {
+    operationId: string;
+    expectedPantry: readonly PantryItem[];
+    nextPantry: readonly PantryItem[];
+    language: Language;
+    now?: Date;
+  },
+): GuestJournalWriteResult {
+  if (!["bg", "en", "es"].includes(command.language)) {
+    return { status: "blocked", reason: "invalid-input" };
+  }
+  try {
+    const planRaw = storage.getItem(PLAN_KEY);
+    const shoppingRaw = storage.getItem(SHOPPING_KEY);
+    if (planRaw === null || shoppingRaw === null || !completePlan(planRaw)) {
+      return { status: "blocked", reason: "invalid-input" };
+    }
+    const plan = parseStoredMealPlanCache(planRaw);
+    const shopping = completeShopping(shoppingRaw);
+    if (!plan || !shopping || serializedValidPantry(command.nextPantry) === null) {
+      return { status: "blocked", reason: "invalid-input" };
+    }
+
+    const proposals = evaluateShoppingNeeds(
+      [...command.nextPantry], plan, shopping, command.language, command.now,
+    ).itemsToAddToShoppingList;
+    const derived = reconcileDerivedShortageShoppingItems(shopping, proposals).next;
+    return writeGuestPantryShoppingWithJournal(storage, {
+      operationId: command.operationId,
+      expectedPantry: command.expectedPantry,
+      nextPantry: command.nextPantry,
+      expectedShopping: shopping,
+      nextShopping: derived,
+      expectedMealPlanRaw: planRaw,
+    });
   } catch {
     return { status: "blocked", reason: "storage-unavailable" };
   }
