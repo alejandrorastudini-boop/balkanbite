@@ -2690,10 +2690,10 @@ export default function App() {
           <section role="alert" data-testid="guest-shopping-consistency-warning"
             className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
             {profile.language === "bg"
-              ? "Наличностите са запазени, но списъкът за пазаруване не можа да бъде потвърден. Предложенията за липсващи продукти са спрени. Проверете съхранението и презаредете, за да опитате безопасно възстановяване."
+              ? "Не успяхме да потвърдим, че наличностите и списъкът за пазаруване са синхронизирани. Промените и автоматичните предложения са спрени. Прегледайте данните и презаредете."
               : profile.language === "es"
-              ? "La despensa está guardada, pero no se ha podido confirmar la lista de compra. Se suspenden las sugerencias de faltantes. Revisa el almacenamiento y recarga para intentar una recuperación segura."
-              : "Pantry stock was saved, but the shopping list could not be confirmed. Generated shortage suggestions are paused. Check storage and reload to attempt safe recovery."}
+              ? "No se ha podido confirmar que la despensa y la lista de compra estén sincronizadas. Se suspenden los cambios y faltantes automáticos. Revisa los datos y recarga."
+              : "Pantry and shopping consistency could not be confirmed. Edits and generated shortages are paused. Review the data and reload."}
           </section>
         )}
         {!currentUser && guestPantryRecovery !== "none" && (
