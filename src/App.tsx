@@ -3430,6 +3430,7 @@ export default function App() {
               onDeductItemsFromPantry={handleVoiceDeductItems}
               exactLotReviewEnabled={Boolean(currentUser)}
               onNavigateToRecipes={handleVoiceNavigateToRecipes}
+              onNavigateToTab={setActiveTab}
               onLogMeal={handleLogMeal}
               foodSafety={foodSafetyQuarantine}
               profileAuthorityReady={!currentUser || profileHydrated}
@@ -3488,6 +3489,7 @@ export default function App() {
           onDeductItemsFromPantry={handleVoiceDeductItems}
               exactLotReviewEnabled={Boolean(currentUser)}
           onNavigateToRecipes={handleVoiceNavigateToRecipes}
+              onNavigateToTab={setActiveTab}
           onLogMeal={handleLogMeal}
           foodSafety={foodSafetyQuarantine}
           profileAuthorityReady={!currentUser || profileHydrated}
