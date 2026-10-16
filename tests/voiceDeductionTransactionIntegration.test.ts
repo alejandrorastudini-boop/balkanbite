@@ -126,7 +126,7 @@ test("App caches reviewed deductions and exact expected remainder before dispatc
     "signed-in branch must never mutate pantry optimistically",
   );
 
-  const catchIndex = block.indexOf("catch (error)");
+  const catchIndex = block.lastIndexOf("catch (error)");
   assert.ok(catchIndex >= 0);
   assert.equal(
     block.slice(catchIndex).includes(
