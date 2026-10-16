@@ -2,10 +2,12 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import type { PantryItem, ShoppingItem } from "../src/types";
 import { GUEST_PANTRY_KEY } from "../src/utils/guestPantry";
+import { SAMPLE_RECIPES } from "../src/data/initialData";
 import {
   GUEST_PANTRY_SHOPPING_JOURNAL_KEY as JOURNAL,
   recoverGuestPantryShoppingJournal,
   writeGuestPantryShoppingWithJournal,
+  writeGuestPantryWithDerivedShoppingJournal,
   type GuestJournalStorage,
 } from "../src/utils/guestPantryShoppingJournal";
 
@@ -67,6 +69,7 @@ const next = () => ({
   nextPantry: [afterRice],
   expectedShopping: [manual],
   nextShopping: [manual, newShortage],
+  expectedMealPlanRaw: "[]",
 });
 
 test("two-key WAL stages, persists pantry and shopping, then clears only its marker", () => {
@@ -279,4 +282,69 @@ test("silent shopping writes during recovery preserve WAL and do not claim repai
   });
   assert.ok(state.raw.get(JOURNAL));
   assert.deepEqual(JSON.parse(state.raw.get(SHOPPING)!), [manual]);
+});
+
+test("derived journal computes a new shortfall only from stored valid menu facts", () => {
+  const now = new Date(2026, 9, 16, 12, 0, 0);
+  const plan = JSON.stringify([{ date: "2026-10-16", lunch: SAMPLE_RECIPES[1] }]);
+  const state = fixture({ planRaw: plan });
+  assert.deepEqual(writeGuestPantryWithDerivedShoppingJournal(state.storage, {
+    operationId: "qa-derived-shortfall",
+    expectedPantry: [rice],
+    nextPantry: [afterRice],
+    language: "es",
+    now,
+  }), { status: "saved" });
+  const rows = JSON.parse(state.raw.get(SHOPPING)!) as ShoppingItem[];
+  assert.deepEqual(rows[0], manual, "manual shopping row remains identical");
+  const lentils = rows.find(row => row.name === "Lentejas");
+  assert.ok(lentils, "only existing stored menu ingredients can generate needs");
+  assert.equal(lentils.amountOrigin, "deterministic_shortfall");
+  assert.equal(lentils.purchaseAmountConfirmed, false);
+  assert.equal(lentils.estimatedPriceEUR, undefined,
+    "unverified market prices must not be generated");
+  assert.equal(state.raw.get(JOURNAL), undefined);
+});
+
+test("high-level derived WAL blocks when the validated plan changes during staging", () => {
+  const plan = JSON.stringify([{ date: "2026-10-16", lunch: SAMPLE_RECIPES[1] }]);
+  const state = fixture({ planRaw: plan });
+  let reads = 0;
+  const raced: GuestJournalStorage = {
+    ...state.storage,
+    getItem(key) {
+      if (key === PLAN) {
+        reads++;
+        if (reads === 2) state.raw.set(PLAN, "[]");
+      }
+      return state.storage.getItem(key);
+    },
+  };
+  assert.deepEqual(writeGuestPantryWithDerivedShoppingJournal(raced, {
+    operationId: "qa-stale-plan",
+    expectedPantry: [rice], nextPantry: [afterRice],
+    language: "en", now: new Date(2026, 9, 16, 12),
+  }), { status: "blocked", reason: "stale-snapshot" });
+  assert.equal(state.primaryWrites, 0);
+  assert.equal(state.shoppingWrites, 0);
+  assert.equal(state.raw.get(JOURNAL), undefined);
+});
+
+test("high-level derived WAL does not infer a shopping list from missing caches", () => {
+  const state = fixture();
+  state.raw.delete(PLAN);
+  assert.deepEqual(writeGuestPantryWithDerivedShoppingJournal(state.storage, {
+    operationId: "qa-no-stored-plan", expectedPantry: [rice],
+    nextPantry: [afterRice], language: "bg",
+  }), { status: "blocked", reason: "invalid-input" });
+  assert.equal(state.primaryWrites, 0);
+});
+
+test("low-level journal blocks if persisted plan diverges from the caller baseline", () => {
+  const state = fixture();
+  assert.deepEqual(writeGuestPantryShoppingWithJournal(state.storage, {
+    ...next(), expectedMealPlanRaw: JSON.stringify([{ date: "2026-10-16" }]),
+  }), { status: "blocked", reason: "stale-snapshot" });
+  assert.equal(state.raw.get(JOURNAL), undefined);
+  assert.equal(state.primaryWrites, 0);
 });
