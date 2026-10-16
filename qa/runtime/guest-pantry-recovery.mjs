@@ -1311,6 +1311,134 @@ async function runTwoTabStaleInventory() {
   }
 }
 
+async function runTwoTabVoicePurchaseRecovery() {
+  const INTENT = "balkanbite_guest_voice_removal_intent_v1";
+  const RECEIPTS = "balkanbite_guest_voice_removal_receipts_v1";
+  const SHOPPING = "balkanbite_shopping";
+  const PROGRESS = "balkanbite_progression";
+  const confirmedMilk = {
+    id: "qa-two-tab-milk", name: "QA milk", quantity: 2, unit: "l",
+    category: "Dairy", checked: true, amountOrigin: "user_entered",
+    purchaseAmountConfirmed: true,
+  };
+  const manual = {
+    id: "qa-two-tab-salt", name: "QA Salt", quantity: 1, unit: "kg",
+    category: "Other", checked: false, amountOrigin: "user_entered",
+    purchaseAmountConfirmed: false,
+  };
+  const context = await browser.newContext();
+  const pages = [];
+  try {
+    await context.addInitScript(({ MAIN, SHOPPING, PROGRESS, RECEIPTS, valid,
+      confirmedMilk, manual }) => {
+      if (localStorage.getItem("__qa_two_tab_voice_purchase_seeded")) return;
+      localStorage.setItem("__qa_two_tab_voice_purchase_seeded", "yes");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([{ ...valid, quantity: 150 }]));
+      localStorage.setItem(SHOPPING, JSON.stringify([confirmedMilk, manual]));
+      localStorage.setItem(PROGRESS, "[]");
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem(RECEIPTS, "[]");
+    }, { MAIN, SHOPPING, PROGRESS, RECEIPTS, valid, confirmedMilk, manual });
+    await context.route("**/api/ai/parse-intent", route => route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ actionType: "ANSWER", message: "QA controlled answer" }),
+    }));
+    for (let index = 0; index < 2; index++) {
+      const page = await context.newPage();
+      pages.push(page);
+      page.on("dialog", dialog => dialog.dismiss());
+      await page.goto(new URL("/", base).toString(), {
+        waitUntil: "domcontentloaded", timeout: 30000,
+      });
+    }
+    const [voiceTab, purchaseTab] = pages;
+    await purchaseTab.locator("#nav-tab-shopping").click();
+    await purchaseTab.locator(`#shopping-item-${confirmedMilk.id}`)
+      .waitFor({ state: "visible", timeout: 15000 });
+    await purchaseTab.locator("#transfer-to-pantry-btn")
+      .waitFor({ state: "visible", timeout: 15000 });
+    await voiceTab.locator("#chef-ia-floating-btn").click();
+    await voiceTab.locator("#voice-text-input").fill("I used 100 g QA Rice");
+    await voiceTab.locator("#voice-send-btn").click();
+    await voiceTab.getByRole("button", { name: "Confirm", exact: true })
+      .waitFor({ state: "visible", timeout: 15000 });
+    await voiceTab.evaluate(({ INTENT, RECEIPTS }) => {
+      const native = Storage.prototype.setItem;
+      window.__qaTwoTabVoiceIntentStages = 0;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === INTENT) window.__qaTwoTabVoiceIntentStages++;
+        if (window.__qaTwoTabVoiceIntentStages > 0 && key === RECEIPTS) return;
+        return native.call(this, key, value);
+      };
+    }, { INTENT, RECEIPTS });
+    await voiceTab.getByRole("button", { name: "Confirm", exact: true }).click();
+    await voiceTab.waitForFunction(({ MAIN, INTENT }) => {
+      const stock = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      return stock.find(row => row.id === "qa-guest-rice")?.quantity === 50 &&
+        localStorage.getItem(INTENT) !== null;
+    }, { MAIN, INTENT }, { timeout: 15000 });
+
+    // A different real browser tab must refuse purchase while the voice WAL
+    // is incomplete. No optimistic milk stock/progression may be published.
+    await purchaseTab.locator("#transfer-to-pantry-btn").click();
+    const whilePending = await purchaseTab.evaluate(({ MAIN, INTENT, PROGRESS, RECEIPTS }) => ({
+      stock: JSON.parse(localStorage.getItem(MAIN) || "[]"),
+      marker: localStorage.getItem(INTENT),
+      receipts: JSON.parse(localStorage.getItem(RECEIPTS) || "[]"),
+      progression: JSON.parse(localStorage.getItem(PROGRESS) || "[]"),
+    }), { MAIN, INTENT, PROGRESS, RECEIPTS });
+    assert.ok(whilePending.marker, "unfinished voice intent stays visible to the other tab");
+    assert.equal(whilePending.stock.find(row => row.id === valid.id)?.quantity, 50);
+    assert.equal(whilePending.stock.some(row => row.name === confirmedMilk.name), false,
+      "second tab must not transfer shopping during unfinished voice removal");
+    assert.deepEqual(whilePending.receipts, [], "silent receipt write has not succeeded");
+    assert.deepEqual(whilePending.progression, [], "rejected purchase cannot claim progression");
+
+    // Reload removes the deliberately injected write fault. Recovery resumes
+    // from exact after-snapshots: it never deducts the rice a second time.
+    await voiceTab.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await voiceTab.waitForFunction(({ MAIN, INTENT, RECEIPTS }) => {
+      const stock = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      const receipts = JSON.parse(localStorage.getItem(RECEIPTS) || "[]");
+      return localStorage.getItem(INTENT) === null &&
+        stock.find(row => row.id === "qa-guest-rice")?.quantity === 50 &&
+        receipts.length === 1;
+    }, { MAIN, INTENT, RECEIPTS }, { timeout: 16000 });
+    await purchaseTab.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await purchaseTab.locator("#nav-tab-shopping").click();
+    await purchaseTab.locator(`#shopping-item-${confirmedMilk.id}`)
+      .waitFor({ state: "visible", timeout: 15000 });
+    await purchaseTab.locator("#transfer-to-pantry-btn").click();
+    await purchaseTab.waitForFunction(({ MAIN, PROGRESS }) => {
+      const stock = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      const progression = JSON.parse(localStorage.getItem(PROGRESS) || "[]");
+      return stock.find(row => row.id === "qa-guest-rice")?.quantity === 50 &&
+        stock.find(row => row.name === "QA milk")?.quantity === 2 &&
+        progression.filter(row => row.type === "confirmed_purchase_applied").length === 1;
+    }, { MAIN, PROGRESS }, { timeout: 15000 });
+    const final = await purchaseTab.evaluate(({ MAIN, SHOPPING, PROGRESS, RECEIPTS }) => ({
+      stock: JSON.parse(localStorage.getItem(MAIN) || "[]"),
+      shopping: JSON.parse(localStorage.getItem(SHOPPING) || "[]"),
+      progression: JSON.parse(localStorage.getItem(PROGRESS) || "[]"),
+      receipts: JSON.parse(localStorage.getItem(RECEIPTS) || "[]"),
+    }), { MAIN, SHOPPING, PROGRESS, RECEIPTS });
+    assert.equal(final.stock.find(row => row.id === valid.id)?.quantity, 50);
+    assert.equal(final.stock.find(row => row.name === confirmedMilk.name)?.quantity, 2);
+    assert.equal(final.receipts.length, 1);
+    assert.equal(final.progression.filter(row => row.type === "confirmed_purchase_applied").length, 1);
+    assert.deepEqual(final.shopping.filter(row => row.id === manual.id), [manual]);
+    evidence.checks.push("two-real-tabs-voice-fault-blocks-purchase-then-recovers-without-repeat");
+  } finally {
+    await Promise.all(pages.map(page => page.close().catch(() => {})));
+    await context.close();
+  }
+}
+
 async function runChefReadOnlyNavigationAndFailure() {
   const context = await browser.newContext();
   let page;
@@ -1377,6 +1505,7 @@ async function runChefReadOnlyNavigationAndFailure() {
 try {
   await runGuestPantryAddEditDeleteReload();
   await runChefReadOnlyNavigationAndFailure();
+  await runTwoTabVoicePurchaseRecovery();
   await runTwoTabStaleInventory();
   await runLateGuestJournalPreventsLegacyWrite("legacy-pantry");
   await runLateGuestJournalPreventsLegacyWrite("shopping-effect");
