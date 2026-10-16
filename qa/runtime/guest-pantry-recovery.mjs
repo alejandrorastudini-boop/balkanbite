@@ -241,6 +241,47 @@ async function runGuestPantryAddEditDeleteReload() {
   }
 }
 
+async function runMalformedGuestShoppingOnStartup() {
+  const SHOPPING = "balkanbite_shopping";
+  const original = JSON.stringify([
+    { id: "qa-preserved-broken-record", note: "original unknown user information" },
+    { id: "qa-manual", name: "QA manual entry", quantity: 1, unit: "ud",
+      category: "Other", checked: false },
+  ]);
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, SHOPPING, valid, original }) => {
+      if (sessionStorage.getItem("__qa_malformed_shopping_seeded")) return;
+      sessionStorage.setItem("__qa_malformed_shopping_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem(SHOPPING, original);
+    }, { MAIN, SHOPPING, valid, original });
+    page = await context.newPage();
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({ state: "visible", timeout: 15000 });
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), SHOPPING), original,
+      "guest hydration must not silently discard the unrecognized shopping record");
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({ state: "visible", timeout: 15000 });
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), SHOPPING), original,
+      "reload must preserve exact original shopping bytes until assisted recovery");
+    evidence.checks.push("malformed-shopping-raw-preserved-across-reload");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runGuestDerivedShoppingSilentFailure() {
   // #459: prove the crash-consistency boundary with an actual App runtime.
   // No invented household data: all food names and amounts are QA fixtures.
@@ -408,6 +449,7 @@ try {
   await runFailedGuestQuantityWrite();
   await runFailedGuestQuantityWrite({ silent: true });
   await runGuestDerivedShoppingSilentFailure();
+  await runMalformedGuestShoppingOnStartup();
   const mixed = JSON.stringify([valid, { id: "qa-unknown", note: "keep original untouched" }]);
   await run({ original: mixed });
   await run({ original: "{ malformed original text", expectedExtension: "txt", expectedItems: [] });
