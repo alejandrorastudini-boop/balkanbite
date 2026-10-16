@@ -402,6 +402,103 @@ async function runGuestDerivedShoppingSilentFailure() {
   }
 }
 
+async function runGuestJournalHydration(mode) {
+  const JOURNAL = "balkanbite_guest_pantry_shopping_journal_v1";
+  const SHOPPING = "balkanbite_shopping";
+  const PLAN = "balkanbite_mealplan";
+  const beforePantry = JSON.stringify([valid]);
+  const afterPantry = JSON.stringify([{ ...valid, quantity: 550 }]);
+  const conflictingPantry = JSON.stringify([{ ...valid, quantity: 600 }]);
+  const manual = {
+    id: "qa-journal-manual", name: "QA manual shopping", quantity: 1,
+    unit: "ud", category: "Other", checked: false,
+    amountOrigin: "user_entered", purchaseAmountConfirmed: false,
+  };
+  const managed = {
+    id: "shortage-v1:qa-obsolete", name: "QA obsolete shortage",
+    quantity: 20, unit: "g", category: "Other", checked: false,
+    amountOrigin: "deterministic_shortfall", purchaseAmountConfirmed: false,
+  };
+  const beforeShopping = JSON.stringify([manual, managed]);
+  const afterShopping = JSON.stringify([manual]);
+  const journal = JSON.stringify({
+    version: 1,
+    operationId: "qa-guest-journal-recovery-01",
+    pantryBefore: beforePantry,
+    pantryAfter: afterPantry,
+    shoppingBefore: beforeShopping,
+    shoppingAfter: afterShopping,
+    mealPlanBefore: "[]",
+  });
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, SHOPPING, PLAN, JOURNAL, journal,
+      mode, beforePantry, afterPantry, conflictingPantry, beforeShopping }) => {
+      if (sessionStorage.getItem("__qa_guest_journal_seeded")) return;
+      sessionStorage.setItem("__qa_guest_journal_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem(PLAN, "[]");
+      localStorage.setItem(MAIN, mode === "unapplied" ? beforePantry
+        : mode === "conflict" ? conflictingPantry : afterPantry);
+      localStorage.setItem(SHOPPING, beforeShopping);
+      localStorage.setItem(JOURNAL, mode === "malformed" ? "{unparseable" : journal);
+    }, { MAIN, SHOPPING, PLAN, JOURNAL, journal, mode, beforePantry,
+      afterPantry, conflictingPantry, beforeShopping });
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    if (mode === "conflict" || mode === "malformed") {
+      await page.getByTestId("guest-journal-recovery-warning")
+        .waitFor({ state: "visible", timeout: 15000 });
+      const preserved = await page.evaluate(({ MAIN, SHOPPING, JOURNAL }) => ({
+        pantry: localStorage.getItem(MAIN),
+        shopping: localStorage.getItem(SHOPPING),
+        journal: localStorage.getItem(JOURNAL),
+      }), { MAIN, SHOPPING, JOURNAL });
+      assert.equal(preserved.pantry, mode === "conflict" ? conflictingPantry : afterPantry);
+      assert.equal(preserved.shopping, beforeShopping);
+      assert.equal(preserved.journal, mode === "malformed" ? "{unparseable" : journal);
+      await page.locator("#nav-tab-pantry").click();
+      await page.locator(`#pantry-item-${valid.id}`).getByRole("button", {
+        name: "Increase quantity",
+      }).click();
+      assert.equal(await page.evaluate(key => localStorage.getItem(key), MAIN), preserved.pantry,
+        "unresolved WAL must block UI stock writes");
+      evidence.checks.push(`journal-${mode}-blocked-without-data-overwrite`);
+    } else {
+      await page.waitForFunction(JOURNAL => localStorage.getItem(JOURNAL) === null,
+        JOURNAL, { timeout: 15000 });
+      await page.waitForFunction(({ SHOPPING, expected }) =>
+        JSON.parse(localStorage.getItem(SHOPPING) || "[]")
+          .every(row => row.id !== "shortage-v1:qa-obsolete") &&
+        JSON.parse(localStorage.getItem(SHOPPING) || "[]")
+          .some(row => row.id === expected.id), { SHOPPING, expected: manual }, { timeout: 12000 });
+      const persisted = await page.evaluate(({ MAIN, SHOPPING }) => ({
+        pantry: JSON.parse(localStorage.getItem(MAIN)),
+        shopping: JSON.parse(localStorage.getItem(SHOPPING)),
+      }), { MAIN, SHOPPING });
+      assert.equal(persisted.pantry[0].quantity, mode === "unapplied" ? 500 : 550);
+      assert.deepEqual(persisted.shopping, [manual],
+        "keep confirmed manual shopping unchanged while dropping stale managed row");
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+      assert.equal(await page.evaluate(key => localStorage.getItem(key), JOURNAL), null);
+      assert.equal(JSON.parse(await page.evaluate(key => localStorage.getItem(key), MAIN))[0].quantity,
+        mode === "unapplied" ? 500 : 550);
+      evidence.checks.push(`journal-${mode}-recovered-after-reload`);
+    }
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runTwoTabStaleInventory() {
   const context = await browser.newContext();
   const pages = [];
@@ -470,6 +567,9 @@ try {
   await runFailedGuestQuantityWrite({ silent: true });
   await runGuestDerivedShoppingSilentFailure();
   await runMalformedGuestShoppingOnStartup();
+  for (const mode of ["applied", "unapplied", "conflict", "malformed"]) {
+    await runGuestJournalHydration(mode);
+  }
   const mixed = JSON.stringify([valid, { id: "qa-unknown", note: "keep original untouched" }]);
   await run({ original: mixed });
   await run({ original: "{ malformed original text", expectedExtension: "txt", expectedItems: [] });
