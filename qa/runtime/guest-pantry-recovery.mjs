@@ -522,6 +522,123 @@ async function runRealQuantityJournalCommit({ silentShoppingFailure = false } = 
   }
 }
 
+async function runRealGuestVoiceRemoval({ fault = null, purpose = "food-use" } = {}) {
+  const INTENT = "balkanbite_guest_voice_removal_intent_v1";
+  const RECEIPTS = "balkanbite_guest_voice_removal_receipts_v1";
+  const RECIPES = "balkanbite_recipes";
+  const PLAN = "balkanbite_mealplan";
+  const SHOPPING = "balkanbite_shopping";
+  const recipe = {
+    id: "qa-voice-rice", title: { en: "QA Rice", es: "Arroz QA", bg: "Ориз QA" },
+    description: { en: "QA", es: "QA", bg: "QA" },
+    prepTimeMin: 0, cookTimeMin: 0, costPerServingEUR: 0,
+    difficulty: "easy", servings: 1, calories: 0, proteinG: 0,
+    carbsG: 0, fatG: 0, fiberG: 0, tags: [], imageUrl: "/images/qa-rice.png",
+    ingredients: [{ name: "QA Rice", amount: 100, unit: "g", inPantry: true }],
+    instructions: { en: ["Cook"], es: ["Cocinar"], bg: ["Готви"] },
+    nutritionHighlights: { en: "QA", es: "QA", bg: "QA" },
+  };
+  const manual = {
+    id: "qa-voice-manual-salt", name: "QA salt", quantity: 1, unit: "kg",
+    checked: false, category: "Other", amountOrigin: "user_entered",
+    purchaseAmountConfirmed: false,
+  };
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, RECIPES, PLAN, SHOPPING, RECEIPTS,
+      recipe, manual, valid }) => {
+      if (sessionStorage.getItem("__qa_guest_voice_removal_seeded")) return;
+      sessionStorage.setItem("__qa_guest_voice_removal_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([{ ...valid, quantity: 150 }]));
+      localStorage.setItem(RECIPES, JSON.stringify([recipe]));
+      localStorage.setItem(PLAN, "[]");
+      localStorage.setItem(SHOPPING, JSON.stringify([manual]));
+      localStorage.setItem(RECEIPTS, "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
+    }, { MAIN, RECIPES, PLAN, SHOPPING, RECEIPTS, recipe, manual, valid });
+    await context.route("**/api/ai/parse-intent", route => route.fulfill({
+      status: 200, contentType: "application/json",
+      body: JSON.stringify({ actionType: "ANSWER", message: "QA controlled answer" }),
+    }));
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-voice").click();
+    await page.locator("#voice-text-input").fill(purpose === "discard"
+      ? "I threw away 100 g QA Rice"
+      : "I used 100 g QA Rice");
+    await page.locator("#voice-send-btn").click();
+    await page.getByRole("button", { name: "Confirm", exact: true })
+      .waitFor({ state: "visible", timeout: 15000 });
+    await page.evaluate(({ INTENT, fault }) => {
+      const original = Storage.prototype.setItem;
+      window.__qaVoiceIntentStages = 0;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === INTENT) window.__qaVoiceIntentStages++;
+        if (window.__qaVoiceIntentStages > 0 && key === fault) return;
+        return original.call(this, key, value);
+      };
+    }, { INTENT, fault });
+    await page.getByRole("button", { name: "Confirm", exact: true }).click();
+    await page.waitForFunction(() => window.__qaVoiceIntentStages > 0, null,
+      { timeout: 15000 });
+    await page.waitForFunction(MAIN =>
+      JSON.parse(localStorage.getItem(MAIN) || "[]")?.[0]?.quantity === 50,
+      MAIN, { timeout: 15000 });
+    if (fault) {
+      await page.getByTestId("guest-journal-recovery-warning")
+        .waitFor({ state: "visible", timeout: 15000 });
+      assert.equal(await page.evaluate(INTENT => localStorage.getItem(INTENT) !== null, INTENT),
+        true, "incomplete voice removal retains a durable intent");
+      assert.deepEqual(await page.evaluate(RECEIPTS =>
+        JSON.parse(localStorage.getItem(RECEIPTS) || "[]"), RECEIPTS), []);
+    } else {
+      assert.equal(await page.evaluate(INTENT => localStorage.getItem(INTENT), INTENT), null);
+    }
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForFunction(({ MAIN, INTENT, RECEIPTS, SHOPPING, PLAN }) => {
+      const stock = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      const receipts = JSON.parse(localStorage.getItem(RECEIPTS) || "[]");
+      const shopping = JSON.parse(localStorage.getItem(SHOPPING) || "[]");
+      const plan = JSON.parse(localStorage.getItem(PLAN) || "[]");
+      return localStorage.getItem(INTENT) === null &&
+        stock.length === 1 && stock[0].quantity === 50 &&
+        receipts.length === 1 && receipts[0].mutationId.startsWith("voice-") &&
+        shopping.some(row => row.id === "qa-voice-manual-salt" && row.quantity === 1) &&
+        plan.length === 7;
+    }, { MAIN, INTENT, RECEIPTS, SHOPPING, PLAN }, { timeout: 16000 });
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    const final = await page.evaluate(({ MAIN, RECEIPTS, SHOPPING }) => ({
+      stock: JSON.parse(localStorage.getItem(MAIN) || "[]"),
+      receipts: JSON.parse(localStorage.getItem(RECEIPTS) || "[]"),
+      shopping: JSON.parse(localStorage.getItem(SHOPPING) || "[]"),
+      progress: JSON.parse(localStorage.getItem("balkanbite_progression") || "[]"),
+    }), { MAIN, RECEIPTS, SHOPPING });
+    assert.equal(final.stock[0].quantity, 50,
+      "reload must not re-deduct voice-confirmed items");
+    assert.equal(final.receipts.length, 1, "one and only one durable voice receipt");
+    assert.equal(final.receipts[0].purpose, purpose);
+    assert.deepEqual(final.receipts[0].items,
+      [{ name: "QA Rice", quantity: 100, unit: "g" }]);
+    assert.deepEqual(final.shopping.filter(row => row.id === manual.id), [manual]);
+    assert.deepEqual(final.progress, [],
+      "voice removal and discard do not invent a meal or recipe-cook progression event");
+    evidence.checks.push(fault
+      ? `real-ui-voice-${purpose}-silent-${fault}-replay-once`
+      : `real-ui-voice-${purpose}-durable-once`);
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runRealGuestDerivedCook({ fault = null } = {}) {
   const INTENT = "balkanbite_guest_cook_derived_intent_v1";
   const RECIPES = "balkanbite_recipes";
@@ -1207,6 +1324,8 @@ try {
   await runRealGuestPurchaseIntent({ fault: "balkanbite_progression" });
   await runRealGuestCookIntent();
   await runRealGuestCookIntent({ silentProgressionFailure: true });
+  await runRealGuestVoiceRemoval();
+  await runRealGuestVoiceRemoval({ fault: "balkanbite_shopping", purpose: "discard" });
   await runRealGuestDerivedCook();
   await runRealGuestDerivedCook({ fault: "balkanbite_mealplan" });
   await runRealGuestDerivedCook({ fault: "balkanbite_shopping" });
