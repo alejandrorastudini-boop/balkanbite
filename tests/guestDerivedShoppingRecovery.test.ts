@@ -50,7 +50,7 @@ test("guest hydration repairs only app-managed stale shortages and preserves man
 
 test("guest hydration does not assume missing plan, stock or list means known empty", () => {
   for (const omitted of [PANTRY, SHOPPING, PLAN]) {
-    const fixture = {
+    const fixture: Record<string, string> = {
       [PANTRY]: JSON.stringify(pantry), [PLAN]: "[]",
       [SHOPPING]: JSON.stringify([manual, stale]),
     };
