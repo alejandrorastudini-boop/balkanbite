@@ -348,3 +348,33 @@ test("low-level journal blocks if persisted plan diverges from the caller baseli
   assert.equal(state.raw.get(JOURNAL), undefined);
   assert.equal(state.primaryWrites, 0);
 });
+
+test("pantry/shopping WAL refuses purchase or cook WAL markers before touching inventory", () => {
+  for (const marker of [
+    "balkanbite_guest_purchase_intent_v1",
+    "balkanbite_guest_cook_intent_v1",
+    "balkanbite_guest_cook_derived_intent_v1",
+  ]) {
+    const state = fixture();
+    state.raw.set(marker, "unfinished-other-operation");
+    assert.deepEqual(writeGuestPantryShoppingWithJournal(state.storage, next()), {
+      status: "blocked", reason: "unresolved-journal",
+    });
+    assert.equal(state.primaryWrites, 0);
+    assert.equal(state.shoppingWrites, 0);
+    assert.equal(state.raw.get(JOURNAL), undefined);
+  }
+});
+
+test("pantry/shopping recovery never overwrites concurrently pending cook or purchase", () => {
+  const state = fixture();
+  state.faults.set(SHOPPING, "silent");
+  assert.equal(writeGuestPantryShoppingWithJournal(state.storage, next()).status, "blocked");
+  state.faults.clear();
+  state.raw.set("balkanbite_guest_cook_derived_intent_v1", "other-pending");
+  assert.deepEqual(recoverGuestPantryShoppingJournal(state.storage), {
+    status: "blocked", reason: "conflict",
+  });
+  assert.deepEqual(JSON.parse(state.raw.get(SHOPPING)!), [manual]);
+  assert.ok(state.raw.get(JOURNAL));
+});
