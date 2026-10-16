@@ -593,13 +593,14 @@ export default function App() {
   }, [currentUser, firebaseLoading, pantryScope, isResetting, guestJournalRecoveryStatus]);
 
   useEffect(() => {
-    if (isResetting || currentUser || workspaceScope !== "guest") return;
+    if (isResetting || currentUser || workspaceScope !== "guest" ||
+        guestJournalRecoveryStatus !== "clear") return;
     try {
       localStorage.setItem("balkanbite_recipes", JSON.stringify(recipes));
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [recipes, currentUser, workspaceScope, isResetting]);
+  }, [recipes, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus]);
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
@@ -697,13 +698,14 @@ export default function App() {
   }, [profile, currentUser, profileScope, isResetting]);
 
   useEffect(() => {
-    if (isResetting || currentUser || workspaceScope !== "guest") return;
+    if (isResetting || currentUser || workspaceScope !== "guest" ||
+        guestJournalRecoveryStatus !== "clear") return;
     try {
       localStorage.setItem("balkanbite_mealplan", JSON.stringify(mealPlan));
     } catch (e) {
       console.warn("localStorage write error", e);
     }
-  }, [mealPlan, currentUser, workspaceScope, isResetting]);
+  }, [mealPlan, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus]);
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest") return;
@@ -1572,6 +1574,7 @@ export default function App() {
   };
 
   const handleClearRecipes = async () => {
+    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
     if (!currentUser) {
       setRecipes([]);
       return true;
@@ -1581,6 +1584,7 @@ export default function App() {
   };
 
   const handleClearMealPlan = async () => {
+    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
     if (!currentUser) {
       setMealPlan([]);
       return true;
@@ -2815,6 +2819,7 @@ export default function App() {
               onGenerateAiRecipes={() => handleGenerateAiRecipes()}
               onClearRecipes={handleClearRecipes}
               onLoadSampleRecipes={async () => {
+                if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
                 if (!currentUser) {
                   setRecipes(SAMPLE_RECIPES);
                   return true;
