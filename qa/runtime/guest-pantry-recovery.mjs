@@ -522,6 +522,82 @@ async function runRealQuantityJournalCommit({ silentShoppingFailure = false } = 
   }
 }
 
+async function runCorruptedGuestPurchaseIntentAtStartup() {
+  const PURCHASE_INTENT = "balkanbite_guest_purchase_intent_v1";
+  const SHOPPING = "balkanbite_shopping";
+  const PROGRESSION = "balkanbite_progression";
+  const corruptedLedger = "[{historical unknown event";
+  const rawIntent = "{unrecognized purchase intent";
+  const manual = [{
+    id: "qa-purchase-manual", name: "QA manual item",
+    quantity: 1, unit: "ud", checked: false, category: "Other",
+    amountOrigin: "user_entered", purchaseAmountConfirmed: false,
+  }];
+  const initialShopping = JSON.stringify(manual);
+  const initialPantry = JSON.stringify([valid]);
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, SHOPPING, PROGRESSION, PURCHASE_INTENT,
+      initialPantry, initialShopping, corruptedLedger, rawIntent }) => {
+      if (sessionStorage.getItem("__qa_guest_purchase_intent_seeded")) return;
+      sessionStorage.setItem("__qa_guest_purchase_intent_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, initialPantry);
+      localStorage.setItem(SHOPPING, initialShopping);
+      localStorage.setItem(PROGRESSION, corruptedLedger);
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem(PURCHASE_INTENT, rawIntent);
+    }, { MAIN, SHOPPING, PROGRESSION, PURCHASE_INTENT,
+      initialPantry, initialShopping, corruptedLedger, rawIntent });
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.getByTestId("guest-journal-recovery-warning").waitFor({
+      state: "visible", timeout: 15000,
+    });
+    const readAll = async () => page.evaluate(
+      ({ MAIN, SHOPPING, PROGRESSION, PURCHASE_INTENT }) => ({
+        pantry: localStorage.getItem(MAIN),
+        shopping: localStorage.getItem(SHOPPING),
+        progression: localStorage.getItem(PROGRESSION),
+        intent: localStorage.getItem(PURCHASE_INTENT),
+      }), { MAIN, SHOPPING, PROGRESSION, PURCHASE_INTENT },
+    );
+    assert.deepEqual(await readAll(), {
+      pantry: initialPantry, shopping: initialShopping,
+      progression: corruptedLedger, intent: rawIntent,
+    }, "blocked purchase recovery must not rewrite historical keys");
+    await page.locator("#nav-tab-pantry").click();
+    await page.locator(`#pantry-item-${valid.id}`).waitFor({ state: "visible" });
+    await page.locator(`#pantry-item-${valid.id}`).getByRole("button", {
+      name: "Increase quantity",
+    }).click();
+    assert.deepEqual(await readAll(), {
+      pantry: initialPantry, shopping: initialShopping,
+      progression: corruptedLedger, intent: rawIntent,
+    }, "blocked intent must prevent subsequent guest pantry edits");
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.getByTestId("guest-journal-recovery-warning").waitFor({
+      state: "visible", timeout: 15000,
+    });
+    assert.deepEqual(await readAll(), {
+      pantry: initialPantry, shopping: initialShopping,
+      progression: corruptedLedger, intent: rawIntent,
+    }, "repeated startup must retain exact evidence for assisted recovery");
+    evidence.checks.push("purchase-intent-corruption-blocks-and-preserves-ledger");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runGuestJournalHydration(mode) {
   const JOURNAL = "balkanbite_guest_pantry_shopping_journal_v1";
   const SHOPPING = "balkanbite_shopping";
@@ -700,6 +776,7 @@ try {
   await runRealQuantityJournalCommit();
   await runRealQuantityJournalCommit({ silentShoppingFailure: true });
   await runMalformedGuestShoppingOnStartup();
+  await runCorruptedGuestPurchaseIntentAtStartup();
   for (const mode of ["applied", "unapplied", "conflict", "malformed"]) {
     await runGuestJournalHydration(mode);
   }
