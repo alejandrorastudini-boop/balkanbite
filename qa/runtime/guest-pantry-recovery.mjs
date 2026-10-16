@@ -658,9 +658,12 @@ async function runTwoTabStaleInventory() {
 
     // The second tab loaded 500g, so overwriting 550g must fail closed.
     await increment(stale).click();
-    await stale.getByTestId("guest-pantry-recovery")
-      .getByText(/could not be protected/i)
-      .waitFor({ state: "visible", timeout: 12000 });
+    // Both the original single-key guard and the new journal preflight reject
+    // stale second-tab stock. They surface different but explicit UI warnings.
+    await stale.locator(
+      '[data-testid="guest-pantry-recovery"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
+    ).filter({ hasText: /could not be protected|not safely synchronized|unfinished local operation/i })
+      .first().waitFor({ state: "visible", timeout: 12000 });
     const originalAfterStaleWrite = await stale.evaluate(MAIN =>
       localStorage.getItem(MAIN), MAIN);
     assert.equal(JSON.parse(originalAfterStaleWrite)[0].quantity, 550);
