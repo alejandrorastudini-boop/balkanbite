@@ -10,6 +10,7 @@ export const GUEST_MUTATION_JOURNAL_KEYS = [
   "balkanbite_guest_purchase_intent_v1",
   "balkanbite_guest_cook_intent_v1",
   "balkanbite_guest_cook_derived_intent_v1",
+  "balkanbite_guest_voice_removal_intent_v1",
 ] as const;
 
 export function hasPendingGuestMutationJournal(
