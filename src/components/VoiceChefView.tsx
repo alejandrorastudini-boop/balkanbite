@@ -208,6 +208,17 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       };
 
       recognitionRef.current = recognition;
+      // Closing the Chef overlay or navigating away must not leave a browser
+      // recognizer alive (or auto-restarting from its onend callback).
+      return () => {
+        isListeningRef.current = false;
+        recognition.onstart = null;
+        recognition.onresult = null;
+        recognition.onerror = null;
+        recognition.onend = null;
+        try { recognition.abort(); } catch { /* already stopped or unsupported */ }
+        if (recognitionRef.current === recognition) recognitionRef.current = null;
+      };
     }
   }, [language]);
 
