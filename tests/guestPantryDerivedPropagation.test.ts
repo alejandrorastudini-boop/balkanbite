@@ -26,10 +26,16 @@ test("successful guest recipe cook reconciles exact post-deduction pantry", () =
 });
 
 test("successful guest voice removal reconciles exact post-deduction pantry", () => {
-  assert.match(
-    app,
-    /if \(guestResult\.issues\.length > 0 \|\| guestResult\.deductions\.length === 0\)[\s\S]*?return commitGuestPantry\(guestResult\.pantry\);/,
-  );
+  const start = app.indexOf("const handleVoiceDeductItems");
+  const end = app.indexOf("const handleVoiceNavigateToRecipes", start);
+  const flow = app.slice(start, end);
+  assert.ok(start >= 0 && end > start);
+  assert.match(flow, /const result = deductVoiceItemsFromPantry\(/);
+  assert.match(flow, /const saved = commitGuestVoiceRemoval\(localStorage, \{/);
+  assert.match(flow, /expectedPantry: pantryBaseline/);
+  assert.match(flow, /setPantry\(committedPantry\.items\)/);
+  assert.ok(flow.indexOf("commitGuestVoiceRemoval(localStorage") <
+    flow.indexOf("setPantry(committedPantry.items)"));
 });
 
 test("signed-in derived propagation remains listener-gated", () => {
