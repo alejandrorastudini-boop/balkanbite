@@ -93,6 +93,7 @@ import {
 import {
   GUEST_PANTRY_SHOPPING_JOURNAL_KEY,
   recoverGuestPantryShoppingJournal,
+  writeGuestPantryWithDerivedShoppingJournal,
 } from "./utils/guestPantryShoppingJournal";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
@@ -1505,6 +1506,79 @@ export default function App() {
     });
   };
 
+  /**
+   * Narrow first live WAL writer: a manual quantity edit when recipe and meal
+   * plan projections are EXACTLY unchanged. Other edits continue through the
+   * pre-existing pantry-first path; do not claim a general transaction.
+   */
+  const tryJournalGuestQuantityEdit = (updatedPantry: PantryItem[]): "ineligible" | "saved" | "blocked" => {
+    if (guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
+        guestDerivedShoppingRecoveryProblem || workspaceScope !== "guest") return "ineligible";
+    try {
+      const rawRecipes = localStorage.getItem("balkanbite_recipes");
+      const rawPlan = localStorage.getItem("balkanbite_mealplan");
+      const rawShopping = localStorage.getItem("balkanbite_shopping");
+      if (rawRecipes === null || rawPlan === null || rawShopping === null) return "ineligible";
+      const storedRecipes = parseStoredRecipeCache(rawRecipes);
+      const storedPlan = parseStoredMealPlanCache(rawPlan);
+      const storedShopping = parseStoredShoppingCache(rawShopping);
+      if (!storedRecipes || !storedPlan || !storedShopping ||
+          !guestShoppingCacheIsComplete(rawShopping) ||
+          JSON.stringify(storedRecipes) !== JSON.stringify(recipes) ||
+          JSON.stringify(storedPlan) !== JSON.stringify(mealPlan) ||
+          JSON.stringify(storedShopping) !== JSON.stringify(shoppingList)) return "ineligible";
+
+      const syncedRecipes = syncRecipesWithPantry(recipes, updatedPantry);
+      const { newPlan } = adaptMealPlanSafelyToPantry(
+        updatedPantry, syncedRecipes, mealPlan, profile,
+      );
+      if (JSON.stringify(syncedRecipes) !== JSON.stringify(recipes) ||
+          JSON.stringify(newPlan) !== JSON.stringify(mealPlan)) return "ineligible";
+
+      const operationId = typeof globalThis.crypto?.randomUUID === "function"
+        ? `guest-quantity-${globalThis.crypto.randomUUID()}`
+        : `guest-quantity-${Date.now()}`;
+      const written = writeGuestPantryWithDerivedShoppingJournal(localStorage, {
+        operationId,
+        expectedPantry: guestPantryCommittedRef.current,
+        nextPantry: updatedPantry,
+        language: profile.language,
+      });
+      if (written.status === "saved" || written.status === "saved-pending-cleanup") {
+        const persistedShopping = parseStoredShoppingCache(localStorage.getItem("balkanbite_shopping"));
+        if (!persistedShopping) {
+          setGuestJournalRecoveryStatus("blocked");
+          setGuestDerivedShoppingRecoveryProblem(true);
+          return "blocked";
+        }
+        guestPantryCommittedRef.current = updatedPantry;
+        setPantry(updatedPantry);
+        setShoppingList(persistedShopping);
+        if (written.status === "saved-pending-cleanup") {
+          setGuestJournalRecoveryStatus("pending");
+        }
+        return "saved";
+      }
+
+      // A failure can be after the stock write. Never fall back to writing it
+      // twice. A retained journal keeps the next session recoverable.
+      const hasJournal = localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) !== null;
+      setGuestJournalRecoveryStatus(hasJournal ? "blocked" : "clear");
+      setGuestDerivedShoppingRecoveryProblem(true);
+      alert(profile.language === "bg"
+        ? "Промяната не е потвърдена напълно. Проверете данните след презареждане."
+        : profile.language === "es"
+        ? "No se ha podido confirmar toda la operación. Recarga y revisa los datos antes de continuar."
+        : "The entire operation could not be confirmed. Reload and review the data before continuing.");
+      return "blocked";
+    } catch (error) {
+      setGuestJournalRecoveryStatus("blocked");
+      setGuestDerivedShoppingRecoveryProblem(true);
+      console.warn("Guest journaled quantity change could not be verified", error);
+      return "blocked";
+    }
+  };
+
   const handleUpdatePantryQuantity = (
     id: string, newQty: number, viewed: PantryItem,
   ) => {
@@ -1535,7 +1609,8 @@ export default function App() {
             }
           : item,
       );
-    commitGuestPantry(updatedPantry);
+    const journaled = tryJournalGuestQuantityEdit(updatedPantry);
+    if (journaled === "ineligible") commitGuestPantry(updatedPantry);
   };
 
   const handleDeletePantryItem = (id: string, viewed: PantryItem) => {
