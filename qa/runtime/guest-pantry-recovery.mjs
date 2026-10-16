@@ -522,6 +522,104 @@ async function runRealQuantityJournalCommit({ silentShoppingFailure = false } = 
   }
 }
 
+async function runRealGuestCookIntent({ silentProgressionFailure = false } = {}) {
+  const INTENT = "balkanbite_guest_cook_intent_v1";
+  const PROGRESSION = "balkanbite_progression";
+  const recipe = {
+    id: "qa-cook-rice", title: { en: "QA Rice", es: "Arroz QA", bg: "Ориз QA" },
+    description: { en: "QA", es: "QA", bg: "QA" },
+    prepTimeMin: 0, cookTimeMin: 0, costPerServingEUR: 0,
+    difficulty: "easy", servings: 1, calories: 0, proteinG: 0, carbsG: 0,
+    fatG: 0, fiberG: 0, tags: [],
+    ingredients: [{ name: "QA Rice", amount: 100, unit: "g", inPantry: true }],
+    instructions: { en: ["Cook"], es: ["Cocinar"], bg: ["Готви"] },
+    nutritionHighlights: { en: "QA", es: "QA", bg: "QA" },
+  };
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, PROGRESSION, recipe, valid }) => {
+      if (sessionStorage.getItem("__qa_guest_cook_seeded")) return;
+      sessionStorage.setItem("__qa_guest_cook_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_recipes", JSON.stringify([recipe]));
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_shopping", "[]");
+      localStorage.setItem(PROGRESSION, "[]");
+    }, { MAIN, PROGRESSION, recipe, valid });
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-recipes").click();
+    await page.locator("#cook-btn-qa-cook-rice").waitFor({ state: "visible", timeout: 15000 });
+    await page.locator("#cook-btn-qa-cook-rice").click();
+    await page.getByText("Have you cooked this recipe?").waitFor({ state: "visible" });
+    await page.evaluate(({ INTENT, PROGRESSION, silentProgressionFailure }) => {
+      const native = Storage.prototype.setItem;
+      window.__qaCookJournalStages = 0;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === INTENT) window.__qaCookJournalStages++;
+        if (key === PROGRESSION && silentProgressionFailure &&
+            window.__qaCookJournalStages > 0) return;
+        return native.call(this, key, value);
+      };
+    }, { INTENT, PROGRESSION, silentProgressionFailure });
+    await page.getByRole("button", { name: "Yes, deduct" }).click();
+    await page.waitForFunction(() => window.__qaCookJournalStages > 0, null, {
+      timeout: 15000,
+    });
+    await page.waitForFunction(MAIN =>
+      JSON.parse(localStorage.getItem(MAIN) || "[]")?.[0]?.quantity === 400,
+      MAIN, { timeout: 15000 },
+    );
+    if (silentProgressionFailure) {
+      await page.getByTestId("guest-journal-recovery-warning").waitFor({
+        state: "visible", timeout: 12000,
+      });
+      assert.equal(await page.evaluate(INTENT => localStorage.getItem(INTENT) !== null, INTENT),
+        true, "uncommitted cook progression keeps exact WAL marker");
+      assert.deepEqual(JSON.parse(await page.evaluate(
+        PROGRESSION => localStorage.getItem(PROGRESSION), PROGRESSION,
+      )), [], "failure must not pretend cook progression was saved");
+    } else {
+      assert.equal(await page.evaluate(INTENT => localStorage.getItem(INTENT), INTENT),
+        null, "complete cook must clear journal marker");
+    }
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForFunction(({ INTENT, MAIN, PROGRESSION }) => {
+      const stock = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      const events = JSON.parse(localStorage.getItem(PROGRESSION) || "[]");
+      return localStorage.getItem(INTENT) === null &&
+        stock.length === 1 && stock[0].quantity === 400 &&
+        events.length === 1 &&
+        events[0].type === "recipe_cook_inventory_applied" &&
+        events[0].eventId.startsWith("cook:cook-") &&
+        events[0].evidenceCount === 1;
+    }, { INTENT, MAIN, PROGRESSION }, { timeout: 15000 });
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    const final = await page.evaluate(({ MAIN, PROGRESSION, INTENT }) => ({
+      stock: JSON.parse(localStorage.getItem(MAIN) || "[]"),
+      events: JSON.parse(localStorage.getItem(PROGRESSION) || "[]"),
+      marker: localStorage.getItem(INTENT),
+    }), { MAIN, PROGRESSION, INTENT });
+    assert.equal(final.stock[0].quantity, 400);
+    assert.equal(final.events.length, 1);
+    assert.equal(final.marker, null);
+    evidence.checks.push(silentProgressionFailure
+      ? "real-ui-cook-silent-progression-failure-recovers-once"
+      : "real-ui-cook-confirmation-journal-commits-once");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runRealGuestPurchaseIntent({ fault = null } = {}) {
   const INTENT = "balkanbite_guest_purchase_intent_v1";
   const SHOPPING = "balkanbite_shopping";
@@ -885,6 +983,8 @@ try {
   await runRealGuestPurchaseIntent();
   await runRealGuestPurchaseIntent({ fault: "balkanbite_shopping" });
   await runRealGuestPurchaseIntent({ fault: "balkanbite_progression" });
+  await runRealGuestCookIntent();
+  await runRealGuestCookIntent({ silentProgressionFailure: true });
   for (const mode of ["applied", "unapplied", "conflict", "malformed"]) {
     await runGuestJournalHydration(mode);
   }
