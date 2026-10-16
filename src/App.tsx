@@ -105,6 +105,11 @@ import {
   commitConfirmedGuestCookIntent,
   recoverConfirmedGuestCookIntent,
 } from "./utils/guestConfirmedCookIntent";
+import {
+  GUEST_COOK_DERIVED_INTENT_KEY,
+  commitDerivedGuestCookIntent,
+  recoverDerivedGuestCookIntent,
+} from "./utils/guestCookDerivedIntent";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
   buildMealLogPreservingNutritionUncertainty,
@@ -141,7 +146,8 @@ export default function App() {
     try {
       return localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) === null &&
         localStorage.getItem(GUEST_PURCHASE_INTENT_KEY) === null &&
-        localStorage.getItem(GUEST_COOK_INTENT_KEY) === null
+        localStorage.getItem(GUEST_COOK_INTENT_KEY) === null &&
+        localStorage.getItem(GUEST_COOK_DERIVED_INTENT_KEY) === null
         ? "clear" : "pending";
     } catch {
       return "blocked";
@@ -473,7 +479,8 @@ export default function App() {
     try {
       if (localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) !== null ||
           localStorage.getItem(GUEST_PURCHASE_INTENT_KEY) !== null ||
-          localStorage.getItem(GUEST_COOK_INTENT_KEY) !== null) {
+          localStorage.getItem(GUEST_COOK_INTENT_KEY) !== null ||
+          localStorage.getItem(GUEST_COOK_DERIVED_INTENT_KEY) !== null) {
         setGuestJournalRecoveryStatus("pending");
       }
     } catch {
@@ -554,6 +561,12 @@ export default function App() {
     // hydration writers may publish shopping/progression. Recovery NEVER
     // reapplies an acquisition: it verifies the pantry after-snapshot and
     // restores only shopping/progression bytes when their baselines match.
+    const derivedCookRecovery = recoverDerivedGuestCookIntent(localStorage);
+    if (derivedCookRecovery.status === "blocked") {
+      setGuestJournalRecoveryStatus("blocked");
+      setGuestDerivedShoppingRecoveryProblem(true);
+      return;
+    }
     const cookRecovery = recoverConfirmedGuestCookIntent(localStorage);
     if (cookRecovery.status === "blocked") {
       setGuestJournalRecoveryStatus("blocked");
@@ -579,7 +592,8 @@ export default function App() {
       setGuestDerivedShoppingRecoveryProblem(true);
       return;
     }
-    if (purchaseRecovery.status !== "none" || cookRecovery.status !== "none") {
+    if (purchaseRecovery.status !== "none" || cookRecovery.status !== "none" ||
+        derivedCookRecovery.status !== "none") {
       const rawProgression = localStorage.getItem("balkanbite_progression");
       // No journal can justify replacing unknown historical progression with
       // an empty ledger; reject a malformed/filtered cache for review.
@@ -595,6 +609,34 @@ export default function App() {
         return;
       }
       setProgressionLedger(parseProgressionLedgerCache(rawProgression));
+    }
+    if (derivedCookRecovery.status !== "none") {
+      // Before unfreezing independent React cache writers, publish the exact
+      // recovered five-key state (no recomputation and no filtered legacy rows).
+      const pantryRaw = localStorage.getItem(GUEST_PANTRY_KEY);
+      const recipeRaw = localStorage.getItem("balkanbite_recipes");
+      const planRaw = localStorage.getItem("balkanbite_mealplan");
+      const storedPantry = inspectGuestPantry(pantryRaw);
+      const storedRecipes = parseStoredRecipeCache(recipeRaw);
+      const storedPlan = parseStoredMealPlanCache(planRaw);
+      let complete = !storedPantry.requiresRecovery && pantryRaw !== null &&
+        storedRecipes !== null && storedPlan !== null && savedShopping !== null;
+      try {
+        complete = complete &&
+          storedRecipes!.length === JSON.parse(recipeRaw!).length &&
+          storedPlan!.length === JSON.parse(planRaw!).length;
+      } catch { complete = false; }
+      if (!complete) {
+        setGuestJournalRecoveryStatus("blocked");
+        setGuestDerivedShoppingRecoveryProblem(true);
+        return;
+      }
+      guestPantryCommittedRef.current = storedPantry.items;
+      setPantry(storedPantry.items);
+      setRecipes(storedRecipes!.map(recipe => ({
+        ...recipe, imageUrl: getRecipeImageUrl(recipe),
+      })));
+      setMealPlan(storedPlan!);
     }
     if (savedShopping !== null) setShoppingList(savedShopping);
     setGuestJournalRecoveryStatus("clear");
@@ -1772,9 +1814,9 @@ export default function App() {
   };
 
   /**
-   * First narrow guest cook journal writer. It does NOT cover cooks that
-   * require recipe, menu, or shortage-list changes; those still use the
-   * previous behavior until a full multi-module contract is designed.
+   * Guest cook v1 handles stable projections. Its separate, five-key
+   * derived journal handles changes to recipes/menu/shortages when every
+   * input is complete and deterministic. Neither is cross-tab atomic.
    */
   const tryJournalGuestRecipeCook = (
     recipe: Recipe,
@@ -1815,19 +1857,73 @@ export default function App() {
         return "already-applied";
       }
 
-      const syncedRecipes = syncRecipesWithPantry(recipes, nextPantry);
+      const syncedRecipes = syncRecipesWithPantry(recipes, nextPantry, new Date(occurredAt));
       const { newPlan } = adaptMealPlanSafelyToPantry(
         nextPantry, syncedRecipes, mealPlan, profile,
       );
-      if (JSON.stringify(syncedRecipes) !== JSON.stringify(recipes) ||
-          JSON.stringify(newPlan) !== JSON.stringify(mealPlan)) return "ineligible";
       const nextMissing = reconcileDerivedShortageShoppingItems(
         shoppingList,
         evaluateShoppingNeeds(
           nextPantry, newPlan, shoppingList, profile.language,
         ).itemsToAddToShoppingList,
       ).next;
-      if (JSON.stringify(nextMissing) !== JSON.stringify(shoppingList)) return "ineligible";
+      const derivedChanged =
+        JSON.stringify(syncedRecipes) !== JSON.stringify(recipes) ||
+        JSON.stringify(newPlan) !== JSON.stringify(mealPlan) ||
+        JSON.stringify(nextMissing) !== JSON.stringify(shoppingList);
+      if (derivedChanged) {
+        // Historical recipes with image-only hydration differences are not
+        // exact source snapshots. Keep them on the existing path rather than
+        // write a WAL that cannot be deterministically verified.
+        if (JSON.stringify(storedRecipes) !== JSON.stringify(recipes)) return "ineligible";
+        const derived = commitDerivedGuestCookIntent(localStorage, {
+          cookConfirmationId, recipeId: recipe.id, occurredAt,
+          language: profile.language,
+          expectedPantry: guestPantryCommittedRef.current,
+          expectedRecipes: storedRecipes,
+          expectedPlan: storedPlan,
+          expectedShopping: storedShopping,
+          expectedProgression: storedProgression,
+          nextRecipes: syncedRecipes,
+          nextPlan: newPlan,
+          nextShopping: nextMissing,
+        });
+        if (derived.status === "saved" || derived.status === "saved-pending-cleanup") {
+          const committed = inspectGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY));
+          const committedRecipes = localStorage.getItem("balkanbite_recipes");
+          const committedPlan = localStorage.getItem("balkanbite_mealplan");
+          const committedShopping = localStorage.getItem("balkanbite_shopping");
+          const committedProgression = localStorage.getItem("balkanbite_progression");
+          if (committed.requiresRecovery ||
+              JSON.stringify(committed.items) !== JSON.stringify(nextPantry) ||
+              committedRecipes !== JSON.stringify(syncedRecipes) ||
+              committedPlan !== JSON.stringify(newPlan) ||
+              committedShopping !== JSON.stringify(nextMissing) ||
+              committedProgression === null ||
+              !parseStoredShoppingCache(committedShopping)) {
+            setGuestJournalRecoveryStatus("blocked");
+            setGuestDerivedShoppingRecoveryProblem(true);
+            return "blocked";
+          }
+          guestPantryCommittedRef.current = committed.items;
+          setPantry(committed.items);
+          setRecipes(syncedRecipes);
+          setMealPlan(newPlan);
+          setShoppingList(nextMissing);
+          setProgressionLedger(parseProgressionLedgerCache(committedProgression));
+          if (derived.status === "saved-pending-cleanup") setGuestJournalRecoveryStatus("pending");
+          return "saved";
+        }
+        if (derived.status === "already-applied") return "already-applied";
+        setGuestJournalRecoveryStatus("blocked");
+        setGuestDerivedShoppingRecoveryProblem(true);
+        alert(profile.language === "bg"
+          ? "Готвенето и свързаните данни не можаха да бъдат потвърдени. Презаредете и проверете данните."
+          : profile.language === "es"
+          ? "No se ha podido confirmar el cocinado y sus cambios asociados. Recarga y revisa los datos."
+          : "Cooking and related changes could not be confirmed. Reload and review the data.");
+        return "blocked";
+      }
 
       const result = commitConfirmedGuestCookIntent(localStorage, {
         cookConfirmationId, recipeId: recipe.id, occurredAt,
