@@ -522,6 +522,111 @@ async function runRealQuantityJournalCommit({ silentShoppingFailure = false } = 
   }
 }
 
+async function runRealGuestPurchaseIntent({ fault = null } = {}) {
+  const INTENT = "balkanbite_guest_purchase_intent_v1";
+  const SHOPPING = "balkanbite_shopping";
+  const PROGRESS = "balkanbite_progression";
+  const confirmed = {
+    id: "qa-confirmed-milk", name: "QA milk", quantity: 2, unit: "l",
+    category: "Dairy", checked: true, amountOrigin: "user_entered",
+    purchaseAmountConfirmed: true,
+  };
+  const manual = {
+    id: "qa-other-manual", name: "QA lemons", quantity: 1, unit: "kg",
+    category: "Produce", checked: false, amountOrigin: "user_entered",
+    purchaseAmountConfirmed: false,
+  };
+  const originalShopping = JSON.stringify([confirmed, manual]);
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, SHOPPING, PROGRESS, originalShopping }) => {
+      if (sessionStorage.getItem("__qa_real_guest_purchase_seeded")) return;
+      sessionStorage.setItem("__qa_real_guest_purchase_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, "[]");
+      localStorage.setItem(SHOPPING, originalShopping);
+      localStorage.setItem(PROGRESS, "[]");
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+    }, { MAIN, SHOPPING, PROGRESS, originalShopping });
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-shopping").click();
+    await page.locator("#shopping-item-qa-confirmed-milk")
+      .waitFor({ state: "visible", timeout: 15000 });
+    await page.locator("#transfer-to-pantry-btn").waitFor({ state: "visible" });
+    await page.evaluate(({ INTENT, SHOPPING, PROGRESS, fault }) => {
+      const native = Storage.prototype.setItem;
+      window.__qaPurchaseStages = 0;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === INTENT) window.__qaPurchaseStages++;
+        if (window.__qaPurchaseStages > 0 && key === fault &&
+          (fault === SHOPPING || fault === PROGRESS)) return;
+        return native.call(this, key, value);
+      };
+    }, { INTENT, SHOPPING, PROGRESS, fault });
+    await page.locator("#transfer-to-pantry-btn").click();
+    await page.waitForFunction(() => window.__qaPurchaseStages > 0, null, {
+      timeout: 15000,
+    });
+    await page.waitForFunction(MAIN => {
+      const pantry = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      return pantry.length === 1 && pantry[0].quantity === 2 &&
+        pantry[0].unit === "l" &&
+        pantry[0].purchaseHistory?.[0]?.sourceId === "shopping:qa-confirmed-milk";
+    }, MAIN, { timeout: 15000 });
+    if (fault) {
+      await page.getByTestId("guest-journal-recovery-warning")
+        .waitFor({ state: "visible", timeout: 12000 });
+      assert.equal(await page.evaluate(INTENT => localStorage.getItem(INTENT) !== null, INTENT),
+        true, "incomplete purchase must retain a WAL marker");
+      assert.deepEqual(JSON.parse(await page.evaluate(PROGRESS => localStorage.getItem(PROGRESS), PROGRESS)),
+        [], "no progress must be claimed before its write succeeds");
+      if (fault === SHOPPING) {
+        assert.equal(await page.evaluate(SHOPPING => localStorage.getItem(SHOPPING), SHOPPING),
+          originalShopping, "failed shopping write must retain original items");
+      }
+    } else {
+      assert.equal(await page.evaluate(INTENT => localStorage.getItem(INTENT), INTENT),
+        null, "completed purchase must clear its WAL marker");
+    }
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.waitForFunction(({ INTENT, MAIN, SHOPPING, PROGRESS }) => {
+      const pantry = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      const shopping = JSON.parse(localStorage.getItem(SHOPPING) || "[]");
+      const events = JSON.parse(localStorage.getItem(PROGRESS) || "[]");
+      return localStorage.getItem(INTENT) === null &&
+        pantry.length === 1 && pantry[0].quantity === 2 &&
+        shopping.length === 1 && shopping[0].id === "qa-other-manual" &&
+        events.length === 1 &&
+        events[0].eventId === "purchase:shopping:qa-confirmed-milk";
+    }, { INTENT, MAIN, SHOPPING, PROGRESS }, { timeout: 15000 });
+    const after = await page.evaluate(({ MAIN, SHOPPING, PROGRESS }) => ({
+      pantry: JSON.parse(localStorage.getItem(MAIN)),
+      shopping: JSON.parse(localStorage.getItem(SHOPPING)),
+      events: JSON.parse(localStorage.getItem(PROGRESS)),
+    }), { MAIN, SHOPPING, PROGRESS });
+    assert.equal(after.pantry[0].quantity, 2, "purchase may not be repeated on recovery");
+    assert.deepEqual(after.shopping, [manual], "keep untouched manual list rows");
+    assert.equal(after.events.length, 1, "idempotent progression evidence");
+    evidence.checks.push(fault === SHOPPING
+      ? "real-ui-purchase-shopping-fault-recovered-without-repeat"
+      : fault === PROGRESS
+        ? "real-ui-purchase-progression-fault-recovered-once"
+        : "real-ui-confirmed-purchase-three-keys-committed");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runCorruptedGuestPurchaseIntentAtStartup() {
   const PURCHASE_INTENT = "balkanbite_guest_purchase_intent_v1";
   const SHOPPING = "balkanbite_shopping";
@@ -777,6 +882,9 @@ try {
   await runRealQuantityJournalCommit({ silentShoppingFailure: true });
   await runMalformedGuestShoppingOnStartup();
   await runCorruptedGuestPurchaseIntentAtStartup();
+  await runRealGuestPurchaseIntent();
+  await runRealGuestPurchaseIntent({ fault: "balkanbite_shopping" });
+  await runRealGuestPurchaseIntent({ fault: "balkanbite_progression" });
   for (const mode of ["applied", "unapplied", "conflict", "malformed"]) {
     await runGuestJournalHydration(mode);
   }
