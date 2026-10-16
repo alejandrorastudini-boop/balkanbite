@@ -288,3 +288,32 @@ test("recovery with silent shopping failure does not declare success", () => {
   assert.equal(a.progressWrites, 0);
   assert.equal(a.primaryWrites, 1);
 });
+
+test("confirmed purchases cannot stage while any cook journal exists", () => {
+  for (const marker of [
+    "balkanbite_guest_cook_intent_v1",
+    "balkanbite_guest_cook_derived_intent_v1",
+  ]) {
+    const f = fixture();
+    f.data.set(marker, "unresolved-cook");
+    assert.deepEqual(commitConfirmedGuestPurchaseIntent(f.storage, command()), {
+      status: "blocked", reason: "unresolved-intent",
+    });
+    assert.equal(f.primaryWrites, 0);
+    assert.equal(f.progressWrites, 0);
+    assert.equal(f.data.get(INTENT), undefined);
+  }
+});
+
+test("purchase recovery cannot overwrite any concurrently pending cook journal", () => {
+  const f = fixture();
+  f.faults.set(SHOPPING, "silent");
+  assert.equal(commitConfirmedGuestPurchaseIntent(f.storage, command()).status, "blocked");
+  f.faults.clear();
+  f.data.set("balkanbite_guest_cook_derived_intent_v1", "other-unresolved");
+  assert.deepEqual(recoverConfirmedGuestPurchaseIntent(f.storage), {
+    status: "blocked", reason: "conflict",
+  });
+  assert.deepEqual(JSON.parse(f.data.get(SHOPPING)!), shopping);
+  assert.ok(f.data.get(INTENT));
+});
