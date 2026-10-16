@@ -6,6 +6,8 @@ import {
   guestShoppingCacheIsComplete,
 } from "../src/utils/guestDerivedShoppingRecovery";
 import type { PantryItem, ShoppingItem } from "../src/types";
+import { SAMPLE_RECIPES } from "../src/data/initialData";
+import { localCalendarDate } from "../src/utils/effectiveExpiry";
 
 const pantry: PantryItem[] = [{
   id: "qa-food", name: "QA rice", quantity: 550, unit: "g",
@@ -148,4 +150,19 @@ test("malformed guest shopping cache is never considered safe for automatic hydr
   assert.equal(guestShoppingCacheIsComplete(JSON.stringify([manual, { id: "broken" }])), false);
   assert.equal(guestShoppingCacheIsComplete("not-json"), false);
   assert.equal(guestShoppingCacheIsComplete(JSON.stringify({ shopping: [manual] })), false);
+});
+
+test("guest startup never generates new shortage rows from a plan without prior managed evidence", () => {
+  const day = localCalendarDate(new Date());
+  assert.ok(day);
+  const originalShopping = JSON.stringify([manual]);
+  const { values, storage } = storageFixture({
+    [PANTRY]: JSON.stringify(pantry),
+    [PLAN]: JSON.stringify([{ date: day, lunch: SAMPLE_RECIPES[0] }]),
+    [SHOPPING]: originalShopping,
+  });
+  assert.deepEqual(repairGuestDerivedShoppingOnHydration(storage, "en"), {
+    status: "unchanged",
+  });
+  assert.equal(values.get(SHOPPING), originalShopping);
 });
