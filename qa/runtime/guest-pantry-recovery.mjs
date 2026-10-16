@@ -1112,10 +1112,14 @@ async function runLateGuestJournalPreventsLegacyWrite(mode) {
       assert.equal(await page.locator(`#pantry-item-${valid.id}`)
         .getByText("550", { exact: false }).count(), 0,
         "rejected pantry edit must not appear as confirmed stock");
+    } else {
+      assert.equal((await page.locator(`#shopping-item-${manual.id}`)
+        .getAttribute("class"))?.includes("line-through"), false,
+        "a rejected shopping confirmation may not look checked in React");
     }
     evidence.checks.push(mode === "legacy-pantry"
-      ? "late-pending-wal-refuses-direct-legacy-pantry-commit"
-      : "late-pending-wal-freezes-legacy-shopping-effect");
+      ? "late-pending-wal-refuses-legacy-pantry-edit"
+      : "late-pending-wal-refuses-optimistic-shopping-confirmation");
   } finally {
     await page?.close().catch(() => {});
     await context.close();
