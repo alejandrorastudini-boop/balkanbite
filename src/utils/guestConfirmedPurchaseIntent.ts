@@ -5,7 +5,10 @@ import {
   writeGuestPantrySafely,
 } from "./guestPantry";
 import type { GuestJournalStorage } from "./guestPantryShoppingJournal";
-import { GUEST_PANTRY_SHOPPING_JOURNAL_KEY } from "./guestPantryShoppingJournal";
+import {
+  hasPendingGuestMutationJournal,
+  hasConflictingGuestMutationJournal,
+} from "./guestJournalExclusivity";
 import { transferCheckedShoppingItems } from "./purchasePantryMerge";
 import {
   appendProgressionEvents,
@@ -184,8 +187,7 @@ export function commitConfirmedGuestPurchaseIntent(
   },
 ): Result {
   try {
-    if (storage.getItem(GUEST_PURCHASE_INTENT_KEY) !== null ||
-        storage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) !== null) {
+    if (hasPendingGuestMutationJournal(storage)) {
       return { status: "blocked", reason: "unresolved-intent" };
     }
     const pantryBefore = storage.getItem(GUEST_PANTRY_KEY);
@@ -248,7 +250,7 @@ export function recoverConfirmedGuestPurchaseIntent(
     if (raw === null) return { status: "none" };
     const entry = validIntent(raw);
     if (!entry) return { status: "blocked", reason: "invalid-intent" };
-    if (storage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) !== null ||
+    if (hasConflictingGuestMutationJournal(storage, GUEST_PURCHASE_INTENT_KEY) ||
         !unchangedSources(storage, entry)) return { status: "blocked", reason: "conflict" };
     const pantry = storage.getItem(GUEST_PANTRY_KEY);
     const shopping = storage.getItem(SHOPPING_KEY);
