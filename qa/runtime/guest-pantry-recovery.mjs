@@ -570,7 +570,11 @@ async function runRealGuestVoiceRemoval({ fault = null, purpose = "food-use" } =
     await page.goto(new URL("/", base).toString(), {
       waitUntil: "domcontentloaded", timeout: 30000,
     });
-    await page.locator("#nav-tab-voice").click();
+    // Voice is reached via the floating Chef IA modal, not bottom navigation.
+    await page.locator("#chef-ia-floating-btn").click();
+    await page.locator("#chef-ia-modal-panel").waitFor({
+      state: "visible", timeout: 15000,
+    });
     await page.locator("#voice-text-input").fill(purpose === "discard"
       ? "I threw away 100 g QA Rice"
       : "I used 100 g QA Rice");
