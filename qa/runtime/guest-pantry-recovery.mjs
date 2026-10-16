@@ -676,7 +676,7 @@ async function runTwoTabStaleInventory() {
     // stale second-tab stock. They surface different but explicit UI warnings.
     await stale.locator(
       '[data-testid="guest-pantry-recovery"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
-    ).filter({ hasText: /could not be protected|not safely synchronized|unfinished local operation/i })
+    ).filter({ hasText: /could not be protected|not safely synchronized|unfinished local operation|shopping list could not be confirmed/i })
       .first().waitFor({ state: "visible", timeout: 12000 });
     const originalAfterStaleWrite = await stale.evaluate(MAIN =>
       localStorage.getItem(MAIN), MAIN);
