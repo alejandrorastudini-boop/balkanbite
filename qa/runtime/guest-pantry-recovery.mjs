@@ -241,6 +241,98 @@ async function runGuestPantryAddEditDeleteReload() {
   }
 }
 
+async function runGuestDerivedShoppingSilentFailure() {
+  // #459: prove the crash-consistency boundary with an actual App runtime.
+  // No invented household data: all food names and amounts are QA fixtures.
+  const SHOPPING = "balkanbite_shopping";
+  const MANAGED_ID = "shortage-v1:qa-stale-row";
+  const managed = {
+    id: MANAGED_ID,
+    name: "QA stale generated shortfall",
+    quantity: 100,
+    unit: "g",
+    category: "Other",
+    checked: false,
+    amountOrigin: "deterministic_shortfall",
+    purchaseAmountConfirmed: false,
+  };
+  const manual = {
+    id: "qa-manual-item",
+    name: "QA manual item",
+    quantity: 1,
+    unit: "ud",
+    category: "Other",
+    checked: false,
+    amountOrigin: "user_entered",
+    purchaseAmountConfirmed: false,
+  };
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, SHOPPING, valid, manual, managed }) => {
+      if (sessionStorage.getItem("__qa_crash_seeded")) return;
+      sessionStorage.setItem("__qa_crash_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem(SHOPPING, JSON.stringify([manual, managed]));
+    }, { MAIN, SHOPPING, valid, manual, managed });
+
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-pantry").click();
+    await page.locator(`#pantry-item-${valid.id}`).waitFor({ state: "visible" });
+    const startingShopping = await page.evaluate(key => localStorage.getItem(key), SHOPPING);
+    assert.equal(JSON.parse(startingShopping).length, 2);
+
+    // The shopping effect silently fails after the pantry key has succeeded.
+    await page.evaluate(SHOPPING => {
+      const native = Storage.prototype.setItem;
+      window.__qaShoppingWriteAttempts = 0;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === SHOPPING) {
+          window.__qaShoppingWriteAttempts++;
+          return;
+        }
+        return native.call(this, key, value);
+      };
+    }, SHOPPING);
+    await page.locator(`#pantry-item-${valid.id}`)
+      .getByRole("button", { name: "Increase quantity" }).click();
+    await page.waitForFunction(MAIN => {
+      const rows = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      return rows.length === 1 && rows[0].quantity === 550;
+    }, MAIN);
+    await page.waitForFunction(() => window.__qaShoppingWriteAttempts > 0);
+    const stale = await page.evaluate(key => localStorage.getItem(key), SHOPPING);
+    assert.equal(stale, startingShopping, "fault injection must retain the old derived snapshot");
+
+    // After an actual reload, a managed shortfall with no planned recipe
+    // must not return as if it were still derived from confirmed stock.
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.locator("#nav-tab-pantry").click();
+    await page.locator(`#pantry-item-${valid.id}`).waitFor({ state: "visible" });
+    const savedPantry = JSON.parse(await page.evaluate(key => localStorage.getItem(key), MAIN));
+    const savedShopping = JSON.parse(await page.evaluate(key => localStorage.getItem(key), SHOPPING));
+    assert.equal(savedPantry[0].quantity, 550);
+    assert.deepEqual(savedShopping.filter(row => row.id === manual.id), [manual],
+      "manual shopping rows must be preserved");
+    assert.equal(savedShopping.some(row => row.id === MANAGED_ID), false,
+      "a stale derived shortage must be repaired or explicitly quarantined on reload");
+    evidence.checks.push("derived-shopping-failed-write-recovery");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runTwoTabStaleInventory() {
   const context = await browser.newContext();
   const pages = [];
@@ -307,6 +399,7 @@ try {
   await runTwoTabStaleInventory();
   await runFailedGuestQuantityWrite();
   await runFailedGuestQuantityWrite({ silent: true });
+  await runGuestDerivedShoppingSilentFailure();
   const mixed = JSON.stringify([valid, { id: "qa-unknown", note: "keep original untouched" }]);
   await run({ original: mixed });
   await run({ original: "{ malformed original text", expectedExtension: "txt", expectedItems: [] });
