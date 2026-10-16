@@ -441,8 +441,9 @@ async function runGuestJournalHydration(mode) {
       localStorage.setItem("balkanbite_profile", JSON.stringify({
         language: "en", onboardingCompleted: true,
       }));
-      localStorage.setItem("balkanbite_recipes", "[]");
-      localStorage.setItem(PLAN, "[]");
+      localStorage.setItem("balkanbite_recipes", mode === "conflict"
+        ? "{historical-recipe-raw" : "[]");
+      localStorage.setItem(PLAN, mode === "malformed" ? "{historical-plan-raw" : "[]");
       localStorage.setItem(MAIN, mode === "unapplied" ? beforePantry
         : mode === "conflict" ? conflictingPantry : afterPantry);
       localStorage.setItem(SHOPPING, beforeShopping);
@@ -465,6 +466,13 @@ async function runGuestJournalHydration(mode) {
       assert.equal(preserved.pantry, mode === "conflict" ? conflictingPantry : afterPantry);
       assert.equal(preserved.shopping, beforeShopping);
       assert.equal(preserved.journal, mode === "malformed" ? "{unparseable" : journal);
+      if (mode === "conflict") {
+        assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_recipes")),
+          "{historical-recipe-raw", "pending WAL must not replace malformed original recipe bytes");
+      } else {
+        assert.equal(await page.evaluate(PLAN => localStorage.getItem(PLAN), PLAN),
+          "{historical-plan-raw", "pending WAL must not replace malformed original menu bytes");
+      }
       await page.locator("#nav-tab-pantry").click();
       await page.locator(`#pantry-item-${valid.id}`).getByRole("button", {
         name: "Increase quantity",
