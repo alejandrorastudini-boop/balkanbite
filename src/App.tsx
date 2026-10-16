@@ -880,6 +880,16 @@ export default function App() {
     inventoryIsProvisional || guestPantryReviewPending || guestDerivedShoppingRecoveryProblem;
 
   const requireAuthoritativeInventory = () => {
+    // Another guest tab may have staged a WAL after this tab hydrated.
+    // Never launch pantry-derived commands from a stale "clear" React flag.
+    if (!currentUser && blockLegacyGuestWriteForPendingJournal()) {
+      alert(profile.language === "bg"
+        ? "Има незавършена локална операция. Презаредете и проверете данните."
+        : profile.language === "es"
+        ? "Hay una operación local pendiente. Recarga y revisa los datos."
+        : "A local operation is pending. Reload and review the data.");
+      return false;
+    }
     if (!currentUser && guestJournalRecoveryStatus !== "clear") {
       alert(profile.language === "bg"
         ? "Гост-операцията не е възстановена безопасно. Презаредете и прегледайте локалните данни."
@@ -1772,7 +1782,8 @@ export default function App() {
   };
 
   const handleClearRecipes = async () => {
-    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
+    if (!currentUser && (guestJournalRecoveryStatus !== "clear" ||
+      blockLegacyGuestWriteForPendingJournal())) return false;
     if (!currentUser) {
       setRecipes([]);
       return true;
@@ -1782,7 +1793,8 @@ export default function App() {
   };
 
   const handleClearMealPlan = async () => {
-    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
+    if (!currentUser && (guestJournalRecoveryStatus !== "clear" ||
+      blockLegacyGuestWriteForPendingJournal())) return false;
     if (!currentUser) {
       setMealPlan([]);
       return true;
@@ -2263,7 +2275,8 @@ export default function App() {
   };
 
   const handleToggleShoppingItem = async (id: string): Promise<boolean> => {
-    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
+    if (!currentUser && (guestJournalRecoveryStatus !== "clear" ||
+      blockLegacyGuestWriteForPendingJournal())) return false;
     const expected = shoppingList.find(item => item.id === id);
     if (!expected) return false;
     const checked = !expected.checked;
@@ -2292,7 +2305,8 @@ export default function App() {
   };
 
   const handleDeleteShoppingItem = async (id: string): Promise<boolean> => {
-    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
+    if (!currentUser && (guestJournalRecoveryStatus !== "clear" ||
+      blockLegacyGuestWriteForPendingJournal())) return false;
     const expected = shoppingList.find(item => item.id === id);
     if (!expected) return false;
     if (!currentUser) {
@@ -2315,7 +2329,8 @@ export default function App() {
   const handleAddShoppingItem = async (
     item: Omit<ShoppingItem, "id" | "checked">
   ): Promise<boolean> => {
-    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
+    if (!currentUser && (guestJournalRecoveryStatus !== "clear" ||
+      blockLegacyGuestWriteForPendingJournal())) return false;
     if (!hasValidManualShoppingRequiredFields(item)) {
       console.warn(
         "Manual shopping item rejected because name, quantity or unit was not explicitly valid."
@@ -2353,7 +2368,8 @@ export default function App() {
   };
 
   const handleClearShoppingList = async (): Promise<boolean> => {
-    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
+    if (!currentUser && (guestJournalRecoveryStatus !== "clear" ||
+      blockLegacyGuestWriteForPendingJournal())) return false;
     if (shoppingList.length === 0) return true;
     if (!currentUser) {
       setShoppingList([]);
@@ -2828,7 +2844,8 @@ export default function App() {
   };
 
   const handleVoiceAddShoppingItems = async (items: any[]): Promise<boolean> => {
-    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
+    if (!currentUser && (guestJournalRecoveryStatus !== "clear" ||
+      blockLegacyGuestWriteForPendingJournal())) return false;
     const now = Date.now();
     const result = buildConfirmedVoiceShoppingItems(
       items || [],
@@ -3268,7 +3285,8 @@ export default function App() {
               onGenerateAiRecipes={() => handleGenerateAiRecipes()}
               onClearRecipes={handleClearRecipes}
               onLoadSampleRecipes={async () => {
-                if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
+                if (!currentUser && (guestJournalRecoveryStatus !== "clear" ||
+      blockLegacyGuestWriteForPendingJournal())) return false;
                 if (!currentUser) {
                   setRecipes(SAMPLE_RECIPES);
                   return true;
