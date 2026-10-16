@@ -86,7 +86,10 @@ import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext"
 import { parseStoredRecipeCache } from "./utils/storedRecipeValidation";
 import { parseStoredMealPlanCache } from "./utils/storedMealPlanValidation";
 import { parseStoredShoppingCache } from "./utils/storedShoppingValidation";
-import { repairGuestDerivedShoppingOnHydration } from "./utils/guestDerivedShoppingRecovery";
+import {
+  repairGuestDerivedShoppingOnHydration,
+  guestShoppingCacheIsComplete,
+} from "./utils/guestDerivedShoppingRecovery";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
   buildMealLogPreservingNutritionUncertainty,
@@ -559,6 +562,14 @@ export default function App() {
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest") return;
     try {
+      const existingRaw = localStorage.getItem("balkanbite_shopping");
+      if (!guestShoppingCacheIsComplete(existingRaw)) {
+        // A historical malformed row must not be silently filtered away by
+        // the React hydration writer. Preserve untouched raw bytes for review.
+        setGuestDerivedShoppingRecoveryProblem(true);
+        console.warn("Guest shopping cache needs non-destructive review");
+        return;
+      }
       const serialized = JSON.stringify(shoppingList);
       localStorage.setItem("balkanbite_shopping", serialized);
       if (localStorage.getItem("balkanbite_shopping") !== serialized) {
