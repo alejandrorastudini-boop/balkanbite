@@ -96,7 +96,7 @@ test("guest pantry commit rejects stale multi-tab state without publishing it", 
 });
 
 test("legacy guest writes recheck all persisted WALs after hydration without mutating signed-in workspace", () => {
-  const late = app.indexOf("const blockLegacyGuestWriteForPendingJournal = () => {");
+  const late = app.indexOf("const blockLegacyGuestWriteForPendingJournal = (): boolean => {");
   const inventoryGate = app.indexOf("const requireAuthoritativeInventory = () => {");
   const commitStart = app.indexOf("const commitGuestPantry = (");
   const commitEnd = app.indexOf("const updatePantryAndReconcileMenu =", commitStart);
