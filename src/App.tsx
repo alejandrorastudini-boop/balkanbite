@@ -90,6 +90,10 @@ import {
   repairGuestDerivedShoppingOnHydration,
   guestShoppingCacheIsComplete,
 } from "./utils/guestDerivedShoppingRecovery";
+import {
+  GUEST_PANTRY_SHOPPING_JOURNAL_KEY,
+  recoverGuestPantryShoppingJournal,
+} from "./utils/guestPantryShoppingJournal";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
   buildMealLogPreservingNutritionUncertainty,
@@ -122,6 +126,13 @@ export default function App() {
   const guestPantryCommittedRef = useRef<PantryItem[]>(pantry);
   const [guestPantryRecoveryAcknowledged, setGuestPantryRecoveryAcknowledged] = useState(false);
   const [guestDerivedShoppingRecoveryProblem, setGuestDerivedShoppingRecoveryProblem] = useState(false);
+  const [guestJournalRecoveryStatus, setGuestJournalRecoveryStatus] = useState<"clear" | "pending" | "blocked">(() => {
+    try {
+      return localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) === null ? "clear" : "pending";
+    } catch {
+      return "blocked";
+    }
+  });
   const [guestPantryRecovery, setGuestPantryRecovery] = useState<"none" | "available" | "blocked">(() => {
     // Block guest writes on the very first render until recovery storage
     // has been verified. A late effect must not temporarily allow mutations.
@@ -444,6 +455,12 @@ export default function App() {
 
     if (firebaseLoading || pantryScope === "guest") return;
 
+    // Recheck for a journal created during a previous authenticated session.
+    try {
+      if (localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) !== null) setGuestJournalRecoveryStatus("pending");
+    } catch {
+      setGuestJournalRecoveryStatus("blocked");
+    }
     const loadedGuestPantry = loadGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY));
     guestPantryCommittedRef.current = loadedGuestPantry;
     setPantry(loadedGuestPantry);
@@ -511,6 +528,30 @@ export default function App() {
   ]);
 
   useEffect(() => {
+    if (isResetting || firebaseLoading || currentUser ||
+        pantryScope !== "guest" || workspaceScope !== "guest" ||
+        guestJournalRecoveryStatus === "clear") return;
+
+    // Only completes the derived shopping write, never re-executes a purchase
+    // or a consumption. Other guest writers wait for the recovered snapshot.
+    const recovery = recoverGuestPantryShoppingJournal(localStorage);
+    if (recovery.status === "blocked") {
+      setGuestJournalRecoveryStatus("blocked");
+      setGuestDerivedShoppingRecoveryProblem(true);
+      return;
+    }
+    const shoppingRaw = localStorage.getItem("balkanbite_shopping");
+    const savedShopping = parseStoredShoppingCache(shoppingRaw);
+    if (shoppingRaw !== null && (!savedShopping || !guestShoppingCacheIsComplete(shoppingRaw))) {
+      setGuestJournalRecoveryStatus("blocked");
+      setGuestDerivedShoppingRecoveryProblem(true);
+      return;
+    }
+    if (savedShopping !== null) setShoppingList(savedShopping);
+    setGuestJournalRecoveryStatus("clear");
+  }, [isResetting, firebaseLoading, currentUser, pantryScope, workspaceScope, guestJournalRecoveryStatus]);
+
+  useEffect(() => {
     if (isResetting || !currentUser) return;
     // Authenticated storage remains a provisional UI cache, never authority.
     try {
@@ -525,7 +566,8 @@ export default function App() {
   }, [pantry, currentUser, inventoryHydrated, pantryScope, isResetting]);
 
   useEffect(() => {
-    if (isResetting || currentUser || firebaseLoading || pantryScope !== "guest") return;
+    if (isResetting || currentUser || firebaseLoading || pantryScope !== "guest" ||
+        guestJournalRecoveryStatus !== "clear") return;
     // One-time guest scope hydration/migration, not a post-render writer.
     // All subsequent guest inventory mutations are committed synchronously
     // in commitGuestPantry BEFORE React and derived states change.
@@ -548,7 +590,7 @@ export default function App() {
       setGuestPantryRecovery("blocked");
       console.warn("Guest pantry hydration/recovery failed", error);
     }
-  }, [currentUser, firebaseLoading, pantryScope, isResetting]);
+  }, [currentUser, firebaseLoading, pantryScope, isResetting, guestJournalRecoveryStatus]);
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest") return;
@@ -560,7 +602,8 @@ export default function App() {
   }, [recipes, currentUser, workspaceScope, isResetting]);
 
   useEffect(() => {
-    if (isResetting || currentUser || workspaceScope !== "guest") return;
+    if (isResetting || currentUser || workspaceScope !== "guest" ||
+        guestJournalRecoveryStatus !== "clear") return;
     try {
       const existingRaw = localStorage.getItem("balkanbite_shopping");
       if (!guestShoppingCacheIsComplete(existingRaw)) {
@@ -582,12 +625,12 @@ export default function App() {
       setGuestDerivedShoppingRecoveryProblem(true);
       console.warn("Guest shopping persistence failed", e);
     }
-  }, [shoppingList, currentUser, workspaceScope, isResetting]);
+  }, [shoppingList, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus]);
 
   useEffect(() => {
     if (isResetting || firebaseLoading || currentUser ||
         pantryScope !== "guest" || workspaceScope !== "guest" ||
-        guestPantryRecovery !== "none") return;
+        guestJournalRecoveryStatus !== "clear" || guestPantryRecovery !== "none") return;
 
     // Reconcile only app-managed shortages from completely valid stored
     // sources. This repairs an interrupted derived write after a reload,
@@ -602,7 +645,7 @@ export default function App() {
     }
   }, [
     isResetting, firebaseLoading, currentUser, pantryScope, workspaceScope,
-    guestPantryRecovery, profile.language,
+    guestPantryRecovery, guestJournalRecoveryStatus, profile.language,
   ]);
 
   useEffect(() => {
@@ -713,12 +756,20 @@ export default function App() {
   };
 
   const guestPantryReviewPending = !currentUser &&
-    (guestPantryRecovery === "blocked" ||
+    (guestJournalRecoveryStatus !== "clear" || guestPantryRecovery === "blocked" ||
       (guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged));
   const pantryDerivedDataProvisional =
     inventoryIsProvisional || guestPantryReviewPending || guestDerivedShoppingRecoveryProblem;
 
   const requireAuthoritativeInventory = () => {
+    if (!currentUser && guestJournalRecoveryStatus !== "clear") {
+      alert(profile.language === "bg"
+        ? "Гост-операцията не е възстановена безопасно. Презаредете и прегледайте локалните данни."
+        : profile.language === "es"
+        ? "La operación de invitado está pendiente de recuperación o revisión. Recarga y revisa los datos locales."
+        : "A guest operation needs recovery or review. Reload and inspect local data.");
+      return false;
+    }
     if (!currentUser && guestDerivedShoppingRecoveryProblem) {
       alert(
         profile.language === "bg"
@@ -1852,6 +1903,7 @@ export default function App() {
   };
 
   const handleToggleShoppingItem = async (id: string): Promise<boolean> => {
+    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
     const expected = shoppingList.find(item => item.id === id);
     if (!expected) return false;
     const checked = !expected.checked;
@@ -1880,6 +1932,7 @@ export default function App() {
   };
 
   const handleDeleteShoppingItem = async (id: string): Promise<boolean> => {
+    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
     const expected = shoppingList.find(item => item.id === id);
     if (!expected) return false;
     if (!currentUser) {
@@ -1902,6 +1955,7 @@ export default function App() {
   const handleAddShoppingItem = async (
     item: Omit<ShoppingItem, "id" | "checked">
   ): Promise<boolean> => {
+    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
     if (!hasValidManualShoppingRequiredFields(item)) {
       console.warn(
         "Manual shopping item rejected because name, quantity or unit was not explicitly valid."
@@ -1939,6 +1993,7 @@ export default function App() {
   };
 
   const handleClearShoppingList = async (): Promise<boolean> => {
+    if (!currentUser && guestJournalRecoveryStatus !== "clear") return false;
     if (shoppingList.length === 0) return true;
     if (!currentUser) {
       setShoppingList([]);
@@ -2541,6 +2596,16 @@ export default function App() {
       }`}
     >
       <div className="w-full max-w-6xl mx-auto min-h-screen relative pb-28 px-2.5 sm:px-6 lg:px-8">
+        {!currentUser && guestJournalRecoveryStatus !== "clear" && (
+          <section role="alert" data-testid="guest-journal-recovery-warning"
+            className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+            {profile.language === "bg"
+              ? "Незавършена локална операция. Промените в наличностите и покупките са спрени, докато възстановяването не приключи безопасно."
+              : profile.language === "es"
+              ? "Hay una operación local sin finalizar. Los cambios de despensa y compras están bloqueados hasta recuperar o revisar los datos."
+              : "An unfinished local operation needs recovery. Pantry and shopping edits are blocked until it is safely resolved."}
+          </section>
+        )}
         {!currentUser && guestDerivedShoppingRecoveryProblem && (
           <section role="alert" data-testid="guest-shopping-consistency-warning"
             className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
