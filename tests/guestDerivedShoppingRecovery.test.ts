@@ -1,7 +1,10 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { GUEST_PANTRY_KEY } from "../src/utils/guestPantry";
-import { repairGuestDerivedShoppingOnHydration } from "../src/utils/guestDerivedShoppingRecovery";
+import {
+  repairGuestDerivedShoppingOnHydration,
+  guestShoppingCacheIsComplete,
+} from "../src/utils/guestDerivedShoppingRecovery";
 import type { PantryItem, ShoppingItem } from "../src/types";
 
 const pantry: PantryItem[] = [{
@@ -137,4 +140,12 @@ test("concurrent change of input plan prevents blind derived overwrite", () => {
     status: "blocked",
   });
   assert.equal(values.get(SHOPPING), initial);
+});
+
+test("malformed guest shopping cache is never considered safe for automatic hydration rewrite", () => {
+  assert.equal(guestShoppingCacheIsComplete(null), true);
+  assert.equal(guestShoppingCacheIsComplete(JSON.stringify([manual, stale])), true);
+  assert.equal(guestShoppingCacheIsComplete(JSON.stringify([manual, { id: "broken" }])), false);
+  assert.equal(guestShoppingCacheIsComplete("not-json"), false);
+  assert.equal(guestShoppingCacheIsComplete(JSON.stringify({ shopping: [manual] })), false);
 });
