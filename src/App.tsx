@@ -86,6 +86,7 @@ import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext"
 import { parseStoredRecipeCache } from "./utils/storedRecipeValidation";
 import { parseStoredMealPlanCache } from "./utils/storedMealPlanValidation";
 import { parseStoredShoppingCache } from "./utils/storedShoppingValidation";
+import { repairGuestDerivedShoppingOnHydration } from "./utils/guestDerivedShoppingRecovery";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
   buildMealLogPreservingNutritionUncertainty,
@@ -117,6 +118,7 @@ export default function App() {
   // commands; React state updates need not flush between two user actions.
   const guestPantryCommittedRef = useRef<PantryItem[]>(pantry);
   const [guestPantryRecoveryAcknowledged, setGuestPantryRecoveryAcknowledged] = useState(false);
+  const [guestDerivedShoppingRecoveryProblem, setGuestDerivedShoppingRecoveryProblem] = useState(false);
   const [guestPantryRecovery, setGuestPantryRecovery] = useState<"none" | "available" | "blocked">(() => {
     // Block guest writes on the very first render until recovery storage
     // has been verified. A late effect must not temporarily allow mutations.
@@ -557,11 +559,40 @@ export default function App() {
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest") return;
     try {
-      localStorage.setItem("balkanbite_shopping", JSON.stringify(shoppingList));
+      const serialized = JSON.stringify(shoppingList);
+      localStorage.setItem("balkanbite_shopping", serialized);
+      if (localStorage.getItem("balkanbite_shopping") !== serialized) {
+        setGuestDerivedShoppingRecoveryProblem(true);
+        console.warn("Guest shopping persistence could not be confirmed");
+        return;
+      }
+      setGuestDerivedShoppingRecoveryProblem(false);
     } catch (e) {
-      console.warn("localStorage write error", e);
+      setGuestDerivedShoppingRecoveryProblem(true);
+      console.warn("Guest shopping persistence failed", e);
     }
   }, [shoppingList, currentUser, workspaceScope, isResetting]);
+
+  useEffect(() => {
+    if (isResetting || firebaseLoading || currentUser ||
+        pantryScope !== "guest" || workspaceScope !== "guest" ||
+        guestPantryRecovery !== "none") return;
+
+    // Reconcile only app-managed shortages from completely valid stored
+    // sources. This repairs an interrupted derived write after a reload,
+    // without deleting user-entered shopping items or assuming absent caches
+    // are known empty. It does not provide multi-key atomicity.
+    const recovery = repairGuestDerivedShoppingOnHydration(localStorage, profile.language);
+    if (recovery.status === "blocked") {
+      setGuestDerivedShoppingRecoveryProblem(true);
+    } else if (recovery.status === "repaired") {
+      setShoppingList(recovery.shopping);
+      setGuestDerivedShoppingRecoveryProblem(false);
+    }
+  }, [
+    isResetting, firebaseLoading, currentUser, pantryScope, workspaceScope,
+    guestPantryRecovery, profile.language,
+  ]);
 
   useEffect(() => {
     if (isResetting) return;
@@ -673,9 +704,20 @@ export default function App() {
   const guestPantryReviewPending = !currentUser &&
     (guestPantryRecovery === "blocked" ||
       (guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged));
-  const pantryDerivedDataProvisional = inventoryIsProvisional || guestPantryReviewPending;
+  const pantryDerivedDataProvisional =
+    inventoryIsProvisional || guestPantryReviewPending || guestDerivedShoppingRecoveryProblem;
 
   const requireAuthoritativeInventory = () => {
+    if (!currentUser && guestDerivedShoppingRecoveryProblem) {
+      alert(
+        profile.language === "bg"
+          ? "Списъкът за пазаруване не е синхронизиран безопасно с наличностите. Проверете мястото за съхранение и презаредете."
+          : profile.language === "es"
+          ? "La lista de compra no está sincronizada de forma segura con la despensa. Revisa el almacenamiento y recarga."
+          : "The shopping list is not safely synchronized with the pantry. Check storage and reload."
+      );
+      return false;
+    }
     if (!currentUser && guestPantryRecovery === "blocked") {
       alert(
         profile.language === "bg"
@@ -2488,6 +2530,16 @@ export default function App() {
       }`}
     >
       <div className="w-full max-w-6xl mx-auto min-h-screen relative pb-28 px-2.5 sm:px-6 lg:px-8">
+        {!currentUser && guestDerivedShoppingRecoveryProblem && (
+          <section role="alert" data-testid="guest-shopping-consistency-warning"
+            className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+            {profile.language === "bg"
+              ? "Наличностите са запазени, но списъкът за пазаруване не можа да бъде потвърден. Предложенията за липсващи продукти са спрени. Проверете съхранението и презаредете, за да опитате безопасно възстановяване."
+              : profile.language === "es"
+              ? "La despensa está guardada, pero no se ha podido confirmar la lista de compra. Se suspenden las sugerencias de faltantes. Revisa el almacenamiento y recarga para intentar una recuperación segura."
+              : "Pantry stock was saved, but the shopping list could not be confirmed. Generated shortage suggestions are paused. Check storage and reload to attempt safe recovery."}
+          </section>
+        )}
         {!currentUser && guestPantryRecovery !== "none" && (
           <section role="alert" data-testid="guest-pantry-recovery" className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
             <p className="font-semibold">
