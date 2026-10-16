@@ -74,7 +74,7 @@ test("guest pantry mutations commit storage before any React or derived-state up
     "return commitGuestPantry([], { reconcile: false })",
     "if (!commitGuestPantry(result.pantry)) return { success: false, issueCount: 1 }",
     "if (!commitGuestPantry(preview.pantry)) return",
-    "return commitGuestPantry(guestResult.pantry)",
+    "const saved = commitGuestVoiceRemoval(localStorage, {",
   ]) {
     assert.ok(app.includes(expected), `missing commit-first guest route: ${expected}`);
   }
