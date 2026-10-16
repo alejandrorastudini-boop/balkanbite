@@ -154,7 +154,7 @@ async function runFailedGuestQuantityWrite({ silent = false } = {}) {
     // and unchanged displayed stock, never an optimistic write.
     await page.locator(
       '[data-testid="guest-pantry-recovery"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
-    ).filter({ hasText: /could not be protected|shopping list could not be confirmed|unfinished local operation/i })
+    ).filter({ hasText: /could not be protected|pantry and shopping consistency could not be confirmed|unfinished local operation/i })
       .first().waitFor({ state: "visible", timeout: 12000 });
     const after = await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
     assert.equal(after, before, "failed writes must keep original storage");
@@ -641,14 +641,10 @@ async function runTwoTabStaleInventory() {
       localStorage.setItem(MAIN, JSON.stringify([valid]));
     }, { MAIN, valid });
 
-    const guestDialogs = [];
     for (let index = 0; index < 2; index++) {
       const page = await context.newPage();
       pages.push(page);
-      page.on("dialog", dialog => {
-        guestDialogs.push({ index, message: dialog.message() });
-        return dialog.dismiss();
-      });
+      page.on("dialog", dialog => dialog.dismiss());
       await page.goto(new URL("/", base).toString(), {
         waitUntil: "domcontentloaded", timeout: 30000,
       });
@@ -668,21 +664,11 @@ async function runTwoTabStaleInventory() {
 
     // The second tab loaded 500g, so overwriting 550g must fail closed.
     await increment(stale).click();
-    await stale.waitForTimeout(550);
-    const staleDiagnostic = await stale.evaluate(MAIN => ({
-      persisted: localStorage.getItem(MAIN),
-      warnings: [...document.querySelectorAll(
-        '[data-testid="guest-pantry-recovery"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
-      )].map(el => el.textContent),
-    }), MAIN);
-    console.log("QA two-tab stale rejection diagnostic", JSON.stringify({
-      ...staleDiagnostic, dialogs: guestDialogs,
-    }));
     // Both the original single-key guard and the new journal preflight reject
     // stale second-tab stock. They surface different but explicit UI warnings.
     await stale.locator(
       '[data-testid="guest-pantry-recovery"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
-    ).filter({ hasText: /could not be protected|not safely synchronized|unfinished local operation|shopping list could not be confirmed/i })
+    ).filter({ hasText: /could not be protected|not safely synchronized|unfinished local operation|pantry and shopping consistency could not be confirmed/i })
       .first().waitFor({ state: "visible", timeout: 12000 });
     const originalAfterStaleWrite = await stale.evaluate(MAIN =>
       localStorage.getItem(MAIN), MAIN);
