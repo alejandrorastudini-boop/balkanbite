@@ -3435,7 +3435,6 @@ export default function App() {
               foodSafety={foodSafetyQuarantine}
               profileAuthorityReady={!currentUser || profileHydrated}
               language={profile.language}
-              theme={theme}
             />
           )}
 
