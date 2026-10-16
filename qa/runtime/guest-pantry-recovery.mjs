@@ -1445,6 +1445,16 @@ async function runChefReadOnlyNavigationAndFailure() {
   let parseIntentRequests = 0;
   try {
     await context.addInitScript(({ MAIN, valid }) => {
+      window.__qaMicAbortCount = 0;
+      window.__qaMicStartCount = 0;
+      window.SpeechRecognition = class {
+        start() {
+          window.__qaMicStartCount++;
+          this.onstart?.();
+        }
+        stop() { this.onend?.(); }
+        abort() { window.__qaMicAbortCount++; }
+      };
       if (sessionStorage.getItem("__qa_chef_navigation_seeded")) return;
       sessionStorage.setItem("__qa_chef_navigation_seeded", "true");
       localStorage.setItem("balkanbite_show_landing", "false");
@@ -1475,9 +1485,14 @@ async function runChefReadOnlyNavigationAndFailure() {
     const before = await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
     await page.locator("#chef-ia-floating-btn").click();
     await page.locator("#chef-ia-modal-panel").waitFor({ state: "visible", timeout: 15000 });
+    await page.locator("#voice-mic-main-btn").click();
+    assert.equal(await page.evaluate(() => window.__qaMicStartCount), 1,
+      "synthetic recognizer started inside Chef overlay");
     await page.locator("#voice-text-input").fill("Show me my pantry");
     await page.locator("#voice-send-btn").click();
     await page.locator("#chef-ia-modal-panel").waitFor({ state: "hidden", timeout: 15000 });
+    assert.equal(await page.evaluate(() => window.__qaMicAbortCount), 1,
+      "moving to a new screen must abort recognizer on Chef unmount");
     await page.locator(`#pantry-item-${valid.id}`).waitFor({ state: "visible", timeout: 15000 });
     assert.equal(parseIntentRequests, 0, "read-only navigation must not call paid or unavailable AI");
     assert.equal(await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN), before,
