@@ -2,6 +2,8 @@
 
 This file is **operational QA evidence**, not a permanent architecture decision or proof of release readiness.
 
+Tracking issue for the full conversational operator: [#474](https://github.com/alejandrorastudini-boop/balkanbite/issues/474).
+
 ## Verified code baseline
 - Base: Draft PR #453 at `8e44d1054728c68383555833303e29de366713ef`.
 - Production/main remains `f6d6133149f585cf416cf5809d6280f6dc5486cd`.
@@ -31,6 +33,7 @@ This file is **operational QA evidence**, not a permanent architecture decision 
 - `src/utils/chefNavigationIntent.ts`: small finite `NAVIGATE_TAB` contract, six read-only destinations (pantry, shopping, mealPlan, recipes, home, profile). Explicit phrase matching in ES/EN/BG. Rejects compound and mutating utterances. No IA call needed for recognized phrases.
 - `VoiceChefView`, `ChefIaModal`, `App`: send a grounded navigation feedback message, change active tab and close the covering modal to reveal destination. This **is not** persistent hands-free control over the entire app.
 - `VoiceChefView`: reject HTTP errors/`success:false` from parser instead of presenting a generic processed-success reply.
+- SpeechRecognition cleanup: abort the browser recognizer on component unmount or language change; Chromium QA uses a synthetic recognizer to assert abort on visible navigation. This does **not** verify the Android physical microphone.
 - `tests/chefNavigationIntent.test.ts`: positive/negative read-only parser contract.
 - `qa/runtime/guest-pantry-recovery.mjs`: Chef local navigation and explicit 503 browser scenario.
 - Tests are not considered passing until their full run on the exact QA SHA completes.
