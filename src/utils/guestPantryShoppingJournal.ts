@@ -1,4 +1,8 @@
 import type { Language, PantryItem, ShoppingItem } from "../types";
+import {
+  hasPendingGuestMutationJournal,
+  hasConflictingGuestMutationJournal,
+} from "./guestJournalExclusivity";
 import { evaluateShoppingNeeds } from "./shoppingAdvisor";
 import {
   GUEST_PANTRY_KEY,
@@ -155,7 +159,7 @@ export function writeGuestPantryShoppingWithJournal(
       beforePantry === afterPantry) return { status: "blocked", reason: "invalid-input" };
 
   try {
-    if (storage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) !== null) {
+    if (hasPendingGuestMutationJournal(storage)) {
       return { status: "blocked", reason: "unresolved-journal" };
     }
     const pantryBeforeRaw = storage.getItem(GUEST_PANTRY_KEY);
@@ -221,6 +225,9 @@ export function recoverGuestPantryShoppingJournal(
   try {
     const raw = storage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY);
     if (raw === null) return { status: "none" };
+    if (hasConflictingGuestMutationJournal(storage, GUEST_PANTRY_SHOPPING_JOURNAL_KEY)) {
+      return { status: "blocked", reason: "conflict" };
+    }
     let journal: unknown;
     try { journal = JSON.parse(raw); } catch {
       return { status: "blocked", reason: "invalid-journal" };
