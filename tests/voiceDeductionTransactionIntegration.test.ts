@@ -116,7 +116,7 @@ test("App caches reviewed deductions and exact expected remainder before dispatc
   }
 
   const guestStart = block.indexOf("if (!currentUser)");
-  const mutationCheck = block.indexOf("if (!mutationId || (purpose !==");
+  const mutationCheck = block.lastIndexOf("if (!mutationId || (purpose !==");
   const guestWrite = block.indexOf("const saved = commitGuestVoiceRemoval(localStorage, {");
   assert.ok(guestStart >= 0 && guestWrite > guestStart && mutationCheck > guestWrite);
   assert.ok(block.includes("mutationId, purpose, occurredAt, language: profile.language"));
