@@ -6,7 +6,7 @@ import { isStoredShoppingItemStructurallyValid } from "./storedShoppingValidatio
 import { evaluateShoppingNeeds } from "./shoppingAdvisor";
 import { localCalendarDate } from "./effectiveExpiry";
 
-export type ChefWorkspaceQueryAction = "SHOW_MENU" | "SHOW_SHORTAGES" | "SHOW_PROGRESS";
+export type ChefWorkspaceQueryAction = "SHOW_MENU" | "SHOW_SHORTAGES" | "SHOW_SHOPPING_LIST" | "SHOW_PROGRESS";
 export interface ChefWorkspaceSnapshot {
   pantry: readonly PantryItem[];
   mealPlan: readonly MealPlanDay[];
@@ -25,6 +25,13 @@ const phrases: Record<ChefWorkspaceQueryAction, readonly string[]> = {
     "what ingredients am i missing for my meals", "what is missing for my meal plan",
     "what groceries am i missing for the menu",
     "какво липсва за менюто", "какви продукти липсват за менюто",
+  ],
+  SHOW_SHOPPING_LIST: [
+    "que tengo en la lista de la compra", "que hay en mi lista de compra",
+    "que falta comprar de mi lista", "que tengo que comprar segun mi lista",
+    "what is on my shopping list", "what do i need to buy from my list",
+    "what is on the grocery list",
+    "какво има в списъка за пазаруване", "какво имам в списъка за покупки",
   ],
   SHOW_PROGRESS: [
     "cual es mi progreso", "que progreso llevo", "cuantas compras y cocinados he confirmado",
@@ -89,8 +96,9 @@ function validSnapshot(snapshot: ChefWorkspaceSnapshot): boolean {
   return true;
 }
 
-/** Guest-only verified domain facts; signed-in authority is deferred until
- * menu, shopping and progression can prove a server-confirmed common scope.
+/** Read-only answers from a validated workspace snapshot. The App-level
+ * callback independently gates complete guest persistence or authenticated
+ * Firestore server authority for every module and the current session.
  */
 export function describeChefWorkspaceQuery(
   action: ChefWorkspaceQueryAction,
@@ -109,6 +117,23 @@ export function describeChefWorkspaceQuery(
       `Your recorded history contains ${p.totalVerifiedEvents} verified events: ${p.confirmedPurchaseEvents} applied purchases and ${p.successfulCookEvents} pantry-deducting cooks. This is not a nutrition score or a complete habits history.`,
       `В записаната история има ${p.totalVerifiedEvents} потвърдени събития: ${p.confirmedPurchaseEvents} приложени покупки и ${p.successfulCookEvents} готвения с приспадане от наличностите. Това не е хранителна оценка или пълна история на навиците.`,
     );
+  }
+
+  if (action === "SHOW_SHOPPING_LIST") {
+    const pending = snapshot.shopping.filter(row => !row.checked);
+    const marked = snapshot.shopping.length - pending.length;
+    // Only names and checkbox state are reported here. Registered quantities
+    // can be estimated, unit-incompatible or not yet purchase-confirmed;
+    // 'checked' alone never proves a purchase or pantry application.
+    if (!pending.length) return msg(lang,
+      `No hay productos pendientes en la lista de compra registrada. Hay ${marked} elementos marcados. Una marca no confirma una compra; esto tampoco demuestra que no falten alimentos.`,
+      `There are no pending products on your recorded shopping list. ${marked} items are checked. A check mark does not confirm a purchase or prove you have everything.`,
+      `Няма чакащи продукти в записания списък за пазаруване. ${marked} продукта са отметнати. Отметката не доказва покупка или че всичко е налично.`);
+    const names = listPreview(pending.map(row => row.name));
+    return msg(lang,
+      `Tu lista de compra registra ${pending.length} productos pendientes: ${names}. ${marked} marcados. Este resumen no verifica cantidades, precios ni compras realizadas.`,
+      `Your recorded shopping list has ${pending.length} pending products: ${names}. ${marked} checked. This summary does not verify quantities, prices or completed purchases.`,
+      `В записания списък има ${pending.length} чакащи продукта: ${names}. ${marked} отметнати. Това резюме не потвърждава количества, цени или извършени покупки.`);
   }
 
   if (action === "SHOW_MENU") {
