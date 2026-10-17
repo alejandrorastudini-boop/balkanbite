@@ -11,6 +11,12 @@
 - A failure writes synthetic-only `guest-quantity-failure-{throw|silent}.json` with operation stage, intercepted attempts, read-only pantry/journal bytes, warning DOM presence, captured dialogs and console errors plus corresponding browser screenshot. No user data, production logs, hosted tests or paid service.
 - Existing core invariants remain: failed storage writes preserve original bytes, no optimistic 550g confirmation, a visible recovery/consistency warning. No changes in persistence/business code.
 
+## Verified QA evidence and integration
+- QA implementation SHA `302eda821d5137c4c52699958f235a39b1d6aed1` ran [CI #39014288121](https://github.com/alejandrorastudini-boop/balkanbite/actions/runs/39014288121): `validate` SUCCESS, `runtime-harness` SUCCESS in both attempt 1 and a targeted rerun of the Chromium job (attempt 2), with no code changes between attempts. The extra run is a **small stability sample**, not a proof of absence of future intermittent failures.
+- Scope review against prior Draft #453 `e37ccfee`: **only** this QA document and `qa/runtime/guest-pantry-recovery.mjs`, no application code, workflows, Firestore rules, secrets, dependencies, billing or paid automation. No Vercel deployments for temporary QA branch.
+- Safely fast-forwarded code into Draft PR #453 against the exact expected previous head; temporary QA PR #479 is to be closed without merging to main. This documentation follow-up advances the Draft HEAD and needs its own exact-sha CI.
+- The observed intermittent failure remains **not root-caused**. The fixture race is a working hypothesis. Issue #459 stays OPEN; hosted Auth/Firestore E2E and real Android mic are out of scope.
+
 ## Verification and limits
 - Must pass full `validate` and `runtime-harness` including `guest-pantry-recovery.mjs` at exact QA SHA, preferably repeated failed-path browser run to sample nondeterminism if available without unnecessary compute.
 - Absence of recurrence does **not** close issue #459 or prove root cause. If failure recurs, inspect the emitted screenshot and JSON rather than increasing timeouts blindly.
