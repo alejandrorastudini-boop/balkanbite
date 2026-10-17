@@ -167,6 +167,7 @@ function derive(
     validShopping(before[3])!,
     evaluateShoppingNeeds(
       deducted.pantry, nextPlan, validShopping(before[3])!, cmd.language,
+      new Date(cmd.occurredAt),
     ).itemsToAddToShoppingList,
   ).next;
   const receipt: VoiceRemovalReceipt = {
