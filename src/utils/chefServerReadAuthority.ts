@@ -30,11 +30,11 @@ export function deriveChefServerPantryRead(
   metadata: InventorySnapshotMetadata,
   docs: readonly ChefReadDocument[],
 ): ChefServerReadEvidence | null {
-  if (!Array.isArray(docs)) return null;
+  if (!metadata || !Array.isArray(docs)) return null;
   const authority = verifyServerInventoryForEdits({
     userId,
-    fromCache: metadata?.fromCache,
-    hasPendingWrites: metadata?.hasPendingWrites,
+    fromCache: metadata.fromCache,
+    hasPendingWrites: metadata.hasPendingWrites,
     documents: docs,
   });
   if (authority.status !== "verified" || authority.userId !== userId) return null;
