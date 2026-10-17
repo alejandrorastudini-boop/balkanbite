@@ -1454,6 +1454,98 @@ async function runTwoTabVoicePurchaseRecovery() {
   }
 }
 
+async function runChefGroundedPantryQuestions() {
+  const context = await browser.newContext();
+  const pages = [];
+  let aiRequests = 0;
+  const MARKER = "balkanbite_guest_cook_intent_v1";
+  const SHOPPING = "balkanbite_shopping";
+  const today = new Date();
+  const capture = [
+    today.getFullYear(), String(today.getMonth() + 1).padStart(2, "0"),
+    String(today.getDate()).padStart(2, "0"),
+  ].join("-");
+  const recorded = [
+    { ...valid, quantity: 150, addedAt: capture, expiryDaysLeft: 1 },
+    {
+      id: "qa-facts-salt", name: "QA Salt", quantity: 1, unit: "kg",
+      category: "Other", addedAt: capture,
+    },
+    {
+      id: "qa-facts-yogurt", name: "QA Yogurt", quantity: 0.5, unit: "kg",
+      category: "Dairy", addedAt: capture, expiryDaysLeft: 1,
+      expiryIsPartial: true,
+    },
+  ];
+  try {
+    await context.addInitScript(({ MAIN, SHOPPING, recorded }) => {
+      if (sessionStorage.getItem("__qa_grounded_facts_seeded")) return;
+      sessionStorage.setItem("__qa_grounded_facts_seeded", "yes");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify(recorded));
+      localStorage.setItem(SHOPPING, "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
+    }, { MAIN, SHOPPING, recorded });
+    await context.route("**/api/ai/parse-intent", route => {
+      aiRequests++;
+      return route.fulfill({ status: 503, contentType: "application/json",
+        body: JSON.stringify({ success: false, error: "synthetic AI unavailable" }) });
+    });
+    const page = await context.newPage();
+    pages.push(page);
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#chef-ia-floating-btn").click();
+    await page.locator("#chef-ia-modal-panel").waitFor({ state: "visible", timeout: 15000 });
+
+    const question = async (text, expected) => {
+      await page.locator("#voice-text-input").fill(text);
+      await page.locator("#voice-send-btn").click();
+      await page.getByText(expected, { exact: false })
+        .waitFor({ state: "visible", timeout: 15000 });
+    };
+    const original = await page.evaluate(({ MAIN, SHOPPING }) => ({
+      pantry: localStorage.getItem(MAIN),
+      shopping: localStorage.getItem(SHOPPING),
+    }), { MAIN, SHOPPING });
+    await question("What is in my pantry?", "3 recorded products");
+    await page.getByText("QA Rice (150 g)", { exact: false }).waitFor({ state: "visible" });
+    await question("What expires soon?", "2 products without reliable expiry data");
+    await page.getByText("QA Rice (recorded date", { exact: false }).waitFor({ state: "visible" });
+    assert.equal(aiRequests, 0, "grounded read-only questions must never reach AI");
+    assert.deepEqual(await page.evaluate(({ MAIN, SHOPPING }) => ({
+      pantry: localStorage.getItem(MAIN), shopping: localStorage.getItem(SHOPPING),
+    }), { MAIN, SHOPPING }), original, "read-only facts cannot mutate pantry/shopping");
+
+    // The second real tab stages a guest WAL *after* the first tab hydrated.
+    // Chef must not answer stale inventory facts or silently clear this marker.
+    const other = await context.newPage();
+    pages.push(other);
+    await other.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await other.evaluate(MARKER =>
+      localStorage.setItem(MARKER, "{unreviewed-second-tab-intent"), MARKER);
+    await question("What do I have in my pantry?", "I cannot verify your pantry yet");
+    assert.equal(aiRequests, 0, "an unresolved second-tab journal cannot trigger an AI guess");
+    assert.equal(await page.evaluate(MARKER => localStorage.getItem(MARKER), MARKER),
+      "{unreviewed-second-tab-intent",
+      "read-only query must preserve unknown WAL evidence for recovery");
+    assert.equal(await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN),
+      original.pantry, "stale query cannot rewrite stock evidence");
+    evidence.checks.push("chef-grounded-pantry-expiry-no-ai-and-cross-tab-unknown");
+  } finally {
+    await Promise.all(pages.map(page => page.close().catch(() => {})));
+    await context.close();
+  }
+}
+
 async function runChefReadOnlyNavigationAndFailure() {
   const context = await browser.newContext();
   let page;
@@ -1535,6 +1627,7 @@ async function runChefReadOnlyNavigationAndFailure() {
 try {
   await runGuestPantryAddEditDeleteReload();
   await runChefReadOnlyNavigationAndFailure();
+  await runChefGroundedPantryQuestions();
   await runTwoTabVoicePurchaseRecovery();
   await runTwoTabStaleInventory();
   await runLateGuestJournalPreventsLegacyWrite("legacy-pantry");
