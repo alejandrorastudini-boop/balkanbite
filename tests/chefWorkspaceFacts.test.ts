@@ -34,6 +34,9 @@ test("ES EN BG exact read-only queries and no compound actions", () => {
     ["¿Qué tengo en el menú semanal?", "SHOW_MENU"],
     ["What meals are planned?", "SHOW_MENU"],
     ["Какво има в седмичното меню?", "SHOW_MENU"],
+    ["¿Qué comidas tengo planeadas para hoy?", "SHOW_TODAYS_MENU"],
+    ["What meals are planned for today?", "SHOW_TODAYS_MENU"],
+    ["Какви ястия са планирани за днес?", "SHOW_TODAYS_MENU"],
     ["¿Qué me falta para el menú?", "SHOW_SHORTAGES"],
     ["What is missing for my meal plan?", "SHOW_SHORTAGES"],
     ["Какво липсва за менюто?", "SHOW_SHORTAGES"],
@@ -44,7 +47,10 @@ test("ES EN BG exact read-only queries and no compound actions", () => {
     ["What is my progress?", "SHOW_PROGRESS"],
     ["Какъв е напредъкът ми?", "SHOW_PROGRESS"],
   ] as const) assert.equal(parseChefWorkspaceQueryIntent(query), action, query);
-  for (const query of ["¿Qué hay en mi lista de compra y marca todo como comprado?",
+  for (const query of ["¿Qué comidas tengo planeadas para hoy y cocínalas?",
+    "what meals are planned for today and mark them eaten",
+    "Какви ястия са планирани за днес и изтрий ги",
+    "¿Qué hay en mi lista de compra y marca todo como comprado?",
     "what is on my shopping list and check everything", "¿Qué me falta para el menú y cómpralo?", "what is my progress and delete it",
     "change tomorrow's menu", "", 1, null, {}, "¿Cuánto he gastado?"]) {
     assert.equal(parseChefWorkspaceQueryIntent(query), null, String(query));
@@ -58,6 +64,29 @@ test("plan shows stored meals by local 7-day window, never as consumed or nutrit
   assert.doesNotMatch(answer, /calorías|precio/);
   const other = { ...fixture(), mealPlan: [{ date: "2026-10-08", lunch: recipe }] };
   assert.match(describeChefWorkspaceQuery("SHOW_MENU", other, "en", today)!, /No meals are recorded/);
+});
+
+test("today's recorded slots are local-day specific, labeled and never consumption", () => {
+  const todayOnly = describeChefWorkspaceQuery("SHOW_TODAYS_MENU", fixture(), "es", today)!;
+  assert.match(todayOnly, /hoy \(2026-10-17\)/);
+  assert.match(todayOnly, /comida: Arroz/);
+  assert.match(todayOnly, /Es un plan, no consumo confirmado/);
+  assert.doesNotMatch(todayOnly, /desayuno:|cena:|calorías|precio|consumido/);
+  const tomorrow = new Date("2026-10-18T12:00:00");
+  const noMeals = describeChefWorkspaceQuery("SHOW_TODAYS_MENU", fixture(), "en", tomorrow)!;
+  assert.match(noMeals, /No meals are recorded on today's plan \(2026-10-18\)/);
+  assert.doesNotMatch(noMeals, /Rice meal/);
+  const future = { ...fixture(), mealPlan: [
+    { date: "2026-10-17", lunch: recipe, dinner: recipe },
+    { date: "2026-10-18", breakfast: recipe },
+  ] };
+  const bg = describeChefWorkspaceQuery("SHOW_TODAYS_MENU", future, "bg", today)!;
+  assert.match(bg, /обяд: Ориз/);
+  assert.match(bg, /вечеря: Ориз/);
+  assert.doesNotMatch(bg, /закуска: Ориз/);
+  const en = describeChefWorkspaceQuery("SHOW_TODAYS_MENU", future, "en", tomorrow)!;
+  assert.match(en, /breakfast: Rice meal/);
+  assert.doesNotMatch(en, /lunch: Rice meal/);
 });
 
 test("verified shortfall is deterministic, per unit, with no invented prices or purchases", () => {
