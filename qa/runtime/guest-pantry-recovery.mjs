@@ -1534,13 +1534,21 @@ async function runChefWorkspaceFacts() {
     nutritionHighlights: { en: "QA", es: "QA", bg: "QA" },
   };
   const plan = [{ date: key, lunch: recipe }];
+  const shopping = [
+    { id: "qa-list-oil", name: "QA Olive Oil", quantity: 1.5, unit: "L",
+      category: "Other", checked: false, amountOrigin: "ai_estimated",
+      purchaseAmountConfirmed: false },
+    { id: "qa-list-eggs", name: "QA Eggs", quantity: 6, unit: "ud",
+      category: "Other", checked: true, amountOrigin: "user_entered",
+      purchaseAmountConfirmed: false },
+  ];
   const progression = [{
     version: 1, eventId: "purchase:qa-workspace-1",
     type: "confirmed_purchase_applied", occurredAt: "2026-10-16T10:00:00Z",
     evidence: "deterministic_state_transition", evidenceCount: 1,
   }];
   try {
-    await context.addInitScript(({ MAIN, valid, plan, progression }) => {
+    await context.addInitScript(({ MAIN, valid, plan, shopping, progression }) => {
       if (sessionStorage.getItem("__qa_workspace_facts_seeded")) return;
       sessionStorage.setItem("__qa_workspace_facts_seeded", "yes");
       localStorage.setItem("balkanbite_show_landing", "false");
@@ -1549,10 +1557,10 @@ async function runChefWorkspaceFacts() {
       }));
       localStorage.setItem(MAIN, JSON.stringify([{ ...valid, quantity: 50 }]));
       localStorage.setItem("balkanbite_mealplan", JSON.stringify(plan));
-      localStorage.setItem("balkanbite_shopping", "[]");
+      localStorage.setItem("balkanbite_shopping", JSON.stringify(shopping));
       localStorage.setItem("balkanbite_recipes", "[]");
       localStorage.setItem("balkanbite_progression", JSON.stringify(progression));
-    }, { MAIN, valid, plan, progression });
+    }, { MAIN, valid, plan, shopping, progression });
     await context.route("**/api/ai/parse-intent", route => {
       aiRequests++;
       return route.fulfill({
@@ -1577,6 +1585,9 @@ async function runChefWorkspaceFacts() {
     await page.getByText("These are plans, not confirmed consumption.", { exact: false })
       .waitFor({ state: "visible" });
     await ask("What is missing for my meal plan?", "QA Rice (50 g");
+    await ask("What is on my shopping list?", "QA Olive Oil");
+    await page.getByText("1 checked. This summary does not verify quantities, prices or completed purchases.",
+      { exact: false }).waitFor({ state: "visible" });
     await ask("What is my progress?", "1 verified events");
     await page.getByText("1 applied purchases", { exact: false }).waitFor({ state: "visible" });
     assert.equal(aiRequests, 0, "workspace facts must not call unavailable/paid AI");
@@ -1588,6 +1599,8 @@ async function runChefWorkspaceFacts() {
     }), MAIN);
     assert.equal(before.pantry && JSON.parse(before.pantry)[0].quantity, 50);
     assert.equal(JSON.parse(before.progression).length, 1);
+    assert.deepEqual(JSON.parse(before.shopping), shopping,
+      "read-only shopping question must not rewrite actual checklist");
     // Other tab corrupts source AFTER this tab hydrated. No filtered-data
     // snapshot may be advertised as a complete progress history.
     const other = await context.newPage();
@@ -1598,12 +1611,15 @@ async function runChefWorkspaceFacts() {
     await other.evaluate(() =>
       localStorage.setItem("balkanbite_progression", '[{"legacy":"unverified"}]'));
     await ask("What is my progress?", "I cannot verify your menu, shopping and progress together yet");
+    await ask("What is on my shopping list?", "I cannot verify your menu, shopping and progress together yet");
     assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_progression")),
       '[{"legacy":"unverified"}]', "read-only query preserves raw unknown historical evidence");
     assert.equal(await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN), before.pantry,
       "read-only query cannot rewrite pantry");
     assert.equal(aiRequests, 0, "unverified data cannot trigger an AI guess");
-    evidence.checks.push("chef-workspace-grounded-menu-shortages-progress-guest-fail-closed");
+    assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_shopping")),
+      before.shopping, "failed-closed shopping list must preserve recorded values");
+    evidence.checks.push("chef-workspace-grounded-menu-shortages-shopping-progress-guest-fail-closed");
   } finally {
     await Promise.all(pages.map(page => page.close().catch(() => {})));
     await context.close();
