@@ -13,6 +13,12 @@
 - CI MUST pass `validate` (main tests, auxiliary, lint/typecheck/build/serverless smoke) and `runtime-harness` (six local Chromium suites) at exact QA SHA. Review file diff and Vercel deployment list.
 - Only then non-force fast-forward Draft #453 and rerun CI at its new head. Close temporary QA PR without merging main.
 
+## Verified QA and integration checkpoint — 2026-10-17
+- Implementation QA SHA `514c0db18006eebd808b120692575b782f1f6a9b` passed [GitHub Actions #39004424099](https://github.com/alejandrorastudini-boop/balkanbite/actions/runs/39004424099): `validate` SUCCESS (**1,196/1,196** main tests + ten auxiliary; lint/typecheck, build, real serverless smoke) and `runtime-harness` SUCCESS (all six local Chromium suites, including the new guest Chef workspace scenario).
+- Exact diff from prior PR #453 HEAD `c9052abe`: seven files, no workflow, package, Firestore Rules, secrets or billing changes. Zero Vercel deployments recorded for QA branch.
+- Fast-forward to existing Draft #453 performed non-forcibly with exact expected head. Temporary QA PR #477 must be closed without merging to `main`. No Production release.
+- This documentation-only checkpoint itself advances Draft HEAD. A fresh exact-SHA `validate` and `runtime-harness` SUCCESS is required before considering the new Draft checkpoint fully validated.
+
 ## Open risks
 - localStorage no atomic cross-tab CAS; validation is best-effort and cannot guarantee arbitrary interleavings (#459).
 - Signed-in multi-module query authority is **NOT IMPLEMENTED**, not silently approximated by React caches.
