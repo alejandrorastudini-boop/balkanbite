@@ -2,6 +2,8 @@ import React, { useEffect } from "react";
 import { X, Sparkles, ChefHat, Maximize2 } from "lucide-react";
 import { Language, PantryItem, MealLog, ChatMessage } from "../types";
 import { VoiceChefView } from "./VoiceChefView";
+import type { ChefNavigationTab } from "../utils/chefNavigationIntent";
+import type { ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
 import type { DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { ConfirmedVoiceLotEvidence } from "../utils/voiceLotEvidenceAdapter";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
@@ -20,6 +22,9 @@ interface ChefIaModalProps {
   onDeductItemsFromPantry: (items: any[], mutationId: string, purpose: DeterministicRemovalPurpose, lotEvidence?: readonly ConfirmedVoiceLotEvidence[]) => boolean | Promise<boolean>;
   exactLotReviewEnabled?: boolean;
   onNavigateToRecipes: (query?: string) => void;
+  onNavigateToTab: (tab: ChefNavigationTab) => void;
+  onGetAuthoritativePantry: () => readonly PantryItem[] | null;
+  onGetAuthoritativeWorkspace: () => ChefWorkspaceSnapshot | null;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
   language: Language;
@@ -39,6 +44,9 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
   onDeductItemsFromPantry,
   exactLotReviewEnabled = false,
   onNavigateToRecipes,
+  onNavigateToTab,
+  onGetAuthoritativePantry,
+  onGetAuthoritativeWorkspace,
   onLogMeal,
   foodSafety,
   language,
@@ -123,6 +131,12 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
               onClose();
             }}
             onLogMeal={onLogMeal}
+            onGetAuthoritativePantry={onGetAuthoritativePantry}
+            onGetAuthoritativeWorkspace={onGetAuthoritativeWorkspace}
+            onNavigateToTab={(tab) => {
+              onNavigateToTab(tab);
+              onClose();
+            }}
             foodSafety={foodSafety}
             language={language}
           />

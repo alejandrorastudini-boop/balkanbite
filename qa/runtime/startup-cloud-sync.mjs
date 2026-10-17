@@ -618,8 +618,7 @@ async function runProfileHealthDataControlScenario(context) {
     await localResetButton.click();
     await page
       .getByText(
-        "This removes BalkanBite data stored locally in this browser or device. It does not delete data from any cloud account.",
-        { exact: true }
+        /This removes BalkanBite data stored locally.*guest pantry recovery backups.*Download the backups before resetting.*does not delete data from any cloud account/i,
       )
       .waitFor({ state: "visible", timeout: 5_000 });
     await page.getByRole("button", { name: "Cancel", exact: true }).click();
