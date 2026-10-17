@@ -3,6 +3,9 @@ import { getSyncedItemKey } from "./cloudCollectionSync";
 import { isStoredMealPlanDayStructurallyValid } from "./storedMealPlanValidation";
 import { isStoredShoppingItemStructurallyValid } from "./storedShoppingValidation";
 import { isValidProgressionEvent, type ProgressionEventV1 } from "./progressionLedger";
+import { verifyServerInventoryForEdits } from "./pantryEditIntentCapture";
+import { inspectGuestPantry } from "./guestPantry";
+import type { PantryItem } from "../types";
 
 export type ChefCollectionForRead = "mealPlans" | "shoppingList";
 export interface ChefReadDocument {
@@ -13,6 +16,52 @@ export interface ChefReadDocument {
 export interface ChefServerReadEvidence {
   userId: string;
   serialized: string;
+}
+
+/**
+ * A server-confirmed inventory listener can precede its React UI echo. Chef
+ * must not read a stale displayed stock just because a separate hydration
+ * flag has become true. Require strict canonical lot evidence, all active
+ * rows structurally valid, and exact raw fields matching the eventual view.
+ * Tombstones are excluded exactly as in the existing inventory UI listener.
+ */
+export function deriveChefServerPantryRead(
+  userId: string,
+  metadata: InventorySnapshotMetadata,
+  docs: readonly ChefReadDocument[],
+): ChefServerReadEvidence | null {
+  if (!Array.isArray(docs)) return null;
+  const authority = verifyServerInventoryForEdits({
+    userId,
+    fromCache: metadata?.fromCache,
+    hasPendingWrites: metadata?.hasPendingWrites,
+    documents: docs,
+  });
+  if (authority.status !== "verified" || authority.userId !== userId) return null;
+  const rows = docs.flatMap(doc => {
+    if (doc.data._deleted === true) return [];
+    const { userId: _owner, _deleted: _tombstone, deletedAt: _deletedAt,
+      ...visible } = doc.data;
+    return [visible];
+  });
+  // Reuse the pantry's strict stored-row shape validator. A dropped legacy
+  // demo row, duplicate or malformed row cannot silently shrink the claim.
+  const inspected = inspectGuestPantry(JSON.stringify(rows));
+  if (inspected.requiresRecovery || inspected.items.length !== rows.length ||
+      JSON.stringify(inspected.items) !== JSON.stringify(rows)) return null;
+  return { userId, serialized: JSON.stringify(inspected.items) };
+}
+
+export function selectCompleteChefServerPantry(
+  userId: string | null,
+  sessionUserId: string | null | undefined,
+  evidence: ChefServerReadEvidence | undefined,
+  visible: readonly PantryItem[],
+): PantryItem[] | null {
+  if (!userId || sessionUserId !== userId || !evidence ||
+      evidence.userId !== userId || !Array.isArray(visible) ||
+      evidence.serialized !== JSON.stringify(visible)) return null;
+  return JSON.parse(evidence.serialized) as PantryItem[];
 }
 
 /**
