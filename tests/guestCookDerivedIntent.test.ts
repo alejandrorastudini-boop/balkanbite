@@ -50,7 +50,7 @@ const consumed = deductRecipeIngredientsFromPantry(stock, recipe.ingredients, ne
 assert.equal(consumed.issues.length, 0);
 const afterRecipes = syncRecipesWithPantry(oldRecipes, consumed.pantry, new Date(when));
 const afterShopping = reconcileDerivedShortageShoppingItems(
-  shopping, evaluateShoppingNeeds(consumed.pantry, newPlan, shopping, "en").itemsToAddToShoppingList,
+  shopping, evaluateShoppingNeeds(consumed.pantry, newPlan, shopping, "en", new Date(when)).itemsToAddToShoppingList,
 ).next;
 const createCommand = (): DerivedGuestCookCommand => ({
   cookConfirmationId: "cook-derived-test-1",
