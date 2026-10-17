@@ -7,7 +7,7 @@ import { deriveChefServerPantryRead, selectCompleteChefServerPantry } from "../s
 
 const uid = "chef-test-user";
 const server = { fromCache: false, hasPendingWrites: false };
-const rice: PantryItem = {
+const rice: PantryItem & { cookRevision: number } = {
   id: "qa-rice", name: "QA Rice", quantity: 500, unit: "g",
   category: "Pantry/Grains", addedAt: "2026-10-17", cookRevision: 0,
 };
