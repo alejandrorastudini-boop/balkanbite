@@ -22,6 +22,7 @@ interface ChefIaModalProps {
   exactLotReviewEnabled?: boolean;
   onNavigateToRecipes: (query?: string) => void;
   onNavigateToTab: (tab: ChefNavigationTab) => void;
+  onGetAuthoritativePantry: () => readonly PantryItem[] | null;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
   language: Language;
@@ -42,6 +43,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
   exactLotReviewEnabled = false,
   onNavigateToRecipes,
   onNavigateToTab,
+  onGetAuthoritativePantry,
   onLogMeal,
   foodSafety,
   language,
@@ -126,6 +128,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
               onClose();
             }}
             onLogMeal={onLogMeal}
+            onGetAuthoritativePantry={onGetAuthoritativePantry}
             onNavigateToTab={(tab) => {
               onNavigateToTab(tab);
               onClose();
