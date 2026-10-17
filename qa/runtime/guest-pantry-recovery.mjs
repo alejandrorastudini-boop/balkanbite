@@ -1588,6 +1588,9 @@ async function runChefWorkspaceFacts() {
     await ask("What meals are planned?", "Rice meal");
     await page.getByText("These are plans, not confirmed consumption.", { exact: false })
       .waitFor({ state: "visible" });
+    await ask("What meals are planned for today?", "lunch: Rice meal");
+    await page.getByText("This is a plan, not confirmed consumption.", { exact: false })
+      .waitFor({ state: "visible" });
     await ask("What is missing for my meal plan?", "QA Rice (50 g");
     await ask("What is on my shopping list?", "QA Olive Oil");
     await page.getByText("1 checked. This summary does not verify quantities, prices or completed purchases.",
