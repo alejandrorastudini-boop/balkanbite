@@ -37,11 +37,15 @@ test("ES EN BG exact read-only queries and no compound actions", () => {
     ["¿Qué me falta para el menú?", "SHOW_SHORTAGES"],
     ["What is missing for my meal plan?", "SHOW_SHORTAGES"],
     ["Какво липсва за менюто?", "SHOW_SHORTAGES"],
+    ["¿Qué tengo en la lista de la compra?", "SHOW_SHOPPING_LIST"],
+    ["What is on my shopping list?", "SHOW_SHOPPING_LIST"],
+    ["Какво има в списъка за пазаруване?", "SHOW_SHOPPING_LIST"],
     ["¿Cuál es mi progreso?", "SHOW_PROGRESS"],
     ["What is my progress?", "SHOW_PROGRESS"],
     ["Какъв е напредъкът ми?", "SHOW_PROGRESS"],
   ] as const) assert.equal(parseChefWorkspaceQueryIntent(query), action, query);
-  for (const query of ["¿Qué me falta para el menú y cómpralo?", "what is my progress and delete it",
+  for (const query of ["¿Qué hay en mi lista de compra y marca todo como comprado?",
+    "what is on my shopping list and check everything", "¿Qué me falta para el menú y cómpralo?", "what is my progress and delete it",
     "change tomorrow's menu", "", 1, null, {}, "¿Cuánto he gastado?"]) {
     assert.equal(parseChefWorkspaceQueryIntent(query), null, String(query));
   }
@@ -70,6 +74,46 @@ test("unverified units are counted for review and not invented as quantitative s
   const answer = describeChefWorkspaceQuery("SHOW_SHORTAGES", x, "es", today)!;
   assert.match(answer, /No hay faltantes cuantitativos verificados/);
   assert.match(answer, /1 requisitos sin verificar/);
+});
+
+test("recorded shopping checklist is not meal shortfalls or proof of purchases", () => {
+  const pending = { ...salt, amountOrigin: "ai_estimated" as const,
+    quantity: 1.25, purchaseAmountConfirmed: false };
+  const checked = { ...salt, id: "marked-eggs", name: "Eggs",
+    quantity: 12, unit: "ud", checked: true, purchaseAmountConfirmed: false };
+  const x = { ...fixture(), shopping: [pending, checked] };
+  for (const lang of ["es", "en", "bg"] as const) {
+    const answer = describeChefWorkspaceQuery("SHOW_SHOPPING_LIST", x, lang, today)!;
+    assert.match(answer, /Salt/);
+    assert.doesNotMatch(answer, /Eggs/);
+    assert.doesNotMatch(answer, /1\.25|12 ud|€|EUR/);
+  }
+  assert.match(describeChefWorkspaceQuery("SHOW_SHOPPING_LIST", x, "es", today)!,
+    /1 productos pendientes/);
+  assert.match(describeChefWorkspaceQuery("SHOW_SHOPPING_LIST", x, "en", today)!,
+    /1 checked/);
+  assert.match(describeChefWorkspaceQuery("SHOW_SHOPPING_LIST", x, "bg", today)!,
+    /1 отметнати/);
+  assert.match(describeChefWorkspaceQuery("SHOW_SHOPPING_LIST",
+    { ...fixture(), shopping: [checked] }, "en", today)!,
+    /A check mark does not confirm a purchase/);
+  assert.match(describeChefWorkspaceQuery("SHOW_SHOPPING_LIST",
+    { ...fixture(), shopping: [] }, "es", today)!,
+    /No hay productos pendientes/);
+});
+
+test("shopping list stays bounded and all invalid evidence refuses a partial list", () => {
+  const list = Array.from({ length: 9 }, (_, i) =>
+    ({ ...salt, id: `salt-${i}`, name: `Item ${i}` }));
+  const answer = describeChefWorkspaceQuery("SHOW_SHOPPING_LIST",
+    { ...fixture(), shopping: list }, "en", today)!;
+  assert.match(answer, /9 pending products/);
+  assert.match(answer, /\+3/);
+  assert.doesNotMatch(answer, /Item 8/);
+  assert.equal(describeChefWorkspaceQuery("SHOW_SHOPPING_LIST",
+    { ...fixture(), shopping: [salt, salt] }, "es", today), null);
+  assert.equal(describeChefWorkspaceQuery("SHOW_SHOPPING_LIST",
+    { ...fixture(), shopping: [{ ...salt, quantity: NaN }] }, "es", today), null);
 });
 
 test("progress counts only complete journaled transitions, not budget/health scores", () => {
