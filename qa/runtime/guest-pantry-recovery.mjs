@@ -1576,9 +1576,13 @@ async function runChefWorkspaceFacts() {
     await page.locator("#chef-ia-floating-btn").click();
     await page.locator("#chef-ia-modal-panel").waitFor({ state: "visible", timeout: 15000 });
     const ask = async (question, expected) => {
+      const matching = page.getByText(expected, { exact: false });
+      const previousCount = await matching.count();
       await page.locator("#voice-text-input").fill(question);
       await page.locator("#voice-send-btn").click();
-      await page.getByText(expected, { exact: false })
+      // Two legitimate fail-closed answers have identical text. Require an
+      // additional message, not just visibility of an older matching bubble.
+      await matching.nth(previousCount)
         .waitFor({ state: "visible", timeout: 15000 });
     };
     await ask("What meals are planned?", "Rice meal");
