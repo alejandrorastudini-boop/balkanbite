@@ -40,6 +40,8 @@ import { appendProgressionEventsAtomically, subscribeProgressionEvents } from ".
 import type { ProgressionEventV1 } from "../utils/progressionLedger";
 import {
   deriveChefServerCollectionRead,
+  deriveChefServerPantryRead,
+  selectCompleteChefServerPantry,
   selectCompleteChefServerWorkspace,
   type ChefServerReadEvidence,
 } from "../utils/chefServerReadAuthority";
@@ -79,6 +81,7 @@ export function useFirebaseSync(
   // collection hydration can keep showing provisional data without asserting
   // that it came from an intact, server-confirmed owner snapshot.
   const chefServerReadEvidence = useRef<{
+    inventory?: ChefServerReadEvidence;
     mealPlans?: ChefServerReadEvidence;
     shoppingList?: ChefServerReadEvidence;
     progression?: ChefServerReadEvidence;
@@ -343,6 +346,18 @@ export function useFirebaseSync(
             evidence ?? undefined;
         }
         if (collectionName === "inventory") {
+          chefServerReadEvidence.current.inventory =
+            authSessionUserId.current === currentUser.uid &&
+            auth.currentUser?.uid === currentUser.uid
+              ? deriveChefServerPantryRead(
+                  currentUser.uid,
+                  snapshot.metadata,
+                  snapshot.docs.map(row => ({
+                    documentId: row.id,
+                    data: row.data(),
+                    hasPendingWrites: row.metadata.hasPendingWrites,
+                  })),
+                ) ?? undefined : undefined;
           const serverConfirmed =
             isServerConfirmedInventorySnapshot(snapshot.metadata) &&
             snapshot.docs.every(snapshotDoc => snapshotDoc.metadata.hasPendingWrites === false);
@@ -438,6 +453,7 @@ export function useFirebaseSync(
           collectionName === "inventory" &&
           authSessionUserId.current === currentUser.uid
         ) {
+          chefServerReadEvidence.current.inventory = undefined;
           clearInventoryHydrationTimeout();
           setInventorySyncErrorUser(currentUser.uid);
           setInventoryServerConfirmedUser(null);
@@ -450,6 +466,10 @@ export function useFirebaseSync(
 
       return () => {
         clearInventoryHydrationTimeout();
+        if (collectionName === "inventory" &&
+            authSessionUserId.current === currentUser.uid) {
+          chefServerReadEvidence.current.inventory = undefined;
+        }
         if (readScoped && authSessionUserId.current === currentUser.uid) {
           chefServerReadEvidence.current[collectionName as "mealPlans" | "shoppingList"] = undefined;
         }
@@ -1099,6 +1119,19 @@ export function useFirebaseSync(
     return removeShoppingItem(db, uid, expected);
   };
 
+  // An inventory server flag is necessary but insufficient for Chef: the
+  // displayed rows must match the complete strict owner snapshot byte-for-byte.
+  const getServerConfirmedChefPantry = (): PantryItem[] | null => {
+    const uid = currentUser?.uid ?? null;
+    if (!uid || auth.currentUser?.uid !== uid ||
+        inventoryHydratedUser !== uid ||
+        inventoryServerConfirmedUser !== uid) return null;
+    return selectCompleteChefServerPantry(
+      uid, authSessionUserId.current,
+      chefServerReadEvidence.current.inventory, pantry,
+    );
+  };
+
   // Never answer with a newer optimistic view or a stale/partial listener
   // echo. The caller also checks inventory server authority and account scope.
   const getServerConfirmedChefWorkspace = (
@@ -1142,6 +1175,7 @@ export function useFirebaseSync(
     inventorySyncError,
     inventoryServerConfirmed,
     profileHydrated,
+    getServerConfirmedChefPantry,
     getServerConfirmedChefWorkspace,
     captureInventoryEditBaseline,
     submitInventoryEdit,
