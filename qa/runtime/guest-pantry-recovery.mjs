@@ -119,19 +119,42 @@ async function run({ original, previousBackup = null, expectedBlocked = false, e
 async function runFailedGuestQuantityWrite({ silent = false } = {}) {
   const context = await browser.newContext();
   let page;
+  const dialogs = [];
+  const consoleWarnings = [];
+  let stage = "before-mount";
   try {
     const raw = JSON.stringify([valid]);
     await context.addInitScript(({ MAIN, raw }) => {
+      if (sessionStorage.getItem("__qa_quantity_failure_seeded")) return;
+      sessionStorage.setItem("__qa_quantity_failure_seeded", "yes");
       localStorage.setItem("balkanbite_show_landing", "false");
       localStorage.setItem("balkanbite_profile", JSON.stringify({ language: "en", onboardingCompleted: true }));
       localStorage.setItem(MAIN, raw);
+      // An edit must start from a settled, complete guest workspace, not
+      // race against first-render effects creating these three caches.
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_shopping", "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
     }, { MAIN, raw });
     page = await context.newPage();
-    page.on("dialog", dialog => dialog.dismiss());
+    page.on("dialog", async dialog => {
+      dialogs.push({ type: dialog.type(), message: dialog.message() });
+      await dialog.dismiss();
+    });
+    page.on("console", event => {
+      if (["warning", "error"].includes(event.type())) {
+        consoleWarnings.push(event.text().slice(0, 1200));
+      }
+    });
     await page.goto(new URL("/", base).toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
     await page.locator("#nav-tab-pantry").click();
     await page.getByText("QA Rice", { exact: true }).waitFor({ state: "visible", timeout: 15000 });
     await page.getByRole("button", { name: "Increase quantity" }).waitFor({ state: "visible", timeout: 15000 });
+    stage = "hydrated";
+    await page.waitForFunction(() => ["balkanbite_recipes", "balkanbite_mealplan",
+      "balkanbite_shopping"].every(key => localStorage.getItem(key) === "[]"), null,
+      { timeout: 12000 });
     const before = await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
     assert.equal(before, raw);
 
@@ -139,8 +162,10 @@ async function runFailedGuestQuantityWrite({ silent = false } = {}) {
     // on a real mutation. A successful React update must never be claimed.
     await page.evaluate(({ MAIN, silent }) => {
       const nativeSetItem = Storage.prototype.setItem;
+      window.__qaFailedQuantityWriteAttempts = 0;
       Storage.prototype.setItem = function(key, value) {
         if (key === MAIN) {
+          window.__qaFailedQuantityWriteAttempts++;
           if (silent) return;
           throw new DOMException("local storage quota reached", "QuotaExceededError");
         }
@@ -148,7 +173,13 @@ async function runFailedGuestQuantityWrite({ silent = false } = {}) {
       };
     }, { MAIN, silent });
 
+    stage = "injected-fault";
     await page.getByRole("button", { name: "Increase quantity" }).click();
+    // A green assertion must prove that the poisoned storage method was
+    // actually exercised. Otherwise a blocked click can look like a rollback.
+    await page.waitForFunction(() => window.__qaFailedQuantityWriteAttempts > 0,
+      null, { timeout: 12000 });
+    stage = "storage-fault-observed";
     // The old direct writer and new journal writer signal storage failure in
     // different banners. The assertions below still require unchanged bytes
     // and unchanged displayed stock, never an optimistic write.
@@ -156,6 +187,7 @@ async function runFailedGuestQuantityWrite({ silent = false } = {}) {
       '[data-testid="guest-pantry-recovery"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
     ).filter({ hasText: /could not be protected|pantry and shopping consistency could not be confirmed|unfinished local operation/i })
       .first().waitFor({ state: "visible", timeout: 12000 });
+    stage = "warning-shown";
     const after = await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
     assert.equal(after, before, "failed writes must keep original storage");
     const riceCard = page.getByText("QA Rice", { exact: true }).locator("xpath=ancestor::div[contains(@class, 'group')][1]");
@@ -164,6 +196,36 @@ async function runFailedGuestQuantityWrite({ silent = false } = {}) {
     evidence.checks.push(silent
       ? "silent-write-rejected-no-optimistic-stock"
       : "failed-mutation-preserves-stock-and-storage");
+  } catch (error) {
+    // Keep actionable, synthetic-only evidence for CI failures; never infer
+    // that a timeout is harmless without seeing the actual UI and bytes.
+    const suffix = silent ? "silent" : "throw";
+    const diag = { stage, silent, dialogs, consoleWarnings,
+      message: error instanceof Error ? error.message : String(error) };
+    if (page && !page.isClosed()) {
+      try {
+        diag.browser = await page.evaluate(MAIN => ({
+          pantry: localStorage.getItem(MAIN),
+          journal: localStorage.getItem("balkanbite_guest_pantry_shopping_journal_v1"),
+          attempts: window.__qaFailedQuantityWriteAttempts ?? null,
+          warnings: [...document.querySelectorAll(
+            '[data-testid="guest-pantry-recovery"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
+          )].map(node => ({ text: node.textContent, visible: node.getBoundingClientRect().height > 0 })),
+          displayedQuantity: document.querySelector("#pantry-view")?.textContent?.slice(0, 1300) ?? null,
+        }), MAIN);
+      } catch (captureError) {
+        diag.browserCaptureError = String(captureError);
+      }
+      try {
+        await page.screenshot({ path: path.join(output, `guest-quantity-failure-${suffix}.png`),
+          fullPage: true, timeout: 5000 });
+      } catch (captureError) {
+        diag.screenshotCaptureError = String(captureError);
+      }
+    }
+    await fs.writeFile(path.join(output, `guest-quantity-failure-${suffix}.json`),
+      JSON.stringify(diag, null, 2));
+    throw error;
   } finally {
     await page?.close().catch(() => {});
     await context.close();
