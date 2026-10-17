@@ -228,6 +228,7 @@ export default function App() {
     canRenderApp,
     inventoryServerConfirmed,
     profileHydrated,
+    getServerConfirmedChefPantry,
     getServerConfirmedChefWorkspace,
     submitInventoryEdit,
     submitInventoryCreations,
@@ -3113,7 +3114,7 @@ export default function App() {
       return inventoryHydrated && inventoryServerConfirmed &&
         !inventoryIsProvisional && !inventorySyncError &&
         pantryScope === currentUser.uid && workspaceScope === currentUser.uid
-        ? pantry : null;
+        ? getServerConfirmedChefPantry() : null;
     }
     if (pantryScope !== "guest" || workspaceScope !== "guest" ||
         guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
