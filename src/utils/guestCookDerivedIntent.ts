@@ -155,6 +155,7 @@ function derive(
   );
   const shortageCandidates = evaluateShoppingNeeds(
     consumed.pantry, afterPlan, originalShopping, command.language,
+    new Date(command.occurredAt),
   ).itemsToAddToShoppingList;
   const nextShopping = reconcileDerivedShortageShoppingItems(
     originalShopping, shortageCandidates,
