@@ -50,12 +50,10 @@ export function parseChefPantryQueryIntent(value: unknown): ChefPantryQueryInten
   return null;
 }
 
-const locales: Record<Language, string> = { en: "en-US", es: "es-ES", bg: "bg-BG" };
-function amount(item: PantryItem, language: Language): string {
-  const value = new Intl.NumberFormat(locales[language], {
-    useGrouping: false, maximumFractionDigits: 15,
-  }).format(item.quantity);
-  return `${item.name} (${value} ${item.unit})`;
+function amount(item: PantryItem): string {
+  // Preserve the exact persisted numeric value; locale rounding could turn a
+  // very small positive quantity into a misleading displayed zero.
+  return `${item.name} (${String(item.quantity)} ${item.unit})`;
 }
 
 function isCompletePantry(items: readonly PantryItem[]): boolean {
@@ -90,7 +88,7 @@ export function describeChefPantryQuery(
       en: "No products are recorded in your pantry. This does not mean you have no food at home.",
       bg: "Няма записани продукти в килера. Това не означава, че нямате храна у дома.",
     }[language];
-    const shown = items.slice(0, 6).map(item => amount(item, language)).join("; ");
+    const shown = items.slice(0, 6).map(item => amount(item)).join("; ");
     const extra = items.length - 6;
     const suffix = extra <= 0 ? "" : language === "es"
       ? `; y ${extra} productos registrados más`
