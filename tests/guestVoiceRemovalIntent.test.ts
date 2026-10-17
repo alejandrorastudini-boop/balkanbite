@@ -86,6 +86,8 @@ function assertCompleted(f: ReturnType<typeof fixture>) {
 }
 
 test("guest voice creates a purpose-aware receipt only after durable multi-key removal",()=>{
+  assert.ok(afterShopping.some(row => row.id !== manual.id),
+    "dated test must exercise a changed shortage-shopping projection");
   const f=fixture();
   assert.deepEqual(commitGuestVoiceRemoval(f.storage,cmd()),{status:"saved"});
   assertCompleted(f);
