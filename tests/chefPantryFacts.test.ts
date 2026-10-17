@@ -66,6 +66,13 @@ test("expiry uses calendar-day evidence, marks past dates and counts partial/unk
   assert.match(text!, /no garantiza seguridad alimentaria/);
 });
 
+test("one-day warnings use singular localized wording", () => {
+  const dueTomorrow = { ...rice, expiryDaysLeft: 4 };
+  assert.match(describeChefPantryQuery("SHOW_EXPIRING", [dueTomorrow], "es", now)!, /en 1 día/);
+  assert.match(describeChefPantryQuery("SHOW_EXPIRING", [dueTomorrow], "en", now)!, /in 1 day/);
+  assert.match(describeChefPantryQuery("SHOW_EXPIRING", [dueTomorrow], "bg", now)!, /след 1 ден/);
+});
+
 test("unknown or partial expiry never becomes 'everything safe'", () => {
   for (const lang of ["es", "en", "bg"] as const) {
     const text = describeChefPantryQuery("SHOW_EXPIRING", [partial, unknown], lang, now);
