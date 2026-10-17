@@ -20,6 +20,7 @@ import { ChatMessage, Language, PantryItem, MealLog } from "../types";
 import { t } from "../utils/translations";
 import { parseChefNavigationIntent, chefNavigationFeedback, type ChefNavigationTab } from "../utils/chefNavigationIntent";
 import { parseChefPantryQueryIntent, describeChefPantryQuery } from "../utils/chefPantryFacts";
+import { parseChefWorkspaceQueryIntent, describeChefWorkspaceQuery, type ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
 import { parseDeterministicRemovalIntent, type DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
@@ -42,6 +43,7 @@ interface VoiceChefViewProps {
   onNavigateToRecipes: (query?: string) => void;
   onNavigateToTab: (tab: ChefNavigationTab) => void;
   onGetAuthoritativePantry: () => readonly PantryItem[] | null;
+  onGetAuthoritativeWorkspace: () => ChefWorkspaceSnapshot | null;
   onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
   profileAuthorityReady?: boolean;
@@ -61,6 +63,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   onNavigateToRecipes,
   onNavigateToTab,
   onGetAuthoritativePantry,
+  onGetAuthoritativeWorkspace,
   onLogMeal,
   foodSafety,
   profileAuthorityReady = true,
@@ -503,6 +506,35 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       );
       onUpdateChatMessages((prev) => [...prev, {
         id: `ai-facts-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+        sender: "assistant",
+        text: response,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+      speakText(response);
+      return;
+    }
+
+    // Composite pantry/menu/shopping/progression questions use one
+    // read-only, complete guest snapshot. Signed-in composite authority remains
+    // unavailable until those modules share verified server-hydration gates.
+    const workspaceQuery = parseChefWorkspaceQueryIntent(text);
+    if (workspaceQuery) {
+      const snapshot = onGetAuthoritativeWorkspace();
+      const response = snapshot === null ? (
+        language === "es"
+          ? "No puedo verificar todavía el menú, las compras y el progreso juntos. Revisa la sincronización o la recuperación de datos; no mostraré resultados basados en cachés provisionales."
+          : language === "bg"
+          ? "Все още не мога да потвърдя заедно менюто, покупките и напредъка. Проверете синхронизацията или възстановяването; няма да използвам временни данни."
+          : "I cannot verify your menu, shopping and progress together yet. Check synchronization or recovery; I will not report facts from provisional caches."
+      ) : describeChefWorkspaceQuery(workspaceQuery, snapshot, language) ?? (
+        language === "es"
+          ? "Los registros de menú, compras o progreso necesitan revisión. No afirmaré resultados incompletos."
+          : language === "bg"
+          ? "Записите за меню, покупки или напредък се нуждаят от проверка. Няма да показвам непълни резултати."
+          : "Your menu, shopping or progress records need review. I will not report incomplete facts."
+      );
+      onUpdateChatMessages((prev) => [...prev, {
+        id: `ai-workspace-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
         sender: "assistant",
         text: response,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
