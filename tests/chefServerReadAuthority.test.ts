@@ -20,7 +20,7 @@ const event = {
   evidence: "deterministic_state_transition",
   evidenceCount: 1,
 };
-const doc = (id: string, data: Record<string, unknown>, hasPendingWrites = false) =>
+const doc = <T extends object>(id: string, data: T, hasPendingWrites = false) =>
   ({ documentId: id, data: { userId: "owner-a", ...data }, hasPendingWrites });
 
 test("only complete owner/server-confirmed meal and shopping snapshots are authoritative", () => {
@@ -56,7 +56,7 @@ test("no cross-account, duplicate logical row or filtered malformed data can bec
     assert.equal(deriveChefServerCollectionRead(name, "owner-a", server,
       [...docs, doc("corrupt", { unrelated: "invalid" })]), null);
     assert.equal(deriveChefServerCollectionRead(name, "owner-a", server,
-      [{ documentId: "one", data: item, hasPendingWrites: false }]), null);
+      [{ documentId: "one", data: { ...item }, hasPendingWrites: false }]), null);
   }
 });
 
