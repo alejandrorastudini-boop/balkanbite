@@ -20,8 +20,11 @@ const event = {
   evidence: "deterministic_state_transition",
   evidenceCount: 1,
 };
-const doc = <T extends object>(id: string, data: T, hasPendingWrites = false) =>
-  ({ documentId: id, data: { userId: "owner-a", ...data }, hasPendingWrites });
+const doc = (id: string, data: object, hasPendingWrites = false) => {
+  const payload: Record<string, unknown> = { userId: "owner-a" };
+  Object.assign(payload, data);
+  return { documentId: id, data: payload, hasPendingWrites };
+};
 
 test("only complete owner/server-confirmed meal and shopping snapshots are authoritative", () => {
   const menuDocs = [doc("menu-day", menu)];
@@ -56,7 +59,7 @@ test("no cross-account, duplicate logical row or filtered malformed data can bec
     assert.equal(deriveChefServerCollectionRead(name, "owner-a", server,
       [...docs, doc("corrupt", { unrelated: "invalid" })]), null);
     assert.equal(deriveChefServerCollectionRead(name, "owner-a", server,
-      [{ documentId: "one", data: { ...item }, hasPendingWrites: false }]), null);
+      [{ ...doc("one", item), data: { unowned: true } }]), null);
   }
 });
 
