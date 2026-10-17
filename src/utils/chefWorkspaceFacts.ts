@@ -6,7 +6,7 @@ import { isStoredShoppingItemStructurallyValid } from "./storedShoppingValidatio
 import { evaluateShoppingNeeds } from "./shoppingAdvisor";
 import { localCalendarDate } from "./effectiveExpiry";
 
-export type ChefWorkspaceQueryAction = "SHOW_MENU" | "SHOW_SHORTAGES" | "SHOW_SHOPPING_LIST" | "SHOW_PROGRESS";
+export type ChefWorkspaceQueryAction = "SHOW_MENU" | "SHOW_TODAYS_MENU" | "SHOW_SHORTAGES" | "SHOW_SHOPPING_LIST" | "SHOW_PROGRESS";
 export interface ChefWorkspaceSnapshot {
   pantry: readonly PantryItem[];
   mealPlan: readonly MealPlanDay[];
@@ -18,6 +18,13 @@ const phrases: Record<ChefWorkspaceQueryAction, readonly string[]> = {
     "que tengo en el menu semanal", "que comidas tengo planeadas", "que hay en mi menu",
     "what is on my meal plan", "what meals are planned", "what is on the weekly menu",
     "какво има в седмичното меню", "какви ястия са планирани",
+  ],
+  SHOW_TODAYS_MENU: [
+    "que comidas tengo planeadas para hoy", "que tengo planificado comer hoy",
+    "que hay en el menu de hoy", "que tengo en el menu para hoy",
+    "what meals are planned for today", "what is on today's meal plan",
+    "what is on the menu today",
+    "какви ястия са планирани за днес", "какво има в менюто за днес",
   ],
   SHOW_SHORTAGES: [
     "que me falta para el menu", "que ingredientes faltan para el menu",
@@ -134,6 +141,27 @@ export function describeChefWorkspaceQuery(
       `Tu lista de compra registra ${pending.length} productos pendientes: ${names}. ${marked} marcados. Este resumen no verifica cantidades, precios ni compras realizadas.`,
       `Your recorded shopping list has ${pending.length} pending products: ${names}. ${marked} checked. This summary does not verify quantities, prices or completed purchases.`,
       `В записания списък има ${pending.length} чакащи продукта: ${names}. ${marked} отметнати. Това резюме не потвърждава количества, цени или извършени покупки.`);
+  }
+
+  if (action === "SHOW_TODAYS_MENU") {
+    const todayPlan = snapshot.mealPlan.find(day => day.date === today);
+    const slotLabels = {
+      es: { breakfast: "desayuno", lunch: "comida", dinner: "cena" },
+      en: { breakfast: "breakfast", lunch: "lunch", dinner: "dinner" },
+      bg: { breakfast: "закуска", lunch: "обяд", dinner: "вечеря" },
+    }[lang];
+    const meals = (["breakfast", "lunch", "dinner"] as const)
+      .flatMap(slot => todayPlan?.[slot]
+        ? [`${slotLabels[slot]}: ${todayPlan[slot]!.title[lang] || todayPlan[slot]!.title.en}`]
+        : []);
+    if (meals.length === 0) return msg(lang,
+      `No hay comidas registradas en el menú de hoy (${today}). Esto no demuestra que no tengas previsto cocinar ni que hayas dejado de comer.`,
+      `No meals are recorded on today's plan (${today}). This does not mean you have no intention to cook or that you have not eaten.`,
+      `Няма записани ястия в менюто за днес (${today}). Това не означава, че не планирате да готвите или че не сте яли.`);
+    return msg(lang,
+      `Para hoy (${today}) tienes ${meals.length} comidas planificadas: ${meals.join("; ")}. Es un plan, no consumo confirmado.`,
+      `For today (${today}), ${meals.length} meals are planned: ${meals.join("; ")}. This is a plan, not confirmed consumption.`,
+      `За днес (${today}) има ${meals.length} планирани ястия: ${meals.join("; ")}. Това е план, а не потвърдена консумация.`);
   }
 
   if (action === "SHOW_MENU") {
