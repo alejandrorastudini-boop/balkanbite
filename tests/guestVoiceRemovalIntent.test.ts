@@ -36,7 +36,7 @@ const plan: MealPlanDay[] = [{ date: "2026-10-16", breakfast: recipe }];
 const afterStock = deductVoiceItemsFromPantry(stock, items, new Date(date)).pantry;
 const afterRecipes = syncRecipesWithPantry([recipe], afterStock, new Date(date));
 const afterShopping = reconcileDerivedShortageShoppingItems(
-  [manual], evaluateShoppingNeeds(afterStock, plan, [manual], "en").itemsToAddToShoppingList,
+  [manual], evaluateShoppingNeeds(afterStock, plan, [manual], "en", new Date(date)).itemsToAddToShoppingList,
 ).next;
 const cmd = (): GuestVoiceCommand => ({
   mutationId: "voice-qa-removal-1", purpose: "food-use", occurredAt: date,
