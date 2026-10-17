@@ -22,6 +22,15 @@
 - Fix scope: pass `new Date(occurredAt)` in both WAL derivations and the corresponding App projections; anchor both test expectations to the same recorded operation time. Each affected fixture now asserts shopping **actually changes**, so a future calendar rollover cannot silently neuter its fault test.
 - This is a guest consistency fix, not authorization for cross-tab atomicity. Must pass full CI and Chromium on the new exact SHA before integrating into Draft #453. No Production release.
 
+## Verified checkpoint — 2026-10-17
+
+- Exact implementation SHA `88a1f61f7631a9741e2f4ec803dbdccbc266ba99` on temporary QA Draft PR #476: [GitHub Actions #39002066179](https://github.com/alejandrorastudini-boop/balkanbite/actions/runs/39002066179) **SUCCESS** for both `validate` and `runtime-harness`.
+- Main tests **1,190/1,190 PASS**, auxiliary 7+3 PASS, lint/typecheck, Vite build, serverless smoke, **six local Chromium harnesses PASS**. Real Chef modal facts displayed with mocked AI unavailable and two browser tabs; no paid AI, Android mic or hosted Firestore proof.
+- Earlier #39001626610 failed 3 historical tests due to date-dependent projections; this exposed a real WAL verification stability issue and was fixed by anchoring advisor time to immutable `occurredAt` in guest cook/voice journal derivations, their callers and test expectations.
+- #39001809465 passed unit/build but failed a newly written Chromium assertion that incorrectly expected `recorded date passed` for a product expiring *tomorrow*. QA was corrected to assert “in 1 day”, with ES/EN/BG singular inflections covered by unit tests.
+- Incremental diff against prior #453 checkpoint spans 11 files, no Firestore Rules, dependencies, GitHub workflow, billing or secret edits; candidate branch had no Vercel deployment at inspection.
+- The verified implementation was non-force fast-forwarded to Draft #453. This documentation-only commit will advance the Draft head and **requires exact-SHA CI again**. `main`/Production remain unchanged; #452/#457/#459 not closed.
+
 ## Deferred
 - No general intent planner or fuzzy LLM mapping, no multi-step autonomous execution, no persistent assistant overlay across tabs yet.
 - Additional grounded query contracts for shortages/menu/progression require separate authority gates.
