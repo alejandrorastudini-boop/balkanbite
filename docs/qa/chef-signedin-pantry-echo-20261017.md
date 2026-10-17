@@ -12,6 +12,12 @@
 - Revoke witness on cache/pending metadata, listener error, unsubscribe and auth switch. This is **read-only**; does not modify Firestore writes, shopping, nutrition, health, migration rules, billing or AI calls.
 - All five existing Chef read-only intents (`SHOW_PANTRY_ITEMS`, `SHOW_EXPIRING`, `SHOW_MENU`, `SHOW_SHORTAGES`, `SHOW_PROGRESS`) now depend on a proven signed-in pantry view, preventing signed-in mixed old-stock/new-menu answers. Guest mode is unchanged.
 
+## Implementation QA — 2026-10-17
+- Exact implementation SHA `99bb3a42925fc0926d31a575db39c9377dcea4ff` validated in [CI #39015473385](https://github.com/alejandrorastudini-boop/balkanbite/actions/runs/39015473385): both `validate` and `runtime-harness` SUCCESS, **1,208/1,208** main tests, **10/10** auxiliary, lint/typecheck/build/serverless smoke, **6/6** local Chromium suites.
+- Incremental review vs previous verified Draft #453 `cd7963c8`: five files (App, Firebase hook, pure selector, its tests, this QA document); no Firestore rules, permissions, packages, secrets, workflows or billing modifications; no QA branch Vercel deployments.
+- Non-forced fast-forward to Draft #453 was completed against expected previous head. Temporary QA PR #480 is to be closed without merging to main. This documentation-only commit advances the final Draft HEAD, which must be revalidated by the exact-SHA CI before checkpoint closure.
+- **Important limit:** a green local Chromium suite does not execute a hosted signed-in Firebase Auth session. The signed-in read authority remains implemented and locally tested, but hosted E2E **NOT VERIFIED**.
+
 ## Verification requirements
 - `tests/chefServerPantryRead.test.ts`: exact server view, stale quantity/name or empty UI refusal, cross-account guards, cache/pending flags, foreign/missing ownership, noncanonical legacy-only stock, malformed fields, confirmed empty/tombstones and hook/App wiring.
 - Full GitHub CI `validate` plus all six local Chromium `runtime-harness` suites must pass at exact QA implementation HEAD, then review diff and no deployments. Non-force fast-forward to Draft #453 ONLY, close QA PR without merge, rerun final exact SHA.
