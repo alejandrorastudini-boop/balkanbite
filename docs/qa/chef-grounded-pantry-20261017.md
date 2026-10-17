@@ -15,6 +15,13 @@
 - Full CI `validate` (tests, typecheck, build, serverless) + `runtime-harness` (six Chromium suites) **must pass at exact branch SHA**. Review diffs and protect main/Production.
 - Only after QA verification, non-force fast-forward Draft #453 against its exact expected head; rerun its exact CI, close temporary QA PR without merge, record final checkpoint and next steps.
 
+## Date-sensitive WAL regression discovered on 2026-10-17
+
+- Initial QA PR #476 CI #39001626610: TypeScript/lint SUCCESS, but 3 historical guest WAL fault-injection tests failed because their staged shopping projection became unchanged after the historical meal date (2026-10-16) moved outside the advisor's upcoming 0–2 day window. Runtime harness was not run.
+- Reliability root cause: `guestCookDerivedIntent` and `guestVoiceRemovalIntent` called `evaluateShoppingNeeds` without the `now` argument, meaning validation/recovery recomputed persisted journals relative to the **current wall clock** rather than the immutable command's `occurredAt`. Day rollover could invalidate an otherwise valid historical WAL.
+- Fix scope: pass `new Date(occurredAt)` in both WAL derivations and the corresponding App projections; anchor both test expectations to the same recorded operation time. Each affected fixture now asserts shopping **actually changes**, so a future calendar rollover cannot silently neuter its fault test.
+- This is a guest consistency fix, not authorization for cross-tab atomicity. Must pass full CI and Chromium on the new exact SHA before integrating into Draft #453. No Production release.
+
 ## Deferred
 - No general intent planner or fuzzy LLM mapping, no multi-step autonomous execution, no persistent assistant overlay across tabs yet.
 - Additional grounded query contracts for shortages/menu/progression require separate authority gates.
