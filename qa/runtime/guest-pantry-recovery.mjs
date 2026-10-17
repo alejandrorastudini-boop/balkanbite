@@ -1517,7 +1517,7 @@ async function runChefGroundedPantryQuestions() {
     await question("What is in my pantry?", "3 recorded products");
     await page.getByText("QA Rice (150 g)", { exact: false }).waitFor({ state: "visible" });
     await question("What expires soon?", "2 products without reliable expiry data");
-    await page.getByText("QA Rice (recorded date", { exact: false }).waitFor({ state: "visible" });
+    await page.getByText("QA Rice (in 1 day)", { exact: false }).waitFor({ state: "visible" });
     assert.equal(aiRequests, 0, "grounded read-only questions must never reach AI");
     assert.deepEqual(await page.evaluate(({ MAIN, SHOPPING }) => ({
       pantry: localStorage.getItem(MAIN), shopping: localStorage.getItem(SHOPPING),
