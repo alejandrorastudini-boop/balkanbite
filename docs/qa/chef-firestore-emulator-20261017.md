@@ -20,6 +20,15 @@
 - `tests/chefEmulatorWorkflowCoverage.test.ts` ensures the workflow paths, emulator target guard and invoked QA script cannot be accidentally dropped without making normal CI red.
 - This change affects CI configuration only: no application code, Firestore Rules publication, hosted writes, deployment or paid connector activation.
 
+## Follow-up: real Firestore state transitions (2026-10-17)
+- Additional isolated QA changes on branch `qa/chef-firestore-transition-matrix-20261017` exercise transitions beyond the initial static owner/foreign snapshot check. Still local emulator only.
+- Inject a malformed progression event through emulator-only fixture; the actual app subscription's visible array may filter it, but strict Chef evidence must become unavailable until removed. This prevents declaring a partial event history complete.
+- Inject a second physical Firestore mealPlans document carrying the same logical day. The query listener must reject duplicate logical keys, not accept the canonical/legacy UI deduplication as authoritative.
+- Update owner inventory on the emulated **server** to a newer quantity/revision and reject an explicitly stale old React view; this checks the real listener-to-view echo boundary.
+- Disable the SDK network; assert all relevant sources lose server authority. Queue a synthetic owner inventory update offline and assert actual `hasPendingWrites` metadata plus absence of Chef read authority; reconnect, await the permitted revisioned write and fresh confirmed listener echoes before allowing reads again.
+- Keep all test writes inside `demo-balkanbite-chef-read` Firestore Emulator, no hosted project, no actual users, no production code/rules mutation. This is stronger SDK integration QA, **not** hosted Auth/Firestore E2E, not multi-collection atomic snapshot proof.
+- Require both GitHub CI and Firestore emulator success on exact QA commit, then safe Draft #453 fast-forward and repeat exact-head gate; root cause of guest browser intermittency #459 remains open.
+
 ## Gate and next work
 - Require GitHub `owner-isolation` emulator job SUCCESS and normal `validate` / six local Chromium harnesses SUCCESS on the exact SHA.
 - Review changed files, zero QA Vercel deployments, preserve existing rules, maintain Draft PR #453; close temporary QA PR without merging to main.
