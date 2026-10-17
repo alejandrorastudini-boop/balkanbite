@@ -228,6 +228,7 @@ export default function App() {
     canRenderApp,
     inventoryServerConfirmed,
     profileHydrated,
+    getServerConfirmedChefWorkspace,
     submitInventoryEdit,
     submitInventoryCreations,
     submitVoiceInventoryConsumption,
@@ -3136,9 +3137,14 @@ export default function App() {
   // For now use only complete, unchanged guest caches; authenticated menu,
   // shopping and progression lack a common server-confirmed read gate.
   const getAuthoritativeChefWorkspace = (): ChefWorkspaceSnapshot | null => {
-    if (currentUser) return null;
     const verifiedPantry = getAuthoritativePantryForChef();
     if (verifiedPantry === null) return null;
+    if (currentUser) {
+      // Only Firestore's server-confirmed, unfiltered, owner-scoped listener
+      // echoes matching current UI for all three modules can supply facts.
+      const confirmed = getServerConfirmedChefWorkspace(progressionLedger);
+      return confirmed ? { pantry: verifiedPantry, ...confirmed } : null;
+    }
     try {
       const planRaw = localStorage.getItem("balkanbite_mealplan");
       const shoppingRaw = localStorage.getItem("balkanbite_shopping");
