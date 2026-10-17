@@ -1923,6 +1923,7 @@ export default function App() {
         shoppingList,
         evaluateShoppingNeeds(
           nextPantry, newPlan, shoppingList, profile.language,
+          new Date(occurredAt),
         ).itemsToAddToShoppingList,
       ).next;
       const derivedChanged =
@@ -2958,6 +2959,7 @@ export default function App() {
         const nextShopping = reconcileDerivedShortageShoppingItems(
           storedShopping, evaluateShoppingNeeds(
             result.pantry, newPlan, storedShopping, profile.language,
+            new Date(occurredAt),
           ).itemsToAddToShoppingList,
         ).next;
         const saved = commitGuestVoiceRemoval(localStorage, {
