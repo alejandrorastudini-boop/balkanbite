@@ -105,6 +105,8 @@ function assertCompleted(f: ReturnType<typeof fixture>) {
 }
 
 test("full five-key derived cook commits deterministic projections and exactly one event", () => {
+  assert.ok(afterShopping.some(row => row.id !== manual.id),
+    "dated test must exercise a changed shortage-shopping projection");
   const f = fixture();
   assert.ok(afterRecipes[0].ingredients[0].inPantry === false, "stock causes real recipe availability change");
   assert.equal(newPlan.length, 1);
