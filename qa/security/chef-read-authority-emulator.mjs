@@ -169,6 +169,57 @@ try {
   await waitFor(() => displayed.shoppingList.length === 1 &&
     readWorkspace() !== null, "valid shopping authority recovered after server removal");
 
+  // The real progression subscription filters malformed events for UI
+  // display. The Chef witness MUST nevertheless reject the whole source,
+  // rather than presenting the valid filtered subset as a complete history.
+  const invalidProgressId = "qa-invalid-evidence";
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), "users", owner, "progressionEvents",
+      invalidProgressId), { userId: owner, eventId: invalidProgressId,
+      type: "unsupported-transition", occurredAt: "2026-10-17T11:00:00.000Z" });
+  });
+  await waitFor(() => seen.progression === null,
+    "invalid progression source revokes complete Chef history");
+  assert.deepEqual(displayed.progression, [progress],
+    "ordinary UI may filter the invalid row; Chef must not trust that subset");
+  assert.equal(readWorkspace(), null);
+  await environment.withSecurityRulesDisabled(async context => {
+    await deleteDoc(doc(context.firestore(), "users", owner, "progressionEvents",
+      invalidProgressId));
+  });
+  await waitFor(() => readWorkspace() !== null,
+    "progression authority returns after invalid evidence is removed");
+
+  // A duplicate logical day represented by another Firestore document is a
+  // real mixed legacy/canonical snapshot; a UI dedupe cannot confer authority.
+  const duplicateDayId = getScopedDocumentId(owner, "legacy-duplicate-day");
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), "mealPlans", duplicateDayId),
+      { userId: owner, ...plan });
+  });
+  await waitFor(() => displayed.mealPlans.length === 2,
+    "duplicate logical menu date appears in the actual server listener");
+  assert.equal(seen.mealPlans, null);
+  assert.equal(readWorkspace(), null);
+  await environment.withSecurityRulesDisabled(async context => {
+    await deleteDoc(doc(context.firestore(), "mealPlans", duplicateDayId));
+  });
+  await waitFor(() => displayed.mealPlans.length === 1 &&
+    readWorkspace() !== null, "clean menu server snapshot after duplicate removal");
+
+  // A real server-side inventory update must invalidate the prior React
+  // version even if it was previously confirmed and structurally valid.
+  const revisedPantry = { ...pantry, quantity: 425, cookRevision: 1 };
+  await environment.withSecurityRulesDisabled(async context => {
+    await setDoc(doc(context.firestore(), "inventory", inventoryId),
+      { userId: owner, ...revisedPantry });
+  });
+  await waitFor(() => readPantry()?.[0]?.quantity === 425,
+    "real inventory listener observes server-side quantity revision");
+  assert.equal(selectCompleteChefServerPantry(
+    owner, owner, seen.inventory, [pantry]), null,
+    "old React view cannot be promoted after a new server revision");
+
   // Network loss/cache metadata must revoke authority even if cached rows
   // are still rendered. Real Firestore event delivery is exercised here.
   await disableNetwork(db);
@@ -178,11 +229,26 @@ try {
     "offline metadata transition for three listeners");
   assert.equal(readPantry(), null, "cache-only inventory is not confirmed");
   assert.equal(readWorkspace(), null, "cached menu/shopping/progress not confirmed");
+
+  // A client-side inventory write while offline is optimistic and MUST be
+  // rejected even when the UI already displays its new quantity. The pending
+  // promise is deliberately not awaited until the network is restored.
+  const queuedPantry = { ...revisedPantry, quantity: 400, cookRevision: 2 };
+  const pendingWrite = setDoc(doc(db, "inventory", inventoryId),
+    { userId: owner, ...queuedPantry });
+  await waitFor(() => latestMeta.inventory?.hasPendingWrites === true,
+    "Firestore emits real local pending-write metadata");
+  assert.equal(seen.inventory, null,
+    "optimistic inventory state is not server-confirmed");
+  assert.equal(readPantry(), null);
   await enableNetwork(db);
-  await waitFor(() => readPantry() !== null && readWorkspace() !== null,
-    "restored remote confirmation after network return");
+  await pendingWrite;
+  await waitFor(() => readPantry()?.[0]?.quantity === 400 &&
+    latestMeta.inventory?.fromCache === false &&
+    latestMeta.inventory?.hasPendingWrites === false &&
+    readWorkspace() !== null, "committed write and all server authority restored");
   assert.deepEqual(errors, []);
-  console.log("PASS Chef signed-in Firestore emulator: owner/foreign isolation, all four server echoes, stale UI, malformed row, offline revocation and recovery");
+  console.log("PASS Chef signed-in Firestore emulator: owner/foreign isolation, full server echoes, stale UI, malformed shopping and progression, duplicate meal date, offline/pending-write revocation and recovery");
 } finally {
   for (const unsubscribe of unsubs) unsubscribe();
   await environment.cleanup();
