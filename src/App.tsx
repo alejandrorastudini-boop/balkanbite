@@ -3101,6 +3101,34 @@ export default function App() {
     }
   };
 
+  // Chef read-only answers cannot rely on stale React state or a second
+  // guest tab's unfinished WAL; signed-in stock needs server confirmation.
+  const getAuthoritativePantryForChef = (): readonly PantryItem[] | null => {
+    if (isResetting || firebaseLoading || !canRenderApp) return null;
+    if (currentUser) {
+      return inventoryHydrated && inventoryServerConfirmed &&
+        !inventoryIsProvisional && !inventorySyncError &&
+        pantryScope === currentUser.uid && workspaceScope === currentUser.uid
+        ? pantry : null;
+    }
+    if (pantryScope !== "guest" || workspaceScope !== "guest" ||
+        guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
+        guestDerivedShoppingRecoveryProblem) return null;
+    try {
+      if (hasPendingGuestMutationJournal(localStorage)) return null;
+      const inspected = inspectGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY));
+      if (inspected.requiresRecovery ||
+          JSON.stringify(inspected.items) !== JSON.stringify(pantry) ||
+          JSON.stringify(inspected.items) !== JSON.stringify(guestPantryCommittedRef.current)) {
+        return null;
+      }
+      return inspected.items;
+    } catch {
+      // Storage exceptions are UNKNOWN, never an empty inventory assertion.
+      return null;
+    }
+  };
+
   const checkedShoppingCount = shoppingList.filter((i) => !i.checked).length;
 
   if (showLanding) {
@@ -3430,6 +3458,7 @@ export default function App() {
               onDeductItemsFromPantry={handleVoiceDeductItems}
               exactLotReviewEnabled={Boolean(currentUser)}
               onNavigateToRecipes={handleVoiceNavigateToRecipes}
+              onGetAuthoritativePantry={getAuthoritativePantryForChef}
               onNavigateToTab={setActiveTab}
               onLogMeal={handleLogMeal}
               foodSafety={foodSafetyQuarantine}
@@ -3488,6 +3517,7 @@ export default function App() {
           onDeductItemsFromPantry={handleVoiceDeductItems}
               exactLotReviewEnabled={Boolean(currentUser)}
           onNavigateToRecipes={handleVoiceNavigateToRecipes}
+              onGetAuthoritativePantry={getAuthoritativePantryForChef}
               onNavigateToTab={setActiveTab}
           onLogMeal={handleLogMeal}
           foodSafety={foodSafetyQuarantine}
