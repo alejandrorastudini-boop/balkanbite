@@ -118,7 +118,9 @@ export function describeChefPantryQuery(
       ? { es: "fecha registrada pasada", en: "recorded date passed", bg: "записаната дата е минала" }[language]
       : days === 0
       ? { es: "fecha registrada hoy", en: "recorded date today", bg: "записаната дата е днес" }[language]
-      : { es: `en ${days} días`, en: `in ${days} days`, bg: `след ${days} дни` }[language];
+      : { es: `en ${days} ${days === 1 ? "día" : "días"}`,
+          en: `in ${days} ${days === 1 ? "day" : "days"}`,
+          bg: `след ${days} ${days === 1 ? "ден" : "дни"}` }[language];
     return `${item.name} (${label})`;
   }).join("; ");
   const extra = expiring.length - 6;
