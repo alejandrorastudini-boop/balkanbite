@@ -118,6 +118,7 @@ import {
   parseGuestVoiceReceipts,
 } from "./utils/guestVoiceRemovalIntent";
 import { hasPendingGuestMutationJournal } from "./utils/guestJournalExclusivity";
+import type { ChefWorkspaceSnapshot } from "./utils/chefWorkspaceFacts";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
   buildMealLogPreservingNutritionUncertainty,
@@ -3131,6 +3132,47 @@ export default function App() {
     }
   };
 
+  // A composite answer is not trustworthy just because pantry is confirmed.
+  // For now use only complete, unchanged guest caches; authenticated menu,
+  // shopping and progression lack a common server-confirmed read gate.
+  const getAuthoritativeChefWorkspace = (): ChefWorkspaceSnapshot | null => {
+    if (currentUser) return null;
+    const verifiedPantry = getAuthoritativePantryForChef();
+    if (verifiedPantry === null) return null;
+    try {
+      const planRaw = localStorage.getItem("balkanbite_mealplan");
+      const shoppingRaw = localStorage.getItem("balkanbite_shopping");
+      const progressionRaw = localStorage.getItem("balkanbite_progression");
+      if (planRaw === null || shoppingRaw === null || progressionRaw === null ||
+          !guestShoppingCacheIsComplete(shoppingRaw)) return null;
+      const parsedPlan = parseStoredMealPlanCache(planRaw);
+      const parsedShopping = parseStoredShoppingCache(shoppingRaw);
+      const parsedProgression = parseProgressionLedgerCache(progressionRaw);
+      const unfiltered = (raw: string, length: number): boolean => {
+        const decoded: unknown = JSON.parse(raw);
+        return Array.isArray(decoded) && decoded.length === length;
+      };
+      if (!parsedPlan || !parsedShopping ||
+          !unfiltered(planRaw, parsedPlan.length) ||
+          !unfiltered(shoppingRaw, parsedShopping.length) ||
+          !unfiltered(progressionRaw, parsedProgression.length) ||
+          JSON.stringify(parsedPlan) !== JSON.stringify(mealPlan) ||
+          JSON.stringify(parsedShopping) !== JSON.stringify(shoppingList) ||
+          JSON.stringify(parsedProgression) !== JSON.stringify(progressionLedger)) return null;
+      // Reject mid-read localStorage changes and a WAL appearing in another tab.
+      if (hasPendingGuestMutationJournal(localStorage) ||
+          localStorage.getItem("balkanbite_mealplan") !== planRaw ||
+          localStorage.getItem("balkanbite_shopping") !== shoppingRaw ||
+          localStorage.getItem("balkanbite_progression") !== progressionRaw) return null;
+      return {
+        pantry: verifiedPantry, mealPlan: parsedPlan,
+        shopping: parsedShopping, progression: parsedProgression,
+      };
+    } catch {
+      return null;
+    }
+  };
+
   const checkedShoppingCount = shoppingList.filter((i) => !i.checked).length;
 
   if (showLanding) {
@@ -3461,6 +3503,7 @@ export default function App() {
               exactLotReviewEnabled={Boolean(currentUser)}
               onNavigateToRecipes={handleVoiceNavigateToRecipes}
               onGetAuthoritativePantry={getAuthoritativePantryForChef}
+              onGetAuthoritativeWorkspace={getAuthoritativeChefWorkspace}
               onNavigateToTab={setActiveTab}
               onLogMeal={handleLogMeal}
               foodSafety={foodSafetyQuarantine}
@@ -3520,6 +3563,7 @@ export default function App() {
               exactLotReviewEnabled={Boolean(currentUser)}
           onNavigateToRecipes={handleVoiceNavigateToRecipes}
               onGetAuthoritativePantry={getAuthoritativePantryForChef}
+              onGetAuthoritativeWorkspace={getAuthoritativeChefWorkspace}
               onNavigateToTab={setActiveTab}
           onLogMeal={handleLogMeal}
           foodSafety={foodSafetyQuarantine}
