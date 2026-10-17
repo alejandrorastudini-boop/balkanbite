@@ -1454,6 +1454,100 @@ async function runTwoTabVoicePurchaseRecovery() {
   }
 }
 
+async function runChefWorkspaceFacts() {
+  const context = await browser.newContext();
+  const pages = [];
+  let aiRequests = 0;
+  const when = new Date();
+  const key = [when.getFullYear(), String(when.getMonth() + 1).padStart(2, "0"),
+    String(when.getDate()).padStart(2, "0")].join("-");
+  const recipe = {
+    id: "qa-workspace-recipe", title: { en: "Rice meal", es: "Arroz", bg: "Ориз" },
+    description: { en: "QA", es: "QA", bg: "QA" },
+    prepTimeMin: 0, cookTimeMin: 0, costPerServingEUR: 0,
+    difficulty: "easy", servings: 1, calories: 0, proteinG: 0, carbsG: 0,
+    fatG: 0, fiberG: 0, tags: [],
+    ingredients: [{ name: "QA Rice", amount: 100, unit: "g", inPantry: false }],
+    instructions: { en: ["Cook"], es: ["Cocinar"], bg: ["Готви"] },
+    nutritionHighlights: { en: "QA", es: "QA", bg: "QA" },
+  };
+  const plan = [{ date: key, lunch: recipe }];
+  const progression = [{
+    version: 1, eventId: "purchase:qa-workspace-1",
+    type: "confirmed_purchase_applied", occurredAt: "2026-10-16T10:00:00Z",
+    evidence: "deterministic_state_transition", evidenceCount: 1,
+  }];
+  try {
+    await context.addInitScript(({ MAIN, valid, plan, progression }) => {
+      if (sessionStorage.getItem("__qa_workspace_facts_seeded")) return;
+      sessionStorage.setItem("__qa_workspace_facts_seeded", "yes");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([{ ...valid, quantity: 50 }]));
+      localStorage.setItem("balkanbite_mealplan", JSON.stringify(plan));
+      localStorage.setItem("balkanbite_shopping", "[]");
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_progression", JSON.stringify(progression));
+    }, { MAIN, valid, plan, progression });
+    await context.route("**/api/ai/parse-intent", route => {
+      aiRequests++;
+      return route.fulfill({
+        status: 503, contentType: "application/json",
+        body: JSON.stringify({ success: false }),
+      });
+    });
+    const page = await context.newPage();
+    pages.push(page);
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#chef-ia-floating-btn").click();
+    await page.locator("#chef-ia-modal-panel").waitFor({ state: "visible", timeout: 15000 });
+    const ask = async (question, expected) => {
+      await page.locator("#voice-text-input").fill(question);
+      await page.locator("#voice-send-btn").click();
+      await page.getByText(expected, { exact: false })
+        .waitFor({ state: "visible", timeout: 15000 });
+    };
+    await ask("What meals are planned?", "Rice meal");
+    await page.getByText("These are plans, not confirmed consumption.", { exact: false })
+      .waitFor({ state: "visible" });
+    await ask("What is missing for my meal plan?", "QA Rice (50 g");
+    await ask("What is my progress?", "1 verified events");
+    await page.getByText("1 applied purchases", { exact: false }).waitFor({ state: "visible" });
+    assert.equal(aiRequests, 0, "workspace facts must not call unavailable/paid AI");
+    const before = await page.evaluate(MAIN => ({
+      pantry: localStorage.getItem(MAIN),
+      progression: localStorage.getItem("balkanbite_progression"),
+      plan: localStorage.getItem("balkanbite_mealplan"),
+      shopping: localStorage.getItem("balkanbite_shopping"),
+    }), MAIN);
+    assert.equal(before.pantry && JSON.parse(before.pantry)[0].quantity, 50);
+    assert.equal(JSON.parse(before.progression).length, 1);
+    // Other tab corrupts source AFTER this tab hydrated. No filtered-data
+    // snapshot may be advertised as a complete progress history.
+    const other = await context.newPage();
+    pages.push(other);
+    await other.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await other.evaluate(() =>
+      localStorage.setItem("balkanbite_progression", '[{"legacy":"unverified"}]'));
+    await ask("What is my progress?", "I cannot verify your menu, shopping and progress together yet");
+    assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_progression")),
+      '[{"legacy":"unverified"}]', "read-only query preserves raw unknown historical evidence");
+    assert.equal(await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN), before.pantry,
+      "read-only query cannot rewrite pantry");
+    assert.equal(aiRequests, 0, "unverified data cannot trigger an AI guess");
+    evidence.checks.push("chef-workspace-grounded-menu-shortages-progress-guest-fail-closed");
+  } finally {
+    await Promise.all(pages.map(page => page.close().catch(() => {})));
+    await context.close();
+  }
+}
+
 async function runChefGroundedPantryQuestions() {
   const context = await browser.newContext();
   const pages = [];
@@ -1628,6 +1722,7 @@ try {
   await runGuestPantryAddEditDeleteReload();
   await runChefReadOnlyNavigationAndFailure();
   await runChefGroundedPantryQuestions();
+  await runChefWorkspaceFacts();
   await runTwoTabVoicePurchaseRecovery();
   await runTwoTabStaleInventory();
   await runLateGuestJournalPreventsLegacyWrite("legacy-pantry");
