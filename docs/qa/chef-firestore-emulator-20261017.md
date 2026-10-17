@@ -15,6 +15,11 @@
 - Disable the local Firestore network; cached rows may continue to display but metadata must revoke read witnesses. Restore network, verify server-confirmed evidence returns.
 - Tests do **not** prove atomicity across collections or genuine signed-in app UI interaction; cannot be used to claim beta readiness.
 
+## Automatic regression trigger — follow-up
+- The Firestore emulator workflow now watches the Chef authority selector, shared inventory edit verification, progression subscription, and the Firebase synchronization hook. Subsequent pull requests changing these files must run the authenticated SDK emulator, not only the ordinary unit/Chromium suite.
+- `tests/chefEmulatorWorkflowCoverage.test.ts` ensures the workflow paths, emulator target guard and invoked QA script cannot be accidentally dropped without making normal CI red.
+- This change affects CI configuration only: no application code, Firestore Rules publication, hosted writes, deployment or paid connector activation.
+
 ## Gate and next work
 - Require GitHub `owner-isolation` emulator job SUCCESS and normal `validate` / six local Chromium harnesses SUCCESS on the exact SHA.
 - Review changed files, zero QA Vercel deployments, preserve existing rules, maintain Draft PR #453; close temporary QA PR without merging to main.
