@@ -16,11 +16,11 @@ import {
   UtensilsCrossed,
   X
 } from "lucide-react";
-import { ChatMessage, Language, PantryItem, MealLog } from "../types";
+import { ChatMessage, Language, PantryItem, MealLog, ShoppingItem } from "../types";
 import { t } from "../utils/translations";
 import { parseChefNavigationIntent, chefNavigationFeedback, type ChefNavigationTab } from "../utils/chefNavigationIntent";
 import { parseChefPantryQueryIntent, describeChefPantryQuery } from "../utils/chefPantryFacts";
-import { parseChefWorkspaceQueryIntent, describeChefWorkspaceQuery, type ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
+import { parseChefWorkspaceQueryIntent, describeChefWorkspaceQuery, describeVerifiedChefShoppingList, type ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
 import { parseDeterministicRemovalIntent, type DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
@@ -44,6 +44,7 @@ interface VoiceChefViewProps {
   onNavigateToTab: (tab: ChefNavigationTab) => void;
   onGetAuthoritativePantry: () => readonly PantryItem[] | null;
   onGetAuthoritativeWorkspace: () => ChefWorkspaceSnapshot | null;
+  onGetAuthoritativeShopping: () => readonly ShoppingItem[] | null;
   onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
   profileAuthorityReady?: boolean;
@@ -64,6 +65,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   onNavigateToTab,
   onGetAuthoritativePantry,
   onGetAuthoritativeWorkspace,
+  onGetAuthoritativeShopping,
   onLogMeal,
   foodSafety,
   profileAuthorityReady = true,
@@ -519,6 +521,30 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     // unavailable until those modules share verified server-hydration gates.
     const workspaceQuery = parseChefWorkspaceQueryIntent(text);
     if (workspaceQuery) {
+      if (workspaceQuery === "SHOW_SHOPPING_LIST") {
+        const rows = onGetAuthoritativeShopping();
+        const answer = rows === null ? (
+          language === "es"
+            ? "No puedo verificar la lista de compra registrada todavía. Revisa su sincronización o recuperación."
+            : language === "bg"
+            ? "Все още не мога да потвърдя записания списък за пазаруване. Проверете синхронизацията или възстановяването."
+            : "I cannot verify the recorded shopping list yet. Check its synchronization or recovery."
+        ) : describeVerifiedChefShoppingList(rows, language) ?? (
+          language === "es"
+            ? "La lista de compra registrada contiene datos que necesitan revisión. No mostraré una lista parcial."
+            : language === "bg"
+            ? "Списъкът за пазаруване съдържа записи за проверка. Няма да показвам непълен списък."
+            : "The recorded shopping list needs review. I will not report an incomplete list."
+        );
+        onUpdateChatMessages((prev) => [...prev, {
+          id: `ai-shopping-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          sender: "assistant",
+          text: answer,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }]);
+        speakText(answer);
+        return;
+      }
       const snapshot = onGetAuthoritativeWorkspace();
       const response = snapshot === null ? (
         language === "es"
