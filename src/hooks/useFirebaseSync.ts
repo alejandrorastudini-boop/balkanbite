@@ -42,6 +42,7 @@ import {
   deriveChefServerCollectionRead,
   deriveChefServerPantryRead,
   selectCompleteChefServerPantry,
+  selectCompleteChefServerShopping,
   selectCompleteChefServerWorkspace,
   type ChefServerReadEvidence,
 } from "../utils/chefServerReadAuthority";
@@ -1134,6 +1135,16 @@ export function useFirebaseSync(
 
   // Never answer with a newer optimistic view or a stale/partial listener
   // echo. The caller also checks inventory server authority and account scope.
+  const getServerConfirmedChefShopping = (): ShoppingItem[] | null => {
+    const uid = currentUser?.uid ?? null;
+    if (!uid || auth.currentUser?.uid !== uid) return null;
+    const rows = selectCompleteChefServerShopping(
+      uid, authSessionUserId.current,
+      chefServerReadEvidence.current.shoppingList, shoppingList,
+    );
+    return rows as ShoppingItem[] | null;
+  };
+
   const getServerConfirmedChefWorkspace = (
     visibleProgression: readonly ProgressionEventV1[],
   ) => {
@@ -1176,6 +1187,7 @@ export function useFirebaseSync(
     inventoryServerConfirmed,
     profileHydrated,
     getServerConfirmedChefPantry,
+    getServerConfirmedChefShopping,
     getServerConfirmedChefWorkspace,
     captureInventoryEditBaseline,
     submitInventoryEdit,
