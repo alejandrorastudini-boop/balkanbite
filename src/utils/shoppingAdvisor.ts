@@ -200,7 +200,10 @@ function subtractPendingShoppingAmount(
   for (const item of shoppingList) {
     if (item.checked || isManagedDerivedShortageRow(item) || normalizedFoodIdentity(item.name) !== identity) continue;
     const pending = normalizeQuantity(item.quantity, item.unit);
-    if (!pending || pending.unit.dimension !== required.unit.dimension) continue;
+    // Large finite quantities can overflow when converted into base units.
+    // An overflowed pending row must not falsely cancel a real shortfall.
+    if (!pending || !Number.isFinite(pending.baseQuantity) ||
+        pending.unit.dimension !== required.unit.dimension) continue;
     const remaining = remainingPendingBaseById.has(item.id)
       ? remainingPendingBaseById.get(item.id) || 0
       : pending.baseQuantity;
