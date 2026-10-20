@@ -6,7 +6,7 @@ import { isStoredShoppingItemStructurallyValid } from "./storedShoppingValidatio
 import { evaluateShoppingNeeds } from "./shoppingAdvisor";
 import { localCalendarDate } from "./effectiveExpiry";
 
-export type ChefWorkspaceQueryAction = "SHOW_MENU" | "SHOW_TODAYS_MENU" | "SHOW_SHORTAGES" | "SHOW_SHOPPING_LIST" | "SHOW_PROGRESS";
+export type ChefWorkspaceQueryAction = "SHOW_MENU" | "SHOW_TODAYS_MENU" | "SHOW_SHORTAGES" | "SHOW_TODAYS_SHORTAGES" | "SHOW_SHOPPING_LIST" | "SHOW_PROGRESS";
 export interface ChefWorkspaceSnapshot {
   pantry: readonly PantryItem[];
   mealPlan: readonly MealPlanDay[];
@@ -32,6 +32,13 @@ const phrases: Record<ChefWorkspaceQueryAction, readonly string[]> = {
     "what ingredients am i missing for my meals", "what is missing for my meal plan",
     "what groceries am i missing for the menu",
     "какво липсва за менюто", "какви продукти липсват за менюто",
+  ],
+  SHOW_TODAYS_SHORTAGES: [
+    "que me falta para cocinar hoy", "que ingredientes faltan para hoy",
+    "que necesito para cocinar lo de hoy", "que me falta para el menu de hoy",
+    "what ingredients are missing for today's meals", "what is missing to cook today",
+    "what am i missing for today's menu",
+    "какво ми липсва за готвене днес", "какви продукти липсват за днешното меню",
   ],
   SHOW_SHOPPING_LIST: [
     "que tengo en la lista de la compra", "que hay en mi lista de compra",
@@ -179,21 +186,40 @@ export function describeChefWorkspaceQuery(
       `Записани ястия за следващите седем дни (${upcoming.length}): ${listPreview(upcoming)}. Това са планове, а не потвърдена консумация.`);
   }
 
-  if (action !== "SHOW_SHORTAGES") return null;
+  if (action !== "SHOW_SHORTAGES" && action !== "SHOW_TODAYS_SHORTAGES") return null;
+  const todayOnly = action === "SHOW_TODAYS_SHORTAGES";
+  const applicablePlan = todayOnly
+    ? snapshot.mealPlan.filter(day => day.date === today)
+    : snapshot.mealPlan;
+  if (todayOnly && !applicablePlan.some(day =>
+    Boolean(day.breakfast || day.lunch || day.dinner))) {
+    return msg(lang,
+      `No hay comidas registradas para hoy (${today}) con las que calcular faltantes. Eso no significa que no vayas a cocinar ni que tengas todos los ingredientes.`,
+      `There are no meals recorded for today (${today}) to calculate ingredient shortages. This does not mean you have no plans to cook or that all ingredients are available.`,
+      `Няма записани ястия за днес (${today}), за които да се изчислят липсващи продукти. Това не означава, че няма да готвите или че имате всички продукти.`);
+  }
   const diagnostic = evaluateShoppingNeeds(
-    [...snapshot.pantry], [...snapshot.mealPlan], [...snapshot.shopping], lang, now,
+    [...snapshot.pantry], [...applicablePlan], [...snapshot.shopping], lang, now,
   );
   // This deterministic advisor covers meals scheduled today or within 2 days.
   // Unverified units/expiry are not promoted to verified quantitative shortages.
   const deficits = diagnostic.missingMealIngredients.filter(row =>
     row.availabilityStatus === "missing" || row.availabilityStatus === "insufficient");
   const uncertain = diagnostic.missingMealIngredients.length - deficits.length;
-  if (!deficits.length) return msg(lang,
+  if (!deficits.length) return todayOnly ? msg(lang,
+    `No se han calculado faltantes cuantitativos para las comidas registradas de hoy (${today}). ${uncertain} requisitos necesitan revisión (unidades o caducidad); no se garantiza que tengas todo.`,
+    `No quantitative shortages were calculated for today's recorded meals (${today}). ${uncertain} requirements need review (units or expiry); this does not guarantee everything is available.`,
+    `Няма изчислени количествени недостици за днешните записани ястия (${today}). ${uncertain} изисквания се нуждаят от проверка (мерни единици или срок); това не гарантира наличност.`)
+    : msg(lang,
     `No hay faltantes cuantitativos verificados para las comidas registradas de hoy a dos días vista. Hay ${uncertain} requisitos sin verificar; esto no confirma que tengas todo.`,
     `No verified quantitative shortages were found for recorded meals from today through the next two days. ${uncertain} requirements need review; this does not confirm you have everything.`,
     `Няма потвърдени количествени недостици за записаните ястия от днес до следващите два дни. ${uncertain} изисквания остават за проверка; това не доказва, че имате всичко.`);
   const summary = listPreview(deficits.map(row =>
     `${row.ingredientName} (${String(row.amount)} ${row.unit}, ${row.date})`));
+  if (todayOnly) return msg(lang,
+    `Faltantes calculados para las comidas registradas de hoy (${today}; ${deficits.length}): ${summary}. ${uncertain} requisitos necesitan revisión (unidades o caducidad). No son compras realizadas, precios confirmados ni garantía de seguridad alimentaria.`,
+    `Calculated shortages for today's recorded meals (${today}; ${deficits.length}): ${summary}. ${uncertain} requirements need review (units or expiry). These are not completed purchases, verified prices or a food-safety guarantee.`,
+    `Изчислени недостици за записаните ястия днес (${today}; ${deficits.length}): ${summary}. ${uncertain} изисквания се нуждаят от проверка (мерни единици или срок). Това не са потвърдени покупки, цени или гаранция за безопасност.`);
   return msg(lang,
     `Faltantes calculados para comidas registradas de hoy a dos días vista (${deficits.length}): ${summary}. ${uncertain} requisitos necesitan revisión. Son cálculos de disponibilidad, no compras realizadas ni precios confirmados.`,
     `Calculated shortages for recorded meals from today through the next two days (${deficits.length}): ${summary}. ${uncertain} requirements need review. These are availability calculations, not purchased items or verified prices.`,
