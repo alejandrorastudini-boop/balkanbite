@@ -260,3 +260,21 @@ export function describeVerifiedChefMealPlan(
     action, { pantry: [], mealPlan, shopping: [], progression: [] }, lang, now,
   );
 }
+
+/** Progress-only facts depend on valid, unique event evidence, not other modules. */
+export function describeVerifiedChefProgress(
+  progression: readonly ProgressionEventV1[],
+  lang: Language,
+): string | null {
+  if (!Array.isArray(progression)) return null;
+  const ids = new Set<string>();
+  for (const event of progression) {
+    if (!isValidProgressionEvent(event) || ids.has(event.eventId)) return null;
+    ids.add(event.eventId);
+  }
+  // Reuse the existing localized read contract without making absent
+  // pantry/menu/shopping facts: SHOW_PROGRESS reads only progression.
+  return describeChefWorkspaceQuery("SHOW_PROGRESS", {
+    pantry: [], mealPlan: [], shopping: [], progression,
+  }, lang);
+}

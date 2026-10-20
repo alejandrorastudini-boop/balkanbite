@@ -20,7 +20,7 @@ import { ChatMessage, Language, PantryItem, MealLog, ShoppingItem, MealPlanDay }
 import { t } from "../utils/translations";
 import { parseChefNavigationIntent, chefNavigationFeedback, type ChefNavigationTab } from "../utils/chefNavigationIntent";
 import { parseChefPantryQueryIntent, describeChefPantryQuery } from "../utils/chefPantryFacts";
-import { parseChefWorkspaceQueryIntent, describeChefWorkspaceQuery, describeVerifiedChefShoppingList, describeVerifiedChefMealPlan, type ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
+import { parseChefWorkspaceQueryIntent, describeChefWorkspaceQuery, describeVerifiedChefShoppingList, describeVerifiedChefMealPlan, describeVerifiedChefProgress, type ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
 import { parseDeterministicRemovalIntent, type DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
@@ -46,6 +46,7 @@ interface VoiceChefViewProps {
   onGetAuthoritativeWorkspace: () => ChefWorkspaceSnapshot | null;
   onGetAuthoritativeShopping: () => readonly ShoppingItem[] | null;
   onGetAuthoritativeMealPlan: () => readonly MealPlanDay[] | null;
+  onGetAuthoritativeProgress: () => readonly import("../utils/progressionLedger").ProgressionEventV1[] | null;
   onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
   profileAuthorityReady?: boolean;
@@ -68,6 +69,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   onGetAuthoritativeWorkspace,
   onGetAuthoritativeShopping,
   onGetAuthoritativeMealPlan,
+  onGetAuthoritativeProgress,
   onLogMeal,
   foodSafety,
   profileAuthorityReady = true,
@@ -523,6 +525,30 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     // unavailable until those modules share verified server-hydration gates.
     const workspaceQuery = parseChefWorkspaceQueryIntent(text);
     if (workspaceQuery) {
+      if (workspaceQuery === "SHOW_PROGRESS") {
+        const events = onGetAuthoritativeProgress();
+        const answer = events === null ? (
+          language === "es"
+            ? "Todavía no puedo verificar el historial de progreso. Revisa la sincronización o recuperación de sus eventos."
+            : language === "bg"
+            ? "Все още не мога да потвърдя историята на напредъка. Проверете синхронизацията или възстановяването на събитията."
+            : "I cannot verify the recorded progress history yet. Check event synchronization or recovery."
+        ) : describeVerifiedChefProgress(events, language) ?? (
+          language === "es"
+            ? "El historial contiene eventos que necesitan revisión. No contaré registros parciales."
+            : language === "bg"
+            ? "Историята съдържа събития за проверка. Няма да преброявам непълни записи."
+            : "The recorded history needs review. I will not count partial records."
+        );
+        onUpdateChatMessages((prev) => [...prev, {
+          id: `ai-progress-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          sender: "assistant",
+          text: answer,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }]);
+        speakText(answer);
+        return;
+      }
       if (workspaceQuery === "SHOW_MENU" || workspaceQuery === "SHOW_TODAYS_MENU") {
         const rows = onGetAuthoritativeMealPlan();
         const answer = rows === null ? (

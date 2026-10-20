@@ -27,6 +27,7 @@ interface ChefIaModalProps {
   onGetAuthoritativeWorkspace: () => ChefWorkspaceSnapshot | null;
   onGetAuthoritativeShopping: () => readonly import("../types").ShoppingItem[] | null;
   onGetAuthoritativeMealPlan: () => readonly MealPlanDay[] | null;
+  onGetAuthoritativeProgress: () => readonly import("../utils/progressionLedger").ProgressionEventV1[] | null;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
   language: Language;
@@ -51,6 +52,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
   onGetAuthoritativeWorkspace,
   onGetAuthoritativeShopping,
   onGetAuthoritativeMealPlan,
+  onGetAuthoritativeProgress,
   onLogMeal,
   foodSafety,
   language,
@@ -139,6 +141,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
             onGetAuthoritativeWorkspace={onGetAuthoritativeWorkspace}
             onGetAuthoritativeShopping={onGetAuthoritativeShopping}
             onGetAuthoritativeMealPlan={onGetAuthoritativeMealPlan}
+            onGetAuthoritativeProgress={onGetAuthoritativeProgress}
             onNavigateToTab={(tab) => {
               onNavigateToTab(tab);
               onClose();

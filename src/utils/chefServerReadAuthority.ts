@@ -131,6 +131,15 @@ export function deriveChefServerProgressRead(
   return { userId, serialized: JSON.stringify(events) };
 }
 
+/** A progression-only fact requires its own unfiltered, server-confirmed
+ * event snapshot and exact React echo; other collections are irrelevant. */
+export function selectCompleteChefServerProgress(
+  userId: string | null, sessionUserId: string | null | undefined,
+  evidence: ChefServerReadEvidence | undefined, visible: readonly unknown[],
+): unknown[] | null {
+  return selectCompleteChefServerShopping(userId, sessionUserId, evidence, visible);
+}
+
 /** A menu-only fact needs its own complete server-confirmed owner collection
  * and current UI echo. Never require healthy shopping/progression/inventory
  * for a statement about already recorded meals. */

@@ -1612,21 +1612,21 @@ async function runChefWorkspaceFacts() {
     assert.equal(JSON.parse(before.progression).length, 1);
     assert.deepEqual(JSON.parse(before.shopping), shopping,
       "read-only shopping question must not rewrite actual checklist");
-    // Other tab corrupts source AFTER this tab hydrated. No filtered-data
-    // snapshot may be advertised as a complete progress history.
+    // Unrelated shopping corruption cannot invalidate verified event counts.
     const other = await context.newPage();
     pages.push(other);
-    await other.goto(new URL("/", base).toString(), {
-      waitUntil: "domcontentloaded", timeout: 30000,
-    });
+    await other.goto(new URL("/", base).toString(), { waitUntil: "domcontentloaded", timeout: 30000 });
+    await other.evaluate(() => localStorage.setItem("balkanbite_shopping", '[{"legacy":"unverified"}]'));
+    await ask("What is on my shopping list?", "I cannot verify the recorded shopping list yet");
+    await ask("What is my progress?", "1 verified events");
+    // Other tab corrupts source AFTER this tab hydrated. No filtered-data
+    // snapshot may be advertised as a complete progress history.
     await other.evaluate(() =>
       localStorage.setItem("balkanbite_progression", '[{"legacy":"unverified"}]'));
-    await ask("What is my progress?", "I cannot verify your menu, shopping and progress together yet");
+    await ask("What is my progress?", "I cannot verify the recorded progress history yet");
     await ask("What meals are planned?", "Rice meal");
     await ask("What meals are planned for today?", "lunch: Rice meal");
     await ask("What is on my shopping list?", "QA Olive Oil");
-    await other.evaluate(() =>
-      localStorage.setItem("balkanbite_shopping", '[{"legacy":"unverified"}]'));
     await ask("What is on my shopping list?", "I cannot verify the recorded shopping list yet");
     await ask("What meals are planned?", "Rice meal");
     await other.evaluate(() =>
@@ -1643,6 +1643,7 @@ async function runChefWorkspaceFacts() {
       '[{"legacy":"unverified"}]', "failed-closed shopping list must preserve unverified bytes");
     evidence.checks.push("chef-shopping-independent-of-broken-progression-and-fails-on-corrupt-shopping");
     evidence.checks.push("chef-menu-independent-of-invalid-progress-shopping-but-rejects-invalid-menu");
+    evidence.checks.push("chef-progress-independent-of-invalid-shopping-but-rejects-invalid-ledger");
   } finally {
     await Promise.all(pages.map(page => page.close().catch(() => {})));
     await context.close();

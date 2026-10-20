@@ -42,6 +42,7 @@ import {
   deriveChefServerCollectionRead,
   deriveChefServerPantryRead,
   selectCompleteChefServerPantry,
+  selectCompleteChefServerProgress,
   selectCompleteChefServerMealPlan,
   selectCompleteChefServerShopping,
   selectCompleteChefServerWorkspace,
@@ -1136,6 +1137,17 @@ export function useFirebaseSync(
 
   // Never answer with a newer optimistic view or a stale/partial listener
   // echo. The caller also checks inventory server authority and account scope.
+  const getServerConfirmedChefProgress = (
+    visibleProgression: readonly ProgressionEventV1[],
+  ): ProgressionEventV1[] | null => {
+    const uid = currentUser?.uid ?? null;
+    if (!uid || auth.currentUser?.uid !== uid) return null;
+    return selectCompleteChefServerProgress(
+      uid, authSessionUserId.current,
+      chefServerReadEvidence.current.progression, visibleProgression,
+    ) as ProgressionEventV1[] | null;
+  };
+
   const getServerConfirmedChefMealPlan = (): MealPlanDay[] | null => {
     const uid = currentUser?.uid ?? null;
     if (!uid || auth.currentUser?.uid !== uid) return null;
@@ -1197,6 +1209,7 @@ export function useFirebaseSync(
     inventoryServerConfirmed,
     profileHydrated,
     getServerConfirmedChefPantry,
+    getServerConfirmedChefProgress,
     getServerConfirmedChefMealPlan,
     getServerConfirmedChefShopping,
     getServerConfirmedChefWorkspace,

@@ -140,6 +140,7 @@ import {
   parseProgressionLedgerCache,
   summarizeProgressionActivity,
   type ProgressionLedgerV1,
+  type ProgressionEventV1,
 } from "./utils/progressionLedger";
 
 export default function App() {
@@ -229,6 +230,7 @@ export default function App() {
     inventoryServerConfirmed,
     profileHydrated,
     getServerConfirmedChefPantry,
+    getServerConfirmedChefProgress,
     getServerConfirmedChefMealPlan,
     getServerConfirmedChefShopping,
     getServerConfirmedChefWorkspace,
@@ -3189,6 +3191,33 @@ export default function App() {
     }
   };
 
+  // Progress-only facts require a complete event ledger, not healthy meal,
+  // inventory, shopping or unrelated Firebase collection snapshots.
+  const getAuthoritativeChefProgress = (): readonly ProgressionEventV1[] | null => {
+    if (isResetting || firebaseLoading || !canRenderApp) return null;
+    if (currentUser) {
+      return workspaceScope === currentUser.uid
+        ? getServerConfirmedChefProgress(progressionLedger) : null;
+    }
+    if (workspaceScope !== "guest" || guestJournalRecoveryStatus !== "clear" ||
+        guestPantryRecovery !== "none") return null;
+    try {
+      if (hasPendingGuestMutationJournal(localStorage)) return null;
+      const raw = localStorage.getItem("balkanbite_progression");
+      if (raw === null) return null;
+      const parsed = parseProgressionLedgerCache(raw);
+      const decoded: unknown = JSON.parse(raw);
+      if (!Array.isArray(decoded) || decoded.length !== parsed.length ||
+          JSON.stringify(decoded) !== JSON.stringify(parsed) ||
+          JSON.stringify(parsed) !== JSON.stringify(progressionLedger) ||
+          hasPendingGuestMutationJournal(localStorage) ||
+          localStorage.getItem("balkanbite_progression") !== raw) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
   // A composite answer is not trustworthy just because pantry is confirmed.
   // For now use only complete, unchanged guest caches; authenticated menu,
   // shopping and progression lack a common server-confirmed read gate.
@@ -3568,6 +3597,7 @@ export default function App() {
               onGetAuthoritativeWorkspace={getAuthoritativeChefWorkspace}
                onGetAuthoritativeShopping={getAuthoritativeChefShopping}
               onGetAuthoritativeMealPlan={getAuthoritativeChefMealPlan}
+              onGetAuthoritativeProgress={getAuthoritativeChefProgress}
               onNavigateToTab={setActiveTab}
               onLogMeal={handleLogMeal}
               foodSafety={foodSafetyQuarantine}
@@ -3630,6 +3660,7 @@ export default function App() {
               onGetAuthoritativeWorkspace={getAuthoritativeChefWorkspace}
                onGetAuthoritativeShopping={getAuthoritativeChefShopping}
               onGetAuthoritativeMealPlan={getAuthoritativeChefMealPlan}
+              onGetAuthoritativeProgress={getAuthoritativeChefProgress}
               onNavigateToTab={setActiveTab}
           onLogMeal={handleLogMeal}
           foodSafety={foodSafetyQuarantine}
