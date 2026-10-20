@@ -123,8 +123,8 @@ export function describeVerifiedChefShoppingList(
         ids.has(item.id)) return null;
     ids.add(item.id);
   }
-    const pending = snapshot.shopping.filter(row => !row.checked);
-    const marked = snapshot.shopping.length - pending.length;
+    const pending = shopping.filter(row => !row.checked);
+    const marked = shopping.length - pending.length;
     // Only names and checkbox state are reported here. Registered quantities
     // can be estimated, unit-incompatible or not yet purchase-confirmed;
     // 'checked' alone never proves a purchase or pantry application.
