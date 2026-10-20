@@ -1592,6 +1592,10 @@ async function runChefWorkspaceFacts() {
     await page.getByText("This is a plan, not confirmed consumption.", { exact: false })
       .waitFor({ state: "visible" });
     await ask("What is missing for my meal plan?", "QA Rice (50 g");
+    await ask("What ingredients are missing for today's meals?",
+      "Calculated shortages for today's recorded meals");
+    await page.getByText("These are not completed purchases, verified prices or a food-safety guarantee.",
+      { exact: false }).waitFor({ state: "visible" });
     await ask("What is on my shopping list?", "QA Olive Oil");
     await page.getByText("1 checked. This summary does not verify quantities, prices or completed purchases.",
       { exact: false }).waitFor({ state: "visible" });
@@ -1626,7 +1630,7 @@ async function runChefWorkspaceFacts() {
     assert.equal(aiRequests, 0, "unverified data cannot trigger an AI guess");
     assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_shopping")),
       before.shopping, "failed-closed shopping list must preserve recorded values");
-    evidence.checks.push("chef-workspace-grounded-menu-shortages-shopping-progress-guest-fail-closed");
+    evidence.checks.push("chef-workspace-grounded-today-shortages-menu-shopping-progress-guest-fail-closed");
   } finally {
     await Promise.all(pages.map(page => page.close().catch(() => {})));
     await context.close();
