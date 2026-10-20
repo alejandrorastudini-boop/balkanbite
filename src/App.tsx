@@ -152,6 +152,12 @@ export default function App() {
   const guestPantryCommittedRef = useRef<PantryItem[]>(pantry);
   const [guestPantryRecoveryAcknowledged, setGuestPantryRecoveryAcknowledged] = useState(false);
   const [guestDerivedShoppingRecoveryProblem, setGuestDerivedShoppingRecoveryProblem] = useState(false);
+  // A failed recipes, meal-plan or event-ledger persistence is NOT repaired
+  // by a later successful shopping-list write. Latch until a fresh reload
+  // and require renewed review instead of claiming cross-key consistency.
+  const [guestDerivedStorageWriteFailed, setGuestDerivedStorageWriteFailed] = useState(false);
+  const guestShoppingConsistencyProblem =
+    guestDerivedShoppingRecoveryProblem || guestDerivedStorageWriteFailed;
   const [guestJournalRecoveryStatus, setGuestJournalRecoveryStatus] = useState<"clear" | "pending" | "blocked">(() => {
     try {
       return localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) === null &&
@@ -728,9 +734,15 @@ export default function App() {
         guestJournalRecoveryStatus !== "clear") return;
     if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
-      localStorage.setItem("balkanbite_recipes", JSON.stringify(recipes));
+      const serialized = JSON.stringify(recipes);
+      localStorage.setItem("balkanbite_recipes", serialized);
+      if (localStorage.getItem("balkanbite_recipes") !== serialized) {
+        setGuestDerivedStorageWriteFailed(true);
+        console.warn("Guest recipes persistence readback mismatch");
+      }
     } catch (e) {
-      console.warn("localStorage write error", e);
+      setGuestDerivedStorageWriteFailed(true);
+      console.warn("Guest recipes persistence failed", e);
     }
   }, [recipes, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus]);
 
@@ -835,9 +847,15 @@ export default function App() {
         guestJournalRecoveryStatus !== "clear") return;
     if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
-      localStorage.setItem("balkanbite_mealplan", JSON.stringify(mealPlan));
+      const serialized = JSON.stringify(mealPlan);
+      localStorage.setItem("balkanbite_mealplan", serialized);
+      if (localStorage.getItem("balkanbite_mealplan") !== serialized) {
+        setGuestDerivedStorageWriteFailed(true);
+        console.warn("Guest meal-plan persistence readback mismatch");
+      }
     } catch (e) {
-      console.warn("localStorage write error", e);
+      setGuestDerivedStorageWriteFailed(true);
+      console.warn("Guest meal-plan persistence failed", e);
     }
   }, [mealPlan, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus]);
 
@@ -867,12 +885,15 @@ export default function App() {
         guestJournalRecoveryStatus !== "clear") return;
     if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
-      localStorage.setItem(
-        "balkanbite_progression",
-        JSON.stringify(progressionLedger)
-      );
+      const serialized = JSON.stringify(progressionLedger);
+      localStorage.setItem("balkanbite_progression", serialized);
+      if (localStorage.getItem("balkanbite_progression") !== serialized) {
+        setGuestDerivedStorageWriteFailed(true);
+        console.warn("Guest progression persistence readback mismatch");
+      }
     } catch (e) {
-      console.warn("localStorage write error", e);
+      setGuestDerivedStorageWriteFailed(true);
+      console.warn("Guest progression persistence failed", e);
     }
   }, [progressionLedger, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus]);
 
@@ -899,7 +920,7 @@ export default function App() {
     (guestJournalRecoveryStatus !== "clear" || guestPantryRecovery === "blocked" ||
       (guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged));
   const pantryDerivedDataProvisional =
-    inventoryIsProvisional || guestPantryReviewPending || guestDerivedShoppingRecoveryProblem;
+    inventoryIsProvisional || guestPantryReviewPending || guestShoppingConsistencyProblem;
 
   const requireAuthoritativeInventory = () => {
     // Another guest tab may have staged a WAL after this tab hydrated.
@@ -920,7 +941,7 @@ export default function App() {
         : "A guest operation needs recovery or review. Reload and inspect local data.");
       return false;
     }
-    if (!currentUser && guestDerivedShoppingRecoveryProblem) {
+    if (!currentUser && guestShoppingConsistencyProblem) {
       alert(
         profile.language === "bg"
           ? "Списъкът за пазаруване не е синхронизиран безопасно с наличностите. Проверете мястото за съхранение и презаредете."
@@ -1668,7 +1689,7 @@ export default function App() {
    */
   const tryJournalGuestQuantityEdit = (updatedPantry: PantryItem[]): "ineligible" | "saved" | "blocked" => {
     if (guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
-        guestDerivedShoppingRecoveryProblem || workspaceScope !== "guest") return "ineligible";
+        guestShoppingConsistencyProblem || workspaceScope !== "guest") return "ineligible";
     try {
       const rawRecipes = localStorage.getItem("balkanbite_recipes");
       const rawPlan = localStorage.getItem("balkanbite_mealplan");
@@ -1890,7 +1911,7 @@ export default function App() {
     nextPantry: PantryItem[],
   ): "saved" | "already-applied" | "blocked" | "ineligible" => {
     if (guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
-        guestDerivedShoppingRecoveryProblem || workspaceScope !== "guest") return "ineligible";
+        guestShoppingConsistencyProblem || workspaceScope !== "guest") return "ineligible";
 
     try {
       const rawRecipes = localStorage.getItem("balkanbite_recipes");
@@ -2423,7 +2444,7 @@ export default function App() {
     acquiredAt: string,
   ): "saved" | "blocked" | "ineligible" => {
     if (guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
-        guestDerivedShoppingRecoveryProblem || workspaceScope !== "guest" ||
+        guestShoppingConsistencyProblem || workspaceScope !== "guest" ||
         preview.rejected.length > 0 || preview.newlyAppliedSourceIds.length === 0 ||
         preview.newlyAppliedSourceIds.length !== preview.acceptedSourceIds.length) return "ineligible";
 
@@ -3122,7 +3143,7 @@ export default function App() {
     }
     if (pantryScope !== "guest" || workspaceScope !== "guest" ||
         guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
-        guestDerivedShoppingRecoveryProblem) return null;
+        guestShoppingConsistencyProblem) return null;
     try {
       if (hasPendingGuestMutationJournal(localStorage)) return null;
       const inspected = inspectGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY));
@@ -3148,7 +3169,7 @@ export default function App() {
         ? getServerConfirmedChefShopping() : null;
     }
     if (workspaceScope !== "guest" || guestJournalRecoveryStatus !== "clear" ||
-        guestDerivedShoppingRecoveryProblem || guestPantryRecovery !== "none") return null;
+        guestShoppingConsistencyProblem || guestPantryRecovery !== "none") return null;
     try {
       if (hasPendingGuestMutationJournal(localStorage)) return null;
       const raw = localStorage.getItem("balkanbite_shopping");
@@ -3380,7 +3401,7 @@ export default function App() {
               : "An unfinished local operation needs recovery. Pantry and shopping edits are blocked until it is safely resolved."}
           </section>
         )}
-        {!currentUser && guestDerivedShoppingRecoveryProblem && (
+        {!currentUser && guestShoppingConsistencyProblem && (
           <section role="alert" data-testid="guest-shopping-consistency-warning"
             className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
             {profile.language === "bg"
