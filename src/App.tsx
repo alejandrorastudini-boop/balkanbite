@@ -2338,7 +2338,8 @@ export default function App() {
       const result = commitVerifiedGuestShoppingToggle(localStorage, shoppingList, id);
       if (!result.saved) {
         setGuestDerivedShoppingRecoveryProblem(true);
-        console.warn("Guest shopping toggle not confirmed:", result.reason);
+        console.warn("Guest shopping toggle not confirmed:",
+          "reason" in result ? result.reason : "storage-unavailable");
         return false;
       }
       setShoppingList(result.next);
