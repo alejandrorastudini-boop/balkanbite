@@ -9,7 +9,7 @@ import { getScopedDocumentId } from "../../src/utils/cloudCollectionSync.ts";
 import {
   deriveChefServerPantryRead, deriveChefServerCollectionRead,
   deriveChefServerProgressRead, selectCompleteChefServerPantry,
-  selectCompleteChefServerWorkspace,
+  selectCompleteChefServerShopping, selectCompleteChefServerWorkspace,
 } from "../../src/utils/chefServerReadAuthority.ts";
 import { subscribeProgressionEvents } from "../../src/utils/progressionFirestore.ts";
 
@@ -162,6 +162,8 @@ try {
     "invalid server row delivered to owner listener");
   assert.equal(seen.shoppingList, null);
   assert.equal(readWorkspace(), null);
+  assert.equal(selectCompleteChefServerShopping(owner, owner,
+    seen.shoppingList ?? undefined, displayed.shoppingList), null);
   await environment.withSecurityRulesDisabled(async context => {
     await deleteDoc(doc(context.firestore(), "shoppingList",
       getScopedDocumentId(owner, "corrupt")));
@@ -183,6 +185,9 @@ try {
   assert.deepEqual(displayed.progression, [progress],
     "ordinary UI may filter the invalid row; Chef must not trust that subset");
   assert.equal(readWorkspace(), null);
+  assert.deepEqual(selectCompleteChefServerShopping(owner, owner,
+    seen.shoppingList ?? undefined, displayed.shoppingList), [shopping],
+    "unrelated invalid progression must not quarantine verified shopping list");
   await environment.withSecurityRulesDisabled(async context => {
     await deleteDoc(doc(context.firestore(), "users", owner, "progressionEvents",
       invalidProgressId));
@@ -229,6 +234,9 @@ try {
     "offline metadata transition for three listeners");
   assert.equal(readPantry(), null, "cache-only inventory is not confirmed");
   assert.equal(readWorkspace(), null, "cached menu/shopping/progress not confirmed");
+  assert.equal(selectCompleteChefServerShopping(owner, owner,
+    seen.shoppingList ?? undefined, displayed.shoppingList), null,
+    "offline cached shopping list cannot be announced as server-verified");
 
   // A client-side inventory write while offline is optimistic and MUST be
   // rejected even when the UI already displays its new quantity. The pending
