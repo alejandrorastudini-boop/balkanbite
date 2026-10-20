@@ -45,7 +45,7 @@ test("guest recovery consent never survives signed-in and guest scope transition
 
 
 test("incomplete guest pantry suppresses derived shopping warnings and suggestions", () => {
-  assert.match(app, /const pantryDerivedDataProvisional\s*=\s*inventoryIsProvisional \|\| guestPantryReviewPending \|\| guestDerivedShoppingRecoveryProblem/);
+  assert.match(app, /const pantryDerivedDataProvisional\s*=\s*inventoryIsProvisional \|\| guestPantryReviewPending \|\| guestShoppingConsistencyProblem/);
   assert.match(app, /if \(pantryDerivedDataProvisional\) return;/);
   assert.match(app, /pantryDerivedDataProvisional \? undefined : shoppingDiagnostic\.urgencyLevel/);
   assert.match(app, /\{!pantryDerivedDataProvisional && \(\s*<SmartShoppingBanner/);
@@ -117,5 +117,5 @@ test("legacy guest writes recheck all persisted WALs after hydration without mut
     assert.match(app.slice(writer - 200, writer), /blockLegacyGuestWriteForPendingJournal\(\)/);
   }
   assert.match(app, /if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const existingRaw = localStorage\.getItem\("balkanbite_shopping"\)/);
-  assert.match(app, /if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*localStorage\.setItem\(\s*"balkanbite_progression"/);
+  assert.match(app, /if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const serialized = JSON\.stringify\(progressionLedger\);\s*localStorage\.setItem\("balkanbite_progression", serialized\)/);
 });

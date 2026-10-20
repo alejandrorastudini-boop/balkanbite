@@ -324,7 +324,7 @@ test("App swaps guest state for only the current user's provisional cache", () =
 test("provisional inventory stays read-only and non-authoritative in the UI", () => {
   // Authenticated provisional stock remains blocked; guest quarantine
   // additionally requires explicit human review before derived claims.
-  assert.match(appSource, /const pantryDerivedDataProvisional\s*=\s*inventoryIsProvisional \|\| guestPantryReviewPending \|\| guestDerivedShoppingRecoveryProblem/);
+  assert.match(appSource, /const pantryDerivedDataProvisional\s*=\s*inventoryIsProvisional \|\| guestPantryReviewPending \|\| guestShoppingConsistencyProblem/);
   assert.match(
     appSource,
     /const requireAuthoritativeInventory = \(\) => \{[\s\S]*if \(!inventoryIsProvisional\) return true;/
@@ -447,7 +447,7 @@ test("auth transitions clear cloud-backed workspace before the next account hydr
 test("guest workspace storage is not overwritten by a signed-in account", () => {
   assert.match(
     appSource,
-    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest" \|\|\s*guestJournalRecoveryStatus !== "clear"\) return;\s*if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*localStorage\.setItem\("balkanbite_recipes"/
+    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest" \|\|\s*guestJournalRecoveryStatus !== "clear"\) return;\s*if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const serialized = JSON\.stringify\(recipes\);\s*localStorage\.setItem\("balkanbite_recipes", serialized\)/
   );
   assert.match(
     appSource,
@@ -459,7 +459,7 @@ test("guest workspace storage is not overwritten by a signed-in account", () => 
   );
   assert.match(
     appSource,
-    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest" \|\|\s*guestJournalRecoveryStatus !== "clear"\) return;\s*if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*localStorage\.setItem\("balkanbite_mealplan"/
+    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest" \|\|\s*guestJournalRecoveryStatus !== "clear"\) return;\s*if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const serialized = JSON\.stringify\(mealPlan\);\s*localStorage\.setItem\("balkanbite_mealplan", serialized\)/
   );
   assert.doesNotMatch(appSource, /getUserLocalWorkspaceKey/);
 });
@@ -560,4 +560,20 @@ test("duplicate logical identities invalidate an owner-scoped provisional pantry
     parseUserPantryCache(JSON.stringify([rice, { ...rice, id: "other-rice" }])),
     [rice, { ...rice, id: "other-rice" }],
   );
+});
+
+
+test("independent guest derived readback failures remain fail-closed even if shopping later succeeds", () => {
+  assert.match(appSource, /const guestShoppingConsistencyProblem\s*=\s*guestDerivedShoppingRecoveryProblem \|\| guestDerivedStorageWriteFailed/);
+  for (const key of ["balkanbite_recipes", "balkanbite_mealplan", "balkanbite_progression"]) {
+    const writer = appSource.indexOf(`localStorage.setItem("${key}", serialized)`);
+    assert.ok(writer >= 0, `${key} must have explicit guest storage write`);
+    const context = appSource.slice(writer, writer + 450);
+    assert.match(context, new RegExp(`localStorage\\.getItem\\("${key}"\\) !== serialized`));
+    assert.match(context, /setGuestDerivedStorageWriteFailed\(true\)/);
+  }
+  assert.match(appSource, /guestShoppingConsistencyProblem\s*&&\s*\(/);
+  assert.match(appSource, /if \(!currentUser && guestShoppingConsistencyProblem\)/);
+  assert.doesNotMatch(appSource, /setGuestDerivedStorageWriteFailed\(false\)/,
+    "only explicit rehydration/recovery may clear unrelated failures, never shopping success");
 });
