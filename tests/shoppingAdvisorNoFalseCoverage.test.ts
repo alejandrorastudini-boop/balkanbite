@@ -48,7 +48,8 @@ test("no calculated need cannot manufacture a future trip date; actual shortages
     category: "Pantry/Grains", addedAt: "2026-10-21",
   }], plan, [], "en", now);
   assert.equal(withPantry.daysUntilNextTripNeeded, null);
-  assert.doesNotMatch(withPantry.headline.en, /Pantry Well Stocked|every needed food/);
+  assert.doesNotMatch(withPantry.headline.en, /Pantry Well Stocked|guarantees every needed food/);
+  assert.match(withPantry.headline.en, /does not guarantee/);
 
   const missing = evaluateShoppingNeeds([], plan, [], "en", now);
   assert.equal(missing.urgencyLevel, "urgent");
