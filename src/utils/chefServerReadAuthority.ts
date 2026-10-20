@@ -131,6 +131,20 @@ export function deriveChefServerProgressRead(
   return { userId, serialized: JSON.stringify(events) };
 }
 
+/** A shopping-list-only fact needs exactly one complete server-confirmed
+ * owner collection and its current UI echo, not a healthy unrelated ledger. */
+export function selectCompleteChefServerShopping(
+  userId: string | null,
+  sessionUserId: string | null | undefined,
+  evidence: ChefServerReadEvidence | undefined,
+  visible: readonly unknown[],
+): unknown[] | null {
+  if (!userId || sessionUserId !== userId || !evidence ||
+      evidence.userId !== userId || !Array.isArray(visible) ||
+      evidence.serialized !== JSON.stringify(visible)) return null;
+  return JSON.parse(evidence.serialized) as unknown[];
+}
+
 export function selectCompleteChefServerWorkspace(
   userId: string | null,
   sessionUserId: string | null | undefined,
