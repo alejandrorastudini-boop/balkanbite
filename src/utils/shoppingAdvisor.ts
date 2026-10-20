@@ -92,7 +92,9 @@ function assessRequirementAgainstRemainingPantry(
   now: Date,
 ): RequirementAssessment {
   const required = normalizeQuantity(requiredAmount, requiredUnit);
-  if (!required) {
+  if (!Number.isFinite(requiredAmount) || requiredAmount <= 0 ||
+      !required || !Number.isFinite(required.baseQuantity) ||
+      required.baseQuantity <= 0) {
     return {
       status: "unverified",
       shortfallAmount: requiredAmount,
@@ -118,6 +120,8 @@ function assessRequirementAgainstRemainingPantry(
       (entry): entry is { item: PantryItem; normalized: NonNullable<ReturnType<typeof normalizeQuantity>> } =>
         Boolean(
           entry.normalized &&
+            Number.isFinite(entry.normalized.baseQuantity) &&
+            entry.normalized.baseQuantity >= 0 &&
             entry.normalized.unit.dimension === required.unit.dimension
         )
     );
