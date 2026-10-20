@@ -1626,7 +1626,7 @@ async function runChefWorkspaceFacts() {
     await ask("What is my progress?", "I cannot verify the recorded progress history yet");
     await ask("What meals are planned?", "Rice meal");
     await ask("What meals are planned for today?", "lunch: Rice meal");
-    await ask("What is on my shopping list?", "QA Olive Oil");
+    // The other tab still contains invalid shopping data: keep it blocked.
     await ask("What is on my shopping list?", "I cannot verify the recorded shopping list yet");
     await ask("What meals are planned?", "Rice meal");
     await other.evaluate(() =>
