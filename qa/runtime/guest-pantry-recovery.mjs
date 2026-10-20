@@ -1622,15 +1622,18 @@ async function runChefWorkspaceFacts() {
     await other.evaluate(() =>
       localStorage.setItem("balkanbite_progression", '[{"legacy":"unverified"}]'));
     await ask("What is my progress?", "I cannot verify your menu, shopping and progress together yet");
-    await ask("What is on my shopping list?", "I cannot verify your menu, shopping and progress together yet");
+    await ask("What is on my shopping list?", "QA Olive Oil");
+    await other.evaluate(() =>
+      localStorage.setItem("balkanbite_shopping", '[{"legacy":"unverified"}]'));
+    await ask("What is on my shopping list?", "I cannot verify the recorded shopping list yet");
     assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_progression")),
       '[{"legacy":"unverified"}]', "read-only query preserves raw unknown historical evidence");
     assert.equal(await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN), before.pantry,
       "read-only query cannot rewrite pantry");
     assert.equal(aiRequests, 0, "unverified data cannot trigger an AI guess");
     assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_shopping")),
-      before.shopping, "failed-closed shopping list must preserve recorded values");
-    evidence.checks.push("chef-workspace-grounded-today-shortages-menu-shopping-progress-guest-fail-closed");
+      '[{"legacy":"unverified"}]', "failed-closed shopping list must preserve unverified bytes");
+    evidence.checks.push("chef-shopping-independent-of-broken-progression-and-fails-on-corrupt-shopping");
   } finally {
     await Promise.all(pages.map(page => page.close().catch(() => {})));
     await context.close();
