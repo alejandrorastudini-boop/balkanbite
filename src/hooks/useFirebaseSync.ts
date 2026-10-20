@@ -42,6 +42,7 @@ import {
   deriveChefServerCollectionRead,
   deriveChefServerPantryRead,
   selectCompleteChefServerPantry,
+  selectCompleteChefServerMealPlan,
   selectCompleteChefServerShopping,
   selectCompleteChefServerWorkspace,
   type ChefServerReadEvidence,
@@ -1135,6 +1136,15 @@ export function useFirebaseSync(
 
   // Never answer with a newer optimistic view or a stale/partial listener
   // echo. The caller also checks inventory server authority and account scope.
+  const getServerConfirmedChefMealPlan = (): MealPlanDay[] | null => {
+    const uid = currentUser?.uid ?? null;
+    if (!uid || auth.currentUser?.uid !== uid) return null;
+    return selectCompleteChefServerMealPlan(
+      uid, authSessionUserId.current,
+      chefServerReadEvidence.current.mealPlans, mealPlan,
+    ) as MealPlanDay[] | null;
+  };
+
   const getServerConfirmedChefShopping = (): ShoppingItem[] | null => {
     const uid = currentUser?.uid ?? null;
     if (!uid || auth.currentUser?.uid !== uid) return null;
@@ -1187,6 +1197,7 @@ export function useFirebaseSync(
     inventoryServerConfirmed,
     profileHydrated,
     getServerConfirmedChefPantry,
+    getServerConfirmedChefMealPlan,
     getServerConfirmedChefShopping,
     getServerConfirmedChefWorkspace,
     captureInventoryEditBaseline,

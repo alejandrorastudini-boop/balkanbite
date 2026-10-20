@@ -9,6 +9,7 @@ import { getScopedDocumentId } from "../../src/utils/cloudCollectionSync.ts";
 import {
   deriveChefServerPantryRead, deriveChefServerCollectionRead,
   deriveChefServerProgressRead, selectCompleteChefServerPantry,
+  selectCompleteChefServerMealPlan,
   selectCompleteChefServerShopping, selectCompleteChefServerWorkspace,
 } from "../../src/utils/chefServerReadAuthority.ts";
 import { subscribeProgressionEvents } from "../../src/utils/progressionFirestore.ts";
@@ -66,6 +67,9 @@ const displayed = { inventory: [], mealPlans: [], shoppingList: [], progression:
 const latestMeta = {};
 const readPantry = () => selectCompleteChefServerPantry(
   owner, owner, seen.inventory ?? undefined, displayed.inventory,
+);
+const readMenu = () => selectCompleteChefServerMealPlan(
+  owner, owner, seen.mealPlans ?? undefined, displayed.mealPlans,
 );
 const readWorkspace = () => selectCompleteChefServerWorkspace(
   owner, owner, {
@@ -125,6 +129,9 @@ try {
 
   await waitFor(() => readPantry() !== null && readWorkspace() !== null,
     "owner's four independent confirmed server snapshots");
+  assert.deepEqual(readMenu(), [plan]);
+  assert.equal(selectCompleteChefServerMealPlan(owner, owner, seen.mealPlans, []), null);
+  assert.equal(selectCompleteChefServerMealPlan(stranger, stranger, seen.mealPlans, [plan]), null);
   assert.deepEqual(readPantry(), [pantry]);
   assert.deepEqual(readWorkspace(), {
     mealPlan: [plan], shopping: [shopping], progression: [progress],
@@ -162,6 +169,7 @@ try {
     "invalid server row delivered to owner listener");
   assert.equal(seen.shoppingList, null);
   assert.equal(readWorkspace(), null);
+  assert.deepEqual(readMenu(), [plan], "bad shopping must not invalidate the known menu");
   assert.equal(selectCompleteChefServerShopping(owner, owner,
     seen.shoppingList ?? undefined, displayed.shoppingList), null);
   await environment.withSecurityRulesDisabled(async context => {
@@ -185,6 +193,8 @@ try {
   assert.deepEqual(displayed.progression, [progress],
     "ordinary UI may filter the invalid row; Chef must not trust that subset");
   assert.equal(readWorkspace(), null);
+  assert.deepEqual(readMenu(), [plan],
+    "bad progression must not invalidate the known menu");
   assert.deepEqual(selectCompleteChefServerShopping(owner, owner,
     seen.shoppingList ?? undefined, displayed.shoppingList), [shopping],
     "unrelated invalid progression must not quarantine verified shopping list");
@@ -205,6 +215,7 @@ try {
   await waitFor(() => displayed.mealPlans.length === 2,
     "duplicate logical menu date appears in the actual server listener");
   assert.equal(seen.mealPlans, null);
+  assert.equal(readMenu(), null, "duplicate logical day rejects menu-only authority");
   assert.equal(readWorkspace(), null);
   await environment.withSecurityRulesDisabled(async context => {
     await deleteDoc(doc(context.firestore(), "mealPlans", duplicateDayId));
@@ -232,6 +243,7 @@ try {
     latestMeta.mealPlans?.fromCache === true &&
     latestMeta.shoppingList?.fromCache === true,
     "offline metadata transition for three listeners");
+  assert.equal(readMenu(), null, "cached menu cannot be called server-confirmed");
   assert.equal(readPantry(), null, "cache-only inventory is not confirmed");
   assert.equal(readWorkspace(), null, "cached menu/shopping/progress not confirmed");
   assert.equal(selectCompleteChefServerShopping(owner, owner,

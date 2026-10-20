@@ -1,6 +1,6 @@
 import React, { useEffect } from "react";
 import { X, Sparkles, ChefHat, Maximize2 } from "lucide-react";
-import { Language, PantryItem, MealLog, ChatMessage } from "../types";
+import { Language, PantryItem, MealLog, ChatMessage, MealPlanDay } from "../types";
 import { VoiceChefView } from "./VoiceChefView";
 import type { ChefNavigationTab } from "../utils/chefNavigationIntent";
 import type { ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
@@ -26,6 +26,7 @@ interface ChefIaModalProps {
   onGetAuthoritativePantry: () => readonly PantryItem[] | null;
   onGetAuthoritativeWorkspace: () => ChefWorkspaceSnapshot | null;
   onGetAuthoritativeShopping: () => readonly import("../types").ShoppingItem[] | null;
+  onGetAuthoritativeMealPlan: () => readonly MealPlanDay[] | null;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
   language: Language;
@@ -49,6 +50,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
   onGetAuthoritativePantry,
   onGetAuthoritativeWorkspace,
   onGetAuthoritativeShopping,
+  onGetAuthoritativeMealPlan,
   onLogMeal,
   foodSafety,
   language,
@@ -136,6 +138,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
             onGetAuthoritativePantry={onGetAuthoritativePantry}
             onGetAuthoritativeWorkspace={onGetAuthoritativeWorkspace}
             onGetAuthoritativeShopping={onGetAuthoritativeShopping}
+            onGetAuthoritativeMealPlan={onGetAuthoritativeMealPlan}
             onNavigateToTab={(tab) => {
               onNavigateToTab(tab);
               onClose();

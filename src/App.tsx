@@ -229,6 +229,7 @@ export default function App() {
     inventoryServerConfirmed,
     profileHydrated,
     getServerConfirmedChefPantry,
+    getServerConfirmedChefMealPlan,
     getServerConfirmedChefShopping,
     getServerConfirmedChefWorkspace,
     submitInventoryEdit,
@@ -3162,6 +3163,32 @@ export default function App() {
     }
   };
 
+  // Menu-only questions must not fail because of invalid unrelated shopping
+  // or progression. Verify the complete menu source, current UI and session.
+  const getAuthoritativeChefMealPlan = (): readonly MealPlanDay[] | null => {
+    if (isResetting || firebaseLoading || !canRenderApp) return null;
+    if (currentUser) {
+      return workspaceScope === currentUser.uid
+        ? getServerConfirmedChefMealPlan() : null;
+    }
+    if (workspaceScope !== "guest" || guestJournalRecoveryStatus !== "clear" ||
+        guestPantryRecovery !== "none") return null;
+    try {
+      if (hasPendingGuestMutationJournal(localStorage)) return null;
+      const raw = localStorage.getItem("balkanbite_mealplan");
+      if (raw === null) return null;
+      const parsed = parseStoredMealPlanCache(raw);
+      if (!parsed || !Array.isArray(JSON.parse(raw)) ||
+          JSON.parse(raw).length !== parsed.length ||
+          JSON.stringify(parsed) !== JSON.stringify(mealPlan) ||
+          hasPendingGuestMutationJournal(localStorage) ||
+          localStorage.getItem("balkanbite_mealplan") !== raw) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
   // A composite answer is not trustworthy just because pantry is confirmed.
   // For now use only complete, unchanged guest caches; authenticated menu,
   // shopping and progression lack a common server-confirmed read gate.
@@ -3540,6 +3567,7 @@ export default function App() {
               onGetAuthoritativePantry={getAuthoritativePantryForChef}
               onGetAuthoritativeWorkspace={getAuthoritativeChefWorkspace}
                onGetAuthoritativeShopping={getAuthoritativeChefShopping}
+              onGetAuthoritativeMealPlan={getAuthoritativeChefMealPlan}
               onNavigateToTab={setActiveTab}
               onLogMeal={handleLogMeal}
               foodSafety={foodSafetyQuarantine}
@@ -3601,6 +3629,7 @@ export default function App() {
               onGetAuthoritativePantry={getAuthoritativePantryForChef}
               onGetAuthoritativeWorkspace={getAuthoritativeChefWorkspace}
                onGetAuthoritativeShopping={getAuthoritativeChefShopping}
+              onGetAuthoritativeMealPlan={getAuthoritativeChefMealPlan}
               onNavigateToTab={setActiveTab}
           onLogMeal={handleLogMeal}
           foodSafety={foodSafetyQuarantine}

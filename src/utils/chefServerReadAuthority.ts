@@ -131,6 +131,18 @@ export function deriveChefServerProgressRead(
   return { userId, serialized: JSON.stringify(events) };
 }
 
+/** A menu-only fact needs its own complete server-confirmed owner collection
+ * and current UI echo. Never require healthy shopping/progression/inventory
+ * for a statement about already recorded meals. */
+export function selectCompleteChefServerMealPlan(
+  userId: string | null,
+  sessionUserId: string | null | undefined,
+  evidence: ChefServerReadEvidence | undefined,
+  visible: readonly unknown[],
+): unknown[] | null {
+  return selectCompleteChefServerShopping(userId, sessionUserId, evidence, visible);
+}
+
 /** A shopping-list-only fact needs exactly one complete server-confirmed
  * owner collection and its current UI echo, not a healthy unrelated ledger. */
 export function selectCompleteChefServerShopping(

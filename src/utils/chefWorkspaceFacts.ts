@@ -241,3 +241,22 @@ export function describeChefWorkspaceQuery(
     `Calculated shortages for recorded meals from today through the next two days (${deficits.length}): ${summary}. ${uncertain} requirements need review. These are availability calculations, not purchased items or verified prices.`,
     `Изчислени недостици за записаните ястия от днес до следващите два дни (${deficits.length}): ${summary}. ${uncertain} изисквания остават за проверка. Това са изчисления, не потвърдени покупки или цени.`);
 }
+
+/**
+ * Menu-only questions depend solely on the confirmed meal-plan collection.
+ * Empty companion arrays are deliberately not claimed as facts: menu display
+ * never reads pantry, shopping or progression. Reuse the exact existing menu
+ * wording and complete structural/duplicate validation.
+ */
+export function describeVerifiedChefMealPlan(
+  action: "SHOW_MENU" | "SHOW_TODAYS_MENU",
+  mealPlan: readonly MealPlanDay[],
+  lang: Language,
+  now: Date = new Date(),
+): string | null {
+  if ((action !== "SHOW_MENU" && action !== "SHOW_TODAYS_MENU") ||
+      !Array.isArray(mealPlan)) return null;
+  return describeChefWorkspaceQuery(
+    action, { pantry: [], mealPlan, shopping: [], progression: [] }, lang, now,
+  );
+}

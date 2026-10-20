@@ -16,11 +16,11 @@ import {
   UtensilsCrossed,
   X
 } from "lucide-react";
-import { ChatMessage, Language, PantryItem, MealLog, ShoppingItem } from "../types";
+import { ChatMessage, Language, PantryItem, MealLog, ShoppingItem, MealPlanDay } from "../types";
 import { t } from "../utils/translations";
 import { parseChefNavigationIntent, chefNavigationFeedback, type ChefNavigationTab } from "../utils/chefNavigationIntent";
 import { parseChefPantryQueryIntent, describeChefPantryQuery } from "../utils/chefPantryFacts";
-import { parseChefWorkspaceQueryIntent, describeChefWorkspaceQuery, describeVerifiedChefShoppingList, type ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
+import { parseChefWorkspaceQueryIntent, describeChefWorkspaceQuery, describeVerifiedChefShoppingList, describeVerifiedChefMealPlan, type ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
 import { parseDeterministicRemovalIntent, type DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
@@ -45,6 +45,7 @@ interface VoiceChefViewProps {
   onGetAuthoritativePantry: () => readonly PantryItem[] | null;
   onGetAuthoritativeWorkspace: () => ChefWorkspaceSnapshot | null;
   onGetAuthoritativeShopping: () => readonly ShoppingItem[] | null;
+  onGetAuthoritativeMealPlan: () => readonly MealPlanDay[] | null;
   onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
   profileAuthorityReady?: boolean;
@@ -66,6 +67,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   onGetAuthoritativePantry,
   onGetAuthoritativeWorkspace,
   onGetAuthoritativeShopping,
+  onGetAuthoritativeMealPlan,
   onLogMeal,
   foodSafety,
   profileAuthorityReady = true,
@@ -521,6 +523,30 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     // unavailable until those modules share verified server-hydration gates.
     const workspaceQuery = parseChefWorkspaceQueryIntent(text);
     if (workspaceQuery) {
+      if (workspaceQuery === "SHOW_MENU" || workspaceQuery === "SHOW_TODAYS_MENU") {
+        const rows = onGetAuthoritativeMealPlan();
+        const answer = rows === null ? (
+          language === "es"
+            ? "Todavía no puedo verificar el menú registrado. Revisa su sincronización o recuperación."
+            : language === "bg"
+            ? "Все още не мога да потвърдя записаното меню. Проверете синхронизацията или възстановяването."
+            : "I cannot verify the recorded meal plan yet. Check its synchronization or recovery."
+        ) : describeVerifiedChefMealPlan(workspaceQuery, rows, language) ?? (
+          language === "es"
+            ? "El menú registrado contiene datos que necesitan revisión. No mostraré un menú parcial."
+            : language === "bg"
+            ? "Записаното меню съдържа данни за проверка. Няма да показвам непълно меню."
+            : "The recorded meal plan needs review. I will not report an incomplete plan."
+        );
+        onUpdateChatMessages((prev) => [...prev, {
+          id: `ai-menu-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          sender: "assistant",
+          text: answer,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }]);
+        speakText(answer);
+        return;
+      }
       if (workspaceQuery === "SHOW_SHOPPING_LIST") {
         const rows = onGetAuthoritativeShopping();
         const answer = rows === null ? (
