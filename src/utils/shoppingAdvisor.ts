@@ -585,7 +585,9 @@ export function evaluateShoppingNeeds(
     ...pendingShoppingItems,
     ...Array.from(candidateItemsToAdd.values()),
   ];
-  const hasUnknownTripPrice = tripItems.some(
+  // An empty proposed trip has no priced purchases; don't surface a
+  // fabricated exact EUR 0.00 cost as if a trip price were verified.
+  const hasUnknownTripPrice = tripItems.length === 0 || tripItems.some(
     (item) =>
       typeof item.estimatedPriceEUR !== "number" ||
       !Number.isFinite(item.estimatedPriceEUR) ||
