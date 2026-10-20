@@ -470,6 +470,97 @@ async function runGuestDerivedShoppingSilentFailure() {
   }
 }
 
+async function runGuestDerivedWriteWarningCannotBeCleared(faultKey) {
+  // #459: an unrelated successful shopping-cache write must not erase the
+  // evidence that a recipe or meal plan write was silently dropped.
+  const SHOPPING = "balkanbite_shopping";
+  const recipe = {
+    id: "qa-derived-latch-rice",
+    title: { en: "QA Rice Meal", es: "QA Arroz", bg: "QA Ориз" },
+    description: { en: "QA", es: "QA", bg: "QA" },
+    prepTimeMin: 0, cookTimeMin: 0, costPerServingEUR: 0,
+    difficulty: "easy", servings: 1, calories: 0, proteinG: 0,
+    carbsG: 0, fatG: 0, fiberG: 0, tags: [],
+    ingredients: [{ name: "QA Rice", amount: 520, unit: "g", inPantry: false }],
+    instructions: { en: ["QA cook"], es: ["QA cocinar"], bg: ["QA готви"] },
+    nutritionHighlights: { en: "QA", es: "QA", bg: "QA" },
+  };
+  const plan = [{ date: new Date().toLocaleDateString("en-CA"), lunch: recipe }];
+  const shopping = [{ id: "qa-latch-manual", name: "QA Salt", quantity: 1,
+    unit: "ud", category: "Other", checked: false, amountOrigin: "user_entered",
+    purchaseAmountConfirmed: false }];
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, valid, plan, shopping }) => {
+      if (sessionStorage.getItem("__qa_derived_latch_seeded")) return;
+      sessionStorage.setItem("__qa_derived_latch_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_recipes", JSON.stringify([plan[0].lunch]));
+      localStorage.setItem("balkanbite_mealplan", JSON.stringify(plan));
+      localStorage.setItem("balkanbite_shopping", JSON.stringify(shopping));
+      localStorage.setItem("balkanbite_progression", "[]");
+    }, { MAIN, valid, plan, shopping });
+    page = await context.newPage();
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-pantry").click();
+    await page.locator(`#pantry-item-${valid.id}`).waitFor({ state: "visible" });
+    const originalDerivedRaw = await page.evaluate(key =>
+      localStorage.getItem(key), faultKey);
+    await page.evaluate(key => {
+      const original = Storage.prototype.setItem;
+      window.__qaDerivedWriteAttempts = 0;
+      window.__qaRestoreStorageWrite = () => { Storage.prototype.setItem = original; };
+      Storage.prototype.setItem = function(name, value) {
+        if (name === key) {
+          window.__qaDerivedWriteAttempts++;
+          return; // browser silently discards just this write
+        }
+        return original.call(this, name, value);
+      };
+    }, faultKey);
+    await page.locator(`#pantry-item-${valid.id}`).getByRole("button", {
+      name: "Increase quantity",
+    }).click();
+    await page.waitForFunction(MAIN =>
+      JSON.parse(localStorage.getItem(MAIN) || "[]")[0]?.quantity === 550, MAIN,
+    );
+    await page.waitForFunction(() => window.__qaDerivedWriteAttempts > 0);
+    await page.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({ state: "visible", timeout: 15000 });
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), faultKey),
+      originalDerivedRaw, "injected lost derived write must not overwrite old source");
+
+    // Restore the browser storage and trigger a fully successful, but
+    // UNRELATED, manual shopping checkbox write. A previous bug would clear
+    // the warning, falsely treating shopping readback as a recovered menu.
+    await page.evaluate(() => window.__qaRestoreStorageWrite());
+    await page.locator("#nav-tab-shopping").click();
+    await page.locator("#shopping-item-qa-latch-manual")
+      .getByRole("button", { name: /Confirm purchase of/ }).click();
+    await page.waitForFunction(SHOPPING =>
+      JSON.parse(localStorage.getItem(SHOPPING) || "[]")[0]?.checked === true,
+      SHOPPING,
+    );
+    await page.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({ state: "visible", timeout: 15000 });
+    assert.equal(await page.getByTestId("guest-shopping-consistency-warning").count(), 1,
+      "shopping success must not erase the unrelated failed derived-write warning");
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), faultKey),
+      originalDerivedRaw, "shopping checkbox write cannot fix lost meal/recipe bytes");
+    evidence.checks.push(`guest-derived-${faultKey}-write-failure-stays-blocked-after-shopping-success`);
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runRealQuantityJournalCommit({ silentShoppingFailure = false } = {}) {
   // Real UI quantity edit, not an artificially seeded journal: capture a
   // newly-created WAL marker before the stock write and verify reload.
@@ -1839,6 +1930,8 @@ try {
   await runFailedGuestQuantityWrite();
   await runFailedGuestQuantityWrite({ silent: true });
   await runGuestDerivedShoppingSilentFailure();
+  await runGuestDerivedWriteWarningCannotBeCleared("balkanbite_mealplan");
+  await runGuestDerivedWriteWarningCannotBeCleared("balkanbite_recipes");
   await runRealQuantityJournalCommit();
   await runRealQuantityJournalCommit({ silentShoppingFailure: true });
   await runMalformedGuestShoppingOnStartup();
