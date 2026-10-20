@@ -1622,10 +1622,18 @@ async function runChefWorkspaceFacts() {
     await other.evaluate(() =>
       localStorage.setItem("balkanbite_progression", '[{"legacy":"unverified"}]'));
     await ask("What is my progress?", "I cannot verify your menu, shopping and progress together yet");
+    await ask("What meals are planned?", "Rice meal");
+    await ask("What meals are planned for today?", "lunch: Rice meal");
     await ask("What is on my shopping list?", "QA Olive Oil");
     await other.evaluate(() =>
       localStorage.setItem("balkanbite_shopping", '[{"legacy":"unverified"}]'));
     await ask("What is on my shopping list?", "I cannot verify the recorded shopping list yet");
+    await ask("What meals are planned?", "Rice meal");
+    await other.evaluate(() =>
+      localStorage.setItem("balkanbite_mealplan", '[{"date":"2026-02-30"}]'));
+    await ask("What meals are planned?", "I cannot verify the recorded meal plan yet");
+    assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_mealplan")),
+      '[{"date":"2026-02-30"}]', "menu refusal must preserve unknown original bytes");
     assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_progression")),
       '[{"legacy":"unverified"}]', "read-only query preserves raw unknown historical evidence");
     assert.equal(await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN), before.pantry,
@@ -1634,6 +1642,7 @@ async function runChefWorkspaceFacts() {
     assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_shopping")),
       '[{"legacy":"unverified"}]', "failed-closed shopping list must preserve unverified bytes");
     evidence.checks.push("chef-shopping-independent-of-broken-progression-and-fails-on-corrupt-shopping");
+    evidence.checks.push("chef-menu-independent-of-invalid-progress-shopping-but-rejects-invalid-menu");
   } finally {
     await Promise.all(pages.map(page => page.close().catch(() => {})));
     await context.close();
