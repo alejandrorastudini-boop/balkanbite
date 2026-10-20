@@ -118,7 +118,7 @@ import {
   parseGuestVoiceReceipts,
 } from "./utils/guestVoiceRemovalIntent";
 import { hasPendingGuestMutationJournal } from "./utils/guestJournalExclusivity";
-import type { ChefWorkspaceSnapshot } from "./utils/chefWorkspaceFacts";
+import type { ChefWorkspaceSnapshot, ChefVerifiedShortageSources } from "./utils/chefWorkspaceFacts";
 import { parseChatMessageCache } from "./utils/chatMessageValidation";
 import {
   buildMealLogPreservingNutritionUncertainty,
@@ -3218,6 +3218,37 @@ export default function App() {
     }
   };
 
+  // Shortages are availability calculations for recorded planned recipes.
+  // They require two authoritative sources only: pantry and meal plan.
+  // A corrupt, unrelated progression record or shopping checkbox must not
+  // block the answer; any unresolved guest pantry/shopping journal still does.
+  const getAuthoritativeChefShortages = (): ChefVerifiedShortageSources | null => {
+    if (currentUser) {
+      const pantryRows = getAuthoritativePantryForChef();
+      const planRows = getAuthoritativeChefMealPlan();
+      return pantryRows !== null && planRows !== null
+        ? { pantry: pantryRows, mealPlan: planRows } : null;
+    }
+    // Read both guest source bytes before and after the two independent
+    // validated selectors; this is a best-effort multi-key stability check,
+    // NOT an atomic localStorage compare-and-swap between tabs.
+    try {
+      const pantryRaw = localStorage.getItem(GUEST_PANTRY_KEY);
+      const planRaw = localStorage.getItem("balkanbite_mealplan");
+      if (pantryRaw === null || planRaw === null ||
+          hasPendingGuestMutationJournal(localStorage)) return null;
+      const pantryRows = getAuthoritativePantryForChef();
+      const planRows = getAuthoritativeChefMealPlan();
+      if (pantryRows === null || planRows === null ||
+          hasPendingGuestMutationJournal(localStorage) ||
+          localStorage.getItem(GUEST_PANTRY_KEY) !== pantryRaw ||
+          localStorage.getItem("balkanbite_mealplan") !== planRaw) return null;
+      return { pantry: pantryRows, mealPlan: planRows };
+    } catch {
+      return null;
+    }
+  };
+
   // A composite answer is not trustworthy just because pantry is confirmed.
   // For now use only complete, unchanged guest caches; authenticated menu,
   // shopping and progression lack a common server-confirmed read gate.
@@ -3598,6 +3629,7 @@ export default function App() {
                onGetAuthoritativeShopping={getAuthoritativeChefShopping}
               onGetAuthoritativeMealPlan={getAuthoritativeChefMealPlan}
               onGetAuthoritativeProgress={getAuthoritativeChefProgress}
+              onGetAuthoritativeShortages={getAuthoritativeChefShortages}
               onNavigateToTab={setActiveTab}
               onLogMeal={handleLogMeal}
               foodSafety={foodSafetyQuarantine}
@@ -3661,6 +3693,7 @@ export default function App() {
                onGetAuthoritativeShopping={getAuthoritativeChefShopping}
               onGetAuthoritativeMealPlan={getAuthoritativeChefMealPlan}
               onGetAuthoritativeProgress={getAuthoritativeChefProgress}
+              onGetAuthoritativeShortages={getAuthoritativeChefShortages}
               onNavigateToTab={setActiveTab}
           onLogMeal={handleLogMeal}
           foodSafety={foodSafetyQuarantine}

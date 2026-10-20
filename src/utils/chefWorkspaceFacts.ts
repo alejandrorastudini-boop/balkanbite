@@ -278,3 +278,34 @@ export function describeVerifiedChefProgress(
     pantry: [], mealPlan: [], shopping: [], progression,
   }, lang);
 }
+
+/** Only pantry and meal plan are inputs for recorded-meal ingredient
+ * availability. The shopping advisor additionally uses shopping for
+ * recommendations/urgency, but its missingMealIngredients results never
+ * consume shopping rows; this answer asserts neither purchased nor pending
+ * shopping items. Unrelated event history is not an input either.
+ *
+ * Callers must independently attest complete, session-scoped and fresh
+ * pantry AND meal-plan snapshots. This function validates both sets and
+ * reuses the existing deterministic shortage calculation.
+ */
+export interface ChefVerifiedShortageSources {
+  pantry: readonly PantryItem[];
+  mealPlan: readonly MealPlanDay[];
+}
+export function describeVerifiedChefShortages(
+  action: "SHOW_SHORTAGES" | "SHOW_TODAYS_SHORTAGES",
+  sources: ChefVerifiedShortageSources,
+  lang: Language,
+  now: Date = new Date(),
+): string | null {
+  if ((action !== "SHOW_SHORTAGES" && action !== "SHOW_TODAYS_SHORTAGES") ||
+      !sources || !Array.isArray(sources.pantry) ||
+      !Array.isArray(sources.mealPlan)) return null;
+  return describeChefWorkspaceQuery(action, {
+    pantry: sources.pantry, mealPlan: sources.mealPlan,
+    // These fields are not used to calculate recorded-meal shortages.
+    // They are intentionally NOT assertions that shopping/history are empty.
+    shopping: [], progression: [],
+  }, lang, now);
+}

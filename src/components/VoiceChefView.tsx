@@ -20,7 +20,7 @@ import { ChatMessage, Language, PantryItem, MealLog, ShoppingItem, MealPlanDay }
 import { t } from "../utils/translations";
 import { parseChefNavigationIntent, chefNavigationFeedback, type ChefNavigationTab } from "../utils/chefNavigationIntent";
 import { parseChefPantryQueryIntent, describeChefPantryQuery } from "../utils/chefPantryFacts";
-import { parseChefWorkspaceQueryIntent, describeChefWorkspaceQuery, describeVerifiedChefShoppingList, describeVerifiedChefMealPlan, describeVerifiedChefProgress, type ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
+import { parseChefWorkspaceQueryIntent, describeChefWorkspaceQuery, describeVerifiedChefShoppingList, describeVerifiedChefMealPlan, describeVerifiedChefProgress, describeVerifiedChefShortages, type ChefVerifiedShortageSources, type ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
 import { parseDeterministicRemovalIntent, type DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
@@ -47,6 +47,7 @@ interface VoiceChefViewProps {
   onGetAuthoritativeShopping: () => readonly ShoppingItem[] | null;
   onGetAuthoritativeMealPlan: () => readonly MealPlanDay[] | null;
   onGetAuthoritativeProgress: () => readonly import("../utils/progressionLedger").ProgressionEventV1[] | null;
+  onGetAuthoritativeShortages: () => ChefVerifiedShortageSources | null;
   onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
   profileAuthorityReady?: boolean;
@@ -70,6 +71,7 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   onGetAuthoritativeShopping,
   onGetAuthoritativeMealPlan,
   onGetAuthoritativeProgress,
+  onGetAuthoritativeShortages,
   onLogMeal,
   foodSafety,
   profileAuthorityReady = true,
@@ -525,6 +527,30 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
     // unavailable until those modules share verified server-hydration gates.
     const workspaceQuery = parseChefWorkspaceQueryIntent(text);
     if (workspaceQuery) {
+      if (workspaceQuery === "SHOW_SHORTAGES" || workspaceQuery === "SHOW_TODAYS_SHORTAGES") {
+        const sources = onGetAuthoritativeShortages();
+        const answer = sources === null ? (
+          language === "es"
+            ? "Todavía no puedo verificar conjuntamente la despensa y el menú para calcular faltantes. Comprueba su sincronización y las recuperaciones pendientes."
+            : language === "bg"
+            ? "Все още не мога да потвърдя едновременно наличностите и менюто за изчисляване на недостига. Проверете синхронизацията и възстановяването."
+            : "I cannot verify pantry and meal plan together for ingredient shortages yet. Check synchronization or pending recovery."
+        ) : describeVerifiedChefShortages(workspaceQuery, sources, language) ?? (
+          language === "es"
+            ? "La despensa o el menú contiene datos que necesitan revisión. No calcularé faltantes parciales."
+            : language === "bg"
+            ? "Наличностите или менюто съдържат данни за проверка. Няма да изчислявам частични недостици."
+            : "Pantry or meal-plan records need review. I will not calculate partial shortages."
+        );
+        onUpdateChatMessages((prev) => [...prev, {
+          id: `ai-shortages-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          sender: "assistant",
+          text: answer,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }]);
+        speakText(answer);
+        return;
+      }
       if (workspaceQuery === "SHOW_PROGRESS") {
         const events = onGetAuthoritativeProgress();
         const answer = events === null ? (

@@ -3,7 +3,7 @@ import { X, Sparkles, ChefHat, Maximize2 } from "lucide-react";
 import { Language, PantryItem, MealLog, ChatMessage, MealPlanDay } from "../types";
 import { VoiceChefView } from "./VoiceChefView";
 import type { ChefNavigationTab } from "../utils/chefNavigationIntent";
-import type { ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
+import type { ChefWorkspaceSnapshot, ChefVerifiedShortageSources } from "../utils/chefWorkspaceFacts";
 import type { DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { ConfirmedVoiceLotEvidence } from "../utils/voiceLotEvidenceAdapter";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
@@ -28,6 +28,7 @@ interface ChefIaModalProps {
   onGetAuthoritativeShopping: () => readonly import("../types").ShoppingItem[] | null;
   onGetAuthoritativeMealPlan: () => readonly MealPlanDay[] | null;
   onGetAuthoritativeProgress: () => readonly import("../utils/progressionLedger").ProgressionEventV1[] | null;
+  onGetAuthoritativeShortages: () => ChefVerifiedShortageSources | null;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
   language: Language;
@@ -53,6 +54,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
   onGetAuthoritativeShopping,
   onGetAuthoritativeMealPlan,
   onGetAuthoritativeProgress,
+  onGetAuthoritativeShortages,
   onLogMeal,
   foodSafety,
   language,
@@ -142,6 +144,7 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
             onGetAuthoritativeShopping={onGetAuthoritativeShopping}
             onGetAuthoritativeMealPlan={onGetAuthoritativeMealPlan}
             onGetAuthoritativeProgress={onGetAuthoritativeProgress}
+            onGetAuthoritativeShortages={onGetAuthoritativeShortages}
             onNavigateToTab={(tab) => {
               onNavigateToTab(tab);
               onClose();
