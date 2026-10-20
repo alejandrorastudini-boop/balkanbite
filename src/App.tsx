@@ -126,6 +126,7 @@ import {
 } from "./utils/verifiedMealLog";
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
 import { hasValidManualShoppingRequiredFields } from "./utils/manualShoppingValidation";
+import { commitVerifiedGuestShoppingToggle } from "./utils/guestShoppingToggleCommit";
 import { localCalendarDate, shouldMarkExpiryPartialAfterQuantityIncrease } from "./utils/effectiveExpiry";
 import { isExpectedInventoryResultVisible } from "./utils/expectedInventoryResult";
 import {
@@ -2332,7 +2333,15 @@ export default function App() {
       purchaseAmountConfirmed: checked,
     };
     if (!currentUser) {
-      setShoppingList(prev => prev.map(item => item.id === id ? next : item));
+      // A purchase checkbox is explicit human confirmation. Do not publish it
+      // in React before the exact guest shopping snapshot is durably read back.
+      const result = commitVerifiedGuestShoppingToggle(localStorage, shoppingList, id);
+      if (!result.saved) {
+        setGuestDerivedShoppingRecoveryProblem(true);
+        console.warn("Guest shopping toggle not confirmed:", result.reason);
+        return false;
+      }
+      setShoppingList(result.next);
       return true;
     }
     try {
