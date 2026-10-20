@@ -48,7 +48,8 @@ export interface ShoppingAlertDiagnostic {
   pendingShoppingItemsCount: number;
   estimatedTotalTripEUR?: number;
   itemsToAddToShoppingList: Array<Omit<ShoppingItem, "id" | "checked">>;
-  daysUntilNextTripNeeded: number;
+  /** Null means no purchase date can be justified by recorded needs. */
+  daysUntilNextTripNeeded: number | null;
 }
 
 const normalizedFoodIdentity = (value: string): string =>
@@ -294,6 +295,14 @@ export function evaluateShoppingNeeds(
         .sort((a, b) => a.dayOffset - b.dayOffset)
     : [];
 
+  // An empty menu (or a stored recipe without any ingredient requirements)
+  // is NOT evidence that the household is adequately stocked.
+  const hasEvaluableMealRequirements = upcomingDays.some(({ day }) =>
+    [day.breakfast, day.lunch, day.dinner].some(
+      recipe => Boolean(recipe && Array.isArray(recipe.ingredients) && recipe.ingredients.length > 0),
+    ),
+  );
+
   const missingMealIngredients: MissingMealIngredient[] = [];
   const candidateItemsToAdd: Map<
     string,
@@ -519,7 +528,7 @@ export function evaluateShoppingNeeds(
   score = Math.min(100, Math.max(0, score));
 
   let urgencyLevel: "urgent" | "recommended" | "optimal" = "optimal";
-  let daysUntilNextTrip = 3;
+  let daysUntilNextTrip: number | null = null;
 
   if (score >= 60 || todayMissing.length > 0) {
     urgencyLevel = "urgent";
@@ -533,7 +542,8 @@ export function evaluateShoppingNeeds(
     daysUntilNextTrip = 1;
   } else {
     urgencyLevel = "optimal";
-    daysUntilNextTrip = 4;
+    // No timed shopping need was derived: never fabricate a trip in four days.
+    daysUntilNextTrip = null;
   }
 
   const headlineEs =
@@ -549,7 +559,9 @@ export function evaluateShoppingNeeds(
       ? `Tienes ${depletedPantryItems.length} productos agotados en despensa.`
       : pendingShoppingItems.length > 0
       ? `Tienes ${pendingShoppingItems.length} artículos en tu lista de la compra.`
-      : "Tu despensa cubre los menús y no tienes compras pendientes.";
+      : hasEvaluableMealRequirements
+      ? "No se han calculado faltantes para las comidas registradas próximas. Esto no garantiza que tengas todos los alimentos necesarios."
+      : "No hay ingredientes de comidas próximas registrados para evaluar. No se puede confirmar que tu despensa esté abastecida.";
 
   const headlineEn =
     todayMissing.length > 0
@@ -564,7 +576,9 @@ export function evaluateShoppingNeeds(
       ? `You have ${depletedPantryItems.length} depleted pantry items.`
       : pendingShoppingItems.length > 0
       ? `You have ${pendingShoppingItems.length} items on your shopping list.`
-      : "Your pantry covers scheduled meals and no shopping is pending.";
+      : hasEvaluableMealRequirements
+      ? "No shortages were calculated for upcoming recorded meals. This does not guarantee your household has every needed food."
+      : "No upcoming meal ingredients are recorded for evaluation. Pantry sufficiency cannot be confirmed.";
 
   const headlineBg =
     todayMissing.length > 0
@@ -579,7 +593,9 @@ export function evaluateShoppingNeeds(
       ? `Имате ${depletedPantryItems.length} изчерпани продукта в килера.`
       : pendingShoppingItems.length > 0
       ? `Имате ${pendingShoppingItems.length} продукта в списъка за пазаруване.`
-      : "Килерът ви покрива менютата и нямате чакащи покупки.";
+      : hasEvaluableMealRequirements
+      ? "Няма изчислен недостиг за близките записани ястия. Това не гарантира, че имате всички необходими продукти."
+      : "Няма записани продукти за предстоящи ястия, които да бъдат оценени. Наличностите не могат да бъдат потвърдени.";
 
   const tripItems = [
     ...pendingShoppingItems,
@@ -610,19 +626,22 @@ export function evaluateShoppingNeeds(
           ? "¡Hora de comprar hoy!"
           : urgencyLevel === "recommended"
           ? "Compra recomendada pronto"
-          : "Despensa abastecida",
+          : hasEvaluableMealRequirements
+          ? "Sin faltantes calculados" : "Cobertura desconocida",
       en:
         urgencyLevel === "urgent"
           ? "Shopping Needed Today!"
           : urgencyLevel === "recommended"
           ? "Shopping Recommended Soon"
-          : "Pantry Well Stocked",
+          : hasEvaluableMealRequirements
+          ? "No calculated shortages" : "Coverage unknown",
       bg:
         urgencyLevel === "urgent"
           ? "Време е за пазаруване днес!"
           : urgencyLevel === "recommended"
           ? "Препоръчва се пазаруване скоро"
-          : "Килерът е зареден",
+          : hasEvaluableMealRequirements
+          ? "Няма изчислен недостиг" : "Непотвърдени наличности",
     },
     headline: {
       es: headlineEs,
@@ -634,19 +653,25 @@ export function evaluateShoppingNeeds(
         reasonsEs.length > 0
           ? reasonsEs
           : [
-              "Todo tu menú de los próximos días tiene cantidades suficientes en despensa.",
+              hasEvaluableMealRequirements
+                ? "No se han calculado faltantes para los ingredientes registrados de los próximos días; verifica tus necesidades reales."
+                : "Sin ingredientes registrados para próximas comidas no se puede evaluar la cobertura de la despensa.",
             ],
       en:
         reasonsEn.length > 0
           ? reasonsEn
           : [
-              "All meals for the next days have sufficient quantities in pantry.",
+              hasEvaluableMealRequirements
+                ? "No shortages were calculated for recorded upcoming ingredients; check your actual needs."
+                : "Without upcoming recorded meal ingredients, pantry coverage cannot be evaluated.",
             ],
       bg:
         reasonsBg.length > 0
           ? reasonsBg
           : [
-              "Всички ястия за следващите дни имат достатъчни количества в килера.",
+              hasEvaluableMealRequirements
+                ? "Няма изчислен недостиг за записаните предстоящи продукти; проверете реалните си нужди."
+                : "Без записани продукти за предстоящи ястия наличностите не могат да бъдат оценени.",
             ],
     },
     missingMealIngredients,
