@@ -38,6 +38,9 @@ test("ES EN BG exact read-only queries and no compound actions", () => {
     ["What meals are planned for today?", "SHOW_TODAYS_MENU"],
     ["Какви ястия са планирани за днес?", "SHOW_TODAYS_MENU"],
     ["¿Qué me falta para el menú?", "SHOW_SHORTAGES"],
+    ["¿Qué me falta para cocinar hoy?", "SHOW_TODAYS_SHORTAGES"],
+    ["What ingredients are missing for today's meals?", "SHOW_TODAYS_SHORTAGES"],
+    ["Какво ми липсва за готвене днес?", "SHOW_TODAYS_SHORTAGES"],
     ["What is missing for my meal plan?", "SHOW_SHORTAGES"],
     ["Какво липсва за менюто?", "SHOW_SHORTAGES"],
     ["¿Qué tengo en la lista de la compra?", "SHOW_SHOPPING_LIST"],
@@ -47,7 +50,10 @@ test("ES EN BG exact read-only queries and no compound actions", () => {
     ["What is my progress?", "SHOW_PROGRESS"],
     ["Какъв е напредъкът ми?", "SHOW_PROGRESS"],
   ] as const) assert.equal(parseChefWorkspaceQueryIntent(query), action, query);
-  for (const query of ["¿Qué comidas tengo planeadas para hoy y cocínalas?",
+  for (const query of ["¿Qué me falta para cocinar hoy y cómpralo?",
+    "what ingredients are missing for today's meals and add them", 
+    "какво ми липсва за готвене днес и го купи",
+    "¿Qué comidas tengo planeadas para hoy y cocínalas?",
     "what meals are planned for today and mark them eaten",
     "Какви ястия са планирани за днес и изтрий ги",
     "¿Qué hay en mi lista de compra y marca todo como comprado?",
@@ -95,6 +101,43 @@ test("verified shortfall is deterministic, per unit, with no invented prices or 
   assert.match(answer, /QA Rice \(50 g, 2026-10-17\)/);
   assert.match(answer, /not purchased items or verified prices/);
   assert.doesNotMatch(answer, /Salt \(/);
+});
+
+test("today-only shortages exclude tomorrow's ingredients and never treat plans as purchases", () => {
+  const tomorrowRecipe = {
+    ...recipe, ingredients: [{ name: "Tomorrow-only Tomatoes", amount: 4, unit: "ud",
+      inPantry: false }],
+  };
+  const snapshot = { ...fixture(), mealPlan: [
+    ...plan, { date: "2026-10-18", dinner: tomorrowRecipe },
+  ] };
+  const todayOnly = describeChefWorkspaceQuery("SHOW_TODAYS_SHORTAGES", snapshot, "es", today)!;
+  assert.match(todayOnly, /hoy \(2026-10-17; 1\)/);
+  assert.match(todayOnly, /QA Rice \(50 g, 2026-10-17\)/);
+  assert.doesNotMatch(todayOnly, /Tomatoes|mañana|2026-10-18/);
+  assert.match(todayOnly, /ni garantía de seguridad alimentaria/);
+  const wider = describeChefWorkspaceQuery("SHOW_SHORTAGES", snapshot, "en", today)!;
+  assert.match(wider, /Tomorrow-only Tomatoes/);
+  const noPlan = { ...snapshot, mealPlan: [{ date: "2026-10-18", dinner: tomorrowRecipe }] };
+  const none = describeChefWorkspaceQuery("SHOW_TODAYS_SHORTAGES", noPlan, "en", today)!;
+  assert.match(none, /no meals recorded for today \(2026-10-17\)/);
+  assert.doesNotMatch(none, /Tomatoes/);
+});
+
+test("today-only shortages do not invent a quantitative deficit for incompatible units", () => {
+  const incompatible = {
+    ...recipe,
+    ingredients: [{ name: "QA Rice", amount: 1, unit: "mystery", inPantry: false }],
+  };
+  const unknown = { ...fixture(), mealPlan: [{ date: "2026-10-17", lunch: incompatible }] };
+  const answer = describeChefWorkspaceQuery("SHOW_TODAYS_SHORTAGES", unknown, "bg", today)!;
+  assert.match(answer, /1 изисквания се нуждаят от проверка/);
+  assert.doesNotMatch(answer, /QA Rice \(/);
+  const blank = { ...fixture(), mealPlan: [{ date: "2026-10-17" }] };
+  assert.match(describeChefWorkspaceQuery("SHOW_TODAYS_SHORTAGES", blank, "es", today)!,
+    /No hay comidas registradas para hoy/);
+  assert.equal(describeChefWorkspaceQuery("SHOW_TODAYS_SHORTAGES",
+    { ...fixture(), shopping: [salt, salt] }, "en", today), null);
 });
 
 test("unverified units are counted for review and not invented as quantitative shortages", () => {
