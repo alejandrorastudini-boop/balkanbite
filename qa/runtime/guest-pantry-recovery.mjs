@@ -1619,11 +1619,15 @@ async function runChefWorkspaceFacts() {
     await other.evaluate(() => localStorage.setItem("balkanbite_shopping", '[{"legacy":"unverified"}]'));
     await ask("What is on my shopping list?", "I cannot verify the recorded shopping list yet");
     await ask("What is my progress?", "1 verified events");
+    await ask("What is missing for my meal plan?", "QA Rice (50 g");
+    await ask("What ingredients are missing for today's meals?", "Calculated shortages for today's recorded meals");
     // Other tab corrupts source AFTER this tab hydrated. No filtered-data
     // snapshot may be advertised as a complete progress history.
     await other.evaluate(() =>
       localStorage.setItem("balkanbite_progression", '[{"legacy":"unverified"}]'));
     await ask("What is my progress?", "I cannot verify the recorded progress history yet");
+    await ask("What is missing for my meal plan?", "QA Rice (50 g");
+    await ask("What ingredients are missing for today's meals?", "Calculated shortages for today's recorded meals");
     await ask("What meals are planned?", "Rice meal");
     await ask("What meals are planned for today?", "lunch: Rice meal");
     // The other tab still contains invalid shopping data: keep it blocked.
@@ -1632,6 +1636,8 @@ async function runChefWorkspaceFacts() {
     await other.evaluate(() =>
       localStorage.setItem("balkanbite_mealplan", '[{"date":"2026-02-30"}]'));
     await ask("What meals are planned?", "I cannot verify the recorded meal plan yet");
+    await ask("What is missing for my meal plan?", "I cannot verify pantry and meal plan together for ingredient shortages yet");
+    await ask("What ingredients are missing for today's meals?", "I cannot verify pantry and meal plan together for ingredient shortages yet");
     assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_mealplan")),
       '[{"date":"2026-02-30"}]', "menu refusal must preserve unknown original bytes");
     assert.equal(await page.evaluate(() => localStorage.getItem("balkanbite_progression")),
@@ -1644,6 +1650,7 @@ async function runChefWorkspaceFacts() {
     evidence.checks.push("chef-shopping-independent-of-broken-progression-and-fails-on-corrupt-shopping");
     evidence.checks.push("chef-menu-independent-of-invalid-progress-shopping-but-rejects-invalid-menu");
     evidence.checks.push("chef-progress-independent-of-invalid-shopping-but-rejects-invalid-ledger");
+    evidence.checks.push("chef-shortages-read-verified-pantry-menu-with-invalid-shopping-progress-and-refuse-invalid-menu");
   } finally {
     await Promise.all(pages.map(page => page.close().catch(() => {})));
     await context.close();

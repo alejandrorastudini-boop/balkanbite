@@ -75,6 +75,11 @@ const readProgress = () => selectCompleteChefServerProgress(
 const readMenu = () => selectCompleteChefServerMealPlan(
   owner, owner, seen.mealPlans ?? undefined, displayed.mealPlans,
 );
+const readShortageSources = () => {
+  const pantryRows = readPantry();
+  const mealPlan = readMenu();
+  return pantryRows && mealPlan ? { pantry: pantryRows, mealPlan } : null;
+};
 const readWorkspace = () => selectCompleteChefServerWorkspace(
   owner, owner, {
     mealPlans: seen.mealPlans ?? undefined,
@@ -133,6 +138,7 @@ try {
 
   await waitFor(() => readPantry() !== null && readWorkspace() !== null,
     "owner's four independent confirmed server snapshots");
+  assert.deepEqual(readShortageSources(), { pantry: [pantry], mealPlan: [plan] });
   assert.deepEqual(readProgress(), [progress]);
   assert.equal(selectCompleteChefServerProgress(stranger, stranger, seen.progression, [progress]), null);
   assert.equal(selectCompleteChefServerProgress(owner, owner, seen.progression, []), null);
@@ -178,6 +184,8 @@ try {
   assert.equal(readWorkspace(), null);
   assert.deepEqual(readMenu(), [plan], "bad shopping must not invalidate the known menu");
   assert.deepEqual(readProgress(), [progress], "bad shopping must not invalidate verified progress");
+  assert.deepEqual(readShortageSources(), { pantry: [pantry], mealPlan: [plan] },
+    "bad shopping alone must not invalidate pantry-menu ingredient availability");
   assert.equal(selectCompleteChefServerShopping(owner, owner,
     seen.shoppingList ?? undefined, displayed.shoppingList), null);
   await environment.withSecurityRulesDisabled(async context => {
@@ -202,6 +210,8 @@ try {
     "ordinary UI may filter the invalid row; Chef must not trust that subset");
   assert.equal(readWorkspace(), null);
   assert.equal(readProgress(), null, "invalid event revokes the entire recorded progress");
+  assert.deepEqual(readShortageSources(), { pantry: [pantry], mealPlan: [plan] },
+    "invalid unrelated progression must not invalidate pantry-menu availability");
   assert.deepEqual(readMenu(), [plan],
     "bad progression must not invalidate the known menu");
   assert.deepEqual(selectCompleteChefServerShopping(owner, owner,
@@ -225,6 +235,8 @@ try {
     "duplicate logical menu date appears in the actual server listener");
   assert.equal(seen.mealPlans, null);
   assert.equal(readMenu(), null, "duplicate logical day rejects menu-only authority");
+  assert.equal(readShortageSources(), null,
+    "duplicate menu day denies composite pantry-menu ingredient availability");
   assert.deepEqual(readProgress(), [progress], "invalid menu must not invalidate verified progress");
   assert.equal(readWorkspace(), null);
   await environment.withSecurityRulesDisabled(async context => {
@@ -256,6 +268,7 @@ try {
   await waitFor(() => readProgress() === null, "offline progression evidence must be revoked");
   assert.equal(readMenu(), null, "cached menu cannot be called server-confirmed");
   assert.equal(readPantry(), null, "cache-only inventory is not confirmed");
+  assert.equal(readShortageSources(), null, "offline cache does not establish pantry-menu facts");
   assert.equal(readWorkspace(), null, "cached menu/shopping/progress not confirmed");
   assert.equal(selectCompleteChefServerShopping(owner, owner,
     seen.shoppingList ?? undefined, displayed.shoppingList), null,
