@@ -470,6 +470,75 @@ async function runGuestDerivedShoppingSilentFailure() {
   }
 }
 
+async function runGuestShoppingToggleSilentWriteFailure() {
+  // #459: a user-confirmed purchased quantity must not appear saved merely
+  // because React updated, when the actual shopping write is silently lost.
+  const SHOPPING = "balkanbite_shopping";
+  const row = { id: "qa-shopping-commit", name: "QA Salt", quantity: 1,
+    unit: "ud", category: "Other", checked: false, amountOrigin: "user_entered",
+    purchaseAmountConfirmed: false };
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, valid, SHOPPING, row }) => {
+      if (sessionStorage.getItem("__qa_shopping_toggle_seeded")) return;
+      sessionStorage.setItem("__qa_shopping_toggle_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem(SHOPPING, JSON.stringify([row]));
+      localStorage.setItem("balkanbite_progression", "[]");
+    }, { MAIN, valid, SHOPPING, row });
+    page = await context.newPage();
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-shopping").click();
+    const item = page.locator("#shopping-item-qa-shopping-commit");
+    await item.waitFor({ state: "visible" });
+    const original = await page.evaluate(key => localStorage.getItem(key), SHOPPING);
+    await page.evaluate(SHOPPING => {
+      const native = Storage.prototype.setItem;
+      window.__qaShoppingToggleWriteAttempts = 0;
+      window.__qaRestoreShoppingToggleWrite = () => { Storage.prototype.setItem = native; };
+      Storage.prototype.setItem = function(key, value) {
+        if (key === SHOPPING) {
+          window.__qaShoppingToggleWriteAttempts++;
+          return;
+        }
+        return native.call(this, key, value);
+      };
+    }, SHOPPING);
+    await item.getByRole("button", { name: /Confirm purchase of/ }).click();
+    await page.waitForFunction(() => window.__qaShoppingToggleWriteAttempts > 0);
+    await page.getByRole("alert").getByText(/The change was not saved/)
+      .waitFor({ state: "visible", timeout: 10000 });
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), SHOPPING), original);
+    await item.getByRole("button", { name: /Confirm purchase of/ })
+      .waitFor({ state: "visible", timeout: 10000 });
+    await page.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({ state: "visible", timeout: 10000 });
+
+    await page.evaluate(() => window.__qaRestoreShoppingToggleWrite());
+    await item.getByRole("button", { name: /Confirm purchase of/ }).click();
+    await page.waitForFunction(SHOPPING =>
+      JSON.parse(localStorage.getItem(SHOPPING) || "[]")[0]?.checked === true,
+      SHOPPING,
+    );
+    await item.getByRole("button", { name: /Confirm purchase of/ })
+      .waitFor({ state: "visible", timeout: 10000 });
+    assert.equal(JSON.parse(await page.evaluate(key => localStorage.getItem(key), SHOPPING))[0].purchaseAmountConfirmed, true);
+    evidence.checks.push("guest-shopping-toggle-failed-storage-keeps-unchecked-then-confirmed-retry-persists");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runGuestDerivedWriteWarningCannotBeCleared(faultKey) {
   // #459: an unrelated successful shopping-cache write must not erase the
   // evidence that a recipe or meal plan write was silently dropped.
@@ -1930,6 +1999,7 @@ try {
   await runFailedGuestQuantityWrite();
   await runFailedGuestQuantityWrite({ silent: true });
   await runGuestDerivedShoppingSilentFailure();
+  await runGuestShoppingToggleSilentWriteFailure();
   await runGuestDerivedWriteWarningCannotBeCleared("balkanbite_mealplan");
   await runGuestDerivedWriteWarningCannotBeCleared("balkanbite_recipes");
   await runRealQuantityJournalCommit();
