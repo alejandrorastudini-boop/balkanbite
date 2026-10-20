@@ -110,6 +110,35 @@ function validSnapshot(snapshot: ChefWorkspaceSnapshot): boolean {
   return true;
 }
 
+/** Independent read from a fully evidenced shopping-list source. Other
+ * modules (especially optional progression history) are not needed here. */
+export function describeVerifiedChefShoppingList(
+  shopping: readonly ShoppingItem[],
+  lang: Language,
+): string | null {
+  if (!Array.isArray(shopping)) return null;
+  const ids = new Set<string>();
+  for (const item of shopping) {
+    if (!isStoredShoppingItemStructurallyValid(item) ||
+        ids.has(item.id)) return null;
+    ids.add(item.id);
+  }
+    const pending = snapshot.shopping.filter(row => !row.checked);
+    const marked = snapshot.shopping.length - pending.length;
+    // Only names and checkbox state are reported here. Registered quantities
+    // can be estimated, unit-incompatible or not yet purchase-confirmed;
+    // 'checked' alone never proves a purchase or pantry application.
+    if (!pending.length) return msg(lang,
+      `No hay productos pendientes en la lista de compra registrada. Hay ${marked} elementos marcados. Una marca no confirma una compra; esto tampoco demuestra que no falten alimentos.`,
+      `There are no pending products on your recorded shopping list. ${marked} items are checked. A check mark does not confirm a purchase or prove you have everything.`,
+      `Няма чакащи продукти в записания списък за пазаруване. ${marked} продукта са отметнати. Отметката не доказва покупка или че всичко е налично.`);
+    const names = listPreview(pending.map(row => row.name));
+    return msg(lang,
+      `Tu lista de compra registra ${pending.length} productos pendientes: ${names}. ${marked} marcados. Este resumen no verifica cantidades, precios ni compras realizadas.`,
+      `Your recorded shopping list has ${pending.length} pending products: ${names}. ${marked} checked. This summary does not verify quantities, prices or completed purchases.`,
+      `В записания списък има ${pending.length} чакащи продукта: ${names}. ${marked} отметнати. Това резюме не потвърждава количества, цени или извършени покупки.`);
+}
+
 /** Read-only answers from a validated workspace snapshot. The App-level
  * callback independently gates complete guest persistence or authenticated
  * Firestore server authority for every module and the current session.
@@ -134,20 +163,7 @@ export function describeChefWorkspaceQuery(
   }
 
   if (action === "SHOW_SHOPPING_LIST") {
-    const pending = snapshot.shopping.filter(row => !row.checked);
-    const marked = snapshot.shopping.length - pending.length;
-    // Only names and checkbox state are reported here. Registered quantities
-    // can be estimated, unit-incompatible or not yet purchase-confirmed;
-    // 'checked' alone never proves a purchase or pantry application.
-    if (!pending.length) return msg(lang,
-      `No hay productos pendientes en la lista de compra registrada. Hay ${marked} elementos marcados. Una marca no confirma una compra; esto tampoco demuestra que no falten alimentos.`,
-      `There are no pending products on your recorded shopping list. ${marked} items are checked. A check mark does not confirm a purchase or prove you have everything.`,
-      `Няма чакащи продукти в записания списък за пазаруване. ${marked} продукта са отметнати. Отметката не доказва покупка или че всичко е налично.`);
-    const names = listPreview(pending.map(row => row.name));
-    return msg(lang,
-      `Tu lista de compra registra ${pending.length} productos pendientes: ${names}. ${marked} marcados. Este resumen no verifica cantidades, precios ni compras realizadas.`,
-      `Your recorded shopping list has ${pending.length} pending products: ${names}. ${marked} checked. This summary does not verify quantities, prices or completed purchases.`,
-      `В записания списък има ${pending.length} чакащи продукта: ${names}. ${marked} отметнати. Това резюме не потвърждава количества, цени или извършени покупки.`);
+    return describeVerifiedChefShoppingList(snapshot.shopping, lang);
   }
 
   if (action === "SHOW_TODAYS_MENU") {
