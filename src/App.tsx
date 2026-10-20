@@ -229,6 +229,7 @@ export default function App() {
     inventoryServerConfirmed,
     profileHydrated,
     getServerConfirmedChefPantry,
+    getServerConfirmedChefShopping,
     getServerConfirmedChefWorkspace,
     submitInventoryEdit,
     submitInventoryCreations,
@@ -3134,6 +3135,33 @@ export default function App() {
     }
   };
 
+  // Reading a recorded shopping checklist does not require a healthy
+  // progression ledger or meal plan. The shopping source itself must still be
+  // complete, account-scoped, unchanged, and free of pending guest journals.
+  const getAuthoritativeChefShopping = (): readonly ShoppingItem[] | null => {
+    if (isResetting || firebaseLoading || !canRenderApp) return null;
+    if (currentUser) {
+      return workspaceScope === currentUser.uid
+        ? getServerConfirmedChefShopping() : null;
+    }
+    if (workspaceScope !== "guest" || guestJournalRecoveryStatus !== "clear" ||
+        guestDerivedShoppingRecoveryProblem || guestPantryRecovery !== "none") return null;
+    try {
+      if (hasPendingGuestMutationJournal(localStorage)) return null;
+      const raw = localStorage.getItem("balkanbite_shopping");
+      if (raw === null || !guestShoppingCacheIsComplete(raw)) return null;
+      const parsed = parseStoredShoppingCache(raw);
+      if (!parsed || !Array.isArray(JSON.parse(raw)) ||
+          JSON.parse(raw).length !== parsed.length ||
+          JSON.stringify(parsed) !== JSON.stringify(shoppingList) ||
+          hasPendingGuestMutationJournal(localStorage) ||
+          localStorage.getItem("balkanbite_shopping") !== raw) return null;
+      return parsed;
+    } catch {
+      return null;
+    }
+  };
+
   // A composite answer is not trustworthy just because pantry is confirmed.
   // For now use only complete, unchanged guest caches; authenticated menu,
   // shopping and progression lack a common server-confirmed read gate.
@@ -3511,6 +3539,7 @@ export default function App() {
               onNavigateToRecipes={handleVoiceNavigateToRecipes}
               onGetAuthoritativePantry={getAuthoritativePantryForChef}
               onGetAuthoritativeWorkspace={getAuthoritativeChefWorkspace}
+               onGetAuthoritativeShopping={getAuthoritativeChefShopping}
               onNavigateToTab={setActiveTab}
               onLogMeal={handleLogMeal}
               foodSafety={foodSafetyQuarantine}
@@ -3571,6 +3600,7 @@ export default function App() {
           onNavigateToRecipes={handleVoiceNavigateToRecipes}
               onGetAuthoritativePantry={getAuthoritativePantryForChef}
               onGetAuthoritativeWorkspace={getAuthoritativeChefWorkspace}
+               onGetAuthoritativeShopping={getAuthoritativeChefShopping}
               onNavigateToTab={setActiveTab}
           onLogMeal={handleLogMeal}
           foodSafety={foodSafetyQuarantine}
