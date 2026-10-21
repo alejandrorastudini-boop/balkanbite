@@ -127,6 +127,7 @@ import {
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
 import { hasValidManualShoppingRequiredFields } from "./utils/manualShoppingValidation";
 import { commitVerifiedGuestShoppingToggle } from "./utils/guestShoppingToggleCommit";
+import { commitVerifiedGuestShoppingDelete } from "./utils/guestShoppingDeleteCommit";
 import { localCalendarDate, shouldMarkExpiryPartialAfterQuantityIncrease } from "./utils/effectiveExpiry";
 import { isExpectedInventoryResultVisible } from "./utils/expectedInventoryResult";
 import {
@@ -2364,7 +2365,16 @@ export default function App() {
     const expected = shoppingList.find(item => item.id === id);
     if (!expected) return false;
     if (!currentUser) {
-      setShoppingList(prev => prev.filter(item => item.id !== id));
+      // Do not make a user-entered shopping row disappear in React until
+      // the full guest list deletion has passed an exact storage readback.
+      const result = commitVerifiedGuestShoppingDelete(localStorage, shoppingList, id);
+      if (!result.saved) {
+        setGuestDerivedShoppingRecoveryProblem(true);
+        console.warn("Guest shopping delete not confirmed:",
+          "reason" in result ? result.reason : "storage-unavailable");
+        return false;
+      }
+      setShoppingList(result.next);
       return true;
     }
     try {
