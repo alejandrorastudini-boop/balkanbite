@@ -127,7 +127,7 @@ import {
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
 import { hasValidManualShoppingRequiredFields } from "./utils/manualShoppingValidation";
 import { commitVerifiedGuestShoppingToggle } from "./utils/guestShoppingToggleCommit";
-import { commitVerifiedGuestShoppingDelete } from "./utils/guestShoppingDeleteCommit";
+import { commitVerifiedGuestShoppingDelete, commitVerifiedGuestShoppingClear } from "./utils/guestShoppingDeleteCommit";
 import { localCalendarDate, shouldMarkExpiryPartialAfterQuantityIncrease } from "./utils/effectiveExpiry";
 import { isExpectedInventoryResultVisible } from "./utils/expectedInventoryResult";
 import {
@@ -2434,11 +2434,18 @@ export default function App() {
   const handleClearShoppingList = async (): Promise<boolean> => {
     if (!currentUser && (guestJournalRecoveryStatus !== "clear" ||
       blockLegacyGuestWriteForPendingJournal())) return false;
-    if (shoppingList.length === 0) return true;
     if (!currentUser) {
-      setShoppingList([]);
+      const result = commitVerifiedGuestShoppingClear(localStorage, shoppingList);
+      if (!result.saved) {
+        setGuestDerivedShoppingRecoveryProblem(true);
+        console.warn("Guest shopping clear not confirmed:",
+          "reason" in result ? result.reason : "storage-unavailable");
+        return false;
+      }
+      setShoppingList(result.next);
       return true;
     }
+    if (shoppingList.length === 0) return true;
     try {
       const result = await submitShoppingItemsClear(shoppingList);
       if (result.outcome === "needs-review") {

@@ -23,12 +23,28 @@ export function commitVerifiedGuestShoppingDelete(
   visible: readonly ShoppingItem[],
   id: string,
 ): GuestShoppingDeleteCommit {
+  return commitVerifiedGuestShoppingRemoval(storage, visible, id);
+}
+
+/** Clear uses the same guarded single-key commit as individual deletion. */
+export function commitVerifiedGuestShoppingClear(
+  storage: GuestPantryStorage,
+  visible: readonly ShoppingItem[],
+): GuestShoppingDeleteCommit {
+  return commitVerifiedGuestShoppingRemoval(storage, visible, null);
+}
+
+function commitVerifiedGuestShoppingRemoval(
+  storage: GuestPantryStorage,
+  visible: readonly ShoppingItem[],
+  id: string | null,
+): GuestShoppingDeleteCommit {
   if (!Array.isArray(visible) ||
       !visible.every(isStoredShoppingItemStructurallyValid) ||
       new Set(visible.map(row => row.id)).size !== visible.length) {
     return { saved: false, reason: "invalid-view" };
   }
-  if (typeof id !== "string" || !id.trim()) {
+  if (id !== null && (typeof id !== "string" || !id.trim())) {
     return { saved: false, reason: "missing-row" };
   }
   try {
@@ -36,6 +52,11 @@ export function commitVerifiedGuestShoppingDelete(
       return { saved: false, reason: "journal-pending" };
     }
     const before = storage.getItem(SHOPPING_KEY);
+    if (before === null && id === null && visible.length === 0) {
+      // Clearing a genuinely absent, visibly empty key is a no-op, not a
+      // reason to manufacture or overwrite any unknown historical rows.
+      return { saved: true, next: [] };
+    }
     if (before === null || !guestShoppingCacheIsComplete(before)) {
       return { saved: false, reason: "incomplete" };
     }
@@ -45,10 +66,10 @@ export function commitVerifiedGuestShoppingDelete(
         JSON.stringify(current) !== JSON.stringify(visible)) {
       return { saved: false, reason: "stale-snapshot" };
     }
-    if (!current.some(row => row.id === id)) {
+    if (id !== null && !current.some(row => row.id === id)) {
       return { saved: false, reason: "missing-row" };
     }
-    const next = current.filter(row => row.id !== id);
+    const next = id === null ? [] : current.filter(row => row.id !== id);
     if (hasPendingGuestMutationJournal(storage)) {
       return { saved: false, reason: "journal-pending" };
     }
