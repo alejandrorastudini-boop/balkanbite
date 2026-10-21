@@ -470,6 +470,87 @@ async function runGuestDerivedShoppingSilentFailure() {
   }
 }
 
+async function runGuestShoppingClearSilentWriteFailure() {
+  // A bulk list deletion must not be acknowledged when localStorage drops
+  // the write; the existing review dialog remains open for a safe retry.
+  const SHOPPING = "balkanbite_shopping";
+  const rows = [
+    { id: "qa-clear-salt", name: "QA Salt", quantity: 1, unit: "uds",
+      category: "Other", checked: false, amountOrigin: "user_entered",
+      purchaseAmountConfirmed: false },
+    { id: "qa-clear-rice", name: "QA Rice", quantity: 200, unit: "g",
+      category: "Other", checked: true, amountOrigin: "user_entered",
+      purchaseAmountConfirmed: true },
+  ];
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, valid, SHOPPING, rows }) => {
+      if (sessionStorage.getItem("__qa_shopping_clear_seeded")) return;
+      sessionStorage.setItem("__qa_shopping_clear_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem(SHOPPING, JSON.stringify(rows));
+      localStorage.setItem("balkanbite_progression", "[]");
+    }, { MAIN, valid, SHOPPING, rows });
+    page = await context.newPage();
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-shopping").click();
+    await page.locator("#shopping-item-qa-clear-salt").waitFor({ state: "visible" });
+    const before = await page.evaluate(key => localStorage.getItem(key), SHOPPING);
+    await page.evaluate(SHOPPING => {
+      const original = Storage.prototype.setItem;
+      window.__qaClearWriteAttempts = 0;
+      window.__qaRestoreClearWrite = () => { Storage.prototype.setItem = original; };
+      Storage.prototype.setItem = function(key, value) {
+        if (key === SHOPPING) {
+          window.__qaClearWriteAttempts++;
+          return;
+        }
+        return original.call(this, key, value);
+      };
+    }, SHOPPING);
+    await page.locator("#clear-shopping-list-btn").click();
+    const heading = page.getByRole("heading", { name: "Clear shopping list?" });
+    await heading.waitFor({ state: "visible" });
+    const confirm = heading.locator("xpath=../../..").getByRole("button", {
+      name: "Clear", exact: true,
+    });
+    await confirm.click();
+    await page.waitForFunction(() => window.__qaClearWriteAttempts > 0);
+    await heading.waitFor({ state: "visible" });
+    assert.equal(await page.locator("[id^='shopping-item-qa-clear']").count(), 2,
+      "failed clear cannot remove either item from React");
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), SHOPPING), before,
+      "failed clear must preserve the exact original saved checklist");
+    await page.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({ state: "visible", timeout: 10000 });
+
+    await page.evaluate(() => window.__qaRestoreClearWrite());
+    await confirm.click();
+    await heading.waitFor({ state: "detached", timeout: 10000 });
+    await page.waitForFunction(SHOPPING =>
+      localStorage.getItem(SHOPPING) === "[]", SHOPPING,
+    );
+    assert.equal(await page.locator("[id^='shopping-item-qa-clear']").count(), 0);
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.locator("#nav-tab-shopping").click();
+    assert.equal(await page.locator("[id^='shopping-item-qa-clear']").count(), 0,
+      "verified bulk deletion must survive reload");
+    evidence.checks.push("guest-shopping-clear-failed-write-retains-dialog-rows-retry-persists");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runGuestShoppingDeleteSilentWriteFailure() {
   // #459: a guest must never see a removed shopping item as saved when the
   // browser silently refuses to persist the new complete list.
@@ -2072,6 +2153,7 @@ try {
   await runGuestDerivedShoppingSilentFailure();
   await runGuestShoppingToggleSilentWriteFailure();
   await runGuestShoppingDeleteSilentWriteFailure();
+  await runGuestShoppingClearSilentWriteFailure();
   await runGuestDerivedWriteWarningCannotBeCleared("balkanbite_mealplan");
   await runGuestDerivedWriteWarningCannotBeCleared("balkanbite_recipes");
   await runRealQuantityJournalCommit();
