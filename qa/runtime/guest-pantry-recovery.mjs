@@ -470,6 +470,77 @@ async function runGuestDerivedShoppingSilentFailure() {
   }
 }
 
+async function runGuestShoppingDeleteSilentWriteFailure() {
+  // #459: a guest must never see a removed shopping item as saved when the
+  // browser silently refuses to persist the new complete list.
+  const SHOPPING = "balkanbite_shopping";
+  const row = {
+    id: "qa-shopping-delete", name: "QA Salt", quantity: 1, unit: "ud",
+    category: "Other", checked: false, amountOrigin: "user_entered",
+    purchaseAmountConfirmed: false,
+  };
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, valid, SHOPPING, row }) => {
+      if (sessionStorage.getItem("__qa_shopping_delete_seeded")) return;
+      sessionStorage.setItem("__qa_shopping_delete_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem(SHOPPING, JSON.stringify([row]));
+      localStorage.setItem("balkanbite_progression", "[]");
+    }, { MAIN, valid, SHOPPING, row });
+
+    page = await context.newPage();
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-shopping").click();
+    const item = page.locator("#shopping-item-qa-shopping-delete");
+    await item.waitFor({ state: "visible" });
+    const before = await page.evaluate(key => localStorage.getItem(key), SHOPPING);
+    await page.evaluate(SHOPPING => {
+      const original = Storage.prototype.setItem;
+      window.__qaGuestDeleteAttempts = 0;
+      window.__qaRestoreGuestDelete = () => { Storage.prototype.setItem = original; };
+      Storage.prototype.setItem = function(key, value) {
+        if (key === SHOPPING) {
+          window.__qaGuestDeleteAttempts++;
+          return;
+        }
+        return original.call(this, key, value);
+      };
+    }, SHOPPING);
+    await item.locator("button").last().click();
+    await page.waitForFunction(() => window.__qaGuestDeleteAttempts > 0);
+    await page.getByRole("alert").getByText(/The change was not saved/)
+      .waitFor({ state: "visible", timeout: 10000 });
+    await item.waitFor({ state: "visible" });
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), SHOPPING), before,
+      "failed deletion must not destroy the only saved row");
+    await page.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({ state: "visible", timeout: 10000 });
+
+    await page.evaluate(() => window.__qaRestoreGuestDelete());
+    await item.locator("button").last().click();
+    await item.waitFor({ state: "detached", timeout: 10000 });
+    await page.waitForFunction(SHOPPING => localStorage.getItem(SHOPPING) === "[]", SHOPPING);
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.locator("#nav-tab-shopping").click();
+    assert.equal(await page.locator("#shopping-item-qa-shopping-delete").count(), 0,
+      "persisted deletion must survive reload");
+    evidence.checks.push("guest-shopping-delete-silent-failure-preserves-row-and-successful-retry-survives-reload");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runGuestShoppingToggleSilentWriteFailure() {
   // #459: a user-confirmed purchased quantity must not appear saved merely
   // because React updated, when the actual shopping write is silently lost.
@@ -2000,6 +2071,7 @@ try {
   await runFailedGuestQuantityWrite({ silent: true });
   await runGuestDerivedShoppingSilentFailure();
   await runGuestShoppingToggleSilentWriteFailure();
+  await runGuestShoppingDeleteSilentWriteFailure();
   await runGuestDerivedWriteWarningCannotBeCleared("balkanbite_mealplan");
   await runGuestDerivedWriteWarningCannotBeCleared("balkanbite_recipes");
   await runRealQuantityJournalCommit();
