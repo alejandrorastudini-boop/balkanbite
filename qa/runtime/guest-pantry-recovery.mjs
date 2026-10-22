@@ -1913,6 +1913,112 @@ async function runLateGuestJournalPreventsLegacyWrite(mode) {
   }
 }
 
+async function runTwoTabStaleShoppingAdd() {
+  // #459: two live guest tabs must not lose a newer shopping row when the
+  // second tab submits a different row from an older React snapshot.
+  const SHOPPING = "balkanbite_shopping";
+  const PROGRESS = "balkanbite_progression";
+  const original = {
+    id: "qa-two-tab-original-salt", name: "QA Salt", quantity: 1,
+    unit: "kg", category: "", checked: false, amountOrigin: "user_entered",
+    purchaseAmountConfirmed: false,
+  };
+  const context = await browser.newContext();
+  const pages = [];
+  const addManual = async (page, name, qty, unit) => {
+    await page.locator("#manual-shopping-open").click();
+    await page.locator("#manual-shopping-name").fill(name);
+    await page.locator("#manual-shopping-quantity").fill(String(qty));
+    await page.locator("#manual-shopping-unit").selectOption(unit);
+    await page.locator("#manual-shopping-submit").click();
+  };
+  try {
+    await context.addInitScript(({ MAIN, valid, SHOPPING, PROGRESS, original }) => {
+      if (localStorage.getItem("__qa_two_tab_shopping_add_seeded")) return;
+      localStorage.setItem("__qa_two_tab_shopping_add_seeded", "yes");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem(SHOPPING, JSON.stringify([original]));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem(PROGRESS, "[]");
+    }, { MAIN, valid, SHOPPING, PROGRESS, original });
+
+    for (let i = 0; i < 2; i++) {
+      const page = await context.newPage();
+      pages.push(page);
+      page.on("dialog", dialog => dialog.dismiss());
+      await page.goto(new URL("/", base).toString(), {
+        waitUntil: "domcontentloaded", timeout: 30000,
+      });
+      await page.locator("#nav-tab-shopping").click();
+      await page.locator("#shopping-item-qa-two-tab-original-salt")
+        .waitFor({ state: "visible", timeout: 12000 });
+    }
+    const [fresh, stale] = pages;
+    await addManual(fresh, "QA Apples", 2, "kg");
+    await fresh.waitForFunction(SHOPPING => {
+      const rows = JSON.parse(localStorage.getItem(SHOPPING) || "[]");
+      return rows.length === 2 && rows.some(row =>
+        row.name === "QA Apples" && row.quantity === 2 && row.unit === "kg" &&
+        row.amountOrigin === "user_entered" && !row.checked &&
+        row.purchaseAmountConfirmed === false
+      );
+    }, SHOPPING, { timeout: 12000 });
+    const savedByFresh = await fresh.evaluate(SHOPPING => localStorage.getItem(SHOPPING), SHOPPING);
+    const apples = JSON.parse(savedByFresh).find(row => row.name === "QA Apples");
+    await fresh.locator(`[id=${JSON.stringify("shopping-item-" + apples.id)}]`)
+      .waitFor({ state: "visible", timeout: 12000 });
+
+    await addManual(stale, "QA Beans", 500, "g");
+    await stale.getByRole("alert").getByText(/The item was not saved/)
+      .waitFor({ state: "visible", timeout: 12000 });
+    await stale.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({ state: "visible", timeout: 12000 });
+    assert.equal(await stale.locator("#manual-shopping-name").inputValue(), "QA Beans");
+    assert.equal(await stale.locator("#manual-shopping-quantity").inputValue(), "500");
+    assert.equal(await stale.locator("#manual-shopping-unit").inputValue(), "g");
+    assert.equal(await stale.evaluate(SHOPPING => localStorage.getItem(SHOPPING), SHOPPING),
+      savedByFresh, "stale tab cannot overwrite another tab's already saved shopping item");
+    assert.equal(await stale.locator("#manual-shopping-submit").isEnabled(), true,
+      "failed submission should retain explicit user-entered quantity");
+
+    await stale.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await stale.locator("#nav-tab-shopping").click();
+    await stale.locator(`[id=${JSON.stringify("shopping-item-" + apples.id)}]`)
+      .waitFor({ state: "visible", timeout: 12000 });
+    await addManual(stale, "QA Beans", 500, "g");
+    await stale.waitForFunction(({ SHOPPING }) => {
+      const rows = JSON.parse(localStorage.getItem(SHOPPING) || "[]");
+      return rows.length === 3 && rows.some(row => row.name === "QA Apples") &&
+        rows.some(row => row.name === "QA Beans" && row.quantity === 500 &&
+          row.unit === "g" && row.checked === false &&
+          row.purchaseAmountConfirmed === false);
+    }, { SHOPPING }, { timeout: 12000 });
+    await stale.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await stale.locator("#nav-tab-shopping").click();
+    const final = await stale.evaluate(({ SHOPPING, PROGRESS }) => ({
+      rows: JSON.parse(localStorage.getItem(SHOPPING) || "[]"),
+      progression: JSON.parse(localStorage.getItem(PROGRESS) || "[]"),
+    }), { SHOPPING, PROGRESS });
+    assert.equal(final.rows.length, 3);
+    assert.deepEqual(final.rows.map(row => row.name),
+      ["QA Salt", "QA Apples", "QA Beans"]);
+    assert.ok(final.rows.every(row => !row.checked &&
+      row.purchaseAmountConfirmed === false &&
+      row.estimatedPriceEUR === undefined));
+    assert.deepEqual(final.progression, [],
+      "list additions alone never assert confirmed purchases or cooking");
+    evidence.checks.push("two-tabs-guest-shopping-stale-add-fails-closed-then-reloads-and-saves");
+  } finally {
+    await Promise.all(pages.map(page => page.close().catch(() => {})));
+    await context.close();
+  }
+}
+
 async function runTwoTabStaleInventory() {
   const context = await browser.newContext();
   const pages = [];
@@ -2438,6 +2544,7 @@ try {
   await runChefWorkspaceFacts();
   await runTwoTabVoicePurchaseRecovery();
   await runTwoTabStaleInventory();
+  await runTwoTabStaleShoppingAdd();
   await runLateGuestJournalPreventsLegacyWrite("legacy-pantry");
   await runLateGuestJournalPreventsLegacyWrite("shopping-effect");
   await runFailedGuestQuantityWrite();
