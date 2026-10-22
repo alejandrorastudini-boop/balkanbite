@@ -183,10 +183,19 @@ async function runFailedGuestQuantityWrite({ silent = false } = {}) {
     // The old direct writer and new journal writer signal storage failure in
     // different banners. The assertions below still require unchanged bytes
     // and unchanged displayed stock, never an optimistic write.
-    await page.locator(
-      '[data-testid="guest-pantry-recovery"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
-    ).filter({ hasText: /could not be protected|pantry and shopping consistency could not be confirmed|unfinished local operation/i })
-      .first().waitFor({ state: "visible", timeout: 12000 });
+    const explicitBlockingAlert = dialogs.some(dialog =>
+      dialog.type === "alert" &&
+      /The entire operation could not be confirmed\. Reload and review the data before continuing\./.test(dialog.message)
+    );
+    if (!explicitBlockingAlert) {
+      // The guarded write path can report failure using a blocking browser
+      // alert rather than an in-page banner. Require at least one verified
+      // warning channel, not one particular component layout.
+      await page.locator(
+        '[data-testid="guest-pantry-recovery"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
+      ).filter({ hasText: /could not be protected|pantry and shopping consistency could not be confirmed|unfinished local operation/i })
+        .first().waitFor({ state: "visible", timeout: 12000 });
+    }
     stage = "warning-shown";
     const after = await page.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
     assert.equal(after, before, "failed writes must keep original storage");
