@@ -647,11 +647,13 @@ async function runProfileHealthDataControlScenario(context) {
   }
 }
 
-async function runFreshGuestOnboardingScenario(context) {
+async function runFreshGuestOnboardingScenario(context, language = "en") {
+  const target = new URL(freshGuestOnboardingUrl());
+  if (language === "bg") target.searchParams.set("lang", "bg");
   const page = await context.newPage();
   const evidence = {
-    scenario: "fresh-guest-onboarding",
-    url: freshGuestOnboardingUrl().replace(
+    scenario: language === "bg" ? "fresh-guest-onboarding-bg-mobile" : "fresh-guest-onboarding",
+    url: target.toString().replace(
       /([?&]_vercel_share=)[^&]+/,
       "$1[redacted]"
     ),
@@ -662,7 +664,7 @@ async function runFreshGuestOnboardingScenario(context) {
 
   try {
     await waitForExpectedDeployment(page);
-    await page.goto(freshGuestOnboardingUrl(), {
+    await page.goto(target.toString(), {
       waitUntil: "domcontentloaded",
       timeout: 30_000,
     });
@@ -685,6 +687,12 @@ async function runFreshGuestOnboardingScenario(context) {
       "false",
       "fresh guest must begin with onboarding incomplete"
     );
+
+    assert.equal(await root.getAttribute("data-ui-language"), language);
+    if (language === "bg") {
+      await page.getByText("Стъпка 1 от 4").waitFor({ state: "visible" });
+      await page.getByText("Колко души се хранят у дома?").waitFor({ state: "visible" });
+    }
 
     const step1Next = page.locator("#onboarding-next-step-1");
     await step1Next.waitFor({ state: "visible", timeout: 5_000 });
@@ -715,6 +723,12 @@ async function runFreshGuestOnboardingScenario(context) {
       true,
       "diet style must not be silently preselected"
     );
+    if (language === "bg") {
+      await page.getByText("Предпочитан стил на хранене").waitFor({ state: "visible" });
+      await page.getByText("Без кулинарни ограничения").waitFor({ state: "visible" });
+      await page.getByText("Алергии, непоносимости", { exact: false })
+        .waitFor({ state: "visible" });
+    }
     await page.locator("#onboarding-diet-all").click();
     assert.equal(await step2Next.isEnabled(), true);
     await step2Next.click();
@@ -726,6 +740,10 @@ async function runFreshGuestOnboardingScenario(context) {
       true,
       "cooking speed must not be silently preselected"
     );
+    if (language === "bg") {
+      await page.getByText("Колко време имате за готвене?").waitFor({ state: "visible" });
+      await page.getByText("Обичайно (20–40 мин)").waitFor({ state: "visible" });
+    }
     await page.locator("#onboarding-cooking-moderate").click();
     assert.equal(await step3Next.isEnabled(), true);
     await step3Next.click();
@@ -733,6 +751,13 @@ async function runFreshGuestOnboardingScenario(context) {
     await page
       .locator("#onboarding-finish")
       .waitFor({ state: "visible", timeout: 5_000 });
+    if (language === "bg") {
+      await page.getByText("Налично кухненско оборудване").waitFor({ state: "visible" });
+      await page.getByText("Прогнозен месечен бюджет за храна").waitFor({ state: "visible" });
+      const oven = page.getByRole("button", { name: "Фурна", exact: true });
+      await oven.click();
+      assert.match(await oven.getAttribute("class") || "", /border-teal-500/);
+    }
     assert.equal(
       await page.locator("#onboarding-monthly-budget-eur").inputValue(),
       "",
@@ -779,7 +804,7 @@ async function runFreshGuestOnboardingScenario(context) {
     );
     assert.equal(
       await page
-        .getByRole("button", { name: "Start Experience", exact: true })
+        .getByRole("button", { name: language === "bg" ? "Започни" : "Start Experience", exact: true })
         .count(),
       0,
       "onboarding modal must close cleanly after completion"
@@ -1010,6 +1035,7 @@ try {
     runScenario(context, "none"),
     runProfileHealthDataControlScenario(context),
     runFreshGuestOnboardingScenario(context),
+    runFreshGuestOnboardingScenario(context, "bg"),
     runManualShoppingScenario(context),
   ]);
 } catch (error) {
