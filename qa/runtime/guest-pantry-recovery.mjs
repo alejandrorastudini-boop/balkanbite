@@ -479,6 +479,87 @@ async function runGuestDerivedShoppingSilentFailure() {
   }
 }
 
+async function runBulgarianManualShoppingUnits() {
+  // Real local BG 390px shopping form must show readable Bulgarian units
+  // without changing the canonical storage units (g/kg/uds etc.).
+  const SHOPPING = "balkanbite_shopping";
+  const context = await browser.newContext({
+    viewport: { width: 390, height: 844 },
+    deviceScaleFactor: 2, isMobile: true, hasTouch: true, locale: "bg-BG",
+  });
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, valid, SHOPPING }) => {
+      if (sessionStorage.getItem("__qa_bg_manual_shopping_seeded")) return;
+      sessionStorage.setItem("__qa_bg_manual_shopping_seeded", "yes");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "bg", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem(SHOPPING, "[]");
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
+    }, { MAIN, valid, SHOPPING });
+    page = await context.newPage();
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-shopping").click();
+    await page.locator("#manual-shopping-open").click();
+    const select = page.locator("#manual-shopping-unit");
+    await select.waitFor({ state: "visible", timeout: 12000 });
+    const options = await select.locator("option").evaluateAll(nodes =>
+      nodes.map(node => ({
+        value: node.value,
+        label: (node.textContent || "").trim(),
+      }))
+    );
+    const expected = {
+      uds: "Бройки (бр.)",
+      kg: "Килограми (kg)",
+      g: "Грамове (g)",
+      packs: "Пакети (пак.)",
+      manojos: "Връзки",
+      l: "Литри (l)",
+    };
+    for (const [unit, label] of Object.entries(expected)) {
+      assert.equal(options.find(option => option.value === unit)?.label, label,
+        `Bulgarian label for canonical shopping unit ${unit}`);
+    }
+    await page.locator("#manual-shopping-name").fill("QA Леща");
+    await page.locator("#manual-shopping-quantity").fill("500");
+    await select.selectOption("g");
+    await page.locator("#manual-shopping-submit").click();
+    await page.waitForFunction(SHOPPING => {
+      const rows = JSON.parse(localStorage.getItem(SHOPPING) || "[]");
+      return rows.length === 1 && rows[0].name === "QA Леща" &&
+        rows[0].quantity === 500 && rows[0].unit === "g" &&
+        rows[0].checked === false && rows[0].purchaseAmountConfirmed === false;
+    }, SHOPPING, { timeout: 12000 });
+    const saved = await page.evaluate(SHOPPING => (
+      JSON.parse(localStorage.getItem(SHOPPING) || "[]")
+    ), SHOPPING);
+    assert.equal(saved.length, 1);
+    assert.equal(saved[0].amountOrigin, "user_entered");
+    assert.equal(saved[0].estimatedPriceEUR, undefined,
+      "the localized form must not infer an absent price");
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.locator("#nav-tab-shopping").click();
+    await page.locator(`[id=${JSON.stringify("shopping-item-" + saved[0].id)}]`)
+      .waitFor({ state: "visible", timeout: 12000 });
+    const afterReload = await page.evaluate(SHOPPING => (
+      JSON.parse(localStorage.getItem(SHOPPING) || "[]")
+    ), SHOPPING);
+    assert.deepEqual(afterReload, saved, "Bulgarian labels must not rewrite quantity/unit/user data");
+    evidence.checks.push("bulgarian-390px-manual-shopping-units-canonical-ids-and-reload");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runGuestManualShoppingAddLostWrite() {
   // A failed localStorage write must not close the manual form or claim an
   // added shopping item; the next retry must persist exactly the stated data.
@@ -2551,6 +2632,7 @@ try {
   await runFailedGuestQuantityWrite({ silent: true });
   await runGuestDerivedShoppingSilentFailure();
   await runGuestManualShoppingAddLostWrite();
+  await runBulgarianManualShoppingUnits();
   await runGuestShoppingToggleSilentWriteFailure();
   await runGuestShoppingDeleteSilentWriteFailure();
   await runGuestShoppingClearSilentWriteFailure();
