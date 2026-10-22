@@ -127,6 +127,7 @@ import {
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
 import { hasValidManualShoppingRequiredFields } from "./utils/manualShoppingValidation";
 import { commitVerifiedGuestShoppingToggle } from "./utils/guestShoppingToggleCommit";
+import { commitVerifiedGuestShoppingAdd } from "./utils/guestShoppingAddCommit";
 import { commitVerifiedGuestShoppingDelete, commitVerifiedGuestShoppingClear } from "./utils/guestShoppingDeleteCommit";
 import { localCalendarDate, shouldMarkExpiryPartialAfterQuantityIncrease } from "./utils/effectiveExpiry";
 import { isExpectedInventoryResultVisible } from "./utils/expectedInventoryResult";
@@ -2415,7 +2416,16 @@ export default function App() {
       purchaseAmountConfirmed: false,
     };
     if (!currentUser) {
-      setShoppingList(prev => [...prev, newItem]);
+      // Keep form data intact and refuse a success receipt until the
+      // complete shopping cache has been written and reread exactly.
+      const committed = commitVerifiedGuestShoppingAdd(localStorage, shoppingList, newItem);
+      if (!committed.saved) {
+        setGuestDerivedShoppingRecoveryProblem(true);
+        console.warn("Guest shopping addition not confirmed:",
+          "reason" in committed ? committed.reason : "storage-unavailable");
+        return false;
+      }
+      setShoppingList(committed.next);
       return true;
     }
     try {
