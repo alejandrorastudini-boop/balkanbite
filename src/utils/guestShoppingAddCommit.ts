@@ -27,7 +27,36 @@ export function commitVerifiedGuestShoppingAdd(
       item.purchaseAmountConfirmed !== false || item.amountOrigin !== "user_entered") {
     return { saved: false, reason: "invalid-item" };
   }
-  if (visible.some(row => row.id === item.id)) {
+  return commitVerifiedGuestShoppingBatch(storage, visible, [item], "append");
+}
+
+/**
+ * The verified single-key boundary also handles groups of confirmed
+ * reviewable shopping rows. It never acknowledges a partially saved batch.
+ * This is best-effort and does NOT make localStorage atomic across tabs.
+ */
+export function commitVerifiedGuestShoppingBatch(
+  storage: GuestPantryStorage,
+  visible: readonly ShoppingItem[],
+  items: readonly ShoppingItem[],
+  placement: "append" | "prepend" = "append",
+): GuestShoppingAddCommit {
+  if (!Array.isArray(visible) || !visible.every(isStoredShoppingItemStructurallyValid) ||
+      new Set(visible.map(row => row.id)).size !== visible.length) {
+    return { saved: false, reason: "invalid-view" };
+  }
+  if (!Array.isArray(items) || items.length === 0 ||
+      !items.every(row =>
+        isStoredShoppingItemStructurallyValid(row) &&
+        row.checked === false && row.purchaseAmountConfirmed === false &&
+        (row.amountOrigin === "user_entered" ||
+         row.amountOrigin === "deterministic_shortfall" ||
+         row.amountOrigin === "ai_estimated")
+      )) {
+    return { saved: false, reason: "invalid-item" };
+  }
+  if (new Set(items.map(row => row.id)).size !== items.length ||
+      items.some(item => visible.some(row => row.id === item.id))) {
     return { saved: false, reason: "duplicate-id" };
   }
   try {
@@ -43,10 +72,11 @@ export function commitVerifiedGuestShoppingAdd(
         JSON.stringify(existing) !== JSON.stringify(visible)) {
       return { saved: false, reason: "stale-snapshot" };
     }
-    if (existing.some(row => row.id === item.id)) {
+    if (items.some(item => existing.some(row => row.id === item.id))) {
       return { saved: false, reason: "duplicate-id" };
     }
-    const next = [...existing, item];
+    const next = placement === "prepend"
+      ? [...items, ...existing] : [...existing, ...items];
     if (hasPendingGuestMutationJournal(storage)) {
       return { saved: false, reason: "journal-pending" };
     }

@@ -127,7 +127,7 @@ import {
 import { hasValidPantryAcquisitionRequiredFields, isValidPantryAcquisitionBatch } from "./utils/pantryAcquisitionValidation";
 import { hasValidManualShoppingRequiredFields } from "./utils/manualShoppingValidation";
 import { commitVerifiedGuestShoppingToggle } from "./utils/guestShoppingToggleCommit";
-import { commitVerifiedGuestShoppingAdd } from "./utils/guestShoppingAddCommit";
+import { commitVerifiedGuestShoppingAdd, commitVerifiedGuestShoppingBatch } from "./utils/guestShoppingAddCommit";
 import { commitVerifiedGuestShoppingDelete, commitVerifiedGuestShoppingClear } from "./utils/guestShoppingDeleteCommit";
 import { localCalendarDate, shouldMarkExpiryPartialAfterQuantityIncrease } from "./utils/effectiveExpiry";
 import { isExpectedInventoryResultVisible } from "./utils/expectedInventoryResult";
@@ -1559,7 +1559,14 @@ export default function App() {
       purchaseAmountConfirmed: false,
     }));
     if (!currentUser) {
-      setShoppingList(prev => [...newItems, ...prev]);
+      const committed = commitVerifiedGuestShoppingBatch(localStorage, shoppingList, newItems, "prepend");
+      if (!committed.saved) {
+        setGuestDerivedShoppingRecoveryProblem(true);
+        console.warn("Guest advisor list batch not confirmed:",
+          "reason" in committed ? committed.reason : "storage-unavailable");
+        return false;
+      }
+      setShoppingList(committed.next);
       committedAdvisorBatchFingerprint.current = fingerprint;
       return true;
     }
@@ -2217,7 +2224,16 @@ export default function App() {
 
     if (newShoppingItems.length > 0) {
       if (!currentUser) {
-        setShoppingList(prev => [...prev, ...newShoppingItems]);
+        const committed = commitVerifiedGuestShoppingBatch(
+          localStorage, shoppingList, newShoppingItems, "append",
+        );
+        if (!committed.saved) {
+          setGuestDerivedShoppingRecoveryProblem(true);
+          console.warn("Guest recipe shortages not persisted:",
+            "reason" in committed ? committed.reason : "storage-unavailable");
+          return false;
+        }
+        setShoppingList(committed.next);
       } else {
         try {
           const result = await submitShoppingItemsCreate(newShoppingItems);
@@ -2946,7 +2962,16 @@ export default function App() {
 
     if (result.items.length === 0) return false;
     if (!currentUser) {
-      setShoppingList(prev => [...prev, ...result.items]);
+      const committed = commitVerifiedGuestShoppingBatch(
+        localStorage, shoppingList, result.items, "append",
+      );
+      if (!committed.saved) {
+        setGuestDerivedShoppingRecoveryProblem(true);
+        console.warn("Guest voice shopping batch not confirmed:",
+          "reason" in committed ? committed.reason : "storage-unavailable");
+        return false;
+      }
+      setShoppingList(committed.next);
       return true;
     }
     const persisted = await submitShoppingItemsCreate(result.items);
