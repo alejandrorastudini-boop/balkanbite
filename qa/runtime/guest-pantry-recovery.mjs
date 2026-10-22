@@ -1210,7 +1210,7 @@ async function runGuestMealToPurchaseCircuit() {
     evidence.checks.push("guest-cycle-shortage-to-shopping-" + shortageOrigin);
 
     await page.locator("#nav-tab-shopping").click();
-    const row = page.locator(`#shopping-item-${selected.id}`);
+    const row = page.locator(`[id=${JSON.stringify("shopping-item-" + selected.id)}]`);
     await row.waitFor({ state: "visible", timeout: 12000 });
     await row.getByRole("button", { name: /Confirm purchase of/ }).click();
     await page.waitForFunction(({ SHOPPING, id }) =>
