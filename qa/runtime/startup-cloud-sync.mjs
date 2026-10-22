@@ -650,6 +650,7 @@ async function runProfileHealthDataControlScenario(context) {
 async function runFreshGuestOnboardingScenario(context, language = "en") {
   const target = new URL(freshGuestOnboardingUrl());
   if (language === "bg") target.searchParams.set("lang", "bg");
+  const artifactSuffix = language === "bg" ? "-bg" : "";
   const page = await context.newPage();
   const evidence = {
     scenario: language === "bg" ? "fresh-guest-onboarding-bg-mobile" : "fresh-guest-onboarding",
@@ -708,7 +709,7 @@ async function runFreshGuestOnboardingScenario(context, language = "en") {
     );
 
     await page.screenshot({
-      path: path.join(artifactDir, "fresh-guest-onboarding-before.png"),
+      path: path.join(artifactDir, `fresh-guest-onboarding-${basename.includes("before")?"before":basename.includes("after")?"after":"failure"}${artifactSuffix}.png`),
       fullPage: true,
     });
 
@@ -788,6 +789,11 @@ async function runFreshGuestOnboardingScenario(context, language = "en") {
       "explicit household size must persist exactly"
     );
     assert.equal(
+      (await page.getByTestId("qa-fresh-guest-appliances").textContent())?.trim(),
+      language === "bg" ? "Horno" : "",
+      "localized appliance text must not change the canonical stored appliance ID"
+    );
+    assert.equal(
       (await page.getByTestId("qa-fresh-guest-diet-style").textContent())?.trim(),
       "all",
       "explicit diet style must persist exactly"
@@ -811,7 +817,7 @@ async function runFreshGuestOnboardingScenario(context, language = "en") {
     );
 
     await page.screenshot({
-      path: path.join(artifactDir, "fresh-guest-onboarding-after.png"),
+      path: path.join(artifactDir, `fresh-guest-onboarding-${basename.includes("before")?"before":basename.includes("after")?"after":"failure"}${artifactSuffix}.png`),
       fullPage: true,
     });
 
@@ -822,7 +828,7 @@ async function runFreshGuestOnboardingScenario(context, language = "en") {
     evidence.error = error instanceof Error ? error.message : String(error);
     await page
       .screenshot({
-        path: path.join(artifactDir, "fresh-guest-onboarding-failure.png"),
+        path: path.join(artifactDir, `fresh-guest-onboarding-${basename.includes("before")?"before":basename.includes("after")?"after":"failure"}${artifactSuffix}.png`),
         fullPage: true,
       })
       .catch(() => {});
