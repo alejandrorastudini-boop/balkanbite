@@ -709,7 +709,7 @@ async function runFreshGuestOnboardingScenario(context, language = "en") {
     );
 
     await page.screenshot({
-      path: path.join(artifactDir, `fresh-guest-onboarding-${basename.includes("before")?"before":basename.includes("after")?"after":"failure"}${artifactSuffix}.png`),
+      path: path.join(artifactDir, `fresh-guest-onboarding-before${artifactSuffix}.png`),
       fullPage: true,
     });
 
@@ -817,7 +817,7 @@ async function runFreshGuestOnboardingScenario(context, language = "en") {
     );
 
     await page.screenshot({
-      path: path.join(artifactDir, `fresh-guest-onboarding-${basename.includes("before")?"before":basename.includes("after")?"after":"failure"}${artifactSuffix}.png`),
+      path: path.join(artifactDir, `fresh-guest-onboarding-after${artifactSuffix}.png`),
       fullPage: true,
     });
 
@@ -828,7 +828,7 @@ async function runFreshGuestOnboardingScenario(context, language = "en") {
     evidence.error = error instanceof Error ? error.message : String(error);
     await page
       .screenshot({
-        path: path.join(artifactDir, `fresh-guest-onboarding-${basename.includes("before")?"before":basename.includes("after")?"after":"failure"}${artifactSuffix}.png`),
+        path: path.join(artifactDir, `fresh-guest-onboarding-failure${artifactSuffix}.png`),
         fullPage: true,
       })
       .catch(() => {});
