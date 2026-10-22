@@ -470,6 +470,88 @@ async function runGuestDerivedShoppingSilentFailure() {
   }
 }
 
+async function runGuestManualShoppingAddLostWrite() {
+  // A failed localStorage write must not close the manual form or claim an
+  // added shopping item; the next retry must persist exactly the stated data.
+  const SHOPPING = "balkanbite_shopping";
+  const existing = { id: "qa-shopping-prior", name: "QA Existing Rice", quantity: 100,
+    unit: "g", category: "", checked: false, amountOrigin: "user_entered",
+    purchaseAmountConfirmed: false };
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, valid, SHOPPING, existing }) => {
+      if (sessionStorage.getItem("__qa_guest_manual_add_seeded")) return;
+      sessionStorage.setItem("__qa_guest_manual_add_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem(SHOPPING, JSON.stringify([existing]));
+      localStorage.setItem("balkanbite_progression", "[]");
+    }, { MAIN, valid, SHOPPING, existing });
+    page = await context.newPage();
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-shopping").click();
+    await page.locator("#shopping-item-qa-shopping-prior").waitFor({state:"visible"});
+    const before = await page.evaluate(key => localStorage.getItem(key), SHOPPING);
+    await page.locator("#manual-shopping-open").click();
+    await page.locator("#manual-shopping-name").fill("QA New Lentils");
+    await page.locator("#manual-shopping-quantity").fill("250");
+    await page.locator("#manual-shopping-unit").selectOption("g");
+    await page.evaluate(SHOPPING => {
+      const native = Storage.prototype.setItem;
+      window.__qaManualAddAttempts = 0;
+      window.__qaRestoreManualAdd = () => { Storage.prototype.setItem = native; };
+      Storage.prototype.setItem = function(key, value) {
+        if (key === SHOPPING) {
+          window.__qaManualAddAttempts++;
+          return; // silently lost browser storage write
+        }
+        return native.call(this, key, value);
+      };
+    }, SHOPPING);
+    await page.locator("#manual-shopping-submit").click();
+    await page.waitForFunction(() => window.__qaManualAddAttempts > 0);
+    await page.getByRole("alert").getByText(/The item was not saved/)
+      .waitFor({state:"visible",timeout:10000});
+    assert.equal(await page.locator("#manual-shopping-name").inputValue(), "QA New Lentils");
+    assert.equal(await page.locator("#manual-shopping-quantity").inputValue(), "250");
+    assert.equal(await page.locator("#manual-shopping-unit").inputValue(), "g");
+    assert.equal(await page.evaluate(key => localStorage.getItem(key), SHOPPING), before,
+      "lost add write must not replace original checklist bytes");
+    assert.equal(await page.locator("[id^='shopping-item-shop-']").count(), 0);
+    await page.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({state:"visible",timeout:10000});
+
+    await page.evaluate(() => window.__qaRestoreManualAdd());
+    await page.locator("#manual-shopping-submit").click();
+    await page.locator("#manual-shopping-name").waitFor({state:"detached",timeout:10000});
+    await page.waitForFunction(SHOPPING => {
+      const rows=JSON.parse(localStorage.getItem(SHOPPING)||"[]");
+      return rows.length===2 && rows[0].id==="qa-shopping-prior" &&
+        rows[1].name==="QA New Lentils" && rows[1].quantity===250 &&
+        rows[1].unit==="g" && rows[1].checked===false &&
+        rows[1].amountOrigin==="user_entered" &&
+        rows[1].purchaseAmountConfirmed===false;
+    }, SHOPPING);
+    const added=JSON.parse(await page.evaluate(key => localStorage.getItem(key), SHOPPING))[1];
+    await page.locator(`#shopping-item-${added.id}`).waitFor({state:"visible"});
+    await page.reload({waitUntil:"domcontentloaded",timeout:30000});
+    await page.locator("#nav-tab-shopping").click();
+    await page.locator(`#shopping-item-${added.id}`).waitFor({state:"visible"});
+    evidence.checks.push("guest-manual-shopping-add-lost-write-preserves-form-then-retry-persists");
+  } finally {
+    await page?.close().catch(()=>{});
+    await context.close();
+  }
+}
+
 async function runGuestShoppingClearSilentWriteFailure() {
   // A bulk list deletion must not be acknowledged when localStorage drops
   // the write; the existing review dialog remains open for a safe retry.
@@ -2151,6 +2233,7 @@ try {
   await runFailedGuestQuantityWrite();
   await runFailedGuestQuantityWrite({ silent: true });
   await runGuestDerivedShoppingSilentFailure();
+  await runGuestManualShoppingAddLostWrite();
   await runGuestShoppingToggleSilentWriteFailure();
   await runGuestShoppingDeleteSilentWriteFailure();
   await runGuestShoppingClearSilentWriteFailure();
