@@ -1108,6 +1108,162 @@ async function runRealGuestVoiceRemoval({ fault = null, purpose = "food-use" } =
   }
 }
 
+async function runGuestMealToPurchaseCircuit() {
+  // One real guest UI session: already-recorded stock + planned lunch,
+  // confirm cooking, surface a measured shortage, confirm shopping amount,
+  // transfer the purchase to pantry and verify recovery after reload.
+  // Synthetic values are fixture-only, never inferred user diet facts.
+  const SHOPPING = "balkanbite_shopping";
+  const RECIPES = "balkanbite_recipes";
+  const PLAN = "balkanbite_mealplan";
+  const PROGRESS = "balkanbite_progression";
+  const riceRecipe = {
+    id: "qa-circuit-rice", title: { en: "QA Circuit Rice", es: "Arroz circuito QA", bg: "QA Ориз" },
+    description: { en: "Fixture only", es: "Solo prueba", bg: "Само тест" },
+    prepTimeMin: 0, cookTimeMin: 0, costPerServingEUR: 0,
+    difficulty: "easy", servings: 1, calories: 0,
+    proteinG: 0, carbsG: 0, fatG: 0, fiberG: 0,
+    tags: [], imageUrl: "/images/qa-rice.png",
+    ingredients: [{ name: "QA Rice", amount: 100, unit: "g", inPantry: true }],
+    instructions: { en: ["Cook"], es: ["Cocinar"], bg: ["Готви"] },
+    nutritionHighlights: { en: "Fixture", es: "Prueba", bg: "Тест" },
+  };
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, SHOPPING, RECIPES, PLAN, PROGRESS, valid, riceRecipe }) => {
+      if (sessionStorage.getItem("__qa_full_guest_cycle_seeded")) return;
+      sessionStorage.setItem("__qa_full_guest_cycle_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([{ ...valid, quantity: 150 }]));
+      localStorage.setItem(RECIPES, JSON.stringify([riceRecipe]));
+      const date = new Date();
+      const day = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0")].join("-");
+      localStorage.setItem(PLAN, JSON.stringify([{ date: day, lunch: riceRecipe }]));
+      localStorage.setItem(SHOPPING, "[]");
+      localStorage.setItem(PROGRESS, "[]");
+    }, { MAIN, SHOPPING, RECIPES, PLAN, PROGRESS, valid, riceRecipe });
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    const before = await page.evaluate(({ MAIN, PLAN }) => ({
+      pantry: JSON.parse(localStorage.getItem(MAIN) || "[]"),
+      plan: JSON.parse(localStorage.getItem(PLAN) || "[]"),
+    }), { MAIN, PLAN });
+    assert.equal(before.pantry[0].quantity, 150);
+    assert.equal(before.plan[0].lunch?.id, riceRecipe.id,
+      "recorded menu must identify the recipe before cooking");
+    await page.locator("#nav-tab-recipes").click();
+    const cookButton = page.locator("#cook-btn-qa-circuit-rice");
+    await cookButton.waitFor({ state: "visible", timeout: 15000 });
+    await cookButton.click();
+    await page.getByText("Have you cooked this recipe?")
+      .waitFor({ state: "visible", timeout: 10000 });
+    await page.getByRole("button", { name: "Yes, deduct" }).click();
+    await page.waitForFunction(MAIN =>
+      JSON.parse(localStorage.getItem(MAIN) || "[]")
+        .find(item => item.id === "qa-guest-rice")?.quantity === 50,
+      MAIN, { timeout: 16000 });
+    await page.waitForFunction(PROGRESS =>
+      JSON.parse(localStorage.getItem(PROGRESS) || "[]")
+        .some(event => event.type === "recipe_cook_inventory_applied"),
+      PROGRESS, { timeout: 16000 });
+    evidence.checks.push("guest-cycle-recorded-plan-to-confirmed-cook-and-100g-deduction");
+
+    // A journalled cook can reconcile a managed shortage automatically.
+    // Otherwise the user must be able to add the measured missing quantity
+    // from the recipe card. Both routes feed the same real shopping UI.
+    let shortage = await page.evaluate(SHOPPING =>
+      JSON.parse(localStorage.getItem(SHOPPING) || "[]")
+        .filter(row => row.name === "QA Rice" && !row.checked),
+      SHOPPING);
+    let shortageOrigin = "derived";
+    if (shortage.length === 0) {
+      shortageOrigin = "recipe-action";
+      const addMissing = page.locator("#add-missing-btn-qa-circuit-rice");
+      await addMissing.waitFor({ state: "visible", timeout: 12000 });
+      await addMissing.click();
+    }
+    await page.waitForFunction(SHOPPING =>
+      JSON.parse(localStorage.getItem(SHOPPING) || "[]")
+        .some(row => row.name === "QA Rice" && !row.checked &&
+          row.quantity > 0 && row.unit === "g"),
+      SHOPPING, { timeout: 12000 });
+    shortage = await page.evaluate(SHOPPING =>
+      JSON.parse(localStorage.getItem(SHOPPING) || "[]")
+        .filter(row => row.name === "QA Rice" && !row.checked),
+      SHOPPING);
+    assert.ok(shortage.length > 0);
+    const selected = shortage[0];
+    assert.ok(Number.isFinite(selected.quantity) && selected.quantity > 0);
+    assert.equal(selected.unit, "g");
+    assert.equal(selected.purchaseAmountConfirmed, false,
+      "shortage suggestion cannot claim a completed purchase");
+    assert.equal(selected.estimatedPriceEUR, undefined,
+      "no unverified price may be converted to fact");
+    evidence.checks.push("guest-cycle-shortage-to-shopping-" + shortageOrigin);
+
+    await page.locator("#nav-tab-shopping").click();
+    const row = page.locator(`#shopping-item-${selected.id}`);
+    await row.waitFor({ state: "visible", timeout: 12000 });
+    await row.getByRole("button", { name: /Confirm purchase of/ }).click();
+    await page.waitForFunction(({ SHOPPING, id }) =>
+      JSON.parse(localStorage.getItem(SHOPPING) || "[]")
+        .some(row => row.id === id && row.checked === true &&
+          row.purchaseAmountConfirmed === true),
+      { SHOPPING, id: selected.id }, { timeout: 12000 });
+    await page.locator("#transfer-to-pantry-btn").click();
+    await page.waitForFunction(({ MAIN, SHOPPING, PROGRESS, id, amount }) => {
+      const pantry = JSON.parse(localStorage.getItem(MAIN) || "[]");
+      const shopping = JSON.parse(localStorage.getItem(SHOPPING) || "[]");
+      const events = JSON.parse(localStorage.getItem(PROGRESS) || "[]");
+      return pantry.filter(row => row.name === "QA Rice" && row.unit === "g")
+          .reduce((sum, row) => sum + row.quantity, 0) === 50 + amount &&
+        !shopping.some(row => row.id === id) &&
+        events.some(event => event.eventId === `purchase:shopping:${id}`);
+    }, { MAIN, SHOPPING, PROGRESS, id: selected.id, amount: selected.quantity },
+    { timeout: 16000 });
+
+    await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await page.locator("#nav-tab-pantry").click();
+    await page.locator("#pantry-view").waitFor({ state: "visible" });
+    const final = await page.evaluate(({ MAIN, SHOPPING, RECIPES, PLAN, PROGRESS }) => ({
+      pantry: JSON.parse(localStorage.getItem(MAIN) || "[]"),
+      shopping: JSON.parse(localStorage.getItem(SHOPPING) || "[]"),
+      recipes: JSON.parse(localStorage.getItem(RECIPES) || "[]"),
+      plan: JSON.parse(localStorage.getItem(PLAN) || "[]"),
+      events: JSON.parse(localStorage.getItem(PROGRESS) || "[]"),
+      pending: [
+        "balkanbite_guest_cook_derived_intent_v1",
+        "balkanbite_guest_cook_intent_v1",
+        "balkanbite_guest_purchase_intent_v1",
+        "balkanbite_guest_pantry_shopping_journal_v1",
+      ].filter(key => localStorage.getItem(key) !== null),
+    }), { MAIN, SHOPPING, RECIPES, PLAN, PROGRESS });
+    assert.equal(final.pantry.filter(row => row.name === "QA Rice" && row.unit === "g")
+      .reduce((sum, row) => sum + row.quantity, 0), 50 + selected.quantity,
+    "exact confirmed purchase should replenish only its recorded amount");
+    assert.ok(final.recipes.some(row => row.id === riceRecipe.id),
+      "recipe must survive cooking and purchase");
+    assert.ok(final.plan.length > 0, "menu must remain recorded after the purchase");
+    assert.equal(final.shopping.some(row => row.id === selected.id), false);
+    assert.equal(final.events.filter(event => event.type === "recipe_cook_inventory_applied").length, 1);
+    assert.equal(final.events.filter(event => event.eventId ===
+      `purchase:shopping:${selected.id}`).length, 1);
+    assert.deepEqual(final.pending, [], "completed cycle must not leave stranded local intent");
+    evidence.checks.push("guest-cycle-purchase-restocks-exact-amount-once-after-reload");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runRealGuestDerivedCook({ fault = null } = {}) {
   const INTENT = "balkanbite_guest_cook_derived_intent_v1";
   const RECIPES = "balkanbite_recipes";
@@ -2260,6 +2416,7 @@ try {
   await runRealGuestVoiceRemoval();
   await runRealGuestVoiceRemoval({ fault: "balkanbite_shopping", purpose: "discard" });
   await runRealGuestDerivedCook();
+  await runGuestMealToPurchaseCircuit();
   await runRealGuestDerivedCook({ fault: "balkanbite_mealplan" });
   await runRealGuestDerivedCook({ fault: "balkanbite_shopping" });
   for (const mode of ["applied", "unapplied", "conflict", "malformed"]) {
