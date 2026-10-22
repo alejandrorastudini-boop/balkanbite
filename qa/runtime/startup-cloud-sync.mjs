@@ -689,6 +689,11 @@ async function runFreshGuestOnboardingScenario(context, language = "en") {
       "fresh guest must begin with onboarding incomplete"
     );
 
+    assert.equal(
+      (await page.getByTestId("qa-fresh-guest-appliances").textContent())?.trim(),
+      "absent",
+      "new guests must start without invented or preselected appliances"
+    );
     assert.equal(await root.getAttribute("data-ui-language"), language);
     if (language === "bg") {
       await page.getByText("Стъпка 1 от 4").waitFor({ state: "visible" });
