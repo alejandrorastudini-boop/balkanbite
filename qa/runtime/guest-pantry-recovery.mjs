@@ -1109,7 +1109,7 @@ async function runRealGuestVoiceRemoval({ fault = null, purpose = "food-use" } =
 }
 
 async function runGuestMealToPurchaseCircuit() {
-  // One real guest UI session: already-recorded stock + planned lunch,
+  // One real guest UI session: manual stock entry + already-recorded lunch,
   // confirm cooking, surface a measured shortage, confirm shopping amount,
   // transfer the purchase to pantry and verify recovery after reload.
   // Synthetic values are fixture-only, never inferred user diet facts.
@@ -1131,14 +1131,14 @@ async function runGuestMealToPurchaseCircuit() {
   const context = await browser.newContext();
   let page;
   try {
-    await context.addInitScript(({ MAIN, SHOPPING, RECIPES, PLAN, PROGRESS, valid, riceRecipe }) => {
+    await context.addInitScript(({ MAIN, SHOPPING, RECIPES, PLAN, PROGRESS, riceRecipe }) => {
       if (sessionStorage.getItem("__qa_full_guest_cycle_seeded")) return;
       sessionStorage.setItem("__qa_full_guest_cycle_seeded", "true");
       localStorage.setItem("balkanbite_show_landing", "false");
       localStorage.setItem("balkanbite_profile", JSON.stringify({
         language: "en", onboardingCompleted: true,
       }));
-      localStorage.setItem(MAIN, JSON.stringify([{ ...valid, quantity: 150 }]));
+      localStorage.setItem(MAIN, "[]");
       localStorage.setItem(RECIPES, JSON.stringify([riceRecipe]));
       const date = new Date();
       const day = [date.getFullYear(), String(date.getMonth() + 1).padStart(2, "0"),
@@ -1146,19 +1146,37 @@ async function runGuestMealToPurchaseCircuit() {
       localStorage.setItem(PLAN, JSON.stringify([{ date: day, lunch: riceRecipe }]));
       localStorage.setItem(SHOPPING, "[]");
       localStorage.setItem(PROGRESS, "[]");
-    }, { MAIN, SHOPPING, RECIPES, PLAN, PROGRESS, valid, riceRecipe });
+    }, { MAIN, SHOPPING, RECIPES, PLAN, PROGRESS, riceRecipe });
     page = await context.newPage();
     page.on("dialog", dialog => dialog.dismiss());
     await page.goto(new URL("/", base).toString(), {
       waitUntil: "domcontentloaded", timeout: 30000,
     });
+    // First create stock using the REAL pantry form rather than injecting a
+    // fictional inventory record. Optional price and expiry stay unknown.
+    await page.locator("#nav-tab-pantry").click();
+    await page.locator("#pantry-add-item-btn").click();
+    await page.locator("#pantry-item-name").fill("QA Rice");
+    await page.locator("#pantry-quantity").fill("150");
+    await page.locator("#pantry-view form select").first().selectOption("g");
+    await page.locator("#pantry-category").selectOption("Pantry/Grains");
+    await page.locator("#pantry-view form button[type=submit]").click();
+    await page.waitForFunction(MAIN =>
+      JSON.parse(localStorage.getItem(MAIN) || "[]")
+        .some(row => row.name === "QA Rice" && row.quantity === 150 && row.unit === "g"),
+      MAIN, { timeout: 16000 });
     const before = await page.evaluate(({ MAIN, PLAN }) => ({
       pantry: JSON.parse(localStorage.getItem(MAIN) || "[]"),
       plan: JSON.parse(localStorage.getItem(PLAN) || "[]"),
     }), { MAIN, PLAN });
+    assert.equal(before.pantry.filter(row => row.name === "QA Rice").length, 1);
     assert.equal(before.pantry[0].quantity, 150);
-    assert.equal(before.plan[0].lunch?.id, riceRecipe.id,
-      "recorded menu must identify the recipe before cooking");
+    assert.equal(before.pantry[0].cost, undefined,
+      "manual stock creation cannot invent an acquisition cost");
+    assert.ok(before.plan.some(day =>
+      [day.breakfast, day.lunch, day.dinner].some(meal => meal?.id === riceRecipe.id)),
+      "recorded menu should retain the user's planned recipe after adding stock");
+    evidence.checks.push("guest-cycle-real-manual-pantry-entry-and-planned-recipe");
     await page.locator("#nav-tab-recipes").click();
     const cookButton = page.locator("#cook-btn-qa-circuit-rice");
     await cookButton.waitFor({ state: "visible", timeout: 15000 });
@@ -1168,7 +1186,7 @@ async function runGuestMealToPurchaseCircuit() {
     await page.getByRole("button", { name: "Yes, deduct" }).click();
     await page.waitForFunction(MAIN =>
       JSON.parse(localStorage.getItem(MAIN) || "[]")
-        .find(item => item.id === "qa-guest-rice")?.quantity === 50,
+        .find(item => item.name === "QA Rice")?.quantity === 50,
       MAIN, { timeout: 16000 });
     await page.waitForFunction(PROGRESS =>
       JSON.parse(localStorage.getItem(PROGRESS) || "[]")
