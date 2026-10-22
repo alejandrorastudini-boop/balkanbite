@@ -9,6 +9,7 @@ import {
 } from "./runtimeQaGate";
 
 export const FreshGuestOnboardingQaHarness: React.FC = () => {
+  const uiLanguage = new URLSearchParams(window.location.search).get("lang") === "bg" ? "bg" : "en";
   const [profile, setProfile] = useState<UserProfile>(() => ({
     ...DEFAULT_PROFILE,
     disliked: [...DEFAULT_PROFILE.disliked],
@@ -17,6 +18,7 @@ export const FreshGuestOnboardingQaHarness: React.FC = () => {
   return (
     <main
       data-testid="qa-fresh-guest-onboarding-root"
+      data-ui-language={uiLanguage}
       data-deployment-sha={runtimeQaDeploymentSha()}
       data-deployment-id={runtimeQaDeploymentId()}
       data-source-fingerprint={runtimeQaSourceFingerprint()}
@@ -43,7 +45,7 @@ export const FreshGuestOnboardingQaHarness: React.FC = () => {
       </span>
       <OnboardingModal
         isOpen={!profile.onboardingCompleted}
-        language="en"
+        language={uiLanguage}
         onComplete={(updates) =>
           setProfile((current) => ({
             ...current,
