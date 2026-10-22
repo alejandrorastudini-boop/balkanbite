@@ -1171,7 +1171,7 @@ async function runGuestMealToPurchaseCircuit() {
     }), { MAIN, PLAN });
     assert.equal(before.pantry.filter(row => row.name === "QA Rice").length, 1);
     assert.equal(before.pantry[0].quantity, 150);
-    assert.equal(before.pantry[0].cost, undefined,
+    assert.equal(before.pantry[0].estimatedCostEUR, undefined,
       "manual stock creation cannot invent an acquisition cost");
     assert.ok(before.plan.some(day =>
       [day.breakfast, day.lunch, day.dinner].some(meal => meal?.id === riceRecipe.id)),
