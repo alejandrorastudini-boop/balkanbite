@@ -40,7 +40,7 @@ export const FreshGuestOnboardingQaHarness: React.FC = () => {
         {profile.cookingSpeed}
       </span>
       <span data-testid="qa-fresh-guest-appliances" className="sr-only">
-        {profile.appliances.join(",")}
+        {profile.appliances === undefined ? "absent" : profile.appliances.join(",")}
       </span>
       <span data-testid="qa-fresh-guest-budget" className="sr-only">
         {profile.monthlyBudgetEUR === undefined
