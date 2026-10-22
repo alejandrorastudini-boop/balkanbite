@@ -1108,8 +1108,17 @@ async function runRealGuestVoiceRemoval({ fault = null, purpose = "food-use" } =
   }
 }
 
-async function runGuestMealToPurchaseCircuit() {
-  // One real guest UI session: manual stock entry + already-recorded lunch,
+async function runGuestMealToPurchaseCircuit({ language = "en", mobile = false } = {}) {
+  const mobileSize = { width: 390, height: 844 };
+  const checkMobileButton = async (button, label) => {
+    if (!mobile) return;
+    await button.scrollIntoViewIfNeeded();
+    const bounds = await button.boundingBox();
+    assert.ok(bounds, `${label}: accessible interactive control must have bounds`);
+    assert.ok(bounds.x >= -1 && bounds.x + bounds.width <= mobileSize.width + 1,
+      `${label}: interactive control should fit 390px mobile viewport, got ${JSON.stringify(bounds)}`);
+  };
+  // Desktop EN or 390px touch/mobile BG: manual stock entry + recorded lunch,
   // confirm cooking, surface a measured shortage, confirm shopping amount,
   // transfer the purchase to pantry and verify recovery after reload.
   // Synthetic values are fixture-only, never inferred user diet facts.
@@ -1128,15 +1137,18 @@ async function runGuestMealToPurchaseCircuit() {
     instructions: { en: ["Cook"], es: ["Cocinar"], bg: ["Готви"] },
     nutritionHighlights: { en: "Fixture", es: "Prueba", bg: "Тест" },
   };
-  const context = await browser.newContext();
+  const context = await browser.newContext(mobile
+    ? { viewport: mobileSize, deviceScaleFactor: 2, isMobile: true, hasTouch: true,
+        locale: "bg-BG" }
+    : {});
   let page;
   try {
-    await context.addInitScript(({ MAIN, SHOPPING, RECIPES, PLAN, PROGRESS, riceRecipe }) => {
+    await context.addInitScript(({ MAIN, SHOPPING, RECIPES, PLAN, PROGRESS, riceRecipe, language }) => {
       if (sessionStorage.getItem("__qa_full_guest_cycle_seeded")) return;
       sessionStorage.setItem("__qa_full_guest_cycle_seeded", "true");
       localStorage.setItem("balkanbite_show_landing", "false");
       localStorage.setItem("balkanbite_profile", JSON.stringify({
-        language: "en", onboardingCompleted: true,
+        language, onboardingCompleted: true,
       }));
       localStorage.setItem(MAIN, "[]");
       localStorage.setItem(RECIPES, JSON.stringify([riceRecipe]));
@@ -1146,7 +1158,7 @@ async function runGuestMealToPurchaseCircuit() {
       localStorage.setItem(PLAN, JSON.stringify([{ date: day, lunch: riceRecipe }]));
       localStorage.setItem(SHOPPING, "[]");
       localStorage.setItem(PROGRESS, "[]");
-    }, { MAIN, SHOPPING, RECIPES, PLAN, PROGRESS, riceRecipe });
+    }, { MAIN, SHOPPING, RECIPES, PLAN, PROGRESS, riceRecipe, language });
     page = await context.newPage();
     page.on("dialog", dialog => dialog.dismiss());
     await page.goto(new URL("/", base).toString(), {
@@ -1155,11 +1167,13 @@ async function runGuestMealToPurchaseCircuit() {
     // First create stock using the REAL pantry form rather than injecting a
     // fictional inventory record. Optional price and expiry stay unknown.
     await page.locator("#nav-tab-pantry").click();
+    await checkMobileButton(page.locator("#pantry-add-item-btn"), "pantry add");
     await page.locator("#pantry-add-item-btn").click();
     await page.locator("#pantry-item-name").fill("QA Rice");
     await page.locator("#pantry-quantity").fill("150");
     await page.locator("#pantry-view form select").first().selectOption("g");
     await page.locator("#pantry-category").selectOption("Pantry/Grains");
+    await checkMobileButton(page.locator("#pantry-view form button[type=submit]"), "pantry save");
     await page.locator("#pantry-view form button[type=submit]").click();
     await page.waitForFunction(MAIN =>
       JSON.parse(localStorage.getItem(MAIN) || "[]")
@@ -1180,10 +1194,15 @@ async function runGuestMealToPurchaseCircuit() {
     await page.locator("#nav-tab-recipes").click();
     const cookButton = page.locator("#cook-btn-qa-circuit-rice");
     await cookButton.waitFor({ state: "visible", timeout: 15000 });
+    await checkMobileButton(cookButton, "cook recipe");
     await cookButton.click();
-    await page.getByText("Have you cooked this recipe?")
+    await page.getByText(language === "bg" ? "Сготви ли тази рецепта?" : "Have you cooked this recipe?")
       .waitFor({ state: "visible", timeout: 10000 });
-    await page.getByRole("button", { name: "Yes, deduct" }).click();
+    const confirmCook = page.getByRole("button", {
+      name: language === "bg" ? "Да, приспадни" : "Yes, deduct",
+    });
+    await checkMobileButton(confirmCook, "confirm cooking");
+    await confirmCook.click();
     await page.waitForFunction(MAIN =>
       JSON.parse(localStorage.getItem(MAIN) || "[]")
         .find(item => item.name === "QA Rice")?.quantity === 50,
@@ -1206,6 +1225,7 @@ async function runGuestMealToPurchaseCircuit() {
       shortageOrigin = "recipe-action";
       const addMissing = page.locator("#add-missing-btn-qa-circuit-rice");
       await addMissing.waitFor({ state: "visible", timeout: 12000 });
+      await checkMobileButton(addMissing, "add missing ingredients");
       await addMissing.click();
     }
     await page.waitForFunction(SHOPPING =>
@@ -1230,12 +1250,17 @@ async function runGuestMealToPurchaseCircuit() {
     await page.locator("#nav-tab-shopping").click();
     const row = page.locator(`[id=${JSON.stringify("shopping-item-" + selected.id)}]`);
     await row.waitFor({ state: "visible", timeout: 12000 });
-    await row.getByRole("button", { name: /Confirm purchase of/ }).click();
+    const purchaseButton = row.getByRole("button", {
+      name: language === "bg" ? /Потвърди покупката на/ : /Confirm purchase of/,
+    });
+    await checkMobileButton(purchaseButton, "confirm purchased amount");
+    await purchaseButton.click();
     await page.waitForFunction(({ SHOPPING, id }) =>
       JSON.parse(localStorage.getItem(SHOPPING) || "[]")
         .some(row => row.id === id && row.checked === true &&
           row.purchaseAmountConfirmed === true),
       { SHOPPING, id: selected.id }, { timeout: 12000 });
+    await checkMobileButton(page.locator("#transfer-to-pantry-btn"), "restock pantry");
     await page.locator("#transfer-to-pantry-btn").click();
     await page.waitForFunction(({ MAIN, SHOPPING, PROGRESS, id, amount }) => {
       const pantry = JSON.parse(localStorage.getItem(MAIN) || "[]");
@@ -1275,7 +1300,9 @@ async function runGuestMealToPurchaseCircuit() {
     assert.equal(final.events.filter(event => event.eventId ===
       `purchase:shopping:${selected.id}`).length, 1);
     assert.deepEqual(final.pending, [], "completed cycle must not leave stranded local intent");
-    evidence.checks.push("guest-cycle-purchase-restocks-exact-amount-once-after-reload");
+    evidence.checks.push(mobile
+      ? "guest-mobile-bg-cycle-390px-touch-layout-manual-pantry-cook-shortage-purchase-reload"
+      : "guest-cycle-purchase-restocks-exact-amount-once-after-reload");
   } finally {
     await page?.close().catch(() => {});
     await context.close();
@@ -2435,6 +2462,7 @@ try {
   await runRealGuestVoiceRemoval({ fault: "balkanbite_shopping", purpose: "discard" });
   await runRealGuestDerivedCook();
   await runGuestMealToPurchaseCircuit();
+  await runGuestMealToPurchaseCircuit({ language: "bg", mobile: true });
   await runRealGuestDerivedCook({ fault: "balkanbite_mealplan" });
   await runRealGuestDerivedCook({ fault: "balkanbite_shopping" });
   for (const mode of ["applied", "unapplied", "conflict", "malformed"]) {
