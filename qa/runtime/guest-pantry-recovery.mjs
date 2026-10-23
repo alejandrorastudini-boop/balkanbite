@@ -2770,6 +2770,11 @@ try {
   await runGuestMealToPurchaseCircuit({ language: "bg", mobile: true });
   await runRealGuestDerivedCook({ fault: "balkanbite_mealplan" });
   await runRealGuestDerivedCook({ fault: "balkanbite_shopping" });
+  // Two remaining independently persisted derived keys. Losing a recipe or
+  // progression write must retain the same recoverable cook intent and
+  // must never claim consumption twice on later reload.
+  await runRealGuestDerivedCook({ fault: "balkanbite_recipes" });
+  await runRealGuestDerivedCook({ fault: "balkanbite_progression" });
   for (const mode of ["applied", "unapplied", "conflict", "malformed"]) {
     await runGuestJournalHydration(mode);
   }
