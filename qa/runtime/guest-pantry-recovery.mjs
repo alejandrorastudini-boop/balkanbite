@@ -1189,17 +1189,17 @@ async function runRealGuestVoiceRemoval({ fault = null, purpose = "food-use" } =
   }
 }
 
-async function runGuestMealToPurchaseCircuit({ language = "en", mobile = false } = {}) {
-  const mobileSize = { width: 390, height: 844 };
+async function runGuestMealToPurchaseCircuit({ language = "en", mobile = false, mobileWidth = 390 } = {}) {
+  const mobileSize = { width: mobileWidth, height: 844 };
   const checkMobileButton = async (button, label) => {
     if (!mobile) return;
     await button.scrollIntoViewIfNeeded();
     const bounds = await button.boundingBox();
     assert.ok(bounds, `${label}: accessible interactive control must have bounds`);
     assert.ok(bounds.x >= -1 && bounds.x + bounds.width <= mobileSize.width + 1,
-      `${label}: interactive control should fit 390px mobile viewport, got ${JSON.stringify(bounds)}`);
+      `${label}: interactive control should fit ${mobileWidth}px mobile viewport, got ${JSON.stringify(bounds)}`);
   };
-  // Desktop EN or 390px touch/mobile BG: manual stock entry + recorded lunch,
+  // Desktop EN or compact touch/mobile BG: manual stock entry + recorded lunch,
   // confirm cooking, surface a measured shortage, confirm shopping amount,
   // transfer the purchase to pantry and verify recovery after reload.
   // Synthetic values are fixture-only, never inferred user diet facts.
@@ -1382,7 +1382,7 @@ async function runGuestMealToPurchaseCircuit({ language = "en", mobile = false }
       `purchase:shopping:${selected.id}`).length, 1);
     assert.deepEqual(final.pending, [], "completed cycle must not leave stranded local intent");
     evidence.checks.push(mobile
-      ? "guest-mobile-bg-cycle-390px-touch-layout-manual-pantry-cook-shortage-purchase-reload"
+      ? `guest-mobile-bg-cycle-${mobileWidth}px-touch-layout-manual-pantry-cook-shortage-purchase-reload`
       : "guest-cycle-purchase-restocks-exact-amount-once-after-reload");
   } finally {
     await page?.close().catch(() => {});
@@ -2768,6 +2768,7 @@ try {
   await runRealGuestDerivedCook();
   await runGuestMealToPurchaseCircuit();
   await runGuestMealToPurchaseCircuit({ language: "bg", mobile: true });
+  await runGuestMealToPurchaseCircuit({ language: "bg", mobile: true, mobileWidth: 320 });
   await runRealGuestDerivedCook({ fault: "balkanbite_mealplan" });
   await runRealGuestDerivedCook({ fault: "balkanbite_shopping" });
   for (const mode of ["applied", "unapplied", "conflict", "malformed"]) {
