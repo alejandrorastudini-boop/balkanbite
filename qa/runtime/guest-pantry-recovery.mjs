@@ -1994,6 +1994,121 @@ async function runLateGuestJournalPreventsLegacyWrite(mode) {
   }
 }
 
+async function runTwoTabStaleShoppingDestructiveMutations() {
+  // #459: a stale tab must never delete, mark purchased or clear a newer
+  // shopping row created by another tab, even if it appears actionable.
+  const SHOPPING = "balkanbite_shopping";
+  const PROGRESS = "balkanbite_progression";
+  const oldRow = { id: "qa-two-tab-kept", name: "QA Flour", quantity: 1,
+    unit: "kg", category: "", checked: false, amountOrigin: "user_entered",
+    purchaseAmountConfirmed: false };
+  const context = await browser.newContext();
+  const pages = [];
+  const saved = async page => page.evaluate(
+    key => localStorage.getItem(key), SHOPPING);
+  try {
+    await context.addInitScript(({ MAIN, valid, SHOPPING, PROGRESS, oldRow }) => {
+      if (localStorage.getItem("__qa_two_tab_destructive_seeded")) return;
+      localStorage.setItem("__qa_two_tab_destructive_seeded", "yes");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem(SHOPPING, JSON.stringify([oldRow]));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem(PROGRESS, "[]");
+    }, { MAIN, valid, SHOPPING, PROGRESS, oldRow });
+    for (let i = 0; i < 4; i++) {
+      const page = await context.newPage();
+      pages.push(page);
+      page.on("dialog", dialog => dialog.dismiss());
+      await page.goto(new URL("/", base).toString(), {
+        waitUntil: "domcontentloaded", timeout: 30000,
+      });
+      await page.locator("#nav-tab-shopping").click();
+      await page.locator("#shopping-item-qa-two-tab-kept")
+        .waitFor({ state: "visible", timeout: 12000 });
+    }
+    const [writer, oldToggle, oldDelete, oldClear] = pages;
+    await writer.locator("#manual-shopping-open").click();
+    await writer.locator("#manual-shopping-name").fill("QA Apples");
+    await writer.locator("#manual-shopping-quantity").fill("2");
+    await writer.locator("#manual-shopping-unit").selectOption("kg");
+    await writer.locator("#manual-shopping-submit").click();
+    await writer.waitForFunction(SHOPPING =>
+      JSON.parse(localStorage.getItem(SHOPPING) || "[]").length === 2,
+      SHOPPING, { timeout: 12000 });
+    const authoritative = await saved(writer);
+    const actual = JSON.parse(authoritative);
+    assert.deepEqual(actual.map(row => row.name), ["QA Flour", "QA Apples"]);
+    assert.ok(actual.every(row => !row.checked &&
+      row.purchaseAmountConfirmed === false));
+
+    const staleToggleRow = oldToggle.locator("#shopping-item-qa-two-tab-kept");
+    await staleToggleRow.getByRole("button", { name: /Confirm purchase of/ }).click();
+    await oldToggle.getByRole("alert").getByText(/The change was not saved/)
+      .waitFor({ state: "visible", timeout: 12000 });
+    await oldToggle.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({ state: "visible", timeout: 12000 });
+    assert.equal(await saved(oldToggle), authoritative,
+      "stale toggle must not overwrite newly added shopping item");
+    await staleToggleRow.getByRole("button", { name: /Confirm purchase of/ })
+      .waitFor({ state: "visible" });
+
+    const staleDeleteRow = oldDelete.locator("#shopping-item-qa-two-tab-kept");
+    await staleDeleteRow.locator("button").last().click();
+    await oldDelete.getByRole("alert").getByText(/The change was not saved/)
+      .waitFor({ state: "visible", timeout: 12000 });
+    await staleDeleteRow.waitFor({ state: "visible" });
+    assert.equal(await saved(oldDelete), authoritative,
+      "stale deletion must not destroy a newer shopping snapshot");
+
+    await oldClear.locator("#clear-shopping-list-btn").click();
+    const heading = oldClear.getByRole("heading", { name: "Clear shopping list?" });
+    await heading.waitFor({ state: "visible" });
+    const confirm = heading.locator("xpath=../../..").getByRole("button", {
+      name: "Clear", exact: true,
+    });
+    await confirm.click();
+    await heading.waitFor({ state: "visible" });
+    await oldClear.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({ state: "visible", timeout: 12000 });
+    assert.equal(await saved(oldClear), authoritative,
+      "stale clear cannot erase all rows added by another tab");
+
+    // Rehydration is the explicit recovery boundary: one tab refreshes its
+    // entire source snapshot before reapplying a human purchase confirmation.
+    await oldToggle.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await oldToggle.locator("#nav-tab-shopping").click();
+    await oldToggle.locator("#shopping-item-qa-two-tab-kept")
+      .getByRole("button", { name: /Confirm purchase of/ }).click();
+    await oldToggle.waitForFunction(SHOPPING => {
+      const rows = JSON.parse(localStorage.getItem(SHOPPING) || "[]");
+      return rows.length === 2 && rows[0].checked === true &&
+        rows[0].purchaseAmountConfirmed === true &&
+        rows[1].name === "QA Apples" && rows[1].checked === false;
+    }, SHOPPING, { timeout: 12000 });
+    await oldToggle.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    await oldToggle.locator("#nav-tab-shopping").click();
+    const result = await oldToggle.evaluate(({ SHOPPING, PROGRESS }) => ({
+      shopping: JSON.parse(localStorage.getItem(SHOPPING) || "[]"),
+      progression: JSON.parse(localStorage.getItem(PROGRESS) || "[]"),
+    }), { SHOPPING, PROGRESS });
+    assert.equal(result.shopping.length, 2);
+    assert.deepEqual(result.shopping.map(row => row.name), ["QA Flour", "QA Apples"]);
+    assert.equal(result.shopping[0].purchaseAmountConfirmed, true);
+    assert.equal(result.shopping[1].purchaseAmountConfirmed, false);
+    assert.deepEqual(result.progression, [],
+      "shopping checkbox alone must not invent a pantry purchase event");
+    evidence.checks.push("two-tabs-stale-toggle-delete-clear-fail-closed-reload-recovers");
+  } finally {
+    await Promise.all(pages.map(p => p.close().catch(() => {})));
+    await context.close();
+  }
+}
+
 async function runTwoTabStaleShoppingAdd() {
   // #459: two live guest tabs must not lose a newer shopping row when the
   // second tab submits a different row from an older React snapshot.
@@ -2626,6 +2741,7 @@ try {
   await runTwoTabVoicePurchaseRecovery();
   await runTwoTabStaleInventory();
   await runTwoTabStaleShoppingAdd();
+  await runTwoTabStaleShoppingDestructiveMutations();
   await runLateGuestJournalPreventsLegacyWrite("legacy-pantry");
   await runLateGuestJournalPreventsLegacyWrite("shopping-effect");
   await runFailedGuestQuantityWrite();
