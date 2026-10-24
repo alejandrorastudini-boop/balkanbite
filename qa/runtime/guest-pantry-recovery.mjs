@@ -1209,7 +1209,7 @@ async function runGuestLocalExportDownload() {
     await page.goto(new URL("/", base).toString(), {
       waitUntil: "domcontentloaded", timeout: 30000,
     });
-    await page.locator("#nav-tab-profile").click();
+    await page.locator("#header-profile-btn").click();
     const exportButton = page.getByTestId("guest-local-export-button");
     await exportButton.waitFor({ state: "visible", timeout: 12000 });
     await page.getByText("Копие на локалните данни").waitFor({ state: "visible" });
