@@ -164,9 +164,14 @@ export default function App() {
   // React snapshot. Never clear this warning from an unrelated successful
   // write: the user must reload and review the newer source.
   const [guestCrossTabShoppingStale, setGuestCrossTabShoppingStale] = useState(false);
+  // A different tab's shopping edit must not invalidate independently
+  // verified pantry/menu facts. It only blocks shopping-derived writes and
+  // reads until rehydration, while true multi-key persistence failures keep
+  // their broader existing consistency gate.
   const guestShoppingConsistencyProblem =
-    guestDerivedShoppingRecoveryProblem || guestDerivedStorageWriteFailed ||
-    guestCrossTabShoppingStale;
+    guestDerivedShoppingRecoveryProblem || guestDerivedStorageWriteFailed;
+  const guestShoppingReviewRequired =
+    guestShoppingConsistencyProblem || guestCrossTabShoppingStale;
   const [guestJournalRecoveryStatus, setGuestJournalRecoveryStatus] = useState<"clear" | "pending" | "blocked">(() => {
     try {
       return localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) === null &&
@@ -968,7 +973,7 @@ export default function App() {
         : "A guest operation needs recovery or review. Reload and inspect local data.");
       return false;
     }
-    if (!currentUser && guestShoppingConsistencyProblem) {
+    if (!currentUser && guestShoppingReviewRequired) {
       alert(
         profile.language === "bg"
           ? "Списъкът за пазаруване не е синхронизиран безопасно с наличностите. Проверете мястото за съхранение и презаредете."
@@ -1723,7 +1728,7 @@ export default function App() {
    */
   const tryJournalGuestQuantityEdit = (updatedPantry: PantryItem[]): "ineligible" | "saved" | "blocked" => {
     if (guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
-        guestShoppingConsistencyProblem || workspaceScope !== "guest") return "ineligible";
+        guestShoppingReviewRequired || workspaceScope !== "guest") return "ineligible";
     try {
       const rawRecipes = localStorage.getItem("balkanbite_recipes");
       const rawPlan = localStorage.getItem("balkanbite_mealplan");
@@ -1945,7 +1950,7 @@ export default function App() {
     nextPantry: PantryItem[],
   ): "saved" | "already-applied" | "blocked" | "ineligible" => {
     if (guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
-        guestShoppingConsistencyProblem || workspaceScope !== "guest") return "ineligible";
+        guestShoppingReviewRequired || workspaceScope !== "guest") return "ineligible";
 
     try {
       const rawRecipes = localStorage.getItem("balkanbite_recipes");
@@ -2521,7 +2526,7 @@ export default function App() {
     acquiredAt: string,
   ): "saved" | "blocked" | "ineligible" => {
     if (guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
-        guestShoppingConsistencyProblem || workspaceScope !== "guest" ||
+        guestShoppingReviewRequired || workspaceScope !== "guest" ||
         preview.rejected.length > 0 || preview.newlyAppliedSourceIds.length === 0 ||
         preview.newlyAppliedSourceIds.length !== preview.acceptedSourceIds.length) return "ineligible";
 
@@ -3255,7 +3260,7 @@ export default function App() {
         ? getServerConfirmedChefShopping() : null;
     }
     if (workspaceScope !== "guest" || guestJournalRecoveryStatus !== "clear" ||
-        guestShoppingConsistencyProblem || guestPantryRecovery !== "none") return null;
+        guestShoppingReviewRequired || guestPantryRecovery !== "none") return null;
     try {
       if (hasPendingGuestMutationJournal(localStorage)) return null;
       const raw = localStorage.getItem("balkanbite_shopping");
@@ -3518,7 +3523,7 @@ export default function App() {
               : "An unfinished local operation needs recovery. Pantry and shopping edits are blocked until it is safely resolved."}
           </section>
         )}
-        {!currentUser && guestShoppingConsistencyProblem && (
+        {!currentUser && guestShoppingReviewRequired && (
           <section role="alert" data-testid="guest-shopping-consistency-warning"
             className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
             {guestCrossTabShoppingStale
