@@ -32,6 +32,7 @@ import { AdminAgentStatusPanel } from "./AdminAgentStatusPortal";
 import { signInWithGoogle, logout, auth } from "../lib/firebase";
 import { onAuthStateChanged, User } from "firebase/auth";
 import { getLocalResetCopy } from "../utils/localResetCopy";
+import { inspectGuestLocalExportStructure } from "../utils/guestLocalExportInspection";
 import {
   HEALTH_PROFILE_FIELD_KEYS,
   removeHealthProfileField,
@@ -240,6 +241,22 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
     progressionSummary ?? EMPTY_PROGRESSION_SUMMARY;
   const [newDislike, setNewDislike] = useState("");
   const [showResetConfirm, setShowResetConfirm] = useState(false);
+  const [guestArchiveCheck, setGuestArchiveCheck] = useState<
+    "recognized" | "unrecognized" | "too-large" | "unreadable" | null
+  >(null);
+  const inspectGuestArchive = async (file: File | undefined) => {
+    setGuestArchiveCheck(null);
+    if (!file) return;
+    if (file.size > 32 * 1024 * 1024) {
+      setGuestArchiveCheck("too-large");
+      return;
+    }
+    try {
+      setGuestArchiveCheck(inspectGuestLocalExportStructure(await file.text()));
+    } catch {
+      setGuestArchiveCheck("unreadable");
+    }
+  };
   const [showClearHealthDataConfirm, setShowClearHealthDataConfirm] = useState(false);
   const [maintenanceEnergyCalculation, setMaintenanceEnergyCalculation] =
     useState<{ inputKey: string; result: EfsaAdultMaintenanceEnergyResult } | null>(null);
@@ -1198,6 +1215,44 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
             <Download className="w-4 h-4" />
             {language === "bg" ? "Изтегляне на локалните данни" : language === "es" ? "Descargar datos locales" : "Download local data"}
           </button>
+          <label className="block space-y-2">
+            <span className="block text-xs font-semibold text-stone-200">
+              {language === "bg" ? "Проверете структурата на локалното копие"
+                : language === "es" ? "Comprobar la estructura de la copia descargada"
+                : "Check downloaded copy structure"}
+            </span>
+            <input type="file" accept=".json,application/json"
+              data-testid="guest-local-export-inspect-input"
+              onChange={event => { void inspectGuestArchive(event.currentTarget.files?.[0]); }}
+              className="block w-full text-xs text-stone-200 file:mr-3 file:rounded-md file:border-0 file:bg-stone-700 file:px-3 file:py-2 file:text-white"
+            />
+          </label>
+          <p className="text-xs text-stone-400">
+            {language === "bg"
+              ? "Само локална проверка на формата. Без качване, импорт или възстановяване. Не гарантира целостта или съгласуваността между раздели."
+              : language === "es"
+              ? "Comprobación local del formato, sin subir, importar ni restaurar datos. No garantiza integridad ni coherencia entre pestañas."
+              : "Local format check only; no upload, import or restore. Does not guarantee integrity or cross-tab consistency."}
+          </p>
+          {guestArchiveCheck && (
+            <p role="status" data-testid="guest-local-export-inspect-result" className="text-xs text-amber-200">
+              {guestArchiveCheck === "recognized"
+                ? (language === "bg" ? "Структурата е разпозната. Целостта на данните не е проверена."
+                  : language === "es" ? "Estructura reconocida. Integridad de los datos no verificada."
+                  : "Structure recognized. Data integrity not verified.")
+                : guestArchiveCheck === "too-large"
+                ? (language === "bg" ? "Файлът е твърде голям за локална проверка; това не означава, че е повреден."
+                  : language === "es" ? "El archivo es demasiado grande para esta comprobación; no significa que esté dañado."
+                  : "Too large for this local check; that does not mean the file is damaged.")
+                : guestArchiveCheck === "unreadable"
+                ? (language === "bg" ? "Файлът не може да се прочете локално."
+                  : language === "es" ? "No se pudo leer el archivo localmente."
+                  : "Could not read this file locally.")
+                : (language === "bg" ? "Форматът не е разпознат. Оригиналните данни не са променени."
+                  : language === "es" ? "Formato no reconocido. Los datos originales no han cambiado."
+                  : "Format not recognized. Original data were not changed.")}
+            </p>
+          )}
         </section>
       )}
       <div className="pt-8 pb-10"><button onClick={() => setShowResetConfirm(true)} className="w-full py-4 px-4 border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 hover:border-rose-500/40 text-rose-400 text-sm font-bold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-inner"><RotateCcw className="w-5 h-5" /><span className="tracking-wide uppercase font-['Outfit']">{localResetCopy.buttonLabel}</span></button></div>
