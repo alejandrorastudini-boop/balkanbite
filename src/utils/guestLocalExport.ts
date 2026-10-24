@@ -18,6 +18,7 @@ export const GUEST_EXPORT_KEYS = [
   "balkanbite_guest_cook_intent_v1",
   "balkanbite_guest_cook_derived_intent_v1",
   "balkanbite_guest_voice_removal_intent_v1",
+  "balkanbite_guest_voice_removal_receipts_v1",
 ] as const;
 
 type GuestExportStorage = Pick<Storage, "getItem">;

@@ -1193,7 +1193,7 @@ async function runGuestLocalExportDownload() {
   const context = await browser.newContext({ acceptDownloads: true });
   let page;
   try {
-    await context.addInitScript(({ MAIN, valid }) => {
+    await context.addInitScript(({ MAIN, valid, receipts }) => {
       if (sessionStorage.getItem("__qa_guest_export_seeded")) return;
       sessionStorage.setItem("__qa_guest_export_seeded", "true");
       localStorage.setItem("balkanbite_show_landing", "false");
@@ -1203,8 +1203,9 @@ async function runGuestLocalExportDownload() {
       localStorage.setItem(MAIN, JSON.stringify([valid]));
       localStorage.setItem("balkanbite_shopping", "[]");
       localStorage.setItem("balkanbite_progression", "[]");
+      localStorage.setItem("balkanbite_guest_voice_removal_receipts_v1", receipts);
       localStorage.setItem("qa-auth-token-do-not-export", "private synthetic sentinel");
-    }, { MAIN, valid });
+    }, { MAIN, valid, receipts: JSON.stringify([{ version: 1, mutationId: "qa-export-01", purpose: "food-use", items: [{ name: "QA Rice", quantity: 10, unit: "g" }] }]) });
     page = await context.newPage();
     await page.goto(new URL("/", base).toString(), {
       waitUntil: "domcontentloaded", timeout: 30000,
@@ -1218,6 +1219,7 @@ async function runGuestLocalExportDownload() {
       shopping: localStorage.getItem("balkanbite_shopping"),
       profile: localStorage.getItem("balkanbite_profile"),
       progress: localStorage.getItem("balkanbite_progression"),
+      voiceReceipts: localStorage.getItem("balkanbite_guest_voice_removal_receipts_v1"),
     }));
     const [download] = await Promise.all([
       page.waitForEvent("download", { timeout: 15000 }),
@@ -1235,6 +1237,7 @@ async function runGuestLocalExportDownload() {
     assert.equal(archive.values.balkanbite_shopping, before.shopping);
     assert.equal(archive.values.balkanbite_profile, before.profile);
     assert.equal(archive.values.balkanbite_progression, before.progress);
+    assert.equal(archive.values.balkanbite_guest_voice_removal_receipts_v1, before.voiceReceipts);
     assert.equal(rawFile.includes("private synthetic sentinel"), false,
       "unknown browser secrets must never be included in the guest archive");
     const after = await page.evaluate(() => ({
@@ -1242,9 +1245,10 @@ async function runGuestLocalExportDownload() {
       shopping: localStorage.getItem("balkanbite_shopping"),
       profile: localStorage.getItem("balkanbite_profile"),
       progress: localStorage.getItem("balkanbite_progression"),
+      voiceReceipts: localStorage.getItem("balkanbite_guest_voice_removal_receipts_v1"),
     }));
     assert.deepEqual(after, before, "download must not modify application data");
-    evidence.checks.push("guest-profile-bg-explicit-local-export-raw-readonly-no-unknown-keys");
+    evidence.checks.push("guest-profile-bg-explicit-local-export-includes-voice-receipts");
   } finally {
     await page?.close().catch(() => {});
     await context.close();
