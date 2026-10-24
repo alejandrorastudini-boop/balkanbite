@@ -1,5 +1,6 @@
 import React, { Suspense, lazy, useState, useEffect, useMemo, useRef } from "react";
 import { Header } from "./components/Header";
+import { captureGuestLocalSnapshot } from "./utils/guestLocalExport";
 const PantryView = lazy(() => import("./components/PantryView").then((module) => ({ default: module.PantryView })));
 const RecipeView = lazy(() => import("./components/RecipeView").then((module) => ({ default: module.RecipeView })));
 const VoiceChefView = lazy(() => import("./components/VoiceChefView").then((module) => ({ default: module.VoiceChefView })));
@@ -3414,6 +3415,37 @@ export default function App() {
     }
   })();
 
+  const downloadGuestLocalArchive = (): boolean => {
+    // Never export authenticated cached data under a guest label.
+    if (currentUser || firebaseLoading || isResetting ||
+        workspaceScope !== "guest" || pantryScope !== "guest") return false;
+    const captured = captureGuestLocalSnapshot(localStorage, new Date().toISOString());
+    if (!captured.ok) {
+      alert(profile.language === "bg"
+        ? "Не успяхме да създадем локалното копие. Данните не са променени."
+        : profile.language === "es"
+        ? "No se pudo crear la copia local. Los datos no se han modificado."
+        : "Could not create the local copy. Your data was not changed.");
+      return false;
+    }
+    try {
+      const url = URL.createObjectURL(new Blob([captured.content], { type: "application/json" }));
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "balkanbite-guest-local-data.json";
+      link.click();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      return true;
+    } catch {
+      alert(profile.language === "bg"
+        ? "Не успяхме да изтеглим копието. Данните не са променени."
+        : profile.language === "es"
+        ? "No se pudo descargar la copia. Tus datos no se han modificado."
+        : "Could not download the copy. Your data was not changed.");
+      return false;
+    }
+  };
+
   const downloadGuestPantryRecovery = (source: "current" | "backup") => {
     // Export only on explicit user action; never upload or log pantry details.
     try {
@@ -3729,6 +3761,9 @@ export default function App() {
               onResetApp={handleResetApp}
               onGoToLanding={() => setShowLanding(true)}
               onOpenAuthModal={() => setShowAuthModal(true)}
+              onExportGuestData={!currentUser && !firebaseLoading && !isResetting &&
+                workspaceScope === "guest" && pantryScope === "guest"
+                ? downloadGuestLocalArchive : undefined}
               language={profile.language}
               currency={profile.currency}
               progressionSummary={progressionSummary}

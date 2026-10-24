@@ -55,6 +55,7 @@ interface ProfileViewProps {
   onResetApp: () => void;
   onGoToLanding?: () => void;
   onOpenAuthModal?: () => void;
+  onExportGuestData?: () => boolean;
   language: Language;
   currency: Currency;
   progressionSummary?: ProgressionActivitySummaryV1;
@@ -229,6 +230,7 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
   onResetApp,
   onGoToLanding,
   onOpenAuthModal,
+  onExportGuestData,
   language,
   currency,
   progressionSummary,
@@ -1179,6 +1181,25 @@ export const ProfileView: React.FC<ProfileViewProps> = ({
         </div>
       )}
 
+      {onExportGuestData && (
+        <section data-testid="guest-local-export-section" className="rounded-2xl border border-white/10 bg-white/[0.04] p-4 space-y-3">
+          <p className="text-sm font-semibold text-white">
+            {language === "bg" ? "Копие на локалните данни" : language === "es" ? "Copia de datos locales" : "Local data copy"}
+          </p>
+          <p className="text-xs text-stone-300">
+            {language === "bg"
+              ? "Изтегляне само на този браузър. Файлът може да съдържа лични и здравни данни — пазете го на сигурно място. Не е атомично копие между разделите и автоматично възстановяване още няма."
+              : language === "es"
+              ? "Solo se descargan datos de este navegador. El archivo puede incluir datos personales y de salud: guárdalo de forma segura. No es una copia atómica entre pestañas y aún no existe restauración automática."
+              : "Only this browser's local data is downloaded. The file may contain personal and health data: keep it secure. This is not an atomic cross-tab backup and automatic restore is not available."}
+          </p>
+          <button type="button" data-testid="guest-local-export-button" onClick={onExportGuestData}
+            className="w-full py-3 px-4 rounded-xl border border-emerald-500/40 text-emerald-300 font-semibold text-sm flex items-center justify-center gap-2">
+            <Download className="w-4 h-4" />
+            {language === "bg" ? "Изтегляне на локалните данни" : language === "es" ? "Descargar datos locales" : "Download local data"}
+          </button>
+        </section>
+      )}
       <div className="pt-8 pb-10"><button onClick={() => setShowResetConfirm(true)} className="w-full py-4 px-4 border border-rose-500/20 bg-rose-500/5 hover:bg-rose-500/10 hover:border-rose-500/40 text-rose-400 text-sm font-bold rounded-2xl transition-all cursor-pointer flex items-center justify-center gap-2 shadow-inner"><RotateCcw className="w-5 h-5" /><span className="tracking-wide uppercase font-['Outfit']">{localResetCopy.buttonLabel}</span></button></div>
 
       <ConfirmModal
