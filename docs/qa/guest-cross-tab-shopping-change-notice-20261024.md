@@ -7,7 +7,7 @@ Sequential two-tab Chromium regression tests already proved that a second tab's 
 
 ## Minimal change
 - On guest workspace only (not authenticated/hosted), listen for browser `storage` events on `balkanbite_shopping`; when the new raw value differs from current visible React shopping snapshot, latch `guestCrossTabShoppingStale`.
-- Show a specific BG/ES/EN warning proactively to reload/review. Include latch in the existing fail-closed guard shared by pantry-derived commands and AI facts.
+- Show a specific BG/ES/EN warning proactively to reload/review. The latch blocks shopping-dependent edits and shopping facts, **but does not invalidate independently verified read-only pantry and meal-plan facts**.
 - Existing guest shopping hydration writer and managed-shortage recovery refuse writes when the new latch is active, even if unrelated shopping success clears an older recovery flag.
 - No automatic merge, import, restore, or overwrite on storage events; no fetched data or background services.
 
@@ -18,3 +18,6 @@ Extend the **real local Chromium two-tab** stale manual add test: original tab s
 This is a per-tab visible warning and fail-closed extension. It does **not** supply atomic cross-tab compare-and-swap in localStorage, protect a simultaneous narrow prewrite interleaving, guarantee recovery after tab/browser crash, or prove real Android/Firebase hosted E2E. #459 remains OPEN.
 
 Gate: exact QA branch CI lint/tests/build, six Chromium harnesses, Firestore Emulator; then non-force expected SHA fast-forward to Draft #453 and close QA PR without merging main. Zero deployments, paid tools or data uploads.
+
+## Regression found and corrected
+Initial QA code passed typechecking after positioning the storage listener below the reset state, but Chromium `runChefWorkspaceFacts` failed: a corrupted shopping source in another tab incorrectly suppressed otherwise verified pantry/menu shortage answers. The corrected gate splits `guestShoppingReviewRequired` (stale shopping source) from `guestShoppingConsistencyProblem` (existing broader derived write failure). The existing Chef independence browser test remains active and must pass unmodified; no loosening of its expected facts.

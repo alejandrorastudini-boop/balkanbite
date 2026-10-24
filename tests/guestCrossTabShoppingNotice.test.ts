@@ -7,7 +7,8 @@ const chromium = readFileSync(new URL("../qa/runtime/guest-pantry-recovery.mjs",
 
 test("guest shopping storage event latches an independent staleness block", () => {
   assert.match(app, /const \[guestCrossTabShoppingStale, setGuestCrossTabShoppingStale\] = useState\(false\)/);
-  assert.match(app, /guestDerivedShoppingRecoveryProblem \|\| guestDerivedStorageWriteFailed \|\|\s*guestCrossTabShoppingStale/);
+  assert.match(app, /const guestShoppingConsistencyProblem =\\s*guestDerivedShoppingRecoveryProblem \\|\\| guestDerivedStorageWriteFailed/);
+  assert.match(app, /const guestShoppingReviewRequired =\\s*guestShoppingConsistencyProblem \\|\\| guestCrossTabShoppingStale/);
   assert.match(app, /event\.storageArea !== localStorage \|\| event\.key !== "balkanbite_shopping"/);
   assert.match(app, /event\.newValue !== JSON\.stringify\(shoppingList\)/);
   assert.match(app, /window\.addEventListener\("storage", onGuestShoppingStorageChanged\)/);
@@ -26,4 +27,16 @@ test("real Chromium two-tab scenario requires warning before any attempted stale
   assert.match(chromium, /staleWarning\.waitFor\(\{ state: "visible", timeout: 12000 \}\)/);
   assert.match(chromium, /Another tab changed the shopping list/);
   assert.match(chromium, /proactive-storage-event-warning-before-edit/);
+});
+
+test("independent Chef pantry/menu facts stay readable after unrelated shopping changes", () => {
+  assert.match(app, /const pantryDerivedDataProvisional =\\s*inventoryIsProvisional \\|\\| guestPantryReviewPending \\|\\| guestShoppingConsistencyProblem/);
+  const pantryStart = app.indexOf("const getAuthoritativePantryForChef =");
+  const shoppingStart = app.indexOf("const getAuthoritativeChefShopping =", pantryStart);
+  assert.ok(pantryStart >= 0 && shoppingStart > pantryStart);
+  const pantryFactGuard = app.slice(pantryStart, shoppingStart);
+  assert.match(pantryFactGuard, /guestShoppingConsistencyProblem\\) return null/);
+  assert.doesNotMatch(pantryFactGuard, /guestShoppingReviewRequired/);
+  const shoppingFactGuard = app.slice(shoppingStart, app.indexOf("const getAuthoritativeChefMealPlan =", shoppingStart));
+  assert.match(shoppingFactGuard, /guestShoppingReviewRequired/);
 });
