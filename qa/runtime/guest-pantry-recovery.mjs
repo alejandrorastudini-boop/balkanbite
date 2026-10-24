@@ -1189,6 +1189,68 @@ async function runRealGuestVoiceRemoval({ fault = null, purpose = "food-use" } =
   }
 }
 
+async function runGuestLocalExportDownload() {
+  const context = await browser.newContext({ acceptDownloads: true });
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, valid }) => {
+      if (sessionStorage.getItem("__qa_guest_export_seeded")) return;
+      sessionStorage.setItem("__qa_guest_export_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "bg", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_shopping", "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
+      localStorage.setItem("qa-auth-token-do-not-export", "private synthetic sentinel");
+    }, { MAIN, valid });
+    page = await context.newPage();
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#nav-tab-profile").click();
+    const exportButton = page.getByTestId("guest-local-export-button");
+    await exportButton.waitFor({ state: "visible", timeout: 12000 });
+    await page.getByText("Копие на локалните данни").waitFor({ state: "visible" });
+    const before = await page.evaluate(() => ({
+      pantry: localStorage.getItem("balkanbite_pantry"),
+      shopping: localStorage.getItem("balkanbite_shopping"),
+      profile: localStorage.getItem("balkanbite_profile"),
+      progress: localStorage.getItem("balkanbite_progression"),
+    }));
+    const [download] = await Promise.all([
+      page.waitForEvent("download", { timeout: 15000 }),
+      exportButton.click(),
+    ]);
+    assert.equal(download.suggestedFilename(), "balkanbite-guest-local-data.json");
+    const rawFile = await fs.readFile(await download.path(), "utf8");
+    const archive = JSON.parse(rawFile);
+    assert.equal(archive.format, "balkanbite-guest-raw-export");
+    assert.equal(archive.version, 1);
+    assert.equal(archive.scope, "guest-local-only");
+    assert.equal(archive.restoreSupported, false);
+    assert.equal(archive.consistency, "best-effort-not-atomic-across-tabs");
+    assert.equal(archive.values.balkanbite_pantry, before.pantry);
+    assert.equal(archive.values.balkanbite_shopping, before.shopping);
+    assert.equal(archive.values.balkanbite_profile, before.profile);
+    assert.equal(archive.values.balkanbite_progression, before.progress);
+    assert.equal(rawFile.includes("private synthetic sentinel"), false,
+      "unknown browser secrets must never be included in the guest archive");
+    const after = await page.evaluate(() => ({
+      pantry: localStorage.getItem("balkanbite_pantry"),
+      shopping: localStorage.getItem("balkanbite_shopping"),
+      profile: localStorage.getItem("balkanbite_profile"),
+      progress: localStorage.getItem("balkanbite_progression"),
+    }));
+    assert.deepEqual(after, before, "download must not modify application data");
+    evidence.checks.push("guest-profile-bg-explicit-local-export-raw-readonly-no-unknown-keys");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runGuestMealToPurchaseCircuit({ language = "en", mobile = false } = {}) {
   const mobileSize = { width: 390, height: 844 };
   const checkMobileButton = async (button, label) => {
@@ -2735,6 +2797,7 @@ async function runChefReadOnlyNavigationAndFailure() {
 
 try {
   await runGuestPantryAddEditDeleteReload();
+  await runGuestLocalExportDownload();
   await runChefReadOnlyNavigationAndFailure();
   await runChefGroundedPantryQuestions();
   await runChefWorkspaceFacts();
