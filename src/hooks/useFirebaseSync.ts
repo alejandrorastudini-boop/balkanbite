@@ -38,6 +38,16 @@ import { ensureUserProfileExistsAtomically, replaceUserProfileAtomically } from 
 import { appendMealLogAtomically, subscribeMealLogs } from "../utils/mealLogFirestore";
 import { appendProgressionEventsAtomically, subscribeProgressionEvents } from "../utils/progressionFirestore";
 import type { ProgressionEventV1 } from "../utils/progressionLedger";
+import {
+  deriveChefServerCollectionRead,
+  deriveChefServerPantryRead,
+  selectCompleteChefServerPantry,
+  selectCompleteChefServerProgress,
+  selectCompleteChefServerMealPlan,
+  selectCompleteChefServerShopping,
+  selectCompleteChefServerWorkspace,
+  type ChefServerReadEvidence,
+} from "../utils/chefServerReadAuthority";
 
 export function useFirebaseSync(
   profile: UserProfile,
@@ -70,6 +80,15 @@ export function useFirebaseSync(
   const profileRevision = useRef<number | null>(null);
   const hydratedCollectionUser = useRef<Record<string, string>>({});
   const lastHydratedCollectionJson = useRef<Record<string, string>>({});
+  // This reference is for truthful read-only Chef answers only. Normal app
+  // collection hydration can keep showing provisional data without asserting
+  // that it came from an intact, server-confirmed owner snapshot.
+  const chefServerReadEvidence = useRef<{
+    inventory?: ChefServerReadEvidence;
+    mealPlans?: ChefServerReadEvidence;
+    shoppingList?: ChefServerReadEvidence;
+    progression?: ChefServerReadEvidence;
+  }>({});
   const hydratedCollectionDocumentIds = useRef<Record<string, Set<string>>>({});
   // Read-only verified owner snapshot used by dedicated revision-aware inventory commands.
   // Generic inventory persistence is intentionally retired below.
@@ -116,6 +135,7 @@ export function useFirebaseSync(
       setMealLogsHydratedUser(null);
       setProgressionHydratedUser(null);
       lastHydratedCollectionJson.current = {};
+      chefServerReadEvidence.current = {};
       hydratedCollectionDocumentIds.current = {};
       inventoryEditAuthority.current = {
         status: "unavailable", reason: "unverified-snapshot",
@@ -235,7 +255,15 @@ export function useFirebaseSync(
         setProgressionLedger(events);
         setProgressionHydratedUser(uid);
       },
-      error => console.error("Failed to hydrate progression evidence:", error),
+      error => {
+        chefServerReadEvidence.current.progression = undefined;
+        console.error("Failed to hydrate progression evidence:", error);
+      },
+      evidence => {
+        if (authSessionUserId.current !== uid ||
+            auth.currentUser?.uid !== uid) return;
+        chefServerReadEvidence.current.progression = evidence ?? undefined;
+      },
     );
   }, [currentUser, setProgressionLedger]);
 
@@ -299,8 +327,40 @@ export function useFirebaseSync(
         }
       };
 
-      const unsub = onSnapshot(q, { includeMetadataChanges: collectionName === "inventory" }, (snapshot) => {
+      const readScoped = collectionName === "mealPlans" || collectionName === "shoppingList";
+      const unsub = onSnapshot(q, {
+        includeMetadataChanges: collectionName === "inventory" || readScoped,
+      }, (snapshot) => {
+        if (readScoped) {
+          const evidence =
+            authSessionUserId.current === currentUser.uid &&
+            auth.currentUser?.uid === currentUser.uid
+              ? deriveChefServerCollectionRead(
+                  collectionName as "mealPlans" | "shoppingList",
+                  currentUser.uid,
+                  snapshot.metadata,
+                  snapshot.docs.map(row => ({
+                    documentId: row.id,
+                    data: row.data(),
+                    hasPendingWrites: row.metadata.hasPendingWrites,
+                  })),
+                ) : null;
+          chefServerReadEvidence.current[collectionName as "mealPlans" | "shoppingList"] =
+            evidence ?? undefined;
+        }
         if (collectionName === "inventory") {
+          chefServerReadEvidence.current.inventory =
+            authSessionUserId.current === currentUser.uid &&
+            auth.currentUser?.uid === currentUser.uid
+              ? deriveChefServerPantryRead(
+                  currentUser.uid,
+                  snapshot.metadata,
+                  snapshot.docs.map(row => ({
+                    documentId: row.id,
+                    data: row.data(),
+                    hasPendingWrites: row.metadata.hasPendingWrites,
+                  })),
+                ) ?? undefined : undefined;
           const serverConfirmed =
             isServerConfirmedInventorySnapshot(snapshot.metadata) &&
             snapshot.docs.every(snapshotDoc => snapshotDoc.metadata.hasPendingWrites === false);
@@ -389,10 +449,14 @@ export function useFirebaseSync(
           setLocalState(itemsWithoutUserId);
         }
       }, (error) => {
+        if (readScoped) {
+          chefServerReadEvidence.current[collectionName as "mealPlans" | "shoppingList"] = undefined;
+        }
         if (
           collectionName === "inventory" &&
           authSessionUserId.current === currentUser.uid
         ) {
+          chefServerReadEvidence.current.inventory = undefined;
           clearInventoryHydrationTimeout();
           setInventorySyncErrorUser(currentUser.uid);
           setInventoryServerConfirmedUser(null);
@@ -405,6 +469,13 @@ export function useFirebaseSync(
 
       return () => {
         clearInventoryHydrationTimeout();
+        if (collectionName === "inventory" &&
+            authSessionUserId.current === currentUser.uid) {
+          chefServerReadEvidence.current.inventory = undefined;
+        }
+        if (readScoped && authSessionUserId.current === currentUser.uid) {
+          chefServerReadEvidence.current[collectionName as "mealPlans" | "shoppingList"] = undefined;
+        }
         unsub();
       };
     }, [currentUser]);
@@ -1051,6 +1122,69 @@ export function useFirebaseSync(
     return removeShoppingItem(db, uid, expected);
   };
 
+  // An inventory server flag is necessary but insufficient for Chef: the
+  // displayed rows must match the complete strict owner snapshot byte-for-byte.
+  const getServerConfirmedChefPantry = (): PantryItem[] | null => {
+    const uid = currentUser?.uid ?? null;
+    if (!uid || auth.currentUser?.uid !== uid ||
+        inventoryHydratedUser !== uid ||
+        inventoryServerConfirmedUser !== uid) return null;
+    return selectCompleteChefServerPantry(
+      uid, authSessionUserId.current,
+      chefServerReadEvidence.current.inventory, pantry,
+    );
+  };
+
+  // Never answer with a newer optimistic view or a stale/partial listener
+  // echo. The caller also checks inventory server authority and account scope.
+  const getServerConfirmedChefProgress = (
+    visibleProgression: readonly ProgressionEventV1[],
+  ): ProgressionEventV1[] | null => {
+    const uid = currentUser?.uid ?? null;
+    if (!uid || auth.currentUser?.uid !== uid) return null;
+    return selectCompleteChefServerProgress(
+      uid, authSessionUserId.current,
+      chefServerReadEvidence.current.progression, visibleProgression,
+    ) as ProgressionEventV1[] | null;
+  };
+
+  const getServerConfirmedChefMealPlan = (): MealPlanDay[] | null => {
+    const uid = currentUser?.uid ?? null;
+    if (!uid || auth.currentUser?.uid !== uid) return null;
+    return selectCompleteChefServerMealPlan(
+      uid, authSessionUserId.current,
+      chefServerReadEvidence.current.mealPlans, mealPlan,
+    ) as MealPlanDay[] | null;
+  };
+
+  const getServerConfirmedChefShopping = (): ShoppingItem[] | null => {
+    const uid = currentUser?.uid ?? null;
+    if (!uid || auth.currentUser?.uid !== uid) return null;
+    const rows = selectCompleteChefServerShopping(
+      uid, authSessionUserId.current,
+      chefServerReadEvidence.current.shoppingList, shoppingList,
+    );
+    return rows as ShoppingItem[] | null;
+  };
+
+  const getServerConfirmedChefWorkspace = (
+    visibleProgression: readonly ProgressionEventV1[],
+  ) => {
+    const uid = currentUser?.uid ?? null;
+    if (!uid || auth.currentUser?.uid !== uid) return null;
+    const result = selectCompleteChefServerWorkspace(
+      uid,
+      authSessionUserId.current,
+      chefServerReadEvidence.current,
+      { mealPlan, shopping: shoppingList, progression: visibleProgression },
+    );
+    return result ? {
+      mealPlan: result.mealPlan as MealPlanDay[],
+      shopping: result.shopping as ShoppingItem[],
+      progression: result.progression as ProgressionEventV1[],
+    } : null;
+  };
+
   const inventoryHydrated = !inventoryIsProvisional;
   const inventorySyncError =
     Boolean(currentUser) &&
@@ -1074,6 +1208,11 @@ export function useFirebaseSync(
     inventorySyncError,
     inventoryServerConfirmed,
     profileHydrated,
+    getServerConfirmedChefPantry,
+    getServerConfirmedChefProgress,
+    getServerConfirmedChefMealPlan,
+    getServerConfirmedChefShopping,
+    getServerConfirmedChefWorkspace,
     captureInventoryEditBaseline,
     submitInventoryEdit,
     submitInventoryCreations,
