@@ -1246,14 +1246,19 @@ async function runGuestLocalExportDownload() {
       buffer: Buffer.from(rawFile, "utf8"),
     });
     const outcome = page.getByTestId("guest-local-export-inspect-result");
-    await outcome.getByText("Структурата е разпозната.", { exact: false })
-      .waitFor({ state: "visible", timeout: 10000 });
+    await page.waitForFunction(() =>
+      document.querySelector('[data-testid="guest-local-export-inspect-result"]')
+        ?.textContent?.includes("Структурата е разпозната."),
+      { timeout: 10000 });
     await picker.setInputFiles({
       name: "qa-broken-export.json", mimeType: "application/json",
       buffer: Buffer.from('{"format":"unexpected","values":{}}', "utf8"),
     });
-    await outcome.getByText("Форматът не е разпознат.", { exact: false })
-      .waitFor({ state: "visible", timeout: 10000 });
+    await page.waitForFunction(() =>
+      document.querySelector('[data-testid="guest-local-export-inspect-result"]')
+        ?.textContent?.includes("Форматът не е разпознат."),
+      { timeout: 10000 });
+    assert.ok(await outcome.isVisible());
     const after = await page.evaluate(() => ({
       pantry: localStorage.getItem("balkanbite_pantry"),
       shopping: localStorage.getItem("balkanbite_shopping"),
