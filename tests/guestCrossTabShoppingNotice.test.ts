@@ -30,12 +30,12 @@ test("real Chromium two-tab scenario requires warning before any attempted stale
 });
 
 test("independent Chef pantry/menu facts stay readable after unrelated shopping changes", () => {
-  assert.match(app, /const pantryDerivedDataProvisional =\\s*inventoryIsProvisional \\|\\| guestPantryReviewPending \\|\\| guestShoppingConsistencyProblem/);
+  assert.match(app, /const pantryDerivedDataProvisional =\s*inventoryIsProvisional \|\| guestPantryReviewPending \|\| guestShoppingConsistencyProblem/);
   const pantryStart = app.indexOf("const getAuthoritativePantryForChef =");
   const shoppingStart = app.indexOf("const getAuthoritativeChefShopping =", pantryStart);
   assert.ok(pantryStart >= 0 && shoppingStart > pantryStart);
   const pantryFactGuard = app.slice(pantryStart, shoppingStart);
-  assert.match(pantryFactGuard, /guestShoppingConsistencyProblem\\) return null/);
+  assert.match(pantryFactGuard, /guestShoppingConsistencyProblem\) return null/);
   assert.doesNotMatch(pantryFactGuard, /guestShoppingReviewRequired/);
   const shoppingFactGuard = app.slice(shoppingStart, app.indexOf("const getAuthoritativeChefMealPlan =", shoppingStart));
   assert.match(shoppingFactGuard, /guestShoppingReviewRequired/);
