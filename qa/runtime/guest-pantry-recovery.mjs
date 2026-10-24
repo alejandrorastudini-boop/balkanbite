@@ -1275,17 +1275,17 @@ async function runGuestLocalExportDownload() {
   }
 }
 
-async function runGuestMealToPurchaseCircuit({ language = "en", mobile = false } = {}) {
-  const mobileSize = { width: 390, height: 844 };
+async function runGuestMealToPurchaseCircuit({ language = "en", mobile = false, mobileWidth = 390 } = {}) {
+  const mobileSize = { width: mobileWidth, height: 844 };
   const checkMobileButton = async (button, label) => {
     if (!mobile) return;
     await button.scrollIntoViewIfNeeded();
     const bounds = await button.boundingBox();
     assert.ok(bounds, `${label}: accessible interactive control must have bounds`);
     assert.ok(bounds.x >= -1 && bounds.x + bounds.width <= mobileSize.width + 1,
-      `${label}: interactive control should fit 390px mobile viewport, got ${JSON.stringify(bounds)}`);
+      `${label}: interactive control should fit ${mobileWidth}px mobile viewport, got ${JSON.stringify(bounds)}`);
   };
-  // Desktop EN or 390px touch/mobile BG: manual stock entry + recorded lunch,
+  // Desktop EN or compact touch/mobile BG: manual stock entry + recorded lunch,
   // confirm cooking, surface a measured shortage, confirm shopping amount,
   // transfer the purchase to pantry and verify recovery after reload.
   // Synthetic values are fixture-only, never inferred user diet facts.
@@ -2855,8 +2855,12 @@ try {
   await runRealGuestDerivedCook();
   await runGuestMealToPurchaseCircuit();
   await runGuestMealToPurchaseCircuit({ language: "bg", mobile: true });
+  await runGuestMealToPurchaseCircuit({ language: "bg", mobile: true, mobileWidth: 320 });
   await runRealGuestDerivedCook({ fault: "balkanbite_mealplan" });
   await runRealGuestDerivedCook({ fault: "balkanbite_shopping" });
+  // Persisted derivative write-loss paths recover via the same durable cook intent.
+  await runRealGuestDerivedCook({ fault: "balkanbite_recipes" });
+  await runRealGuestDerivedCook({ fault: "balkanbite_progression" });
   for (const mode of ["applied", "unapplied", "conflict", "malformed"]) {
     await runGuestJournalHydration(mode);
   }
