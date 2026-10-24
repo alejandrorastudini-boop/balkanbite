@@ -572,8 +572,8 @@ test("independent guest derived readback failures remain fail-closed even if sho
     assert.match(context, new RegExp(`localStorage\\.getItem\\("${key}"\\) !== serialized`));
     assert.match(context, /setGuestDerivedStorageWriteFailed\(true\)/);
   }
-  assert.match(appSource, /guestShoppingConsistencyProblem\s*&&\s*\(/);
-  assert.match(appSource, /if \(!currentUser && guestShoppingConsistencyProblem\)/);
+  assert.match(appSource, /guestShoppingReviewRequired\s*&&\s*\(/);
+  assert.match(appSource, /if \(!currentUser && guestShoppingReviewRequired\)/);
   assert.doesNotMatch(appSource, /setGuestDerivedStorageWriteFailed\(false\)/,
     "only explicit rehydration/recovery may clear unrelated failures, never shopping success");
 });
