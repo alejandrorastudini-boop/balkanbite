@@ -284,21 +284,6 @@ export default function App() {
   const [pantryScope, setPantryScope] = useState<string>("guest");
   const [profileScope, setProfileScope] = useState<string>("guest");
   const [workspaceScope, setWorkspaceScope] = useState<string>("guest");
-  useEffect(() => {
-    if (isResetting || firebaseLoading || currentUser || workspaceScope !== "guest") return;
-    const onGuestShoppingStorageChanged = (event: StorageEvent) => {
-      if (event.storageArea !== localStorage || event.key !== "balkanbite_shopping") return;
-      // storage events are only emitted in OTHER documents, not the writing
-      // tab. A different complete source makes the current view provisional,
-      // even before the user attempts a conflicting edit.
-      if (event.newValue !== JSON.stringify(shoppingList)) {
-        setGuestCrossTabShoppingStale(true);
-      }
-    };
-    window.addEventListener("storage", onGuestShoppingStorageChanged);
-    return () => window.removeEventListener("storage", onGuestShoppingStorageChanged);
-  }, [currentUser, firebaseLoading, workspaceScope, isResetting, shoppingList]);
-
   const pendingSignedInCreations = useRef<{ userId: string; ids: Set<string> } | null>(null);
   const pendingSignedInVoiceConsumptions = useRef<Map<string, {
     userId: string;
@@ -388,6 +373,21 @@ export default function App() {
   const [isLoadingAi, setIsLoadingAi] = useState<boolean>(false);
   const [voiceSearchQuery, setVoiceSearchQuery] = useState<string>("");
   const [isResetting, setIsResetting] = useState(false);
+  useEffect(() => {
+    if (isResetting || firebaseLoading || currentUser || workspaceScope !== "guest") return;
+    const onGuestShoppingStorageChanged = (event: StorageEvent) => {
+      if (event.storageArea !== localStorage || event.key !== "balkanbite_shopping") return;
+      // storage events are only emitted in OTHER documents, not the writing
+      // tab. A different complete source makes the current view provisional,
+      // even before the user attempts a conflicting edit.
+      if (event.newValue !== JSON.stringify(shoppingList)) {
+        setGuestCrossTabShoppingStale(true);
+      }
+    };
+    window.addEventListener("storage", onGuestShoppingStorageChanged);
+    return () => window.removeEventListener("storage", onGuestShoppingStorageChanged);
+  }, [currentUser, firebaseLoading, workspaceScope, isResetting, shoppingList]);
+
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     try {
       const saved = localStorage.getItem("balkanbite_theme");
