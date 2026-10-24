@@ -2254,6 +2254,19 @@ async function runTwoTabStaleShoppingAdd() {
     const apples = JSON.parse(savedByFresh).find(row => row.name === "QA Apples");
     await fresh.locator(`[id=${JSON.stringify("shopping-item-" + apples.id)}]`)
       .waitFor({ state: "visible", timeout: 12000 });
+    // A second tab should warn proactively, before the stale user submits
+    // anything. Its in-memory row is still the original, so no implicit
+    // merge/overwrite or invented purchase should occur.
+    const staleWarning = stale.getByTestId("guest-shopping-consistency-warning");
+    await staleWarning.waitFor({ state: "visible", timeout: 12000 });
+    assert.match(await staleWarning.textContent() || "", /Another tab changed the shopping list/);
+    assert.equal(await stale.locator("#shopping-item-qa-two-tab-original-salt").count(), 1);
+    assert.equal(await stale.locator(`[id=${JSON.stringify("shopping-item-" + apples.id)}]`).count(), 0,
+      "newer row must never be guessed into the older in-memory view");
+    assert.equal(await stale.evaluate(SHOPPING => localStorage.getItem(SHOPPING), SHOPPING),
+      savedByFresh, "proactive stale-tab warning must not mutate saved shopping");
+    assert.equal(await fresh.getByTestId("guest-shopping-consistency-warning").count(), 0,
+      "originating tab must not warn about its own verified write");
 
     await addManual(stale, "QA Beans", 500, "g");
     await stale.getByRole("alert").getByText(/The item was not saved/)
@@ -2294,6 +2307,7 @@ async function runTwoTabStaleShoppingAdd() {
       row.estimatedPriceEUR === undefined));
     assert.deepEqual(final.progression, [],
       "list additions alone never assert confirmed purchases or cooking");
+    evidence.checks.push("two-tabs-guest-shopping-proactive-storage-event-warning-before-edit");
     evidence.checks.push("two-tabs-guest-shopping-stale-add-fails-closed-then-reloads-and-saves");
   } finally {
     await Promise.all(pages.map(page => page.close().catch(() => {})));

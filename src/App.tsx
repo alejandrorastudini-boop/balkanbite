@@ -160,8 +160,13 @@ export default function App() {
   // by a later successful shopping-list write. Latch until a fresh reload
   // and require renewed review instead of claiming cross-key consistency.
   const [guestDerivedStorageWriteFailed, setGuestDerivedStorageWriteFailed] = useState(false);
+  // Another guest tab may save shopping items while this tab retains an old
+  // React snapshot. Never clear this warning from an unrelated successful
+  // write: the user must reload and review the newer source.
+  const [guestCrossTabShoppingStale, setGuestCrossTabShoppingStale] = useState(false);
   const guestShoppingConsistencyProblem =
-    guestDerivedShoppingRecoveryProblem || guestDerivedStorageWriteFailed;
+    guestDerivedShoppingRecoveryProblem || guestDerivedStorageWriteFailed ||
+    guestCrossTabShoppingStale;
   const [guestJournalRecoveryStatus, setGuestJournalRecoveryStatus] = useState<"clear" | "pending" | "blocked">(() => {
     try {
       return localStorage.getItem(GUEST_PANTRY_SHOPPING_JOURNAL_KEY) === null &&
@@ -279,6 +284,21 @@ export default function App() {
   const [pantryScope, setPantryScope] = useState<string>("guest");
   const [profileScope, setProfileScope] = useState<string>("guest");
   const [workspaceScope, setWorkspaceScope] = useState<string>("guest");
+  useEffect(() => {
+    if (isResetting || firebaseLoading || currentUser || workspaceScope !== "guest") return;
+    const onGuestShoppingStorageChanged = (event: StorageEvent) => {
+      if (event.storageArea !== localStorage || event.key !== "balkanbite_shopping") return;
+      // storage events are only emitted in OTHER documents, not the writing
+      // tab. A different complete source makes the current view provisional,
+      // even before the user attempts a conflicting edit.
+      if (event.newValue !== JSON.stringify(shoppingList)) {
+        setGuestCrossTabShoppingStale(true);
+      }
+    };
+    window.addEventListener("storage", onGuestShoppingStorageChanged);
+    return () => window.removeEventListener("storage", onGuestShoppingStorageChanged);
+  }, [currentUser, firebaseLoading, workspaceScope, isResetting, shoppingList]);
+
   const pendingSignedInCreations = useRef<{ userId: string; ids: Set<string> } | null>(null);
   const pendingSignedInVoiceConsumptions = useRef<Map<string, {
     userId: string;
@@ -752,7 +772,7 @@ export default function App() {
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
-        guestJournalRecoveryStatus !== "clear") return;
+        guestJournalRecoveryStatus !== "clear" || guestCrossTabShoppingStale) return;
     if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
       const existingRaw = localStorage.getItem("balkanbite_shopping");
@@ -775,12 +795,14 @@ export default function App() {
       setGuestDerivedShoppingRecoveryProblem(true);
       console.warn("Guest shopping persistence failed", e);
     }
-  }, [shoppingList, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus]);
+  }, [shoppingList, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus,
+      guestCrossTabShoppingStale]);
 
   useEffect(() => {
     if (isResetting || firebaseLoading || currentUser ||
         pantryScope !== "guest" || workspaceScope !== "guest" ||
-        guestJournalRecoveryStatus !== "clear" || guestPantryRecovery !== "none") return;
+        guestJournalRecoveryStatus !== "clear" || guestPantryRecovery !== "none" ||
+        guestCrossTabShoppingStale) return;
 
     // Reconcile only app-managed shortages from completely valid stored
     // sources. This repairs an interrupted derived write after a reload,
@@ -796,6 +818,7 @@ export default function App() {
   }, [
     isResetting, firebaseLoading, currentUser, pantryScope, workspaceScope,
     guestPantryRecovery, guestJournalRecoveryStatus, profile.language,
+    guestCrossTabShoppingStale,
   ]);
 
   useEffect(() => {
@@ -3498,7 +3521,13 @@ export default function App() {
         {!currentUser && guestShoppingConsistencyProblem && (
           <section role="alert" data-testid="guest-shopping-consistency-warning"
             className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
-            {profile.language === "bg"
+            {guestCrossTabShoppingStale
+              ? profile.language === "bg"
+                ? "Друга вкладка промени списъка за пазаруване. Този изглед може да е остарял. Презаредете и прегледайте запазените данни, преди да продължите."
+                : profile.language === "es"
+                ? "Otra pestaña ha modificado la lista de compra. Esta vista puede estar desactualizada. Recarga y revisa los datos guardados antes de continuar."
+                : "Another tab changed the shopping list. This view may be outdated. Reload and review saved data before continuing."
+              : profile.language === "bg"
               ? "Не успяхме да потвърдим, че наличностите и списъкът за пазаруване са синхронизирани. Промените и автоматичните предложения са спрени. Прегледайте данните и презаредете."
               : profile.language === "es"
               ? "No se ha podido confirmar que la despensa y la lista de compra estén sincronizadas. Se suspenden los cambios y faltantes automáticos. Revisa los datos y recarga."
