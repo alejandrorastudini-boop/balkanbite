@@ -29,3 +29,17 @@ test("guest reset copy stays local-only and does not imply account deletion", ()
     /does not delete data from any cloud account/i,
   );
 });
+
+test("local reset confirmation warns that guest recovery backups will be deleted", () => {
+  for (const authenticated of [true, false]) {
+    const en = getLocalResetCopy("en", authenticated).description;
+    const es = getLocalResetCopy("es", authenticated).description;
+    const bg = getLocalResetCopy("bg", authenticated).description;
+    assert.match(en, /guest pantry recovery backups/i);
+    assert.match(en, /Download.*before/i);
+    assert.match(es, /copias de recuperación de la despensa invitada/i);
+    assert.match(es, /Descárgalas antes/i);
+    assert.match(bg, /резервните копия за възстановяване/i);
+    assert.match(bg, /Изтеглете/i);
+  }
+});
