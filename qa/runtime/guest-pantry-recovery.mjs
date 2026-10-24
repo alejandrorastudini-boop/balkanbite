@@ -1240,6 +1240,20 @@ async function runGuestLocalExportDownload() {
     assert.equal(archive.values.balkanbite_guest_voice_removal_receipts_v1, before.voiceReceipts);
     assert.equal(rawFile.includes("private synthetic sentinel"), false,
       "unknown browser secrets must never be included in the guest archive");
+    const picker = page.getByTestId("guest-local-export-inspect-input");
+    await picker.setInputFiles({
+      name: "qa-guest-export.json", mimeType: "application/json",
+      buffer: Buffer.from(rawFile, "utf8"),
+    });
+    const outcome = page.getByTestId("guest-local-export-inspect-result");
+    await outcome.getByText("Структурата е разпозната.", { exact: false })
+      .waitFor({ state: "visible", timeout: 10000 });
+    await picker.setInputFiles({
+      name: "qa-broken-export.json", mimeType: "application/json",
+      buffer: Buffer.from('{"format":"unexpected","values":{}}', "utf8"),
+    });
+    await outcome.getByText("Форматът не е разпознат.", { exact: false })
+      .waitFor({ state: "visible", timeout: 10000 });
     const after = await page.evaluate(() => ({
       pantry: localStorage.getItem("balkanbite_pantry"),
       shopping: localStorage.getItem("balkanbite_shopping"),
@@ -1249,6 +1263,7 @@ async function runGuestLocalExportDownload() {
     }));
     assert.deepEqual(after, before, "download must not modify application data");
     evidence.checks.push("guest-profile-bg-explicit-local-export-includes-voice-receipts");
+    evidence.checks.push("guest-export-local-format-check-no-import-or-storage-change");
   } finally {
     await page?.close().catch(() => {});
     await context.close();
