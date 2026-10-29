@@ -137,7 +137,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             />
           </div>
           <span className="text-[10px] font-extrabold text-emerald-400 uppercase tracking-widest block pt-0.5">
-            Paso {step} de {totalSteps}
+            {language === "bg" ? "Стъпка" : language === "es" ? "Paso" : "Step"} {step} {language === "bg" ? "от" : language === "es" ? "de" : "of"} {totalSteps}
           </span>
         </div>
 
@@ -147,13 +147,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div>
               <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-1.5 flex items-center gap-1.5">
                 <ChefHat className="w-3.5 h-3.5 text-emerald-400" />
-                {language === "es" ? "¿Cómo te llamas?" : "Your Name"}
+                {language === "bg" ? "Как се казвате?" : language === "es" ? "¿Cómo te llamas?" : "Your Name"}
               </label>
               <input
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
-                placeholder="Ej. Alejandro"
+                placeholder={language === "bg" ? "Напр. Иван" : language === "es" ? "Ej. Alejandro" : "e.g. Alex"}
                 className="w-full px-3.5 py-2.5 rounded-xl bg-white/[0.04] border border-white/[0.08] text-xs text-white placeholder-stone-500 focus:outline-none focus:border-emerald-500/50"
               />
             </div>
@@ -161,7 +161,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div>
               <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
                 <Users className="w-3.5 h-3.5 text-emerald-400" />
-                {language === "es" ? "¿Cuántas personas comen en casa?" : "Household size"}
+                {language === "bg" ? "Колко души се хранят у дома?" : language === "es" ? "¿Cuántas personas comen en casa?" : "Household size"}
               </label>
               <input
                 id="onboarding-household-size"
@@ -211,14 +211,14 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div>
               <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
                 <UtensilsCrossed className="w-3.5 h-3.5 text-emerald-400" />
-                {language === "es" ? "Estilo de Dieta Preferido" : "Dietary Style"}
+                {language === "bg" ? "Предпочитан стил на хранене" : language === "es" ? "Estilo de Dieta Preferido" : "Dietary Style"}
               </label>
               <div className="grid grid-cols-2 gap-2">
                 {[
-                  { id: "mediterranean", label: "Mediterránea (Equilibrada)" },
-                  { id: "vegetarian", label: "Vegetariana" },
-                  { id: "vegan", label: "Vegana" },
-                  { id: "all", label: "Sin restricciones culinarias" },
+                  { id: "mediterranean", label: language === "bg" ? "Средиземноморска (балансирана)" : language === "es" ? "Mediterránea (Equilibrada)" : "Mediterranean (Balanced)" },
+                  { id: "vegetarian", label: language === "bg" ? "Вегетарианска" : language === "es" ? "Vegetariana" : "Vegetarian" },
+                  { id: "vegan", label: language === "bg" ? "Веган" : language === "es" ? "Vegana" : "Vegan" },
+                  { id: "all", label: language === "bg" ? "Без кулинарни ограничения" : language === "es" ? "Sin restricciones culinarias" : "No culinary restrictions" },
                 ].map((opt) => (
                   <button
                     key={opt.id}
@@ -254,7 +254,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 className="py-3 px-4 rounded-xl bg-white/[0.04] text-stone-400 font-bold text-xs flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Atrás</span>
+                <span>{language === "bg" ? "Назад" : language === "es" ? "Atrás" : "Back"}</span>
               </button>
               <button
                 id="onboarding-next-step-2"
@@ -276,13 +276,13 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div>
               <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
                 <Flame className="w-3.5 h-3.5 text-emerald-400" />
-                {language === "es" ? "¿Cuánto tiempo tienes para cocinar?" : "Cooking Speed"}
+                {language === "bg" ? "Колко време имате за готвене?" : language === "es" ? "¿Cuánto tiempo tienes para cocinar?" : "Cooking Speed"}
               </label>
               <div className="grid grid-cols-3 gap-2">
                 {[
-                  { id: "fast", label: "Express (< 20 min)" },
-                  { id: "moderate", label: "Normal (20-40 min)" },
-                  { id: "elaborate", label: "Gourmet (+40 min)" },
+                  { id: "fast", label: language === "bg" ? "Бързо (< 20 мин)" : language === "es" ? "Express (< 20 min)" : "Fast (< 20 min)" },
+                  { id: "moderate", label: language === "bg" ? "Обичайно (20–40 мин)" : language === "es" ? "Normal (20-40 min)" : "Regular (20-40 min)" },
+                  { id: "elaborate", label: language === "bg" ? "По-сложно (> 40 мин)" : language === "es" ? "Gourmet (+40 min)" : "Elaborate (> 40 min)" },
                 ].map((opt) => (
                   <button
                     key={opt.id}
@@ -308,7 +308,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 className="py-3 px-4 rounded-xl bg-white/[0.04] text-stone-400 font-bold text-xs flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Atrás</span>
+                <span>{language === "bg" ? "Назад" : language === "es" ? "Atrás" : "Back"}</span>
               </button>
               <button
                 id="onboarding-next-step-3"
@@ -330,10 +330,18 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div>
               <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
                 <Microwave className="w-3.5 h-3.5 text-teal-400" />
-                {language === "es" ? "Equipamiento de Cocina Disponible" : "Kitchen Appliances"}
+                {language === "bg" ? "Налично кухненско оборудване" : language === "es" ? "Equipamiento de Cocina Disponible" : "Kitchen Appliances"}
               </label>
               <div className="grid grid-cols-2 gap-2">
-                {["Airfryer", "Horno", "Thermomix / Robot", "Microondas", "Sartén / Vitro"].map((appliance) => {
+                {[
+                  { id: "Airfryer", label: language === "bg" ? "Еър фрайър" : "Airfryer" },
+                  { id: "Horno", label: language === "bg" ? "Фурна" : language === "es" ? "Horno" : "Oven" },
+                  { id: "Thermomix / Robot", label: language === "bg" ? "Кухненски робот" : language === "es" ? "Thermomix / Robot" : "Food processor" },
+                  { id: "Microondas", label: language === "bg" ? "Микровълнова" : language === "es" ? "Microondas" : "Microwave" },
+                  { id: "Sartén / Vitro", label: language === "bg" ? "Тиган / котлон" : language === "es" ? "Sartén / Vitro" : "Pan / hob" },
+                ].map((option) => {
+                  // Persist legacy appliance identifiers unchanged; translate labels only.
+                  const appliance = option.id;
                   const isSelected = selectedAppliances.includes(appliance);
                   return (
                     <button
@@ -346,7 +354,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                           : "bg-white/[0.02] border-white/[0.05] text-stone-400 hover:text-white"
                       }`}
                     >
-                      <span>{appliance}</span>
+                      <span>{option.label}</span>
                       {isSelected && <Check className="w-3.5 h-3.5 text-teal-400" />}
                     </button>
                   );
@@ -357,7 +365,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
             <div>
               <label className="text-xs font-bold text-stone-300 uppercase tracking-wider block mb-2 flex items-center gap-1.5">
                 <Wallet className="w-3.5 h-3.5 text-emerald-400" />
-                {language === "es" ? "Presupuesto Mensual de Alimentación Estimado" : "Monthly Grocery Budget"}
+                {language === "bg" ? "Прогнозен месечен бюджет за храна" : language === "es" ? "Presupuesto Mensual de Alimentación Estimado" : "Monthly Grocery Budget"}
               </label>
               <div className="bg-white/[0.02] border border-white/[0.05] p-3 rounded-2xl space-y-2">
                 <div className="flex justify-between items-center gap-3 text-xs font-bold text-white">
@@ -401,7 +409,7 @@ export const OnboardingModal: React.FC<OnboardingModalProps> = ({
                 className="py-3 px-4 rounded-xl bg-white/[0.04] text-stone-400 font-bold text-xs flex items-center gap-1 cursor-pointer"
               >
                 <ArrowLeft className="w-3.5 h-3.5" />
-                <span>Atrás</span>
+                <span>{language === "bg" ? "Назад" : language === "es" ? "Atrás" : "Back"}</span>
               </button>
               <button
                 id="onboarding-finish"

@@ -604,12 +604,12 @@ export const ShoppingView: React.FC<ShoppingViewProps> = ({
                         ? "Изберете мерна единица"
                         : "Select unit"}
                     </option>
-                    <option value="uds">{language === "es" ? "Unidades (uds)" : "Units (pcs)"}</option>
-                    <option value="kg">Kilogramos (kg)</option>
-                    <option value="g">Gramos (g)</option>
-                    <option value="packs">{language === "es" ? "Paquetes (packs)" : "Packs"}</option>
-                    <option value="manojos">{language === "es" ? "Manojos" : "Bunches"}</option>
-                    <option value="l">Litros (l)</option>
+                    <option value="uds">{language === "bg" ? "Бройки (бр.)" : language === "es" ? "Unidades (uds)" : "Units (pcs)"}</option>
+                    <option value="kg">{language === "bg" ? "Килограми (kg)" : language === "es" ? "Kilogramos (kg)" : "Kilograms (kg)"}</option>
+                    <option value="g">{language === "bg" ? "Грамове (g)" : language === "es" ? "Gramos (g)" : "Grams (g)"}</option>
+                    <option value="packs">{language === "bg" ? "Пакети (пак.)" : language === "es" ? "Paquetes (packs)" : "Packs"}</option>
+                    <option value="manojos">{language === "bg" ? "Връзки" : language === "es" ? "Manojos" : "Bunches"}</option>
+                    <option value="l">{language === "bg" ? "Литри (l)" : language === "es" ? "Litros (l)" : "Liters (l)"}</option>
                   </select>
                 </div>
               </div>

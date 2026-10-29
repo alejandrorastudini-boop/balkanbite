@@ -284,51 +284,6 @@ test("provisional pantry cache preserves valid v1 lot state and rejects corrupt 
   assert.equal(parseUserPantryCache(JSON.stringify(unsupported)), null);
 });
 
-test("provisional signed-in cache rejects incomplete fields without inventing replacements", () => {
-  const valid = {
-    id: "owner-rice-1",
-    name: "Rice",
-    quantity: 1,
-    unit: "kg",
-    category: "Pantry/Grains",
-    addedAt: "2026-10-15",
-  };
-  assert.deepEqual(parseUserPantryCache(JSON.stringify([valid])), [valid]);
-
-  for (const invalid of [
-    { ...valid, category: undefined },
-    { ...valid, category: "MadeUp" },
-    { ...valid, addedAt: undefined },
-    { ...valid, addedAt: "" },
-    { ...valid, id: " " },
-    { ...valid, id: "unbounded-" + "x".repeat(301) },
-  ]) {
-    assert.equal(parseUserPantryCache(JSON.stringify([invalid])), null);
-  }
-  assert.equal(parseUserPantryCache(JSON.stringify([[valid]])), null);
-  // A mixed list is wholly provisional/unknown; never silently trim rows
-  // and pretend the remainder is the full remote inventory.
-  assert.equal(parseUserPantryCache(JSON.stringify([valid, { id: "incomplete" }])), null);
-});
-
-test("duplicate logical identities invalidate an owner-scoped provisional pantry cache", () => {
-  const rice = {
-    id: "logical-rice",
-    name: "Rice",
-    quantity: 1,
-    unit: "kg",
-    category: "Pantry/Grains",
-    addedAt: "2026-10-15",
-  };
-  const sameIdDifferentStock = { ...rice, quantity: 3, name: "Rice variant" };
-  assert.equal(parseUserPantryCache(JSON.stringify([rice, { ...rice }])), null);
-  assert.equal(parseUserPantryCache(JSON.stringify([rice, sameIdDifferentStock])), null);
-  assert.deepEqual(
-    parseUserPantryCache(JSON.stringify([rice, { ...rice, id: "other-rice" }])),
-    [rice, { ...rice, id: "other-rice" }],
-  );
-});
-
 test("one invalid cached item invalidates the provisional cache", () => {
   const mixed = [
     {
@@ -367,6 +322,9 @@ test("App swaps guest state for only the current user's provisional cache", () =
 
 
 test("provisional inventory stays read-only and non-authoritative in the UI", () => {
+  // Authenticated provisional stock remains blocked; guest quarantine
+  // additionally requires explicit human review before derived claims.
+  assert.match(appSource, /const pantryDerivedDataProvisional\s*=\s*inventoryIsProvisional \|\| guestPantryReviewPending \|\| guestShoppingConsistencyProblem/);
   assert.match(
     appSource,
     /const requireAuthoritativeInventory = \(\) => \{[\s\S]*if \(!inventoryIsProvisional\) return true;/
@@ -395,7 +353,7 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
 
   assert.match(
     appSource,
-    /shoppingUrgencyLevel=\{[\s\S]*inventoryIsProvisional \? undefined : shoppingDiagnostic\.urgencyLevel/
+    /shoppingUrgencyLevel=\{[\s\S]*pantryDerivedDataProvisional \? undefined : shoppingDiagnostic\.urgencyLevel/
   );
   assert.match(
     appSource,
@@ -403,7 +361,7 @@ test("provisional inventory stays read-only and non-authoritative in the UI", ()
   );
   assert.match(
     appSource,
-    /\{!inventoryIsProvisional && \(\s*<SmartShoppingBanner/
+    /\{!pantryDerivedDataProvisional && \(\s*<SmartShoppingBanner/
   );
 
   assert.match(
@@ -489,7 +447,7 @@ test("auth transitions clear cloud-backed workspace before the next account hydr
 test("guest workspace storage is not overwritten by a signed-in account", () => {
   assert.match(
     appSource,
-    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest"\) return;[\s\S]*localStorage\.setItem\("balkanbite_recipes"/
+    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest" \|\|\s*guestJournalRecoveryStatus !== "clear"\) return;\s*if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const serialized = JSON\.stringify\(recipes\);\s*localStorage\.setItem\("balkanbite_recipes", serialized\)/
   );
   assert.match(
     appSource,
@@ -498,6 +456,10 @@ test("guest workspace storage is not overwritten by a signed-in account", () => 
   assert.match(
     appSource,
     /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest"\) return;[\s\S]*"balkanbite_chat_messages"/
+  );
+  assert.match(
+    appSource,
+    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest" \|\|\s*guestJournalRecoveryStatus !== "clear"\) return;\s*if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const serialized = JSON\.stringify\(mealPlan\);\s*localStorage\.setItem\("balkanbite_mealplan", serialized\)/
   );
   assert.doesNotMatch(appSource, /getUserLocalWorkspaceKey/);
 });
@@ -553,4 +515,65 @@ test("manual and batch pantry additions revalidate required fields at the App bo
       batch.indexOf("items.map"),
     "batch validation must happen before authoritative pantry rows are created",
   );
+});
+
+test("provisional signed-in cache rejects incomplete fields without inventing replacements", () => {
+  const valid = {
+    id: "owner-rice-1",
+    name: "Rice",
+    quantity: 1,
+    unit: "kg",
+    category: "Pantry/Grains",
+    addedAt: "2026-10-15",
+  };
+  assert.deepEqual(parseUserPantryCache(JSON.stringify([valid])), [valid]);
+
+  for (const invalid of [
+    { ...valid, category: undefined },
+    { ...valid, category: "MadeUp" },
+    { ...valid, addedAt: undefined },
+    { ...valid, addedAt: "" },
+    { ...valid, id: " " },
+    { ...valid, id: "unbounded-" + "x".repeat(301) },
+  ]) {
+    assert.equal(parseUserPantryCache(JSON.stringify([invalid])), null);
+  }
+  assert.equal(parseUserPantryCache(JSON.stringify([[valid]])), null);
+  // A mixed list is wholly provisional/unknown; never silently trim rows
+  // and pretend the remainder is the full remote inventory.
+  assert.equal(parseUserPantryCache(JSON.stringify([valid, { id: "incomplete" }])), null);
+});
+
+test("duplicate logical identities invalidate an owner-scoped provisional pantry cache", () => {
+  const rice = {
+    id: "logical-rice",
+    name: "Rice",
+    quantity: 1,
+    unit: "kg",
+    category: "Pantry/Grains",
+    addedAt: "2026-10-15",
+  };
+  const sameIdDifferentStock = { ...rice, quantity: 3, name: "Rice variant" };
+  assert.equal(parseUserPantryCache(JSON.stringify([rice, { ...rice }])), null);
+  assert.equal(parseUserPantryCache(JSON.stringify([rice, sameIdDifferentStock])), null);
+  assert.deepEqual(
+    parseUserPantryCache(JSON.stringify([rice, { ...rice, id: "other-rice" }])),
+    [rice, { ...rice, id: "other-rice" }],
+  );
+});
+
+
+test("independent guest derived readback failures remain fail-closed even if shopping later succeeds", () => {
+  assert.match(appSource, /const guestShoppingConsistencyProblem\s*=\s*guestDerivedShoppingRecoveryProblem \|\| guestDerivedStorageWriteFailed/);
+  for (const key of ["balkanbite_recipes", "balkanbite_mealplan", "balkanbite_progression"]) {
+    const writer = appSource.indexOf(`localStorage.setItem("${key}", serialized)`);
+    assert.ok(writer >= 0, `${key} must have explicit guest storage write`);
+    const context = appSource.slice(writer, writer + 450);
+    assert.match(context, new RegExp(`localStorage\\.getItem\\("${key}"\\) !== serialized`));
+    assert.match(context, /setGuestDerivedStorageWriteFailed\(true\)/);
+  }
+  assert.match(appSource, /guestShoppingReviewRequired\s*&&\s*\(/);
+  assert.match(appSource, /if \(!currentUser && guestShoppingReviewRequired\)/);
+  assert.doesNotMatch(appSource, /setGuestDerivedStorageWriteFailed\(false\)/,
+    "only explicit rehydration/recovery may clear unrelated failures, never shopping success");
 });
