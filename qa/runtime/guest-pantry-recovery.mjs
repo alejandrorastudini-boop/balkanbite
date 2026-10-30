@@ -2315,6 +2315,90 @@ async function runTwoTabStaleShoppingAdd() {
   }
 }
 
+async function runTwoTabExternalStorageClearBlocksGuestFacts() {
+  // Deliberately destroy ONLY synthetic fixture bytes in an isolated local
+  // browser context. A global clear event has event.key === null, unlike
+  // per-key pantry/shopping mutations; the other tab must not resurrect data.
+  const SHOPPING = "balkanbite_shopping";
+  const original = { id: "qa-clear-signal-salt", name: "QA Salt",
+    quantity: 1, unit: "kg", category: "", checked: false,
+    amountOrigin: "user_entered", purchaseAmountConfirmed: false };
+  const context = await browser.newContext();
+  const pages = [];
+  try {
+    await context.addInitScript(({ MAIN, valid, SHOPPING, original }) => {
+      if (localStorage.getItem("__qa_clear_signal_seeded") !== null) return;
+      localStorage.setItem("__qa_clear_signal_seeded", "yes");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile",
+        JSON.stringify({ language: "en", onboardingCompleted: true }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem(SHOPPING, JSON.stringify([original]));
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
+    }, { MAIN, valid, SHOPPING, original });
+    for (let i = 0; i < 2; i++) {
+      const page = await context.newPage();
+      pages.push(page);
+      page.on("dialog", dialog => dialog.dismiss());
+      await page.goto(new URL("/", base).toString(), {
+        waitUntil: "domcontentloaded", timeout: 30000,
+      });
+      await page.locator("#nav-tab-pantry").click();
+      await page.locator(`#pantry-item-${valid.id}`)
+        .waitFor({ state: "visible", timeout: 12000 });
+    }
+    const [clearingTab, staleTab] = pages;
+    const saved = await staleTab.evaluate(({ MAIN, SHOPPING }) => ({
+      pantry: localStorage.getItem(MAIN),
+      shopping: localStorage.getItem(SHOPPING),
+    }), { MAIN, SHOPPING });
+    assert.equal(JSON.parse(saved.pantry)[0].quantity, valid.quantity);
+    assert.deepEqual(JSON.parse(saved.shopping), [original]);
+    await clearingTab.evaluate(() => localStorage.clear());
+    await staleTab.getByTestId("guest-pantry-cross-tab-warning")
+      .waitFor({ state: "visible", timeout: 12000 });
+    await staleTab.getByTestId("guest-shopping-consistency-warning")
+      .waitFor({ state: "visible", timeout: 12000 });
+    assert.match(await staleTab.getByTestId("guest-pantry-cross-tab-warning")
+      .textContent() || "", /Another tab changed the pantry/);
+    assert.match(await staleTab.getByTestId("guest-shopping-consistency-warning")
+      .textContent() || "", /Another tab changed the shopping list/);
+    // The stale React row remains visible for review; it is NOT proof that
+    // the now absent underlying data was kept or may be silently restored.
+    await staleTab.locator(`#pantry-item-${valid.id}`)
+      .waitFor({ state: "visible" });
+    const afterClear = await staleTab.evaluate(({ MAIN, SHOPPING }) => ({
+      pantry: localStorage.getItem(MAIN),
+      shopping: localStorage.getItem(SHOPPING),
+    }), { MAIN, SHOPPING });
+    assert.deepEqual(afterClear, { pantry: null, shopping: null },
+      "clear must not be hidden by automatic guest cache rehydration");
+    await staleTab.locator(`#pantry-item-${valid.id}`)
+      .getByRole("button", { name: "Increase quantity" }).click();
+    await staleTab.locator("#nav-tab-shopping").click();
+    await staleTab.locator("#manual-shopping-open").click();
+    await staleTab.locator("#manual-shopping-name").fill("QA Beans");
+    await staleTab.locator("#manual-shopping-quantity").fill("500");
+    await staleTab.locator("#manual-shopping-unit").selectOption("g");
+    await staleTab.locator("#manual-shopping-submit").click();
+    await staleTab.getByRole("alert").getByText(/The item was not saved/)
+      .waitFor({ state: "visible", timeout: 12000 });
+    assert.equal(await staleTab.locator("#manual-shopping-name").inputValue(), "QA Beans");
+    const afterRejectedEdits = await staleTab.evaluate(({ MAIN, SHOPPING }) => ({
+      pantry: localStorage.getItem(MAIN),
+      shopping: localStorage.getItem(SHOPPING),
+    }), { MAIN, SHOPPING });
+    assert.deepEqual(afterRejectedEdits, { pantry: null, shopping: null },
+      "stale guest actions may not resurrect keys cleared in another tab");
+    evidence.checks.push("guest-cross-tab-global-storage-clear-warns-and-blocks-resurrection");
+  } finally {
+    await Promise.all(pages.map(page => page.close().catch(() => {})));
+    await context.close();
+  }
+}
+
 async function runTwoTabStaleInventory() {
   const context = await browser.newContext();
   const pages = [];
@@ -2850,6 +2934,7 @@ try {
   await runChefWorkspaceFacts();
   await runTwoTabVoicePurchaseRecovery();
   await runTwoTabStaleInventory();
+  await runTwoTabExternalStorageClearBlocksGuestFacts();
   await runTwoTabStaleShoppingAdd();
   await runTwoTabStaleShoppingDestructiveMutations();
   await runLateGuestJournalPreventsLegacyWrite("legacy-pantry");

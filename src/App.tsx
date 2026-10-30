@@ -384,6 +384,12 @@ export default function App() {
   useEffect(() => {
     if (isResetting || firebaseLoading || currentUser || workspaceScope !== "guest") return;
     const onGuestShoppingStorageChanged = (event: StorageEvent) => {
+      // Storage.clear() in another tab has key === null: which keys were
+      // removed is unknowable, so fail closed rather than trust stale rows.
+      if (event.storageArea === localStorage && event.key === null) {
+        setGuestCrossTabShoppingStale(true);
+        return;
+      }
       if (event.storageArea !== localStorage || event.key !== "balkanbite_shopping") return;
       // storage events are only emitted in OTHER documents, not the writing
       // tab. A different complete source makes the current view provisional,
@@ -399,6 +405,12 @@ export default function App() {
   useEffect(() => {
     if (isResetting || firebaseLoading || currentUser || workspaceScope !== "guest") return;
     const onGuestPantryStorageChanged = (event: StorageEvent) => {
+      // Other-tab localStorage.clear() has a null key. It may have removed
+      // pantry, including unknown original stock, without a per-key event.
+      if (event.storageArea === localStorage && event.key === null) {
+        setGuestCrossTabPantryStale(true);
+        return;
+      }
       if (event.storageArea !== localStorage || event.key !== GUEST_PANTRY_KEY) return;
       // Events originate from OTHER documents; never silently merge or apply
       // their stock to an older React snapshot, even when the source is valid.
