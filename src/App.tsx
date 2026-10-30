@@ -1173,6 +1173,14 @@ export default function App() {
         : "Another tab changed the pantry. Reload before saving.");
       return false;
     }
+    if (guestCrossTabDerivedStale) {
+      alert(profile.language === "bg"
+        ? "Друга вкладка промени рецепти, меню или записи за консумация. Презаредете, преди да променяте наличностите."
+        : profile.language === "es"
+        ? "Otra pestaña modificó recetas, menú o registros de consumo. Recarga antes de editar la despensa."
+        : "Another tab changed recipes, the meal plan or consumption records. Reload before editing pantry stock.");
+      return false;
+    }
     if (blockLegacyGuestWriteForPendingJournal()) {
       alert(profile.language === "bg"
         ? "Има незавършена локална операция. Презаредете и прегледайте данните, преди да промените наличностите."
