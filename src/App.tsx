@@ -164,6 +164,9 @@ export default function App() {
   // React snapshot. Never clear this warning from an unrelated successful
   // write: the user must reload and review the newer source.
   const [guestCrossTabShoppingStale, setGuestCrossTabShoppingStale] = useState(false);
+  // A second guest tab can change actual stock while this one still displays
+  // older quantities. Quarantine pantry-derived actions until explicit reload.
+  const [guestCrossTabPantryStale, setGuestCrossTabPantryStale] = useState(false);
   // A different tab's shopping edit must not invalidate independently
   // verified pantry/menu facts. It only blocks shopping-derived writes and
   // reads until rehydration, while true multi-key persistence failures keep
@@ -392,6 +395,18 @@ export default function App() {
     window.addEventListener("storage", onGuestShoppingStorageChanged);
     return () => window.removeEventListener("storage", onGuestShoppingStorageChanged);
   }, [currentUser, firebaseLoading, workspaceScope, isResetting, shoppingList]);
+
+  useEffect(() => {
+    if (isResetting || firebaseLoading || currentUser || workspaceScope !== "guest") return;
+    const onGuestPantryStorageChanged = (event: StorageEvent) => {
+      if (event.storageArea !== localStorage || event.key !== GUEST_PANTRY_KEY) return;
+      // Events originate from OTHER documents; never silently merge or apply
+      // their stock to an older React snapshot, even when the source is valid.
+      if (event.newValue !== event.oldValue) setGuestCrossTabPantryStale(true);
+    };
+    window.addEventListener("storage", onGuestPantryStorageChanged);
+    return () => window.removeEventListener("storage", onGuestPantryStorageChanged);
+  }, [currentUser, firebaseLoading, workspaceScope, isResetting]);
 
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     try {
@@ -949,12 +964,20 @@ export default function App() {
   };
 
   const guestPantryReviewPending = !currentUser &&
-    (guestJournalRecoveryStatus !== "clear" || guestPantryRecovery === "blocked" ||
+    (guestCrossTabPantryStale || guestJournalRecoveryStatus !== "clear" || guestPantryRecovery === "blocked" ||
       (guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged));
   const pantryDerivedDataProvisional =
     inventoryIsProvisional || guestPantryReviewPending || guestShoppingConsistencyProblem;
 
   const requireAuthoritativeInventory = () => {
+    if (!currentUser && guestCrossTabPantryStale) {
+      alert(profile.language === "bg"
+        ? "Друга вкладка промени наличностите. Този изглед е остарял. Презаредете и прегледайте данните, преди да продължите."
+        : profile.language === "es"
+        ? "Otra pestaña ha modificado la despensa. Esta vista está desactualizada. Recarga y revisa los datos antes de continuar."
+        : "Another tab changed the pantry. This view is outdated. Reload and review the data before continuing.");
+      return false;
+    }
     // Another guest tab may have staged a WAL after this tab hydrated.
     // Never launch pantry-derived commands from a stale "clear" React flag.
     if (!currentUser && blockLegacyGuestWriteForPendingJournal()) {
@@ -1099,6 +1122,14 @@ export default function App() {
     { reconcile = true, showToast = true }: { reconcile?: boolean; showToast?: boolean } = {},
   ): boolean => {
     if (currentUser || pantryScope !== "guest") return false;
+    if (guestCrossTabPantryStale) {
+      alert(profile.language === "bg"
+        ? "Друга вкладка промени наличностите. Презаредете, преди да записвате."
+        : profile.language === "es"
+        ? "Otra pestaña modificó la despensa. Recarga antes de guardar."
+        : "Another tab changed the pantry. Reload before saving.");
+      return false;
+    }
     if (blockLegacyGuestWriteForPendingJournal()) {
       alert(profile.language === "bg"
         ? "Има незавършена локална операция. Презаредете и прегледайте данните, преди да промените наличностите."
@@ -1728,7 +1759,7 @@ export default function App() {
    */
   const tryJournalGuestQuantityEdit = (updatedPantry: PantryItem[]): "ineligible" | "saved" | "blocked" => {
     if (guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
-        guestShoppingReviewRequired || workspaceScope !== "guest") return "ineligible";
+        guestCrossTabPantryStale || guestShoppingReviewRequired || workspaceScope !== "guest") return "ineligible";
     try {
       const rawRecipes = localStorage.getItem("balkanbite_recipes");
       const rawPlan = localStorage.getItem("balkanbite_mealplan");
@@ -1950,7 +1981,7 @@ export default function App() {
     nextPantry: PantryItem[],
   ): "saved" | "already-applied" | "blocked" | "ineligible" => {
     if (guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
-        guestShoppingReviewRequired || workspaceScope !== "guest") return "ineligible";
+        guestCrossTabPantryStale || guestShoppingReviewRequired || workspaceScope !== "guest") return "ineligible";
 
     try {
       const rawRecipes = localStorage.getItem("balkanbite_recipes");
@@ -2526,7 +2557,7 @@ export default function App() {
     acquiredAt: string,
   ): "saved" | "blocked" | "ineligible" => {
     if (guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
-        guestShoppingReviewRequired || workspaceScope !== "guest" ||
+        guestCrossTabPantryStale || guestShoppingReviewRequired || workspaceScope !== "guest" ||
         preview.rejected.length > 0 || preview.newlyAppliedSourceIds.length === 0 ||
         preview.newlyAppliedSourceIds.length !== preview.acceptedSourceIds.length) return "ineligible";
 
@@ -3234,7 +3265,7 @@ export default function App() {
     }
     if (pantryScope !== "guest" || workspaceScope !== "guest" ||
         guestPantryRecovery !== "none" || guestJournalRecoveryStatus !== "clear" ||
-        guestShoppingConsistencyProblem) return null;
+        guestCrossTabPantryStale || guestShoppingConsistencyProblem) return null;
     try {
       if (hasPendingGuestMutationJournal(localStorage)) return null;
       const inspected = inspectGuestPantry(localStorage.getItem(GUEST_PANTRY_KEY));
@@ -3521,6 +3552,16 @@ export default function App() {
               : profile.language === "es"
               ? "Hay una operación local sin finalizar. Los cambios de despensa y compras están bloqueados hasta recuperar o revisar los datos."
               : "An unfinished local operation needs recovery. Pantry and shopping edits are blocked until it is safely resolved."}
+          </section>
+        )}
+        {!currentUser && guestCrossTabPantryStale && (
+          <section role="alert" data-testid="guest-pantry-cross-tab-warning"
+            className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+            {profile.language === "bg"
+              ? "Друга вкладка промени наличностите. Този изглед може да е остарял. Презаредете и прегледайте запазените количества, преди да продължите."
+              : profile.language === "es"
+              ? "Otra pestaña ha modificado la despensa. Esta vista puede estar desactualizada. Recarga y revisa las cantidades guardadas antes de continuar."
+              : "Another tab changed the pantry. This view may be outdated. Reload and review saved quantities before continuing."}
           </section>
         )}
         {!currentUser && guestShoppingReviewRequired && (

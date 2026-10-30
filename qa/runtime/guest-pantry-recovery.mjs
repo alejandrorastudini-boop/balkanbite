@@ -2350,13 +2350,22 @@ async function runTwoTabStaleInventory() {
       return rows.length === 1 && rows[0].id === id && rows[0].quantity === 550;
     }, { MAIN, id: valid.id });
 
+    // Warn BEFORE the stale user edits, not only after a failed write.
+    const externalWarning = stale.getByTestId("guest-pantry-cross-tab-warning");
+    await externalWarning.waitFor({ state: "visible", timeout: 12000 });
+    assert.match(await externalWarning.textContent() || "", /Another tab changed the pantry/);
+    assert.equal(await stale.locator(`#pantry-item-${valid.id}`)
+      .getByText("500", { exact: false }).count() > 0, true,
+      "the stale tab must not silently replace the displayed quantity");
+    const freshRaw = await stale.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
+    assert.equal(JSON.parse(freshRaw)[0].quantity, 550);
     // The second tab loaded 500g, so overwriting 550g must fail closed.
     await increment(stale).click();
     // Both the original single-key guard and the new journal preflight reject
     // stale second-tab stock. They surface different but explicit UI warnings.
     await stale.locator(
-      '[data-testid="guest-pantry-recovery"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
-    ).filter({ hasText: /could not be protected|not safely synchronized|unfinished local operation|pantry and shopping consistency could not be confirmed/i })
+      '[data-testid="guest-pantry-recovery"], [data-testid="guest-pantry-cross-tab-warning"], [data-testid="guest-shopping-consistency-warning"], [data-testid="guest-journal-recovery-warning"]',
+    ).filter({ hasText: /Another tab changed the pantry|could not be protected|not safely synchronized|unfinished local operation|pantry and shopping consistency could not be confirmed/i })
       .first().waitFor({ state: "visible", timeout: 12000 });
     const originalAfterStaleWrite = await stale.evaluate(MAIN =>
       localStorage.getItem(MAIN), MAIN);
@@ -2372,7 +2381,7 @@ async function runTwoTabStaleInventory() {
       const rows = JSON.parse(localStorage.getItem(MAIN) || "[]");
       return rows.length === 1 && rows[0].id === id && rows[0].quantity === 600;
     }, { MAIN, id: valid.id });
-    evidence.checks.push("stale-second-tab-cannot-overwrite-newer-stock");
+    evidence.checks.push("stale-second-tab-proactive-pantry-warning-and-no-overwrite");
   } finally {
     await Promise.all(pages.map(page => page.close().catch(() => {})));
     await context.close();
