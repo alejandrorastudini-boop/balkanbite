@@ -131,6 +131,7 @@ import { commitVerifiedGuestShoppingToggle } from "./utils/guestShoppingToggleCo
 import { commitVerifiedGuestShoppingAdd, commitVerifiedGuestShoppingBatch } from "./utils/guestShoppingAddCommit";
 import { commitVerifiedGuestShoppingDelete, commitVerifiedGuestShoppingClear } from "./utils/guestShoppingDeleteCommit";
 import { localCalendarDate, shouldMarkExpiryPartialAfterQuantityIncrease } from "./utils/effectiveExpiry";
+import { commitVerifiedGuestMealLog, isGuestMealLogSnapshotVerified } from "./utils/guestMealLogCommit";
 import { isExpectedInventoryResultVisible } from "./utils/expectedInventoryResult";
 import {
   getFoodSafetyQuarantine,
@@ -171,6 +172,9 @@ export default function App() {
   // another tab invalidate this document's derived food/cooking authority;
   // never quietly replay an older React snapshot over the newer bytes.
   const [guestCrossTabDerivedStale, setGuestCrossTabDerivedStale] = useState(false);
+  // Meal history may contain unknown historical rows. Never overwrite them
+  // with a filtered React view or acknowledge a log before storage readback.
+  const [guestMealLogReviewRequired, setGuestMealLogReviewRequired] = useState(false);
   // A different tab's shopping edit must not invalidate independently
   // verified pantry/menu facts. It only blocks shopping-derived writes and
   // reads until rehydration, while true multi-key persistence failures keep
@@ -437,6 +441,18 @@ export default function App() {
     };
     window.addEventListener("storage", onGuestDerivedStorageChanged);
     return () => window.removeEventListener("storage", onGuestDerivedStorageChanged);
+  }, [isResetting, firebaseLoading, currentUser, workspaceScope]);
+
+  useEffect(() => {
+    if (isResetting || firebaseLoading || currentUser || workspaceScope !== "guest") return;
+    const onExternalMealLogChanged = (event: StorageEvent) => {
+      if (event.storageArea === localStorage &&
+          (event.key === null || event.key === "balkanbite_meallogs")) {
+        setGuestMealLogReviewRequired(true);
+      }
+    };
+    window.addEventListener("storage", onExternalMealLogChanged);
+    return () => window.removeEventListener("storage", onExternalMealLogChanged);
   }, [isResetting, firebaseLoading, currentUser, workspaceScope]);
 
   const [theme, setTheme] = useState<"dark" | "light">(() => {
@@ -941,13 +957,15 @@ export default function App() {
       guestCrossTabDerivedStale]);
 
   useEffect(() => {
-    if (isResetting || currentUser || workspaceScope !== "guest") return;
-    try {
-      localStorage.setItem("balkanbite_meallogs", JSON.stringify(mealLogs));
-    } catch (e) {
-      console.warn("localStorage write error", e);
+    if (isResetting || currentUser || workspaceScope !== "guest" ||
+        guestMealLogReviewRequired) return;
+    // History is now persisted synchronously at the explicit log action.
+    // Only audit hydration here: a legacy malformed row must never be
+    // silently removed by an asynchronous React persistence effect.
+    if (!isGuestMealLogSnapshotVerified(localStorage, mealLogs)) {
+      setGuestMealLogReviewRequired(true);
     }
-  }, [mealLogs, currentUser, workspaceScope, isResetting]);
+  }, [mealLogs, currentUser, workspaceScope, isResetting, guestMealLogReviewRequired]);
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest") return;
@@ -2938,7 +2956,15 @@ export default function App() {
       return false;
     }
     if (!currentUser) {
-      setMealLogs((prev) => [...prev, newLog]);
+      if (workspaceScope !== "guest" || guestMealLogReviewRequired) return false;
+      const commit = commitVerifiedGuestMealLog(localStorage, mealLogs, newLog);
+      if (!commit.saved) {
+        setGuestMealLogReviewRequired(true);
+        console.warn("Guest meal history could not be confirmed:",
+          "reason" in commit ? commit.reason : "storage-unavailable");
+        return false;
+      }
+      setMealLogs(commit.next);
       return true;
     }
     const result = await submitMealLog(newLog);
@@ -3603,6 +3629,16 @@ export default function App() {
               : profile.language === "es"
               ? "Hay una operación local sin finalizar. Los cambios de despensa y compras están bloqueados hasta recuperar o revisar los datos."
               : "An unfinished local operation needs recovery. Pantry and shopping edits are blocked until it is safely resolved."}
+          </section>
+        )}
+        {!currentUser && guestMealLogReviewRequired && (
+          <section role="alert" data-testid="guest-meal-log-review-warning"
+            className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+            {profile.language === "bg"
+              ? "Не успяхме да потвърдим историята на храненията. Новите записи са спрени, докато не прегледате локалните данни и не презаредите."
+              : profile.language === "es"
+              ? "No se pudo confirmar el historial de comidas. Los nuevos registros están bloqueados hasta revisar los datos locales y recargar."
+              : "Meal history could not be confirmed. New entries are blocked until you review local data and reload."}
           </section>
         )}
         {!currentUser && guestCrossTabDerivedStale && (
