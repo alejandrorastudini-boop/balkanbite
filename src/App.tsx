@@ -405,7 +405,7 @@ export default function App() {
   useEffect(() => {
     if (isResetting || firebaseLoading || currentUser || workspaceScope !== "guest") return;
     const onGuestPantryStorageChanged = (event: StorageEvent) => {
-      // Other-tab localStorage.clear() has a null key. It may have removed
+      // An external bulk-clear storage event has a null key. It may have removed
       // pantry, including unknown original stock, without a per-key event.
       if (event.storageArea === localStorage && event.key === null) {
         setGuestCrossTabPantryStale(true);
