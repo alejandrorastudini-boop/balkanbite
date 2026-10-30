@@ -167,6 +167,10 @@ export default function App() {
   // A second guest tab can change actual stock while this one still displays
   // older quantities. Quarantine pantry-derived actions until explicit reload.
   const [guestCrossTabPantryStale, setGuestCrossTabPantryStale] = useState(false);
+  // Recipes, menu and progression are separate guest keys. Changes made by
+  // another tab invalidate this document's derived food/cooking authority;
+  // never quietly replay an older React snapshot over the newer bytes.
+  const [guestCrossTabDerivedStale, setGuestCrossTabDerivedStale] = useState(false);
   // A different tab's shopping edit must not invalidate independently
   // verified pantry/menu facts. It only blocks shopping-derived writes and
   // reads until rehydration, while true multi-key persistence failures keep
@@ -419,6 +423,21 @@ export default function App() {
     window.addEventListener("storage", onGuestPantryStorageChanged);
     return () => window.removeEventListener("storage", onGuestPantryStorageChanged);
   }, [currentUser, firebaseLoading, workspaceScope, isResetting]);
+
+  useEffect(() => {
+    if (isResetting || firebaseLoading || currentUser || workspaceScope !== "guest") return;
+    const onGuestDerivedStorageChanged = (event: StorageEvent) => {
+      if (event.storageArea !== localStorage) return;
+      // localStorage.clear() emits only a null key, not individual events.
+      if (event.key === null ||
+          (["balkanbite_recipes", "balkanbite_mealplan", "balkanbite_progression"]
+            .includes(event.key) && event.newValue !== event.oldValue)) {
+        setGuestCrossTabDerivedStale(true);
+      }
+    };
+    window.addEventListener("storage", onGuestDerivedStorageChanged);
+    return () => window.removeEventListener("storage", onGuestDerivedStorageChanged);
+  }, [isResetting, firebaseLoading, currentUser, workspaceScope]);
 
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     try {
@@ -787,7 +806,7 @@ export default function App() {
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
-        guestJournalRecoveryStatus !== "clear") return;
+        guestJournalRecoveryStatus !== "clear" || guestCrossTabDerivedStale) return;
     if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
       const serialized = JSON.stringify(recipes);
@@ -800,11 +819,13 @@ export default function App() {
       setGuestDerivedStorageWriteFailed(true);
       console.warn("Guest recipes persistence failed", e);
     }
-  }, [recipes, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus]);
+  }, [recipes, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus,
+      guestCrossTabDerivedStale]);
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
-        guestJournalRecoveryStatus !== "clear" || guestCrossTabShoppingStale) return;
+        guestJournalRecoveryStatus !== "clear" || guestCrossTabShoppingStale ||
+        guestCrossTabDerivedStale) return;
     if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
       const existingRaw = localStorage.getItem("balkanbite_shopping");
@@ -828,13 +849,13 @@ export default function App() {
       console.warn("Guest shopping persistence failed", e);
     }
   }, [shoppingList, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus,
-      guestCrossTabShoppingStale]);
+      guestCrossTabShoppingStale, guestCrossTabDerivedStale]);
 
   useEffect(() => {
     if (isResetting || firebaseLoading || currentUser ||
         pantryScope !== "guest" || workspaceScope !== "guest" ||
         guestJournalRecoveryStatus !== "clear" || guestPantryRecovery !== "none" ||
-        guestCrossTabShoppingStale) return;
+        guestCrossTabShoppingStale || guestCrossTabDerivedStale) return;
 
     // Reconcile only app-managed shortages from completely valid stored
     // sources. This repairs an interrupted derived write after a reload,
@@ -850,7 +871,7 @@ export default function App() {
   }, [
     isResetting, firebaseLoading, currentUser, pantryScope, workspaceScope,
     guestPantryRecovery, guestJournalRecoveryStatus, profile.language,
-    guestCrossTabShoppingStale,
+    guestCrossTabShoppingStale, guestCrossTabDerivedStale,
   ]);
 
   useEffect(() => {
@@ -903,7 +924,7 @@ export default function App() {
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
-        guestJournalRecoveryStatus !== "clear") return;
+        guestJournalRecoveryStatus !== "clear" || guestCrossTabDerivedStale) return;
     if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
       const serialized = JSON.stringify(mealPlan);
@@ -916,7 +937,8 @@ export default function App() {
       setGuestDerivedStorageWriteFailed(true);
       console.warn("Guest meal-plan persistence failed", e);
     }
-  }, [mealPlan, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus]);
+  }, [mealPlan, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus,
+      guestCrossTabDerivedStale]);
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest") return;
@@ -941,7 +963,7 @@ export default function App() {
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
-        guestJournalRecoveryStatus !== "clear") return;
+        guestJournalRecoveryStatus !== "clear" || guestCrossTabDerivedStale) return;
     if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
       const serialized = JSON.stringify(progressionLedger);
@@ -954,7 +976,8 @@ export default function App() {
       setGuestDerivedStorageWriteFailed(true);
       console.warn("Guest progression persistence failed", e);
     }
-  }, [progressionLedger, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus]);
+  }, [progressionLedger, currentUser, workspaceScope, isResetting, guestJournalRecoveryStatus,
+      guestCrossTabDerivedStale]);
 
   const appendLocalProgressionEvents = (events: readonly unknown[]) => {
     if (events.length === 0) return;
@@ -976,12 +999,20 @@ export default function App() {
   };
 
   const guestPantryReviewPending = !currentUser &&
-    (guestCrossTabPantryStale || guestJournalRecoveryStatus !== "clear" || guestPantryRecovery === "blocked" ||
+    (guestCrossTabPantryStale || guestCrossTabDerivedStale || guestJournalRecoveryStatus !== "clear" || guestPantryRecovery === "blocked" ||
       (guestPantryRecovery === "available" && !guestPantryRecoveryAcknowledged));
   const pantryDerivedDataProvisional =
     inventoryIsProvisional || guestPantryReviewPending || guestShoppingConsistencyProblem;
 
   const requireAuthoritativeInventory = () => {
+    if (!currentUser && guestCrossTabDerivedStale) {
+      alert(profile.language === "bg"
+        ? "Друга вкладка промени рецепти, меню или записи за консумация. Презаредете и прегледайте данните, преди да продължите."
+        : profile.language === "es"
+        ? "Otra pestaña ha modificado recetas, menú o registros de consumo. Recarga y revisa los datos antes de continuar."
+        : "Another tab changed recipes, the meal plan or consumption records. Reload and review saved data before continuing.");
+      return false;
+    }
     if (!currentUser && guestCrossTabPantryStale) {
       alert(profile.language === "bg"
         ? "Друга вкладка промени наличностите. Този изглед е остарял. Презаредете и прегледайте данните, преди да продължите."
@@ -3564,6 +3595,16 @@ export default function App() {
               : profile.language === "es"
               ? "Hay una operación local sin finalizar. Los cambios de despensa y compras están bloqueados hasta recuperar o revisar los datos."
               : "An unfinished local operation needs recovery. Pantry and shopping edits are blocked until it is safely resolved."}
+          </section>
+        )}
+        {!currentUser && guestCrossTabDerivedStale && (
+          <section role="alert" data-testid="guest-derived-cross-tab-warning"
+            className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+            {profile.language === "bg"
+              ? "Друга вкладка промени рецепти, меню или записи за консумация. Този изглед може да е остарял. Презаредете и прегледайте данните."
+              : profile.language === "es"
+              ? "Otra pestaña ha modificado recetas, menú o registros de consumo. Esta vista puede estar desactualizada. Recarga y revisa los datos."
+              : "Another tab changed recipes, the meal plan or consumption records. This view may be outdated. Reload and review saved data."}
           </section>
         )}
         {!currentUser && guestCrossTabPantryStale && (
