@@ -8,8 +8,9 @@ const source = readFileSync(
 
 test("inventory listener rejects cache/pending state before hydration and UI replacement", () => {
   const listener = source.indexOf(
-    'onSnapshot(q, { includeMetadataChanges: collectionName === "inventory" }',
+    'const unsub = onSnapshot(q, {',
   );
+  assert.match(source.slice(listener, listener + 260), /includeMetadataChanges: collectionName === "inventory" \|\| readScoped/);
   const gate = source.indexOf("if (!serverConfirmed)", listener);
   const remoteEntries = source.indexOf("const remoteEntries = snapshot.docs", listener);
   const hydrated = source.indexOf("setInventoryHydratedUser(currentUser.uid)", listener);
@@ -23,8 +24,9 @@ test("inventory listener rejects cache/pending state before hydration and UI rep
 
 test("pending inventory cannot change last hydrated JSON or local pantry", () => {
   const listener = source.indexOf(
-    'onSnapshot(q, { includeMetadataChanges: collectionName === "inventory" }',
+    'const unsub = onSnapshot(q, {',
   );
+  assert.match(source.slice(listener, listener + 260), /includeMetadataChanges: collectionName === "inventory" \|\| readScoped/);
   const gate = source.indexOf("if (!serverConfirmed)", listener);
   const json = source.indexOf(
     "lastHydratedCollectionJson.current[collectionName] = remoteJson",

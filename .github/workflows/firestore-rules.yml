@@ -13,6 +13,12 @@ on:
       - "src/utils/inventoryClearFirestore.ts"
       - "src/utils/shoppingMutationFirestore.ts"
       - "src/utils/derivedShortageShoppingFirestore.ts"
+      # Read-only Chef answers rely on server metadata and user-scoped
+      # listeners. Changes to those gates must exercise the real SDK emulator.
+      - "src/utils/chefServerReadAuthority.ts"
+      - "src/utils/pantryEditIntentCapture.ts"
+      - "src/utils/progressionFirestore.ts"
+      - "src/hooks/useFirebaseSync.ts"
       - ".github/workflows/firestore-rules.yml"
       - ".github/workflows/firestore-release.yml"
       - "qa/security/firestore-release-core.mjs"
@@ -60,4 +66,4 @@ jobs:
           --only firestore
           --project demo-balkanbite-rules
           --config firebase.json
-          "node qa/security/firestore-rules-emulator.mjs && node --import tsx qa/security/cook-journal-transaction-emulator.mjs && node --import tsx qa/security/inventory-adjustment-emulator.mjs && node --import tsx qa/security/inventory-creation-emulator.mjs && node --import tsx qa/security/voice-consumption-emulator.mjs && node --import tsx qa/security/purchase-pantry-emulator.mjs && node --import tsx qa/security/inventory-clear-emulator.mjs && node --import tsx qa/security/shopping-mutation-emulator.mjs"
+          "node qa/security/firestore-rules-emulator.mjs && node --import tsx qa/security/cook-journal-transaction-emulator.mjs && node --import tsx qa/security/inventory-adjustment-emulator.mjs && node --import tsx qa/security/inventory-creation-emulator.mjs && node --import tsx qa/security/voice-consumption-emulator.mjs && node --import tsx qa/security/purchase-pantry-emulator.mjs && node --import tsx qa/security/inventory-clear-emulator.mjs && node --import tsx qa/security/shopping-mutation-emulator.mjs && node --import tsx qa/security/chef-read-authority-emulator.mjs"

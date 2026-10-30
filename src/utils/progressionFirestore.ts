@@ -1,4 +1,5 @@
 import { collection, doc, Firestore, onSnapshot, runTransaction, serverTimestamp } from "firebase/firestore";
+import { deriveChefServerProgressRead, type ChefServerReadEvidence } from "./chefServerReadAuthority";
 import {
   isValidProgressionEvent,
   type ProgressionEventV1,
@@ -28,10 +29,23 @@ export function subscribeProgressionEvents(
   userId: string,
   onEvents: (events: ProgressionEventV1[]) => void,
   onError: (error: unknown) => void,
+  // Optional strict read evidence for Chef; the ordinary visible event list
+  // remains unchanged for existing callers, including historical invalid rows.
+  onReadEvidence?: (evidence: ChefServerReadEvidence | null) => void,
 ): () => void {
   return onSnapshot(
     collection(db, "users", userId, "progressionEvents"),
+    { includeMetadataChanges: true },
     snapshot => {
+      onReadEvidence?.(deriveChefServerProgressRead(
+        userId,
+        snapshot.metadata,
+        snapshot.docs.map(row => ({
+          documentId: row.id,
+          data: row.data(),
+          hasPendingWrites: row.metadata.hasPendingWrites,
+        })),
+      ));
       const events = snapshot.docs
         .flatMap(row => {
           const { userId: _userId, requestSignature: _requestSignature, createdAt: _createdAt, ...eventData } = row.data();
@@ -41,7 +55,10 @@ export function subscribeProgressionEvents(
         .sort((a, b) => a.occurredAt.localeCompare(b.occurredAt));
       onEvents(events);
     },
-    onError,
+    error => {
+      onReadEvidence?.(null);
+      onError(error);
+    },
   );
 }
 
