@@ -2315,6 +2315,71 @@ async function runTwoTabStaleShoppingAdd() {
   }
 }
 
+async function runTwoTabDerivedChangeBlocksGuestFacts() {
+  // A newer recipe, menu or consumption ledger in a different guest tab
+  // invalidates this tab's derived claims BEFORE a stale pantry edit.
+  for (const DERIVED of ["balkanbite_recipes", "balkanbite_mealplan", "balkanbite_progression"]) {
+    const context = await browser.newContext();
+    const pages = [];
+    try {
+      await context.addInitScript(({ MAIN, valid }) => {
+        if (localStorage.getItem("__qa_cross_tab_derived_initialized") !== null) return;
+        localStorage.setItem("__qa_cross_tab_derived_initialized", "yes");
+        localStorage.setItem("balkanbite_show_landing", "false");
+        localStorage.setItem("balkanbite_profile", JSON.stringify({
+          language: "en", onboardingCompleted: true,
+        }));
+        localStorage.setItem(MAIN, JSON.stringify([valid]));
+        localStorage.setItem("balkanbite_recipes", "[]");
+        localStorage.setItem("balkanbite_mealplan", "[]");
+        localStorage.setItem("balkanbite_progression", "[]");
+        localStorage.setItem("balkanbite_shopping", "[]");
+      }, { MAIN, valid });
+      for (let i = 0; i < 2; i++) {
+        const page = await context.newPage();
+        pages.push(page);
+        page.on("dialog", dialog => dialog.dismiss());
+        await page.goto(new URL("/", base).toString(), {
+          waitUntil: "domcontentloaded", timeout: 30000,
+        });
+        await page.locator("#nav-tab-pantry").click();
+        await page.locator(`#pantry-item-${valid.id}`)
+          .waitFor({ state: "visible", timeout: 12000 });
+      }
+      const [writer, stale] = pages;
+      const originalPantry = await stale.evaluate(MAIN => localStorage.getItem(MAIN), MAIN);
+      const priorDerived = await writer.evaluate(key => localStorage.getItem(key), DERIVED);
+      assert.equal(priorDerived, "[]");
+      // Valid JSON with different original bytes; no assumption that changed
+      // source content is semantically equivalent or safe to auto-merge.
+      const externalDerived = "[ ]";
+      await writer.evaluate(({ key, raw }) => localStorage.setItem(key, raw),
+        { key: DERIVED, raw: externalDerived });
+      const warning = stale.getByTestId("guest-derived-cross-tab-warning");
+      await warning.waitFor({ state: "visible", timeout: 12000 });
+      assert.match(await warning.textContent() || "",
+        /Another tab changed recipes, the meal plan or consumption records/);
+      assert.equal(await stale.evaluate(key => localStorage.getItem(key), DERIVED), externalDerived);
+      await stale.locator(`#pantry-item-${valid.id}`)
+        .getByRole("button", { name: "Increase quantity" }).click();
+      await stale.getByTestId("guest-derived-cross-tab-warning")
+        .waitFor({ state: "visible" });
+      assert.equal(await stale.evaluate(MAIN => localStorage.getItem(MAIN), MAIN), originalPantry,
+        `${DERIVED}: stale guest edit must not change verified pantry bytes`);
+      assert.equal(await stale.evaluate(key => localStorage.getItem(key), DERIVED), externalDerived,
+        `${DERIVED}: stale tab must not overwrite new derived source`);
+      await stale.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+      await stale.locator("#nav-tab-pantry").click();
+      assert.equal(await stale.getByTestId("guest-derived-cross-tab-warning").count(), 0,
+        "reload is the explicit boundary for reviewing stored source");
+      evidence.checks.push(`guest-cross-tab-${DERIVED}-source-change-warns-blocks-edit-reloads`);
+    } finally {
+      await Promise.all(pages.map(page => page.close().catch(() => {})));
+      await context.close();
+    }
+  }
+}
+
 async function runTwoTabExternalStorageClearBlocksGuestFacts() {
   // Deliberately destroy ONLY synthetic fixture bytes in an isolated local
   // browser context. A global clear event has event.key === null, unlike
@@ -2934,6 +2999,7 @@ try {
   await runChefWorkspaceFacts();
   await runTwoTabVoicePurchaseRecovery();
   await runTwoTabStaleInventory();
+  await runTwoTabDerivedChangeBlocksGuestFacts();
   await runTwoTabExternalStorageClearBlocksGuestFacts();
   await runTwoTabStaleShoppingAdd();
   await runTwoTabStaleShoppingDestructiveMutations();
