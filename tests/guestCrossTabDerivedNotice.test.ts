@@ -25,6 +25,7 @@ test("derived writes and recovery never overwrite another tab's source", () => {
   assert.match(app, /guestCrossTabShoppingStale \|\| guestCrossTabDerivedStale\) return/);
   assert.match(app, /const guestPantryReviewPending = !currentUser &&\s*\(guestCrossTabPantryStale \|\| guestCrossTabDerivedStale/);
   assert.match(app, /data-testid="guest-derived-cross-tab-warning"/);
+  assert.match(app, /const commitGuestPantry = \([\s\S]*?if \(guestCrossTabDerivedStale\) \{/);
   assert.match(app, /const requireAuthoritativeInventory = \(\) => \{\s*if \(!currentUser && guestCrossTabDerivedStale\)/);
 });
 test("real two-tab Chromium checks all 3 derived keys, stale pantry block and reload", () => {
