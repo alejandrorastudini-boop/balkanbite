@@ -428,7 +428,7 @@ export default function App() {
     if (isResetting || firebaseLoading || currentUser || workspaceScope !== "guest") return;
     const onGuestDerivedStorageChanged = (event: StorageEvent) => {
       if (event.storageArea !== localStorage) return;
-      // localStorage.clear() emits only a null key, not individual events.
+      // A global clear emits only a null key, not individual storage events.
       if (event.key === null ||
           (["balkanbite_recipes", "balkanbite_mealplan", "balkanbite_progression"]
             .includes(event.key) && event.newValue !== event.oldValue)) {

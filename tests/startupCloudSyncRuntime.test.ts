@@ -447,7 +447,7 @@ test("auth transitions clear cloud-backed workspace before the next account hydr
 test("guest workspace storage is not overwritten by a signed-in account", () => {
   assert.match(
     appSource,
-    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest" \|\|\s*guestJournalRecoveryStatus !== "clear"\) return;\s*if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const serialized = JSON\.stringify\(recipes\);\s*localStorage\.setItem\("balkanbite_recipes", serialized\)/
+    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest" \|\|\s*guestJournalRecoveryStatus !== "clear" \|\| guestCrossTabDerivedStale\) return;\s*if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const serialized = JSON\.stringify\(recipes\);\s*localStorage\.setItem\("balkanbite_recipes", serialized\)/
   );
   assert.match(
     appSource,
@@ -459,7 +459,7 @@ test("guest workspace storage is not overwritten by a signed-in account", () => 
   );
   assert.match(
     appSource,
-    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest" \|\|\s*guestJournalRecoveryStatus !== "clear"\) return;\s*if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const serialized = JSON\.stringify\(mealPlan\);\s*localStorage\.setItem\("balkanbite_mealplan", serialized\)/
+    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest" \|\|\s*guestJournalRecoveryStatus !== "clear" \|\| guestCrossTabDerivedStale\) return;\s*if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const serialized = JSON\.stringify\(mealPlan\);\s*localStorage\.setItem\("balkanbite_mealplan", serialized\)/
   );
   assert.doesNotMatch(appSource, /getUserLocalWorkspaceKey/);
 });

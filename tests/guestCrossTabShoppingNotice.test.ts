@@ -20,8 +20,8 @@ test("guest shopping hydration writer and shortage repair refuse to overwrite wh
   const writerStart = app.indexOf('const existingRaw = localStorage.getItem("balkanbite_shopping")');
   assert.ok(writerStart > 0);
   const beforeWriter = app.slice(writerStart - 450, writerStart);
-  assert.match(beforeWriter, /guestCrossTabShoppingStale\) return/);
-  assert.match(app, /guestJournalRecoveryStatus !== "clear" \|\| guestPantryRecovery !== "none" \|\|\s*guestCrossTabShoppingStale\) return/);
+  assert.match(beforeWriter, /guestCrossTabShoppingStale \|\|\s*guestCrossTabDerivedStale\) return/);
+  assert.match(app, /guestJournalRecoveryStatus !== "clear" \|\| guestPantryRecovery !== "none" \|\|\s*guestCrossTabShoppingStale \|\| guestCrossTabDerivedStale\) return/);
 });
 test("real Chromium two-tab scenario requires warning before any attempted stale edit", () => {
   assert.match(chromium, /staleWarning\.waitFor\(\{ state: "visible", timeout: 12000 \}\)/);

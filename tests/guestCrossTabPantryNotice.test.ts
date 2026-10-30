@@ -13,7 +13,7 @@ test("guest cross-tab pantry listener invalidates only external pantry writes", 
 });
 test("pantry-derived authority, mutations and warnings are fail-closed", () => {
   assert.match(app, /const guestPantryReviewPending = !currentUser &&\s*\(guestCrossTabPantryStale/);
-  assert.match(app, /const requireAuthoritativeInventory = \(\) => \{\s*if \(!currentUser && guestCrossTabPantryStale\)/);
+  assert.match(app, /const requireAuthoritativeInventory = \(\) => \{\s*if \(!currentUser && guestCrossTabDerivedStale\)[\s\S]*?if \(!currentUser && guestCrossTabPantryStale\)/);
   assert.match(app, /const commitGuestPantry = \([\s\S]*?if \(guestCrossTabPantryStale\)/);
   assert.match(app, /data-testid="guest-pantry-cross-tab-warning"/);
   assert.match(app, /guestCrossTabPantryStale \|\| guestShoppingConsistencyProblem\) return null/);
