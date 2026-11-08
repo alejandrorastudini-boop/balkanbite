@@ -243,6 +243,58 @@ export function sanitizeRemoteUserProfile(value: unknown): UserProfile {
   );
 }
 
+/**
+ * Inspect a guest profile without rewriting or inferring sensitive data.
+ *
+ * Sanitization is useful for read-only display but may strip unknown legacy
+ * preferences, allergens, or nested health evidence. Only a completely
+ * representable original is eligible for automatic overwrite. Missing fields
+ * are allowed: a first-use/sparse guest profile is not malformed.
+ */
+function canonicalGuestProfileJson(value: unknown): string | undefined {
+  return JSON.stringify(value, (_key, current: unknown) => {
+    if (!current || typeof current !== "object" || Array.isArray(current)) {
+      return current;
+    }
+    const record = current as Record<string, unknown>;
+    const sorted: Record<string, unknown> = {};
+    for (const key of Object.keys(record).sort()) {
+      if (record[key] !== undefined) sorted[key] = record[key];
+    }
+    return sorted;
+  });
+}
+
+export function guestProfileCacheIsLossless(raw: string | null): boolean {
+  if (raw === null) return true;
+  try {
+    const parsedRaw: unknown = JSON.parse(raw);
+    if (!parsedRaw || typeof parsedRaw !== "object" || Array.isArray(parsedRaw)) {
+      return false;
+    }
+    const sanitized = parseGuestProfileCache(raw);
+    if (!sanitized) return false;
+    const view = sanitized as unknown as Record<string, unknown>;
+    return Object.entries(parsedRaw).every(([field, original]) =>
+      Object.prototype.hasOwnProperty.call(view, field) &&
+      canonicalGuestProfileJson(original) === canonicalGuestProfileJson(view[field])
+    );
+  } catch {
+    return false;
+  }
+}
+
+/** Detect a stale but otherwise well-formed source from another guest tab. */
+export function guestProfileCacheMatchesSnapshot(
+  raw: string | null,
+  snapshot: UserProfile,
+): boolean {
+  if (!guestProfileCacheIsLossless(raw)) return false;
+  const parsed = parseGuestProfileCache(raw) ?? DEFAULT_PROFILE;
+  return canonicalGuestProfileJson(parsed) ===
+    canonicalGuestProfileJson(snapshot);
+}
+
 export function parseGuestProfileCache(raw: string | null): UserProfile | null {
   if (raw === null) return null;
   try {

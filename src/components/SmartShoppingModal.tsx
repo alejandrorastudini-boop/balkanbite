@@ -5,6 +5,7 @@ import {
   Clock,
   Sparkles,
   CheckCircle2,
+  HelpCircle,
   X,
   ArrowRight,
   PlusCircle,
@@ -131,7 +132,15 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
     };
   };
 
-  const colors = getUrgencyColor();
+  const noTripRecommendation = daysUntilNextTripNeeded === null;
+  const colors = noTripRecommendation
+    ? {
+        bg: "bg-stone-500/10 border-stone-500/30 text-stone-300",
+        badge: "bg-stone-500 text-white",
+        progress: "bg-stone-500",
+        ring: "border-stone-500/30",
+      }
+    : getUrgencyColor();
 
   return (
     <div
@@ -154,6 +163,8 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
                 <AlertTriangle className="w-6 h-6 animate-pulse text-red-400" />
               ) : urgencyLevel === "recommended" ? (
                 <ShoppingCart className="w-6 h-6 text-amber-400" />
+              ) : noTripRecommendation ? (
+                <HelpCircle className="w-6 h-6 text-stone-400" />
               ) : (
                 <CheckCircle2 className="w-6 h-6 text-emerald-400" />
               )}
@@ -170,7 +181,7 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
                 <span
                   className={`text-[10px] font-extrabold uppercase px-2 py-0.5 rounded-full ${colors.badge}`}
                 >
-                  {urgencyScore}%
+                  {noTripRecommendation ? "—" : `${urgencyScore}%`}
                 </span>
               </div>
               <p className="text-xs text-stone-400">
@@ -201,7 +212,13 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
               {urgencyLabel[language]}
             </span>
             <span className="text-xs font-bold text-white">
-              {daysUntilNextTripNeeded === 0
+              {noTripRecommendation
+                ? language === "es"
+                  ? "Sin fecha recomendada"
+                  : language === "bg"
+                  ? "Няма препоръчана дата"
+                  : "No recommended date"
+                : daysUntilNextTripNeeded === 0
                 ? language === "es"
                   ? "Recomendado: Hoy"
                   : language === "bg"
@@ -222,12 +239,14 @@ export const SmartShoppingModal: React.FC<SmartShoppingModalProps> = ({
           </div>
 
           {/* Progress gauge */}
-          <div className="w-full bg-black/40 h-2.5 rounded-full overflow-hidden border border-white/[0.05]">
-            <div
-              className={`h-full ${colors.progress} transition-all duration-500`}
-              style={{ width: `${Math.max(10, urgencyScore)}%` }}
-            />
-          </div>
+          {!noTripRecommendation && (
+            <div className="w-full bg-black/40 h-2.5 rounded-full overflow-hidden border border-white/[0.05]">
+              <div
+                className={`h-full ${colors.progress} transition-all duration-500`}
+                style={{ width: `${Math.max(10, urgencyScore)}%` }}
+              />
+            </div>
+          )}
 
           <p className="text-xs text-stone-200 font-medium leading-relaxed">
             {headline[language]}

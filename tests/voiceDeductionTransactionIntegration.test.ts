@@ -116,16 +116,17 @@ test("App caches reviewed deductions and exact expected remainder before dispatc
   }
 
   const guestStart = block.indexOf("if (!currentUser)");
-  const mutationCheck = block.indexOf("if (!mutationId || (purpose !==");
-  const guestSet = block.indexOf("setPantry(guestResult.pantry)");
-  assert.ok(guestStart >= 0 && guestSet > guestStart && mutationCheck > guestSet);
+  const mutationCheck = block.lastIndexOf("if (!mutationId || (purpose !==");
+  const guestWrite = block.indexOf("const saved = commitGuestVoiceRemoval(localStorage, {");
+  assert.ok(guestStart >= 0 && guestWrite > guestStart && mutationCheck > guestWrite);
+  assert.ok(block.includes("mutationId, purpose, occurredAt, language: profile.language"));
   assert.equal(
     block.slice(mutationCheck).includes("setPantry("),
     false,
     "signed-in branch must never mutate pantry optimistically",
   );
 
-  const catchIndex = block.indexOf("catch (error)");
+  const catchIndex = block.lastIndexOf("catch (error)");
   assert.ok(catchIndex >= 0);
   assert.equal(
     block.slice(catchIndex).includes(

@@ -16,7 +16,7 @@ test("checked-shopping signed-in path uses shared dispatcher without optimistic 
 
   assert.ok(handler.includes("const preview = transferCheckedShoppingItems("));
   assert.ok(handler.includes("if (!currentUser)"));
-  assert.ok(handler.includes("setPantry(preview.pantry)"));
+  assert.ok(handler.includes("if (!commitGuestPantry(preview.pantry)) return;"));
   assert.ok(handler.includes("dispatchSignedInPurchaseApplication("));
   assert.ok(handler.includes(
     "const acceptedPreviewSources = new Set(preview.acceptedSourceIds)",
@@ -147,7 +147,7 @@ test("advanced reviewed reconciliation is now transactional for signed-in users"
   assert.ok(block.includes("dispatchSignedInPurchaseApplication("));
 
   const guestStart = block.indexOf("if (!currentUser)");
-  const guestSet = block.indexOf("setPantry(preview.pantry)", guestStart);
+  const guestSet = block.indexOf("if (!commitGuestPantry(preview.pantry)) return false", guestStart);
   const signedStart = block.indexOf("if (!safeReconciliationId)", guestSet);
   assert.ok(guestStart >= 0 && guestSet > guestStart && signedStart > guestSet);
   assert.equal(block.slice(signedStart).includes("setPantry("), false);

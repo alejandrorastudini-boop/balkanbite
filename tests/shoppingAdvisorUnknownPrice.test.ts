@@ -81,3 +81,9 @@ test("trip total exists only when every shopping line has a known positive EUR p
   ];
   assert.equal(evaluateShoppingNeeds([], [], mixed, "en").estimatedTotalTripEUR, undefined);
 });
+
+test("a shopping trip with no recorded lines is not priced at a fabricated EUR zero", () => {
+  const result = evaluateShoppingNeeds([], [], [], "en", new Date(2026, 9, 20, 12));
+  assert.equal(result.estimatedTotalTripEUR, undefined);
+  assert.equal(result.itemsToAddToShoppingList.length, 0);
+});

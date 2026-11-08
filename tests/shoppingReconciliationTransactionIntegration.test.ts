@@ -69,7 +69,7 @@ test("guest reconciliation remains local but signed-in branch never sets pantry 
   const block = appSource.slice(start, end);
 
   const guest = block.indexOf("if (!currentUser)");
-  const guestSet = block.indexOf("setPantry(preview.pantry)", guest);
+  const guestSet = block.indexOf("if (!commitGuestPantry(preview.pantry)) return false", guest);
   const signedId = block.indexOf("if (!safeReconciliationId)", guestSet);
   assert.ok(guest >= 0 && guestSet > guest && signedId > guestSet);
   assert.equal(

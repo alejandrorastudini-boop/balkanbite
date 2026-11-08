@@ -16,8 +16,11 @@ import {
   UtensilsCrossed,
   X
 } from "lucide-react";
-import { ChatMessage, Language, PantryItem, MealLog } from "../types";
+import { ChatMessage, Language, PantryItem, MealLog, ShoppingItem, MealPlanDay } from "../types";
 import { t } from "../utils/translations";
+import { parseChefNavigationIntent, chefNavigationFeedback, type ChefNavigationTab } from "../utils/chefNavigationIntent";
+import { parseChefPantryQueryIntent, describeChefPantryQuery } from "../utils/chefPantryFacts";
+import { parseChefWorkspaceQueryIntent, describeChefWorkspaceQuery, describeVerifiedChefShoppingList, describeVerifiedChefMealPlan, describeVerifiedChefProgress, describeVerifiedChefShortages, type ChefVerifiedShortageSources, type ChefWorkspaceSnapshot } from "../utils/chefWorkspaceFacts";
 import { parseDeterministicRemovalIntent, type DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
 import { sanitizeChatActionMetadata } from "../utils/chatMessageValidation";
@@ -38,6 +41,13 @@ interface VoiceChefViewProps {
   onDeductItemsFromPantry: (items: any[], mutationId: string, purpose: DeterministicRemovalPurpose, lotEvidence?: readonly ConfirmedVoiceLotEvidence[]) => boolean | Promise<boolean>;
   exactLotReviewEnabled?: boolean;
   onNavigateToRecipes: (query?: string) => void;
+  onNavigateToTab: (tab: ChefNavigationTab) => void;
+  onGetAuthoritativePantry: () => readonly PantryItem[] | null;
+  onGetAuthoritativeWorkspace: () => ChefWorkspaceSnapshot | null;
+  onGetAuthoritativeShopping: () => readonly ShoppingItem[] | null;
+  onGetAuthoritativeMealPlan: () => readonly MealPlanDay[] | null;
+  onGetAuthoritativeProgress: () => readonly import("../utils/progressionLedger").ProgressionEventV1[] | null;
+  onGetAuthoritativeShortages: () => ChefVerifiedShortageSources | null;
   onLogMeal: (log: any) => boolean | Promise<boolean>;
   foodSafety: FoodSafetyQuarantine;
   profileAuthorityReady?: boolean;
@@ -55,6 +65,13 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
   onDeductItemsFromPantry,
   exactLotReviewEnabled = false,
   onNavigateToRecipes,
+  onNavigateToTab,
+  onGetAuthoritativePantry,
+  onGetAuthoritativeWorkspace,
+  onGetAuthoritativeShopping,
+  onGetAuthoritativeMealPlan,
+  onGetAuthoritativeProgress,
+  onGetAuthoritativeShortages,
   onLogMeal,
   foodSafety,
   profileAuthorityReady = true,
@@ -205,6 +222,17 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       };
 
       recognitionRef.current = recognition;
+      // Closing the Chef overlay or navigating away must not leave a browser
+      // recognizer alive (or auto-restarting from its onend callback).
+      return () => {
+        isListeningRef.current = false;
+        recognition.onstart = null;
+        recognition.onresult = null;
+        recognition.onerror = null;
+        recognition.onend = null;
+        try { recognition.abort(); } catch { /* already stopped or unsupported */ }
+        if (recognitionRef.current === recognition) recognitionRef.current = null;
+      };
     }
   }, [language]);
 
@@ -464,6 +492,177 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
 
     onUpdateChatMessages((prev) => [...prev, userMsg]);
     setInputText("");
+
+    // Only a small exact phrase set gets factual inventory answers. Read a
+    // freshly authorized domain snapshot at dispatch time, never stale model
+    // context, React values or an unreviewed guest recovery journal.
+    const pantryQuery = parseChefPantryQueryIntent(text);
+    if (pantryQuery) {
+      const verifiedPantry = onGetAuthoritativePantry();
+      const response = verifiedPantry === null ? (
+        language === "es"
+          ? "Todavía no puedo verificar tu despensa. Revisa la sincronización o la recuperación de datos antes de consultar cantidades y caducidades."
+          : language === "bg"
+          ? "Все още не мога да потвърдя данните в килера. Проверете синхронизацията или възстановяването, преди да разчитате на количества и срокове."
+          : "I cannot verify your pantry yet. Check synchronization or data recovery before relying on quantities or expiry dates."
+      ) : describeChefPantryQuery(pantryQuery.actionId, verifiedPantry, language) ?? (
+        language === "es"
+          ? "Los datos de la despensa no superan la validación. No mostraré cantidades ni caducidades sin revisarlos."
+          : language === "bg"
+          ? "Данните в килера не преминават проверката. Няма да показвам непотвърдени количества или срокове."
+          : "Pantry data did not pass validation. I will not report unchecked quantities or expiry dates."
+      );
+      onUpdateChatMessages((prev) => [...prev, {
+        id: `ai-facts-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+        sender: "assistant",
+        text: response,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+      speakText(response);
+      return;
+    }
+
+    // Composite pantry/menu/shopping/progression questions use one
+    // read-only, complete guest snapshot. Signed-in composite authority remains
+    // unavailable until those modules share verified server-hydration gates.
+    const workspaceQuery = parseChefWorkspaceQueryIntent(text);
+    if (workspaceQuery) {
+      if (workspaceQuery === "SHOW_SHORTAGES" || workspaceQuery === "SHOW_TODAYS_SHORTAGES") {
+        const sources = onGetAuthoritativeShortages();
+        const answer = sources === null ? (
+          language === "es"
+            ? "Todavía no puedo verificar conjuntamente la despensa y el menú para calcular faltantes. Comprueba su sincronización y las recuperaciones pendientes."
+            : language === "bg"
+            ? "Все още не мога да потвърдя едновременно наличностите и менюто за изчисляване на недостига. Проверете синхронизацията и възстановяването."
+            : "I cannot verify pantry and meal plan together for ingredient shortages yet. Check synchronization or pending recovery."
+        ) : describeVerifiedChefShortages(workspaceQuery, sources, language) ?? (
+          language === "es"
+            ? "La despensa o el menú contiene datos que necesitan revisión. No calcularé faltantes parciales."
+            : language === "bg"
+            ? "Наличностите или менюто съдържат данни за проверка. Няма да изчислявам частични недостици."
+            : "Pantry or meal-plan records need review. I will not calculate partial shortages."
+        );
+        onUpdateChatMessages((prev) => [...prev, {
+          id: `ai-shortages-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          sender: "assistant",
+          text: answer,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }]);
+        speakText(answer);
+        return;
+      }
+      if (workspaceQuery === "SHOW_PROGRESS") {
+        const events = onGetAuthoritativeProgress();
+        const answer = events === null ? (
+          language === "es"
+            ? "Todavía no puedo verificar el historial de progreso. Revisa la sincronización o recuperación de sus eventos."
+            : language === "bg"
+            ? "Все още не мога да потвърдя историята на напредъка. Проверете синхронизацията или възстановяването на събитията."
+            : "I cannot verify the recorded progress history yet. Check event synchronization or recovery."
+        ) : describeVerifiedChefProgress(events, language) ?? (
+          language === "es"
+            ? "El historial contiene eventos que necesitan revisión. No contaré registros parciales."
+            : language === "bg"
+            ? "Историята съдържа събития за проверка. Няма да преброявам непълни записи."
+            : "The recorded history needs review. I will not count partial records."
+        );
+        onUpdateChatMessages((prev) => [...prev, {
+          id: `ai-progress-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          sender: "assistant",
+          text: answer,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }]);
+        speakText(answer);
+        return;
+      }
+      if (workspaceQuery === "SHOW_MENU" || workspaceQuery === "SHOW_TODAYS_MENU") {
+        const rows = onGetAuthoritativeMealPlan();
+        const answer = rows === null ? (
+          language === "es"
+            ? "Todavía no puedo verificar el menú registrado. Revisa su sincronización o recuperación."
+            : language === "bg"
+            ? "Все още не мога да потвърдя записаното меню. Проверете синхронизацията или възстановяването."
+            : "I cannot verify the recorded meal plan yet. Check its synchronization or recovery."
+        ) : describeVerifiedChefMealPlan(workspaceQuery, rows, language) ?? (
+          language === "es"
+            ? "El menú registrado contiene datos que necesitan revisión. No mostraré un menú parcial."
+            : language === "bg"
+            ? "Записаното меню съдържа данни за проверка. Няма да показвам непълно меню."
+            : "The recorded meal plan needs review. I will not report an incomplete plan."
+        );
+        onUpdateChatMessages((prev) => [...prev, {
+          id: `ai-menu-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          sender: "assistant",
+          text: answer,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }]);
+        speakText(answer);
+        return;
+      }
+      if (workspaceQuery === "SHOW_SHOPPING_LIST") {
+        const rows = onGetAuthoritativeShopping();
+        const answer = rows === null ? (
+          language === "es"
+            ? "No puedo verificar la lista de compra registrada todavía. Revisa su sincronización o recuperación."
+            : language === "bg"
+            ? "Все още не мога да потвърдя записания списък за пазаруване. Проверете синхронизацията или възстановяването."
+            : "I cannot verify the recorded shopping list yet. Check its synchronization or recovery."
+        ) : describeVerifiedChefShoppingList(rows, language) ?? (
+          language === "es"
+            ? "La lista de compra registrada contiene datos que necesitan revisión. No mostraré una lista parcial."
+            : language === "bg"
+            ? "Списъкът за пазаруване съдържа записи за проверка. Няма да показвам непълен списък."
+            : "The recorded shopping list needs review. I will not report an incomplete list."
+        );
+        onUpdateChatMessages((prev) => [...prev, {
+          id: `ai-shopping-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+          sender: "assistant",
+          text: answer,
+          timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        }]);
+        speakText(answer);
+        return;
+      }
+      const snapshot = onGetAuthoritativeWorkspace();
+      const response = snapshot === null ? (
+        language === "es"
+          ? "No puedo verificar todavía el menú, las compras y el progreso juntos. Revisa la sincronización o la recuperación de datos; no mostraré resultados basados en cachés provisionales."
+          : language === "bg"
+          ? "Все още не мога да потвърдя заедно менюто, покупките и напредъка. Проверете синхронизацията или възстановяването; няма да използвам временни данни."
+          : "I cannot verify your menu, shopping and progress together yet. Check synchronization or recovery; I will not report facts from provisional caches."
+      ) : describeChefWorkspaceQuery(workspaceQuery, snapshot, language) ?? (
+        language === "es"
+          ? "Los registros de menú, compras o progreso necesitan revisión. No afirmaré resultados incompletos."
+          : language === "bg"
+          ? "Записите за меню, покупки или напредък се нуждаят от проверка. Няма да показвам непълни резултати."
+          : "Your menu, shopping or progress records need review. I will not report incomplete facts."
+      );
+      onUpdateChatMessages((prev) => [...prev, {
+        id: `ai-workspace-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+        sender: "assistant",
+        text: response,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+      speakText(response);
+      return;
+    }
+
+    // Navigation is read-only, deterministic, and visibly changes the active
+    // screen without an AI request or an unreviewed inventory/health mutation.
+    // Ambiguous or compound instructions remain on the existing Chef path.
+    const navigation = parseChefNavigationIntent(text);
+    if (navigation) {
+      const feedback = chefNavigationFeedback(navigation.tab, language);
+      onUpdateChatMessages((prev) => [...prev, {
+        id: `ai-nav-${Date.now()}-${Math.random().toString(36).slice(2, 11)}`,
+        sender: "assistant",
+        text: feedback,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }]);
+      speakText(feedback);
+      onNavigateToTab(navigation.tab);
+      return;
+    }
     setIsProcessing(true);
 
     try {
@@ -481,6 +680,11 @@ export const VoiceChefView: React.FC<VoiceChefViewProps> = ({
       });
 
       const data = await res.json();
+      // A 503/failed model call cannot masquerade as a successfully processed
+      // conversational command through the default "got it" fallback.
+      if (!res.ok || data?.success === false) {
+        throw new Error("Chef IA intent response unavailable");
+      }
       const parsedRemoval = parseDeterministicRemovalIntent(text, pantry);
       const deterministicRemoval =
         !data.actionType || data.actionType === "ANSWER"

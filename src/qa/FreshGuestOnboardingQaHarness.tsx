@@ -9,14 +9,17 @@ import {
 } from "./runtimeQaGate";
 
 export const FreshGuestOnboardingQaHarness: React.FC = () => {
+  const uiLanguage = new URLSearchParams(window.location.search).get("lang") === "bg" ? "bg" : "en";
   const [profile, setProfile] = useState<UserProfile>(() => ({
     ...DEFAULT_PROFILE,
+    language: uiLanguage,
     disliked: [...DEFAULT_PROFILE.disliked],
   }));
 
   return (
     <main
       data-testid="qa-fresh-guest-onboarding-root"
+      data-ui-language={uiLanguage}
       data-deployment-sha={runtimeQaDeploymentSha()}
       data-deployment-id={runtimeQaDeploymentId()}
       data-source-fingerprint={runtimeQaSourceFingerprint()}
@@ -36,6 +39,9 @@ export const FreshGuestOnboardingQaHarness: React.FC = () => {
       <span data-testid="qa-fresh-guest-cooking-speed" className="sr-only">
         {profile.cookingSpeed}
       </span>
+      <span data-testid="qa-fresh-guest-appliances" className="sr-only">
+        {profile.appliances === undefined ? "absent" : profile.appliances.join(",")}
+      </span>
       <span data-testid="qa-fresh-guest-budget" className="sr-only">
         {profile.monthlyBudgetEUR === undefined
           ? "absent"
@@ -43,7 +49,7 @@ export const FreshGuestOnboardingQaHarness: React.FC = () => {
       </span>
       <OnboardingModal
         isOpen={!profile.onboardingCompleted}
-        language="en"
+        language={uiLanguage}
         onComplete={(updates) =>
           setProfile((current) => ({
             ...current,

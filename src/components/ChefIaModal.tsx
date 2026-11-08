@@ -1,7 +1,9 @@
 import React, { useEffect } from "react";
 import { X, Sparkles, ChefHat, Maximize2 } from "lucide-react";
-import { Language, PantryItem, MealLog, ChatMessage } from "../types";
+import { Language, PantryItem, MealLog, ChatMessage, MealPlanDay } from "../types";
 import { VoiceChefView } from "./VoiceChefView";
+import type { ChefNavigationTab } from "../utils/chefNavigationIntent";
+import type { ChefWorkspaceSnapshot, ChefVerifiedShortageSources } from "../utils/chefWorkspaceFacts";
 import type { DeterministicRemovalPurpose } from "../utils/deterministicRemovalIntent";
 import type { ConfirmedVoiceLotEvidence } from "../utils/voiceLotEvidenceAdapter";
 import type { FoodSafetyQuarantine } from "../utils/foodSafetyQuarantine";
@@ -20,6 +22,13 @@ interface ChefIaModalProps {
   onDeductItemsFromPantry: (items: any[], mutationId: string, purpose: DeterministicRemovalPurpose, lotEvidence?: readonly ConfirmedVoiceLotEvidence[]) => boolean | Promise<boolean>;
   exactLotReviewEnabled?: boolean;
   onNavigateToRecipes: (query?: string) => void;
+  onNavigateToTab: (tab: ChefNavigationTab) => void;
+  onGetAuthoritativePantry: () => readonly PantryItem[] | null;
+  onGetAuthoritativeWorkspace: () => ChefWorkspaceSnapshot | null;
+  onGetAuthoritativeShopping: () => readonly import("../types").ShoppingItem[] | null;
+  onGetAuthoritativeMealPlan: () => readonly MealPlanDay[] | null;
+  onGetAuthoritativeProgress: () => readonly import("../utils/progressionLedger").ProgressionEventV1[] | null;
+  onGetAuthoritativeShortages: () => ChefVerifiedShortageSources | null;
   onLogMeal: (log: any) => void;
   foodSafety: FoodSafetyQuarantine;
   language: Language;
@@ -39,6 +48,13 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
   onDeductItemsFromPantry,
   exactLotReviewEnabled = false,
   onNavigateToRecipes,
+  onNavigateToTab,
+  onGetAuthoritativePantry,
+  onGetAuthoritativeWorkspace,
+  onGetAuthoritativeShopping,
+  onGetAuthoritativeMealPlan,
+  onGetAuthoritativeProgress,
+  onGetAuthoritativeShortages,
   onLogMeal,
   foodSafety,
   language,
@@ -123,6 +139,16 @@ export const ChefIaModal: React.FC<ChefIaModalProps> = ({
               onClose();
             }}
             onLogMeal={onLogMeal}
+            onGetAuthoritativePantry={onGetAuthoritativePantry}
+            onGetAuthoritativeWorkspace={onGetAuthoritativeWorkspace}
+            onGetAuthoritativeShopping={onGetAuthoritativeShopping}
+            onGetAuthoritativeMealPlan={onGetAuthoritativeMealPlan}
+            onGetAuthoritativeProgress={onGetAuthoritativeProgress}
+            onGetAuthoritativeShortages={onGetAuthoritativeShortages}
+            onNavigateToTab={(tab) => {
+              onNavigateToTab(tab);
+              onClose();
+            }}
             foodSafety={foodSafety}
             language={language}
           />

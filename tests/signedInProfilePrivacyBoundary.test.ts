@@ -23,6 +23,8 @@ test("signed-in startup uses neutral defaults until Firestore profile hydration"
 });
 
 test("guest profile cache remains local and explicit", () => {
-  assert.match(app, /localStorage\.setItem\("balkanbite_profile", JSON\.stringify\(profile\)\)/);
+  assert.match(app, /localStorage\.setItem\("balkanbite_profile", serialized\)/);
+  assert.match(app, /guestProfileCacheMatchesSnapshot\(originalRaw, guestProfileCommittedRef\.current\)/);
+  assert.match(app, /if \(localStorage\.getItem\("balkanbite_profile"\) !== serialized\)/);
   assert.match(app, /parseGuestProfileCache\(localStorage\.getItem\("balkanbite_profile"\)\)/);
 });

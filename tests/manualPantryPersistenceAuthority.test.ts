@@ -12,7 +12,7 @@ test("manual pantry creation propagates authoritative persistence outcome", () =
   const block = app.slice(start, end);
   assert.ok(block.includes("Promise<boolean>"));
   assert.ok(block.includes("return dispatchSignedInPantryCreations([newItem])"));
-  assert.ok(block.includes("return true"));
+  assert.ok(block.includes("return updatePantryAndReconcileMenu([newItem], true)"));
   assert.equal(block.includes("void dispatchSignedInPantryCreations"), false);
 });
 
