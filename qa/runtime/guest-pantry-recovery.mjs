@@ -421,6 +421,64 @@ async function runMalformedGuestChatSourcePreservation() {
   }
 }
 
+async function runGuestChatClearLostWrite() {
+  const original = JSON.stringify([{
+    id: "qa-clear-keep", sender: "user", text: "QA do not lose this message",
+    timestamp: "2026-10-30T10:00:00.000Z",
+  }]);
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, valid, original }) => {
+      if (sessionStorage.getItem("__qa_chat_clear_seeded")) return;
+      sessionStorage.setItem("__qa_chat_clear_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_shopping", "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
+      localStorage.setItem("balkanbite_chat_messages", original);
+    }, { MAIN, valid, original });
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#chef-ia-floating-btn").click();
+    await page.getByText("QA do not lose this message", { exact: true })
+      .waitFor({ state: "visible", timeout: 15000 });
+    await page.evaluate(() => {
+      const oldSet = Storage.prototype.setItem;
+      window.__qaGuestChatClearAttempts = 0;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === "balkanbite_chat_messages") {
+          window.__qaGuestChatClearAttempts++;
+          return; // silent browser write loss
+        }
+        return oldSet.call(this, key, value);
+      };
+    });
+    await page.locator('button[title="Clear conversation"]').click();
+    await page.waitForFunction(() => window.__qaGuestChatClearAttempts > 0);
+    await page.getByTestId("guest-chat-review-warning")
+      .waitFor({ state: "visible", timeout: 15000 });
+    assert.equal(await page.evaluate(() =>
+      localStorage.getItem("balkanbite_chat_messages")), original,
+      "silent failed clear cannot delete saved chat source");
+    assert.equal(await page.getByText("QA do not lose this message", {
+      exact: true,
+    }).count(), 1, "UI must not claim a deletion before confirmed readback");
+    evidence.checks.push("guest-chat-clear-silent-storage-failure-keeps-original-and-ui");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
 async function runGuestChatCrossTabWarning() {
   const context = await browser.newContext();
   const pages = [];
@@ -3130,6 +3188,7 @@ try {
   await runFailedGuestQuantityWrite({ silent: true });
   await runMalformedGuestChatSourcePreservation();
   await runGuestChatCrossTabWarning();
+  await runGuestChatClearLostWrite();
   await runGuestDerivedShoppingSilentFailure();
   await runGuestManualShoppingAddLostWrite();
   await runBulgarianManualShoppingUnits();
