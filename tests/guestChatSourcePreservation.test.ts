@@ -79,4 +79,6 @@ test("hydration writer refuses lossy cache and failed persistence has explicit g
   assert.ok(runtime.includes("guest-chat-legacy-raw-retained-after-reload"));
   assert.ok(runtime.includes("runGuestChatCrossTabWarning"));
   assert.ok(runtime.includes("guest-chat-two-tab-warning-before-overwrite"));
+  assert.ok(runtime.includes("runGuestChatClearLostWrite"));
+  assert.ok(runtime.includes("guest-chat-clear-silent-storage-failure-keeps-original-and-ui"));
 });
