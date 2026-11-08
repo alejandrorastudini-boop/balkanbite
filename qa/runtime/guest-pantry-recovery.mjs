@@ -596,6 +596,78 @@ async function runGuestChatCrossTabWarning() {
   }
 }
 
+async function runGuestProfileSourcePreservation() {
+  // Synthetic fixture only. Never upload or log real allergy/health details.
+  for (const legacy of [true, false]) {
+    const original = JSON.stringify({
+      name: "QA Guest",
+      language: "en",
+      currency: "EUR",
+      disliked: [],
+      onboardingCompleted: true,
+      allergies: ["QA allergen"],
+      healthProfile: {
+        version: 1,
+        weightKg: legacy
+          ? { status: "unknown", historicalReason: "preserve-original-only" }
+          : { status: "unknown" },
+      },
+    });
+    const context = await browser.newContext();
+    let page;
+    try {
+      await context.addInitScript(({ MAIN, valid, original }) => {
+        if (sessionStorage.getItem("__qa_profile_source_seeded")) return;
+        sessionStorage.setItem("__qa_profile_source_seeded", "yes");
+        localStorage.setItem("balkanbite_show_landing", "false");
+        localStorage.setItem("balkanbite_profile", original);
+        localStorage.setItem(MAIN, JSON.stringify([valid]));
+        localStorage.setItem("balkanbite_recipes", "[]");
+        localStorage.setItem("balkanbite_mealplan", "[]");
+        localStorage.setItem("balkanbite_shopping", "[]");
+        localStorage.setItem("balkanbite_progression", "[]");
+      }, { MAIN, valid, original });
+      page = await context.newPage();
+      await page.goto(new URL("/", base).toString(), {
+        waitUntil: "domcontentloaded", timeout: 30000,
+      });
+      await page.locator("#nav-tab-pantry").click();
+      await page.locator(`#pantry-item-${valid.id}`).waitFor({
+        state: "visible", timeout: 15000,
+      });
+      const warning = page.getByTestId("guest-profile-review-warning");
+      if (legacy) {
+        await warning.waitFor({ state: "visible", timeout: 15000 });
+        assert.equal(await page.evaluate(() =>
+          localStorage.getItem("balkanbite_profile")), original,
+          "legacy profile and unknown HealthProfile metadata must be preserved exactly");
+      } else {
+        assert.equal(await warning.count(), 0,
+          "complete HealthProfile should not trigger a false warning");
+        const stored = await page.evaluate(() =>
+          JSON.parse(localStorage.getItem("balkanbite_profile") || "{}"));
+        assert.deepEqual(stored.allergies, ["QA allergen"]);
+        assert.equal(stored.healthProfile?.weightKg?.status, "unknown");
+        evidence.checks.push("guest-profile-valid-no-false-warning");
+      }
+
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+      if (legacy) {
+        await warning.waitFor({ state: "visible", timeout: 15000 });
+        assert.equal(await page.evaluate(() =>
+          localStorage.getItem("balkanbite_profile")), original,
+          "legacy guest profile must not be replaced after reload");
+        evidence.checks.push("guest-profile-legacy-raw-preserved-after-reload");
+      } else {
+        assert.equal(await warning.count(), 0);
+      }
+    } finally {
+      await page?.close().catch(() => {});
+      await context.close();
+    }
+  }
+}
+
 async function runGuestDerivedShoppingSilentFailure() {
   // #459: prove the crash-consistency boundary with an actual App runtime.
   // No invented household data: all food names and amounts are QA fixtures.
@@ -3252,6 +3324,7 @@ try {
   await runMalformedGuestChatSourcePreservation();
   await runGuestChatCrossTabWarning();
   await runGuestChatClearLostWrite();
+  await runGuestProfileSourcePreservation();
   await runGuestDerivedShoppingSilentFailure();
   await runGuestManualShoppingAddLostWrite();
   await runBulgarianManualShoppingUnits();
