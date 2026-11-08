@@ -1,6 +1,7 @@
 import type { Language, ShoppingItem } from "../types";
 import { GUEST_PANTRY_KEY, inspectGuestPantry, type GuestPantryStorage } from "./guestPantry";
 import { parseStoredRecipeCache } from "./storedRecipeValidation";
+import { isValidProgressionEvent, parseProgressionLedgerCache } from "./progressionLedger";
 import { parseStoredMealPlanCache } from "./storedMealPlanValidation";
 import { parseStoredShoppingCache } from "./storedShoppingValidation";
 import { evaluateShoppingNeeds } from "./shoppingAdvisor";
@@ -52,6 +53,31 @@ export function guestMealPlanCacheIsComplete(raw: string | null): boolean {
   if (raw === null) return true;
   const parsed = parseStoredMealPlanCache(raw);
   return parsed !== null && completeStoredArray(raw, parsed.length);
+}
+
+/**
+ * Progression is event evidence, not a display-only cache. Its parser removes
+ * invalid/duplicate events and canonicalizes known fields. Never overwrite an
+ * original that includes legacy metadata or dropped event rows.
+ */
+export function guestProgressionCacheIsComplete(raw: string | null): boolean {
+  if (raw === null) return true;
+  try {
+    const source: unknown = JSON.parse(raw);
+    if (!Array.isArray(source)) return false;
+    const parsed = parseProgressionLedgerCache(raw);
+    if (parsed.length !== source.length) return false;
+    const requiredKeys = [
+      "version", "eventId", "type", "occurredAt", "evidence", "evidenceCount",
+    ];
+    return source.every(event =>
+      isValidProgressionEvent(event) &&
+      Object.keys(event).length === requiredKeys.length &&
+      requiredKeys.every(key => Object.prototype.hasOwnProperty.call(event, key))
+    );
+  } catch {
+    return false;
+  }
 }
 
 /**
