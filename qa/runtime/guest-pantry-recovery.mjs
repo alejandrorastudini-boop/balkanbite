@@ -365,6 +365,12 @@ async function runMalformedGuestDerivedCachePreservation() {
   for (const [key, original] of [
     ["balkanbite_recipes", JSON.stringify([{ id: "qa-unknown-legacy-recipe" }])],
     ["balkanbite_mealplan", JSON.stringify([{ date: "not-a-date", lunch: { id: "qa-legacy" } }])],
+    ["balkanbite_progression", JSON.stringify([{
+      version: 1, eventId: "qa-legacy-event", type: "confirmed_purchase_applied",
+      occurredAt: "2026-10-30T10:00:00.000Z",
+      evidence: "deterministic_state_transition", evidenceCount: 1,
+      legacyField: "preserve-before-review",
+    }])],
   ]) {
     const context = await browser.newContext();
     let page;
@@ -380,7 +386,7 @@ async function runMalformedGuestDerivedCachePreservation() {
         localStorage.setItem("balkanbite_recipes", key === "balkanbite_recipes" ? original : "[]");
         localStorage.setItem("balkanbite_mealplan", key === "balkanbite_mealplan" ? original : "[]");
         localStorage.setItem("balkanbite_shopping", "[]");
-        localStorage.setItem("balkanbite_progression", "[]");
+        localStorage.setItem("balkanbite_progression", key === "balkanbite_progression" ? original : "[]");
       }, { MAIN, valid, key, original });
       page = await context.newPage();
       await page.goto(new URL("/", base).toString(), {
