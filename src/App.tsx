@@ -462,6 +462,21 @@ export default function App() {
     return () => window.removeEventListener("storage", onExternalMealLogChanged);
   }, [isResetting, firebaseLoading, currentUser, workspaceScope]);
 
+  useEffect(() => {
+    if (isResetting || firebaseLoading || currentUser || workspaceScope !== "guest") return;
+    const onExternalGuestChatChanged = (event: StorageEvent) => {
+      if (event.storageArea !== localStorage) return;
+      // Other tabs' chat writes or a bulk clear cannot be merged with a
+      // potentially stale React conversation. Latch review until reload.
+      if (event.key === null ||
+          (event.key === "balkanbite_chat_messages" && event.newValue !== event.oldValue)) {
+        setGuestChatReviewRequired(true);
+      }
+    };
+    window.addEventListener("storage", onExternalGuestChatChanged);
+    return () => window.removeEventListener("storage", onExternalGuestChatChanged);
+  }, [isResetting, firebaseLoading, currentUser, workspaceScope]);
+
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     try {
       const saved = localStorage.getItem("balkanbite_theme");
