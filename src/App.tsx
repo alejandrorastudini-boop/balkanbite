@@ -120,7 +120,7 @@ import {
 } from "./utils/guestVoiceRemovalIntent";
 import { hasPendingGuestMutationJournal } from "./utils/guestJournalExclusivity";
 import type { ChefWorkspaceSnapshot, ChefVerifiedShortageSources } from "./utils/chefWorkspaceFacts";
-import { parseChatMessageCache } from "./utils/chatMessageValidation";
+import { parseChatMessageCache, guestChatCacheIsLossless } from "./utils/chatMessageValidation";
 import {
   buildMealLogPreservingNutritionUncertainty,
   parseMealLogCache,
@@ -175,6 +175,13 @@ export default function App() {
   // Meal history may contain unknown historical rows. Never overwrite them
   // with a filtered React view or acknowledge a log before storage readback.
   const [guestMealLogReviewRequired, setGuestMealLogReviewRequired] = useState(false);
+  const [guestChatReviewRequired, setGuestChatReviewRequired] = useState(() => {
+    try {
+      return !guestChatCacheIsLossless(localStorage.getItem("balkanbite_chat_messages"));
+    } catch {
+      return true;
+    }
+  });
   // A different tab's shopping edit must not invalidate independently
   // verified pantry/menu facts. It only blocks shopping-derived writes and
   // reads until rehydration, while true multi-key persistence failures keep
@@ -968,16 +975,29 @@ export default function App() {
   }, [mealLogs, currentUser, workspaceScope, isResetting, guestMealLogReviewRequired]);
 
   useEffect(() => {
-    if (isResetting || currentUser || workspaceScope !== "guest") return;
+    if (isResetting || currentUser || workspaceScope !== "guest" ||
+        guestChatReviewRequired) return;
     try {
-      localStorage.setItem(
-        "balkanbite_chat_messages",
-        JSON.stringify(chatMessages)
-      );
-    } catch (e) {
-      console.warn("localStorage write error", e);
+      const previousRaw = localStorage.getItem("balkanbite_chat_messages");
+      const nextRaw = JSON.stringify(chatMessages);
+      if (!guestChatCacheIsLossless(previousRaw) ||
+          !guestChatCacheIsLossless(nextRaw)) {
+        // Hydrated chat can omit invalid/unknown legacy metadata. Never
+        // replace its original bytes with the reduced display-only view.
+        setGuestChatReviewRequired(true);
+        console.warn("Guest chat history requires non-destructive review");
+        return;
+      }
+      localStorage.setItem("balkanbite_chat_messages", nextRaw);
+      if (localStorage.getItem("balkanbite_chat_messages") !== nextRaw) {
+        setGuestChatReviewRequired(true);
+        console.warn("Guest chat history persistence not confirmed");
+      }
+    } catch (error) {
+      setGuestChatReviewRequired(true);
+      console.warn("Guest chat history persistence failed", error);
     }
-  }, [chatMessages, currentUser, workspaceScope, isResetting]);
+  }, [chatMessages, currentUser, workspaceScope, isResetting, guestChatReviewRequired]);
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
@@ -3629,6 +3649,16 @@ export default function App() {
               : profile.language === "es"
               ? "Hay una operación local sin finalizar. Los cambios de despensa y compras están bloqueados hasta recuperar o revisar los datos."
               : "An unfinished local operation needs recovery. Pantry and shopping edits are blocked until it is safely resolved."}
+          </section>
+        )}
+        {!currentUser && guestChatReviewRequired && (
+          <section role="alert" data-testid="guest-chat-review-warning"
+            className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+            {profile.language === "bg"
+              ? "Историята на чата не можа да бъде потвърдена. Оригиналните локални данни са запазени; новите съобщения може да не се съхранят. Прегледайте или експортирайте данните, преди да ги изтриете."
+              : profile.language === "es"
+              ? "No se pudo verificar el historial del chat. Se han conservado los datos locales originales; los mensajes nuevos podrían no guardarse. Revisa o exporta los datos antes de borrarlos."
+              : "Chat history could not be verified. Original local data was kept; new messages may not be saved. Review or export before clearing data."}
           </section>
         )}
         {!currentUser && guestMealLogReviewRequired && (
