@@ -417,6 +417,185 @@ async function runMalformedGuestDerivedCachePreservation() {
   }
 }
 
+async function runMalformedGuestChatSourcePreservation() {
+  // Voice history is not authoritative stock, but a filtered chat view must
+  // not silently overwrite original user text or unrecognized metadata.
+  for (const shouldReview of [true, false]) {
+    const original = JSON.stringify([{
+      id: "qa-guest-chat", sender: "user", text: "QA pantry question",
+      timestamp: "2026-10-30T10:00:00.000Z",
+      ...(shouldReview ? { historicalUnknown: "keep exactly" } : {}),
+    }]);
+    const context = await browser.newContext();
+    let page;
+    try {
+      await context.addInitScript(({ MAIN, valid, original }) => {
+        if (sessionStorage.getItem("__qa_chat_source_seeded")) return;
+        sessionStorage.setItem("__qa_chat_source_seeded", "true");
+        localStorage.setItem("balkanbite_show_landing", "false");
+        localStorage.setItem("balkanbite_profile", JSON.stringify({
+          language: "en", onboardingCompleted: true,
+        }));
+        localStorage.setItem(MAIN, JSON.stringify([valid]));
+        localStorage.setItem("balkanbite_recipes", "[]");
+        localStorage.setItem("balkanbite_mealplan", "[]");
+        localStorage.setItem("balkanbite_shopping", "[]");
+        localStorage.setItem("balkanbite_progression", "[]");
+        localStorage.setItem("balkanbite_chat_messages", original);
+      }, { MAIN, valid, original });
+      page = await context.newPage();
+      await page.goto(new URL("/", base).toString(), {
+        waitUntil: "domcontentloaded", timeout: 30000,
+      });
+      await page.locator("#nav-tab-pantry").click();
+      await page.locator(`#pantry-item-${valid.id}`).waitFor({
+        state: "visible", timeout: 15000,
+      });
+      const warning = page.getByTestId("guest-chat-review-warning");
+      if (shouldReview) {
+        await warning.waitFor({ state: "visible", timeout: 15000 });
+        assert.match(await warning.textContent() || "", /Chat history could not be verified/);
+      } else {
+        assert.equal(await warning.count(), 0,
+          "complete stored chat must not produce a false recovery warning");
+      }
+      assert.equal(await page.evaluate(() =>
+        localStorage.getItem("balkanbite_chat_messages")), original,
+        "initial hydration must preserve all original chat bytes");
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+      if (shouldReview) await warning.waitFor({ state: "visible", timeout: 15000 });
+      assert.equal(await page.evaluate(() =>
+        localStorage.getItem("balkanbite_chat_messages")), original,
+        "reload must retain chat source for assisted recovery/export");
+      if (shouldReview) {
+        evidence.checks.push("guest-chat-legacy-raw-retained-after-reload");
+      } else {
+        evidence.checks.push("guest-chat-valid-source-no-false-warning");
+      }
+    } finally {
+      await page?.close().catch(() => {});
+      await context.close();
+    }
+  }
+}
+
+async function runGuestChatClearLostWrite() {
+  const original = JSON.stringify([{
+    id: "qa-clear-keep", sender: "user", text: "QA do not lose this message",
+    timestamp: "2026-10-30T10:00:00.000Z",
+  }]);
+  const context = await browser.newContext();
+  let page;
+  try {
+    await context.addInitScript(({ MAIN, valid, original }) => {
+      if (sessionStorage.getItem("__qa_chat_clear_seeded")) return;
+      sessionStorage.setItem("__qa_chat_clear_seeded", "true");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_shopping", "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
+      localStorage.setItem("balkanbite_chat_messages", original);
+    }, { MAIN, valid, original });
+    page = await context.newPage();
+    page.on("dialog", dialog => dialog.dismiss());
+    await page.goto(new URL("/", base).toString(), {
+      waitUntil: "domcontentloaded", timeout: 30000,
+    });
+    await page.locator("#chef-ia-floating-btn").click();
+    await page.getByText("QA do not lose this message", { exact: true })
+      .waitFor({ state: "visible", timeout: 15000 });
+    await page.evaluate(() => {
+      const oldSet = Storage.prototype.setItem;
+      window.__qaGuestChatClearAttempts = 0;
+      Storage.prototype.setItem = function(key, value) {
+        if (key === "balkanbite_chat_messages") {
+          window.__qaGuestChatClearAttempts++;
+          return; // silent browser write loss
+        }
+        return oldSet.call(this, key, value);
+      };
+    });
+    await page.locator('button[title="Clear conversation"]').click();
+    await page.waitForFunction(() => window.__qaGuestChatClearAttempts > 0);
+    await page.getByTestId("guest-chat-review-warning")
+      .waitFor({ state: "visible", timeout: 15000 });
+    assert.equal(await page.evaluate(() =>
+      localStorage.getItem("balkanbite_chat_messages")), original,
+      "silent failed clear cannot delete saved chat source");
+    assert.equal(await page.getByText("QA do not lose this message", {
+      exact: true,
+    }).count(), 1, "UI must not claim a deletion before confirmed readback");
+    evidence.checks.push("guest-chat-clear-silent-storage-failure-keeps-original-and-ui");
+  } finally {
+    await page?.close().catch(() => {});
+    await context.close();
+  }
+}
+
+async function runGuestChatCrossTabWarning() {
+  const context = await browser.newContext();
+  const pages = [];
+  try {
+    const initialChat = JSON.stringify([{
+      id: "qa-chat-a", sender: "user", text: "QA first text",
+      timestamp: "2026-10-30T10:00:00.000Z",
+    }]);
+    await context.addInitScript(({ MAIN, valid, initialChat }) => {
+      if (localStorage.getItem("__qa_chat_two_tabs_seeded") !== null) return;
+      localStorage.setItem("__qa_chat_two_tabs_seeded", "yes");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_shopping", "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
+      localStorage.setItem("balkanbite_chat_messages", initialChat);
+    }, { MAIN, valid, initialChat });
+    for (let i = 0; i < 2; i++) {
+      const page = await context.newPage();
+      pages.push(page);
+      await page.goto(new URL("/", base).toString(), {
+        waitUntil: "domcontentloaded", timeout: 30000,
+      });
+      await page.locator("#nav-tab-pantry").click();
+      await page.locator(`#pantry-item-${valid.id}`).waitFor({
+        state: "visible", timeout: 15000,
+      });
+    }
+    const [writer, stale] = pages;
+    const newRaw = JSON.stringify([
+      ...JSON.parse(initialChat),
+      { id: "qa-chat-b", sender: "assistant", text: "QA second text",
+        timestamp: "2026-10-30T10:01:00.000Z" },
+    ]);
+    await writer.evaluate(raw => localStorage.setItem("balkanbite_chat_messages", raw), newRaw);
+    await stale.getByTestId("guest-chat-review-warning")
+      .waitFor({ state: "visible", timeout: 12000 });
+    assert.equal(await writer.getByTestId("guest-chat-review-warning").count(), 0,
+      "origin tab must not see a false external chat warning");
+    assert.equal(await stale.evaluate(() =>
+      localStorage.getItem("balkanbite_chat_messages")), newRaw,
+      "stale tab must not replace newer chat bytes with its old React state");
+    await stale.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    assert.equal(await stale.getByTestId("guest-chat-review-warning").count(), 0,
+      "fresh reload accepts complete new chat source");
+    assert.equal(await stale.evaluate(() =>
+      localStorage.getItem("balkanbite_chat_messages")), newRaw);
+    evidence.checks.push("guest-chat-two-tab-warning-before-overwrite");
+  } finally {
+    await Promise.all(pages.map(p => p.close().catch(() => {})));
+    await context.close();
+  }
+}
+
 async function runGuestDerivedShoppingSilentFailure() {
   // #459: prove the crash-consistency boundary with an actual App runtime.
   // No invented household data: all food names and amounts are QA fixtures.
@@ -3070,6 +3249,9 @@ try {
   await runFailedGuestQuantityWrite();
   await runFailedGuestQuantityWrite({ silent: true });
   await runMalformedGuestDerivedCachePreservation();
+  await runMalformedGuestChatSourcePreservation();
+  await runGuestChatCrossTabWarning();
+  await runGuestChatClearLostWrite();
   await runGuestDerivedShoppingSilentFailure();
   await runGuestManualShoppingAddLostWrite();
   await runBulgarianManualShoppingUnits();
