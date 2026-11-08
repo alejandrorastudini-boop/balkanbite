@@ -120,7 +120,7 @@ import {
 } from "./utils/guestVoiceRemovalIntent";
 import { hasPendingGuestMutationJournal } from "./utils/guestJournalExclusivity";
 import type { ChefWorkspaceSnapshot, ChefVerifiedShortageSources } from "./utils/chefWorkspaceFacts";
-import { parseChatMessageCache, guestChatCacheIsLossless } from "./utils/chatMessageValidation";
+import { parseChatMessageCache, guestChatCacheIsLossless, guestChatCacheMatchesSnapshot } from "./utils/chatMessageValidation";
 import {
   buildMealLogPreservingNutritionUncertainty,
   parseMealLogCache,
@@ -243,6 +243,9 @@ export default function App() {
   const [chatMessages, setChatMessages] = useState<ChatMessage[]>(() =>
     parseChatMessageCache(localStorage.getItem("balkanbite_chat_messages"))
   );
+  // Last successfully committed guest source, distinct from the pending UI
+  // message array. Detect another tab's valid writes before any overwrite.
+  const guestChatCommittedRef = useRef<ChatMessage[]>(chatMessages);
 
   const [progressionLedger, setProgressionLedger] = useState<ProgressionLedgerV1>(
     () => parseProgressionLedgerCache(localStorage.getItem("balkanbite_progression"))
@@ -674,9 +677,11 @@ export default function App() {
     setMealLogs(
       parseMealLogCache(localStorage.getItem("balkanbite_meallogs"))
     );
-    setChatMessages(
-      parseChatMessageCache(localStorage.getItem("balkanbite_chat_messages"))
-    );
+    const guestRawChat = localStorage.getItem("balkanbite_chat_messages");
+    const guestHydratedChat = parseChatMessageCache(guestRawChat);
+    guestChatCommittedRef.current = guestHydratedChat;
+    setGuestChatReviewRequired(!guestChatCacheIsLossless(guestRawChat));
+    setChatMessages(guestHydratedChat);
     setProgressionLedger(
       parseProgressionLedgerCache(localStorage.getItem("balkanbite_progression"))
     );
@@ -996,6 +1001,7 @@ export default function App() {
       const previousRaw = localStorage.getItem("balkanbite_chat_messages");
       const nextRaw = JSON.stringify(chatMessages);
       if (!guestChatCacheIsLossless(previousRaw) ||
+          !guestChatCacheMatchesSnapshot(previousRaw, guestChatCommittedRef.current) ||
           !guestChatCacheIsLossless(nextRaw)) {
         // Hydrated chat can omit invalid/unknown legacy metadata. Never
         // replace its original bytes with the reduced display-only view.
@@ -1007,6 +1013,8 @@ export default function App() {
       if (localStorage.getItem("balkanbite_chat_messages") !== nextRaw) {
         setGuestChatReviewRequired(true);
         console.warn("Guest chat history persistence not confirmed");
+      } else {
+        guestChatCommittedRef.current = chatMessages;
       }
     } catch (error) {
       setGuestChatReviewRequired(true);
@@ -3662,8 +3670,7 @@ export default function App() {
     }
     try {
       const before = localStorage.getItem("balkanbite_chat_messages");
-      if (!guestChatCacheIsLossless(before) ||
-          JSON.stringify(parseChatMessageCache(before)) !== JSON.stringify(chatMessages) ||
+      if (!guestChatCacheMatchesSnapshot(before, chatMessages) ||
           localStorage.getItem("balkanbite_chat_messages") !== before) {
         throw new Error("Guest chat snapshot is incomplete or stale");
       }
@@ -3673,6 +3680,7 @@ export default function App() {
       if (localStorage.getItem("balkanbite_chat_messages") !== "[]") {
         throw new Error("Guest chat clear was not confirmed");
       }
+      guestChatCommittedRef.current = [];
       setChatMessages([]);
     } catch (error) {
       setGuestChatReviewRequired(true);
