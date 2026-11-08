@@ -38,3 +38,9 @@ Separately, a valid chat source changed in another tab must not be overwritten b
 - Independent derived guard branch: `fix/guest-derived-source-preservation-20261108` `7a42211b4aa8c07399dac9afdf6ad9f307257f71`.
 - Independent chat guard branch: `fix/guest-chat-history-source-preservation-20261108` `415d2849c431eed3f66930dfc4c75d81fd33bfc3`.
 - Combined branch is ahead of Draft and deliberately not merged. Preserve all source branches until exact combined acceptance.
+
+
+## Validation trigger — Draft QA PR (2026-11-08)
+An explicitly QA-only **Draft** pull request into `main` is used to run the existing GitHub CI workflow; it is not a merge proposal or an authorization to deploy. Source branch `fix/guest-safe-sources-combined-20261108` is disabled for Vercel automatic deployments by `vercel.json` (`"**": false` with explicit true allowlist excluding `fix/**`). Standard GitHub-hosted runners for public repositories are documented as free. If Vercel unexpectedly creates a preview, stop the workflow and inspect before doing anything else.
+
+The CI gate includes typechecking, full Node tests, Vite/serverless build, cold-start smoke and six local Chromium scripts. Firestore Emulator is **not** triggered by this PR unless `firestore.rules` or guarded rule-related paths change; a separate offline emulator run may still be required for full release QA.
