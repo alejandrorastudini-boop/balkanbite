@@ -3647,6 +3647,44 @@ export default function App() {
     }
   };
 
+  const clearChatWithVerifiedPersistence = () => {
+    if (currentUser) {
+      setChatMessages([]);
+      return;
+    }
+    if (workspaceScope !== "guest" || guestChatReviewRequired) {
+      alert(profile.language === "bg"
+        ? "Историята на чата трябва да бъде прегледана, преди да бъде изтрита."
+        : profile.language === "es"
+        ? "Debes revisar el historial del chat antes de borrarlo."
+        : "Chat history needs review before it can be cleared.");
+      return;
+    }
+    try {
+      const before = localStorage.getItem("balkanbite_chat_messages");
+      if (!guestChatCacheIsLossless(before) ||
+          JSON.stringify(parseChatMessageCache(before)) !== JSON.stringify(chatMessages) ||
+          localStorage.getItem("balkanbite_chat_messages") !== before) {
+        throw new Error("Guest chat snapshot is incomplete or stale");
+      }
+      // Persist the deletion first; never show an empty chat when a storage
+      // quota failure or external update kept the original data in place.
+      localStorage.setItem("balkanbite_chat_messages", "[]");
+      if (localStorage.getItem("balkanbite_chat_messages") !== "[]") {
+        throw new Error("Guest chat clear was not confirmed");
+      }
+      setChatMessages([]);
+    } catch (error) {
+      setGuestChatReviewRequired(true);
+      console.warn("Guest chat clear requires review", error);
+      alert(profile.language === "bg"
+        ? "Разговорът не беше изтрит. Проверете или експортирайте локалните данни."
+        : profile.language === "es"
+        ? "La conversación no se ha borrado. Revisa o exporta los datos locales."
+        : "Conversation was not cleared. Review or export local data.");
+    }
+  };
+
   return (
     <div
       id="app-root"
@@ -3950,7 +3988,7 @@ export default function App() {
               mealLogs={mealLogs}
               chatMessages={chatMessages}
               onUpdateChatMessages={setChatMessages}
-              onClearChat={() => setChatMessages([])}
+              onClearChat={clearChatWithVerifiedPersistence}
               onAddItemsToPantry={handleVoiceAddItems}
               onAddItemsToShoppingList={handleVoiceAddShoppingItems}
               onDeductItemsFromPantry={handleVoiceDeductItems}
@@ -4017,7 +4055,7 @@ export default function App() {
           mealLogs={mealLogs}
           chatMessages={chatMessages}
           onUpdateChatMessages={setChatMessages}
-          onClearChat={() => setChatMessages([])}
+          onClearChat={clearChatWithVerifiedPersistence}
           onAddItemsToPantry={handleVoiceAddItems}
           onAddItemsToShoppingList={handleVoiceAddShoppingItems}
           onDeductItemsFromPantry={handleVoiceDeductItems}
