@@ -457,7 +457,7 @@ test("guest workspace storage is not overwritten by a signed-in account", () => 
   assert.doesNotMatch(appSource, /localStorage\.setItem\("balkanbite_meallogs"/);
   assert.match(
     appSource,
-    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest"\) return;[\s\S]*"balkanbite_chat_messages"/
+    /if \(isResetting \|\| currentUser \|\| workspaceScope !== "guest" \|\|\s*guestChatReviewRequired\) return;[\s\S]*?guestChatCacheMatchesSnapshot\(previousRaw, guestChatCommittedRef\.current\)/
   );
   assert.match(
     appSource,
