@@ -119,6 +119,40 @@ export function sanitizeStoredChatMessage(value: unknown): ChatMessage | null {
   };
 }
 
+/**
+ * Guest history is user-authored source data. A sanitizer may discard
+ * malformed rows or optional metadata before display/AI context, but that
+ * filtered view must never overwrite the original raw storage bytes.
+ */
+function canonicalStoredJson(value: unknown): string {
+  if (Array.isArray(value)) {
+    return "[" + value.map(canonicalStoredJson).join(",") + "]";
+  }
+  if (value !== null && typeof value === "object") {
+    const object = value as Record<string, unknown>;
+    return "{" + Object.keys(object).sort().map(key =>
+      JSON.stringify(key) + ":" + canonicalStoredJson(object[key])
+    ).join(",") + "}";
+  }
+  return JSON.stringify(value) ?? "undefined";
+}
+
+export function guestChatCacheIsLossless(raw: string | null): boolean {
+  if (raw === null) return true;
+  try {
+    const source: unknown = JSON.parse(raw);
+    if (!Array.isArray(source)) return false;
+    const parsed = parseChatMessageCache(raw);
+    if (parsed.length !== source.length) return false;
+    if (new Set(parsed.map(message => message.id)).size !== parsed.length) {
+      return false;
+    }
+    return canonicalStoredJson(source) === canonicalStoredJson(parsed);
+  } catch {
+    return false;
+  }
+}
+
 export function parseChatMessageCache(raw: string | null): ChatMessage[] {
   if (raw === null) return [];
 
