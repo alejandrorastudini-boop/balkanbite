@@ -45,6 +45,10 @@ test("hydration writer refuses lossy cache and failed persistence has explicit g
   assert.match(app, /if \(localStorage.getItem\("balkanbite_chat_messages"\) !== nextRaw\)/);
   assert.match(app, /data-testid="guest-chat-review-warning"/);
   assert.match(app, /guestChatReviewRequired\) return;/);
+  assert.match(app, /const clearChatWithVerifiedPersistence = \(\) => \{/);
+  assert.match(app, /localStorage\.setItem\("balkanbite_chat_messages", "\[\]"\)/);
+  assert.ok(app.includes('onClearChat={clearChatWithVerifiedPersistence}'));
+  assert.equal(app.split('onClearChat={clearChatWithVerifiedPersistence}').length - 1, 2);
   assert.match(app, /window\.addEventListener\("storage", onExternalGuestChatChanged\)/);
   assert.match(app, /window\.removeEventListener\("storage", onExternalGuestChatChanged\)/);
   const runtime = readFileSync(
