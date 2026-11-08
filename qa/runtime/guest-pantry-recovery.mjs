@@ -359,6 +359,58 @@ async function runMalformedGuestShoppingOnStartup() {
   }
 }
 
+async function runMalformedGuestDerivedCachePreservation() {
+  // #459: a reader may filter legacy rows. Hydration must never treat the
+  // filtered view as permission to overwrite the original source bytes.
+  for (const [key, original] of [
+    ["balkanbite_recipes", JSON.stringify([{ id: "qa-unknown-legacy-recipe" }])],
+    ["balkanbite_mealplan", JSON.stringify([{ date: "not-a-date", lunch: { id: "qa-legacy" } }])],
+  ]) {
+    const context = await browser.newContext();
+    let page;
+    try {
+      await context.addInitScript(({ MAIN, valid, key, original }) => {
+        if (sessionStorage.getItem("__qa_malformed_derived_seeded")) return;
+        sessionStorage.setItem("__qa_malformed_derived_seeded", "true");
+        localStorage.setItem("balkanbite_show_landing", "false");
+        localStorage.setItem("balkanbite_profile", JSON.stringify({
+          language: "en", onboardingCompleted: true,
+        }));
+        localStorage.setItem(MAIN, JSON.stringify([valid]));
+        localStorage.setItem("balkanbite_recipes", key === "balkanbite_recipes" ? original : "[]");
+        localStorage.setItem("balkanbite_mealplan", key === "balkanbite_mealplan" ? original : "[]");
+        localStorage.setItem("balkanbite_shopping", "[]");
+        localStorage.setItem("balkanbite_progression", "[]");
+      }, { MAIN, valid, key, original });
+      page = await context.newPage();
+      await page.goto(new URL("/", base).toString(), {
+        waitUntil: "domcontentloaded", timeout: 30000,
+      });
+      await page.locator("#nav-tab-pantry").click();
+      await page.locator(`#pantry-item-${valid.id}`).waitFor({
+        state: "visible", timeout: 15000,
+      });
+      await page.getByTestId("guest-shopping-consistency-warning")
+        .waitFor({ state: "visible", timeout: 15000 });
+      assert.equal(await page.evaluate(key => localStorage.getItem(key), key), original,
+        "incomplete legacy derived source must retain exact bytes after hydration");
+      assert.equal(await page.evaluate(MAIN =>
+        JSON.parse(localStorage.getItem(MAIN) || "[]")[0]?.quantity, MAIN), 500,
+        "unknown derived records cannot change confirmed pantry quantities");
+
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+      await page.getByTestId("guest-shopping-consistency-warning")
+        .waitFor({ state: "visible", timeout: 15000 });
+      assert.equal(await page.evaluate(key => localStorage.getItem(key), key), original,
+        "reload must not erase legacy rows requiring assisted review");
+      evidence.checks.push(`malformed-guest-${key}-source-retained-on-reload`);
+    } finally {
+      await page?.close().catch(() => {});
+      await context.close();
+    }
+  }
+}
+
 async function runGuestDerivedShoppingSilentFailure() {
   // #459: prove the crash-consistency boundary with an actual App runtime.
   // No invented household data: all food names and amounts are QA fixtures.
@@ -3011,6 +3063,7 @@ try {
   await runLateGuestJournalPreventsLegacyWrite("shopping-effect");
   await runFailedGuestQuantityWrite();
   await runFailedGuestQuantityWrite({ silent: true });
+  await runMalformedGuestDerivedCachePreservation();
   await runGuestDerivedShoppingSilentFailure();
   await runGuestManualShoppingAddLostWrite();
   await runBulgarianManualShoppingUnits();
