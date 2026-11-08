@@ -90,6 +90,8 @@ import { parseStoredShoppingCache } from "./utils/storedShoppingValidation";
 import {
   repairGuestDerivedShoppingOnHydration,
   guestShoppingCacheIsComplete,
+  guestRecipeCacheIsComplete,
+  guestMealPlanCacheIsComplete,
 } from "./utils/guestDerivedShoppingRecovery";
 import {
   GUEST_PANTRY_SHOPPING_JOURNAL_KEY,
@@ -825,6 +827,14 @@ export default function App() {
         guestJournalRecoveryStatus !== "clear" || guestCrossTabDerivedStale) return;
     if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
+      const originalRaw = localStorage.getItem("balkanbite_recipes");
+      if (!guestRecipeCacheIsComplete(originalRaw)) {
+        // Partial or malformed historical data is not an empty recipe book.
+        // Preserve exact original bytes until explicit review/export.
+        setGuestDerivedStorageWriteFailed(true);
+        console.warn("Guest recipes source requires non-destructive review");
+        return;
+      }
       const serialized = JSON.stringify(recipes);
       localStorage.setItem("balkanbite_recipes", serialized);
       if (localStorage.getItem("balkanbite_recipes") !== serialized) {
@@ -943,6 +953,13 @@ export default function App() {
         guestJournalRecoveryStatus !== "clear" || guestCrossTabDerivedStale) return;
     if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
+      const originalRaw = localStorage.getItem("balkanbite_mealplan");
+      if (!guestMealPlanCacheIsComplete(originalRaw)) {
+        // Never overwrite a filtered/unknown plan with a default UI view.
+        setGuestDerivedStorageWriteFailed(true);
+        console.warn("Guest meal plan source requires non-destructive review");
+        return;
+      }
       const serialized = JSON.stringify(mealPlan);
       localStorage.setItem("balkanbite_mealplan", serialized);
       if (localStorage.getItem("balkanbite_mealplan") !== serialized) {
