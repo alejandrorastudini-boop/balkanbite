@@ -45,8 +45,12 @@ test("hydration writer refuses lossy cache and failed persistence has explicit g
   assert.match(app, /if \(localStorage.getItem\("balkanbite_chat_messages"\) !== nextRaw\)/);
   assert.match(app, /data-testid="guest-chat-review-warning"/);
   assert.match(app, /guestChatReviewRequired\) return;/);
+  assert.match(app, /window\.addEventListener\("storage", onExternalGuestChatChanged\)/);
+  assert.match(app, /window\.removeEventListener\("storage", onExternalGuestChatChanged\)/);
   const runtime = readFileSync(
     new URL("../qa/runtime/guest-pantry-recovery.mjs", import.meta.url), "utf8");
   assert.ok(runtime.includes("runMalformedGuestChatSourcePreservation"));
   assert.ok(runtime.includes("guest-chat-legacy-raw-retained-after-reload"));
+  assert.ok(runtime.includes("runGuestChatCrossTabWarning"));
+  assert.ok(runtime.includes("guest-chat-two-tab-warning-before-overwrite"));
 });
