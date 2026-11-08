@@ -421,6 +421,65 @@ async function runMalformedGuestChatSourcePreservation() {
   }
 }
 
+async function runGuestChatCrossTabWarning() {
+  const context = await browser.newContext();
+  const pages = [];
+  try {
+    const initialChat = JSON.stringify([{
+      id: "qa-chat-a", sender: "user", text: "QA first text",
+      timestamp: "2026-10-30T10:00:00.000Z",
+    }]);
+    await context.addInitScript(({ MAIN, valid, initialChat }) => {
+      if (localStorage.getItem("__qa_chat_two_tabs_seeded") !== null) return;
+      localStorage.setItem("__qa_chat_two_tabs_seeded", "yes");
+      localStorage.setItem("balkanbite_show_landing", "false");
+      localStorage.setItem("balkanbite_profile", JSON.stringify({
+        language: "en", onboardingCompleted: true,
+      }));
+      localStorage.setItem(MAIN, JSON.stringify([valid]));
+      localStorage.setItem("balkanbite_recipes", "[]");
+      localStorage.setItem("balkanbite_mealplan", "[]");
+      localStorage.setItem("balkanbite_shopping", "[]");
+      localStorage.setItem("balkanbite_progression", "[]");
+      localStorage.setItem("balkanbite_chat_messages", initialChat);
+    }, { MAIN, valid, initialChat });
+    for (let i = 0; i < 2; i++) {
+      const page = await context.newPage();
+      pages.push(page);
+      await page.goto(new URL("/", base).toString(), {
+        waitUntil: "domcontentloaded", timeout: 30000,
+      });
+      await page.locator("#nav-tab-pantry").click();
+      await page.locator(`#pantry-item-${valid.id}`).waitFor({
+        state: "visible", timeout: 15000,
+      });
+    }
+    const [writer, stale] = pages;
+    const newRaw = JSON.stringify([
+      ...JSON.parse(initialChat),
+      { id: "qa-chat-b", sender: "assistant", text: "QA second text",
+        timestamp: "2026-10-30T10:01:00.000Z" },
+    ]);
+    await writer.evaluate(raw => localStorage.setItem("balkanbite_chat_messages", raw), newRaw);
+    await stale.getByTestId("guest-chat-review-warning")
+      .waitFor({ state: "visible", timeout: 12000 });
+    assert.equal(await writer.getByTestId("guest-chat-review-warning").count(), 0,
+      "origin tab must not see a false external chat warning");
+    assert.equal(await stale.evaluate(() =>
+      localStorage.getItem("balkanbite_chat_messages")), newRaw,
+      "stale tab must not replace newer chat bytes with its old React state");
+    await stale.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+    assert.equal(await stale.getByTestId("guest-chat-review-warning").count(), 0,
+      "fresh reload accepts complete new chat source");
+    assert.equal(await stale.evaluate(() =>
+      localStorage.getItem("balkanbite_chat_messages")), newRaw);
+    evidence.checks.push("guest-chat-two-tab-warning-before-overwrite");
+  } finally {
+    await Promise.all(pages.map(p => p.close().catch(() => {})));
+    await context.close();
+  }
+}
+
 async function runGuestDerivedShoppingSilentFailure() {
   // #459: prove the crash-consistency boundary with an actual App runtime.
   // No invented household data: all food names and amounts are QA fixtures.
@@ -3070,6 +3129,7 @@ try {
   await runFailedGuestQuantityWrite();
   await runFailedGuestQuantityWrite({ silent: true });
   await runMalformedGuestChatSourcePreservation();
+  await runGuestChatCrossTabWarning();
   await runGuestDerivedShoppingSilentFailure();
   await runGuestManualShoppingAddLostWrite();
   await runBulgarianManualShoppingUnits();
