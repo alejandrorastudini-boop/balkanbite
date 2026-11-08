@@ -81,6 +81,8 @@ import {
 import {
   createSignedInProfileDefaults,
   parseGuestProfileCache,
+  guestProfileCacheIsLossless,
+  guestProfileCacheMatchesSnapshot,
 } from "./utils/profileSyncBoundary";
 import { clearBalkanBiteLocalStorage } from "./utils/localDataReset";
 import { buildAiCulinaryProfileContext } from "./utils/aiCulinaryProfileContext";
@@ -264,6 +266,14 @@ export default function App() {
     parseGuestProfileCache(localStorage.getItem("balkanbite_profile")) ??
     DEFAULT_PROFILE
   );
+  const guestProfileCommittedRef = useRef<UserProfile>(profile);
+  const [guestProfileReviewRequired, setGuestProfileReviewRequired] = useState(() => {
+    try {
+      return !guestProfileCacheIsLossless(localStorage.getItem("balkanbite_profile"));
+    } catch {
+      return true;
+    }
+  });
 
   const {
     currentUser,
@@ -366,8 +376,42 @@ export default function App() {
   const handleProfileUpdate = async (update: Partial<UserProfile>) => {
     const next = { ...profile, ...update };
     if (!currentUser) {
-      setProfile(next);
-      return true;
+      if (profileScope !== "guest" || guestProfileReviewRequired) {
+        alert(profile.language === "bg"
+          ? "Профилът изисква преглед, преди да запазите нови данни."
+          : profile.language === "es"
+          ? "El perfil necesita revisión antes de guardar cambios."
+          : "Profile needs review before changes can be saved.");
+        return false;
+      }
+      try {
+        const originalRaw = localStorage.getItem("balkanbite_profile");
+        if (!guestProfileCacheMatchesSnapshot(originalRaw, guestProfileCommittedRef.current)) {
+          throw new Error("Guest profile source is incomplete or stale");
+        }
+        const serialized = JSON.stringify(next);
+        if (!guestProfileCacheIsLossless(serialized)) {
+          throw new Error("Guest profile update cannot be represented without loss");
+        }
+        // Persist and read back before acknowledging updates to allergies,
+        // nutrition preferences or any health-related profile field.
+        localStorage.setItem("balkanbite_profile", serialized);
+        if (localStorage.getItem("balkanbite_profile") !== serialized) {
+          throw new Error("Guest profile write was not confirmed");
+        }
+        guestProfileCommittedRef.current = next;
+        setProfile(next);
+        return true;
+      } catch (error) {
+        setGuestProfileReviewRequired(true);
+        console.warn("Guest profile persistence needs review", error);
+        alert(profile.language === "bg"
+          ? "Промяната не е запазена. Прегледайте или експортирайте оригиналния профил."
+          : profile.language === "es"
+          ? "No se ha guardado el cambio. Revisa o exporta el perfil original."
+          : "Change was not saved. Review or export the original profile.");
+        return false;
+      }
     }
     if (!profileHydrated) return false;
     const result = await submitProfileReplace(profile, next);
@@ -483,6 +527,19 @@ export default function App() {
     window.addEventListener("storage", onExternalGuestChatChanged);
     return () => window.removeEventListener("storage", onExternalGuestChatChanged);
   }, [isResetting, firebaseLoading, currentUser, workspaceScope]);
+
+  useEffect(() => {
+    if (isResetting || firebaseLoading || currentUser || profileScope !== "guest") return;
+    const onExternalGuestProfileChanged = (event: StorageEvent) => {
+      if (event.storageArea !== localStorage) return;
+      if (event.key === null ||
+          (event.key === "balkanbite_profile" && event.newValue !== event.oldValue)) {
+        setGuestProfileReviewRequired(true);
+      }
+    };
+    window.addEventListener("storage", onExternalGuestProfileChanged);
+    return () => window.removeEventListener("storage", onExternalGuestProfileChanged);
+  }, [isResetting, firebaseLoading, currentUser, profileScope]);
 
   const [theme, setTheme] = useState<"dark" | "light">(() => {
     try {
@@ -955,10 +1012,11 @@ export default function App() {
 
     if (firebaseLoading || profileScope === "guest") return;
 
-    setProfile(
-      parseGuestProfileCache(localStorage.getItem("balkanbite_profile")) ??
-        DEFAULT_PROFILE
-    );
+    const guestProfileRaw = localStorage.getItem("balkanbite_profile");
+    const guestHydratedProfile = parseGuestProfileCache(guestProfileRaw) ?? DEFAULT_PROFILE;
+    guestProfileCommittedRef.current = guestHydratedProfile;
+    setGuestProfileReviewRequired(!guestProfileCacheIsLossless(guestProfileRaw));
+    setProfile(guestHydratedProfile);
     setProfileScope("guest");
   }, [
     currentUser,
@@ -969,13 +1027,29 @@ export default function App() {
   ]);
 
   useEffect(() => {
-    if (isResetting || currentUser || profileScope !== "guest") return;
+    if (isResetting || currentUser || profileScope !== "guest" ||
+        guestProfileReviewRequired) return;
     try {
-      localStorage.setItem("balkanbite_profile", JSON.stringify(profile));
-    } catch (e) {
-      console.warn("localStorage write error", e);
+      const originalRaw = localStorage.getItem("balkanbite_profile");
+      const serialized = JSON.stringify(profile);
+      if (!guestProfileCacheMatchesSnapshot(originalRaw, guestProfileCommittedRef.current) ||
+          !guestProfileCacheIsLossless(serialized)) {
+        setGuestProfileReviewRequired(true);
+        console.warn("Guest profile source requires non-destructive review");
+        return;
+      }
+      localStorage.setItem("balkanbite_profile", serialized);
+      if (localStorage.getItem("balkanbite_profile") !== serialized) {
+        setGuestProfileReviewRequired(true);
+        console.warn("Guest profile readback mismatch");
+      } else {
+        guestProfileCommittedRef.current = profile;
+      }
+    } catch (error) {
+      setGuestProfileReviewRequired(true);
+      console.warn("Guest profile persistence failed", error);
     }
-  }, [profile, currentUser, profileScope, isResetting]);
+  }, [profile, currentUser, profileScope, isResetting, guestProfileReviewRequired]);
 
   useEffect(() => {
     if (isResetting || currentUser || workspaceScope !== "guest" ||
@@ -3736,6 +3810,16 @@ export default function App() {
               : profile.language === "es"
               ? "Hay una operación local sin finalizar. Los cambios de despensa y compras están bloqueados hasta recuperar o revisar los datos."
               : "An unfinished local operation needs recovery. Pantry and shopping edits are blocked until it is safely resolved."}
+          </section>
+        )}
+        {!currentUser && guestProfileReviewRequired && (
+          <section role="alert" data-testid="guest-profile-review-warning"
+            className="my-3 rounded-xl border border-amber-500/50 bg-amber-950/30 px-4 py-3 text-sm text-amber-100">
+            {profile.language === "bg"
+              ? "Не всички данни от профила можаха да бъдат потвърдени. Оригиналният локален профил е запазен. Прегледайте или експортирайте данните, преди да ги замените."
+              : profile.language === "es"
+              ? "No se ha podido verificar todo el perfil. Se conservan los datos locales originales. Revisa o exporta la información antes de reemplazarla."
+              : "Not all profile data could be verified. Original local data was preserved. Review or export it before replacing any information."}
           </section>
         )}
         {!currentUser && guestChatReviewRequired && (
