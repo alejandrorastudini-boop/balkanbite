@@ -2503,6 +2503,10 @@ async function runTwoTabStaleInventory() {
     const externalWarning = stale.getByTestId("guest-pantry-cross-tab-warning");
     await externalWarning.waitFor({ state: "visible", timeout: 12000 });
     assert.match(await externalWarning.textContent() || "", /Another tab changed the pantry/);
+    // The tab that saved successfully must not consider its own new stock stale.
+    // This preserves the missed negative assertion from QA Draft #514.
+    assert.equal(await first.getByTestId("guest-pantry-cross-tab-warning").count(), 0,
+      "originating tab must not receive a false cross-tab pantry warning");
     assert.equal(await stale.locator(`#pantry-item-${valid.id}`)
       .getByText("500", { exact: false }).count() > 0, true,
       "the stale tab must not silently replace the displayed quantity");
