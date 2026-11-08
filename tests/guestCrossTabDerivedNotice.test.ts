@@ -20,7 +20,11 @@ test("derived writes and recovery never overwrite another tab's source", () => {
   for (const writer of ["recipes", "mealPlan", "progressionLedger"]) {
     const start = app.indexOf(`const serialized = JSON.stringify(${writer});`);
     assert.ok(start >= 0);
-    assert.match(app.slice(start - 260,start), /guestCrossTabDerivedStale\) return/);
+    const effectStart = app.lastIndexOf("  useEffect(() => {", start);
+    assert.ok(effectStart >= 0 && effectStart < start);
+    const effectPreflight = app.slice(effectStart, start);
+    assert.match(effectPreflight, /guestCrossTabDerivedStale\) return/);
+    assert.match(effectPreflight, /blockLegacyGuestWriteForPendingJournal\(\)/);
   }
   assert.match(app, /guestCrossTabShoppingStale \|\| guestCrossTabDerivedStale\) return/);
   assert.match(app, /const guestPantryReviewPending = !currentUser &&\s*\(guestCrossTabPantryStale \|\| guestCrossTabDerivedStale/);

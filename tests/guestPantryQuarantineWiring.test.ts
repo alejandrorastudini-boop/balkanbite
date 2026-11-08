@@ -114,8 +114,11 @@ test("legacy guest writes recheck all persisted WALs after hydration without mut
     // Progression uses multiline setItem and shopping uses serialized data.
     if (cache === "balkanbite_shopping" || cache === "balkanbite_progression") continue;
     assert.ok(writer > late, `guest cache writer ${cache} must exist`);
-    assert.match(app.slice(writer - 200, writer), /blockLegacyGuestWriteForPendingJournal\(\)/);
+    const effectStart = app.lastIndexOf("  useEffect(() => {", writer);
+    assert.ok(effectStart > late);
+    assert.match(app.slice(effectStart, writer), /blockLegacyGuestWriteForPendingJournal\(\)/);
   }
   assert.match(app, /if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const existingRaw = localStorage\.getItem\("balkanbite_shopping"\)/);
-  assert.match(app, /if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const serialized = JSON\.stringify\(progressionLedger\);\s*localStorage\.setItem\("balkanbite_progression", serialized\)/);
+  assert.match(app, /if \(blockLegacyGuestWriteForPendingJournal\(\)\) return;\s*try \{\s*const originalRaw = localStorage\.getItem\("balkanbite_progression"\)/);
+  assert.match(app, /if \(!guestProgressionCacheIsComplete\(originalRaw\)\)[\s\S]*?const serialized = JSON\.stringify\(progressionLedger\);\s*localStorage\.setItem\("balkanbite_progression", serialized\)/);
 });
