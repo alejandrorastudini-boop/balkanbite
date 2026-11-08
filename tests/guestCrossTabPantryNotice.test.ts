@@ -27,5 +27,6 @@ test("real two-tab Chromium checks warning before the stale edit and reload reco
   assert.match(scenario, /guest-pantry-cross-tab-warning/);
   assert.match(scenario, /externalWarning\.waitFor\(\{ state: "visible", timeout: 12000 \}\)/);
   assert.ok(scenario.indexOf("await externalWarning.waitFor") < scenario.indexOf("await increment(stale).click()"));
+  assert.match(scenario, /assert\\.equal\\(await first\\.getByTestId\\("guest-pantry-cross-tab-warning"\\)\\.count\\(\\), 0/);
   assert.match(scenario, /stale-second-tab-proactive-pantry-warning-and-no-overwrite/);
 });
