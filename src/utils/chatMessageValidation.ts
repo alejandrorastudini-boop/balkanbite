@@ -153,6 +153,29 @@ export function guestChatCacheIsLossless(raw: string | null): boolean {
   }
 }
 
+/**
+ * Compare a known, complete persisted chat source with the most recently
+ * committed React view. A different valid source is still stale and must not
+ * be replaced by a previous tab's old conversation.
+ *
+ * Object key order is immaterial; message order and data are not.
+ */
+export function guestChatCacheMatchesSnapshot(
+  raw: string | null,
+  expected: readonly ChatMessage[],
+): boolean {
+  if (!Array.isArray(expected) || !guestChatCacheIsLossless(raw)) {
+    return false;
+  }
+  try {
+    if (!guestChatCacheIsLossless(JSON.stringify(expected))) return false;
+    return canonicalStoredJson(parseChatMessageCache(raw)) ===
+      canonicalStoredJson(expected);
+  } catch {
+    return false;
+  }
+}
+
 export function parseChatMessageCache(raw: string | null): ChatMessage[] {
   if (raw === null) return [];
 
