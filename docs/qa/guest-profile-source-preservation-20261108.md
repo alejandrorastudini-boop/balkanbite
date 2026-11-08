@@ -20,3 +20,6 @@ Guest `parseGuestProfileCache` sanitizes a stored object, removes unrecognized k
 
 ## QA gate
 Run `npm run lint`, `npm test`, `npm run build`, six local Chromium scripts (including added profile scenario) and offline Firestore Emulator on the exact commit. Static source checks are not a replacement. If QA passes, compare the delta to Draft #453, preserve reversible checkpoint and advance Draft by expected-SHA fast-forward only. Hosted/Android E2E remain #457.
+
+## CI execution request
+Draft QA PR into `main` is for running the public-repository free GitHub Actions gates only. Vercel automatic deployments for `fix/**` are disabled in `vercel.json`. Do not merge or release this branch from the QA PR.
