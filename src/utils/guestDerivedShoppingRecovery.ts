@@ -1,5 +1,6 @@
 import type { Language, ShoppingItem } from "../types";
 import { GUEST_PANTRY_KEY, inspectGuestPantry, type GuestPantryStorage } from "./guestPantry";
+import { parseStoredRecipeCache } from "./storedRecipeValidation";
 import { parseStoredMealPlanCache } from "./storedMealPlanValidation";
 import { parseStoredShoppingCache } from "./storedShoppingValidation";
 import { evaluateShoppingNeeds } from "./shoppingAdvisor";
@@ -34,6 +35,22 @@ function completeStoredArray(raw: string, acceptedLength: number): boolean {
 export function guestShoppingCacheIsComplete(raw: string | null): boolean {
   if (raw === null) return true;
   const parsed = parseStoredShoppingCache(raw);
+  return parsed !== null && completeStoredArray(raw, parsed.length);
+}
+
+/**
+ * Reject a filtered/invalid guest cache before React writes its hydrated view.
+ * Unknown historical rows remain untouched for assisted review.
+ */
+export function guestRecipeCacheIsComplete(raw: string | null): boolean {
+  if (raw === null) return true;
+  const parsed = parseStoredRecipeCache(raw);
+  return parsed !== null && completeStoredArray(raw, parsed.length);
+}
+
+export function guestMealPlanCacheIsComplete(raw: string | null): boolean {
+  if (raw === null) return true;
+  const parsed = parseStoredMealPlanCache(raw);
   return parsed !== null && completeStoredArray(raw, parsed.length);
 }
 
