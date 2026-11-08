@@ -359,6 +359,68 @@ async function runMalformedGuestShoppingOnStartup() {
   }
 }
 
+async function runMalformedGuestChatSourcePreservation() {
+  // Voice history is not authoritative stock, but a filtered chat view must
+  // not silently overwrite original user text or unrecognized metadata.
+  for (const shouldReview of [true, false]) {
+    const original = JSON.stringify([{
+      id: "qa-guest-chat", sender: "user", text: "QA pantry question",
+      timestamp: "2026-10-30T10:00:00.000Z",
+      ...(shouldReview ? { historicalUnknown: "keep exactly" } : {}),
+    }]);
+    const context = await browser.newContext();
+    let page;
+    try {
+      await context.addInitScript(({ MAIN, valid, original }) => {
+        if (sessionStorage.getItem("__qa_chat_source_seeded")) return;
+        sessionStorage.setItem("__qa_chat_source_seeded", "true");
+        localStorage.setItem("balkanbite_show_landing", "false");
+        localStorage.setItem("balkanbite_profile", JSON.stringify({
+          language: "en", onboardingCompleted: true,
+        }));
+        localStorage.setItem(MAIN, JSON.stringify([valid]));
+        localStorage.setItem("balkanbite_recipes", "[]");
+        localStorage.setItem("balkanbite_mealplan", "[]");
+        localStorage.setItem("balkanbite_shopping", "[]");
+        localStorage.setItem("balkanbite_progression", "[]");
+        localStorage.setItem("balkanbite_chat_messages", original);
+      }, { MAIN, valid, original });
+      page = await context.newPage();
+      await page.goto(new URL("/", base).toString(), {
+        waitUntil: "domcontentloaded", timeout: 30000,
+      });
+      await page.locator("#nav-tab-pantry").click();
+      await page.locator(`#pantry-item-${valid.id}`).waitFor({
+        state: "visible", timeout: 15000,
+      });
+      const warning = page.getByTestId("guest-chat-review-warning");
+      if (shouldReview) {
+        await warning.waitFor({ state: "visible", timeout: 15000 });
+        assert.match(await warning.textContent() || "", /Chat history could not be verified/);
+      } else {
+        assert.equal(await warning.count(), 0,
+          "complete stored chat must not produce a false recovery warning");
+      }
+      assert.equal(await page.evaluate(() =>
+        localStorage.getItem("balkanbite_chat_messages")), original,
+        "initial hydration must preserve all original chat bytes");
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 30000 });
+      if (shouldReview) await warning.waitFor({ state: "visible", timeout: 15000 });
+      assert.equal(await page.evaluate(() =>
+        localStorage.getItem("balkanbite_chat_messages")), original,
+        "reload must retain chat source for assisted recovery/export");
+      if (shouldReview) {
+        evidence.checks.push("guest-chat-legacy-raw-retained-after-reload");
+      } else {
+        evidence.checks.push("guest-chat-valid-source-no-false-warning");
+      }
+    } finally {
+      await page?.close().catch(() => {});
+      await context.close();
+    }
+  }
+}
+
 async function runGuestDerivedShoppingSilentFailure() {
   // #459: prove the crash-consistency boundary with an actual App runtime.
   // No invented household data: all food names and amounts are QA fixtures.
@@ -3007,6 +3069,7 @@ try {
   await runLateGuestJournalPreventsLegacyWrite("shopping-effect");
   await runFailedGuestQuantityWrite();
   await runFailedGuestQuantityWrite({ silent: true });
+  await runMalformedGuestChatSourcePreservation();
   await runGuestDerivedShoppingSilentFailure();
   await runGuestManualShoppingAddLostWrite();
   await runBulgarianManualShoppingUnits();
