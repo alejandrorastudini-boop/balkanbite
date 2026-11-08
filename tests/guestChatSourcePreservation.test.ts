@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
-import { guestChatCacheIsLossless } from "../src/utils/chatMessageValidation";
+import { guestChatCacheIsLossless, guestChatCacheMatchesSnapshot } from "../src/utils/chatMessageValidation";
 
 const saved = {
   id: "qa-message-one",
@@ -21,6 +21,24 @@ test("missing and fully valid histories permit a first or subsequent save", () =
     actionType: "ADD_ITEMS",
     itemsAffected: [{ name: "QA Rice", quantity: 200, unit: "g" }],
   }])), true);
+});
+
+test("valid snapshot comparison is order-insensitive but rejects stale or unknown sources", () => {
+  assert.equal(guestChatCacheMatchesSnapshot(null, []), true);
+  assert.equal(guestChatCacheMatchesSnapshot(JSON.stringify([saved]), [saved]), true);
+  assert.equal(guestChatCacheMatchesSnapshot(JSON.stringify([{
+    timestamp: saved.timestamp,
+    text: saved.text,
+    sender: saved.sender,
+    id: saved.id,
+  }]), [saved]), true, "property order must not create false conflict");
+  assert.equal(guestChatCacheMatchesSnapshot(JSON.stringify([saved]), []), false);
+  assert.equal(guestChatCacheMatchesSnapshot(JSON.stringify([saved]), [{
+    ...saved, text: "new message from another tab",
+  }]), false);
+  assert.equal(guestChatCacheMatchesSnapshot(JSON.stringify([{
+    ...saved, unknownMetadata: "preserve",
+  }]), [saved]), false);
 });
 
 test("historical invalid or stripped messages remain unresolved rather than overwritten", () => {
@@ -45,6 +63,10 @@ test("hydration writer refuses lossy cache and failed persistence has explicit g
   assert.match(app, /if \(localStorage.getItem\("balkanbite_chat_messages"\) !== nextRaw\)/);
   assert.match(app, /data-testid="guest-chat-review-warning"/);
   assert.match(app, /guestChatReviewRequired\) return;/);
+  assert.match(app, /guestChatCacheMatchesSnapshot\(previousRaw, guestChatCommittedRef\.current\)/);
+  assert.match(app, /guestChatCacheMatchesSnapshot\(before, chatMessages\)/);
+  assert.match(app, /guestChatCommittedRef\.current = chatMessages/);
+  assert.match(app, /guestChatCommittedRef\.current = \[\]/);
   assert.match(app, /const clearChatWithVerifiedPersistence = \(\) => \{/);
   assert.match(app, /localStorage\.setItem\("balkanbite_chat_messages", "\[\]"\)/);
   assert.ok(app.includes('onClearChat={clearChatWithVerifiedPersistence}'));
