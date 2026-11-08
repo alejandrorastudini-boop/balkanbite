@@ -92,6 +92,7 @@ import {
   guestShoppingCacheIsComplete,
   guestRecipeCacheIsComplete,
   guestMealPlanCacheIsComplete,
+  guestProgressionCacheIsComplete,
 } from "./utils/guestDerivedShoppingRecovery";
 import {
   GUEST_PANTRY_SHOPPING_JOURNAL_KEY,
@@ -1001,6 +1002,13 @@ export default function App() {
         guestJournalRecoveryStatus !== "clear" || guestCrossTabDerivedStale) return;
     if (blockLegacyGuestWriteForPendingJournal()) return;
     try {
+      const originalRaw = localStorage.getItem("balkanbite_progression");
+      if (!guestProgressionCacheIsComplete(originalRaw)) {
+        // Unknown or duplicated legacy evidence cannot become an empty ledger.
+        setGuestDerivedStorageWriteFailed(true);
+        console.warn("Guest progression source requires non-destructive review");
+        return;
+      }
       const serialized = JSON.stringify(progressionLedger);
       localStorage.setItem("balkanbite_progression", serialized);
       if (localStorage.getItem("balkanbite_progression") !== serialized) {
