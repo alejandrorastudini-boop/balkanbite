@@ -2,8 +2,9 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import { readFileSync } from "node:fs";
 import { guestChatCacheIsLossless, guestChatCacheMatchesSnapshot } from "../src/utils/chatMessageValidation";
+import type { ChatMessage } from "../src/types";
 
-const saved = {
+const saved: ChatMessage = {
   id: "qa-message-one",
   sender: "user",
   text: "What do I have in my pantry?",
